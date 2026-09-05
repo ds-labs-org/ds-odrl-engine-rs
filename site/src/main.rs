@@ -17,6 +17,10 @@ mod main_view;
 #[cfg(target_arch = "wasm32")]
 mod pages;
 #[cfg(target_arch = "wasm32")]
+mod profile_load;
+#[cfg(target_arch = "wasm32")]
+mod profile_panel;
+#[cfg(target_arch = "wasm32")]
 mod switch_app_route;
 #[cfg(target_arch = "wasm32")]
 mod wire;

@@ -8,6 +8,8 @@
 
 use crate::demo_form::{ClaimRow, ConstraintRow, RuleRow};
 use patternfly_yew::prelude::*;
+use wasm_bindgen::JsCast;
+use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
 const OPERATORS: &[(&str, &str)] = &[
@@ -20,8 +22,27 @@ const OPERATORS: &[(&str, &str)] = &[
   ("gteq", "gteq — at or after (datetime)"),
 ];
 
+/// id of the single, page-level `<datalist>` (rendered once by
+/// `DemoPage`) every `left_operand` field's `list` attribute points at --
+/// one shared datalist rather than one per row, since HTML ids must be
+/// unique and a `<datalist>` produces no visible markup of its own to
+/// duplicate anyway.
+pub const LEFT_OPERAND_DATALIST_ID: &str = "left-operand-suggestions";
+
+/// The Default Profile's own illustrative claim names (README Section
+/// 5.2's worked example: `sub`/`nationality`/`scope`, plus `dateTime` for
+/// the `lt`/`lteq`/`gt`/`gteq` operators' own worked comparisons) -- seeded
+/// into the left-operand datalist so suggestions exist even before any
+/// profile document is loaded. `pub(crate)` so `DemoPage` can merge in a
+/// loaded profile's own `declared_left_operands`.
+pub(crate) const DEFAULT_LEFT_OPERAND_SUGGESTIONS: &[&str] = &["sub", "nationality", "scope", "dateTime"];
+
 fn row_style() -> &'static str {
   "display: flex; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.5rem;"
+}
+
+fn input_event_value(e: InputEvent) -> String {
+  e.target().and_then(|t| t.dyn_into::<HtmlInputElement>().ok()).map(|el| el.value()).unwrap_or_default()
 }
 
 #[derive(Properties, PartialEq)]
@@ -55,9 +76,9 @@ pub fn ConstraintRowsEditor(props: &ConstraintRowsEditorProps) -> Html {
         let on_left = {
           let constraints = constraints.clone();
           let on_change = on_change.clone();
-          Callback::from(move |value: String| {
+          Callback::from(move |e: InputEvent| {
             let mut next = constraints.clone();
-            next[index].left_operand = value;
+            next[index].left_operand = input_event_value(e);
             on_change.emit(next);
           })
         };
@@ -90,7 +111,15 @@ pub fn ConstraintRowsEditor(props: &ConstraintRowsEditorProps) -> Html {
         };
         html!(
           <div style={row_style()} key={index}>
-            <TextInput placeholder="leftOperand (e.g. nationality)" value={row.left_operand.clone()} onchange={on_left} />
+            <div class="pf-v6-c-form-control">
+              <input
+                type="text"
+                placeholder="leftOperand (e.g. nationality) -- suggestions only, this stays free-form (Section 4.2)"
+                value={row.left_operand.clone()}
+                list={LEFT_OPERAND_DATALIST_ID}
+                oninput={on_left}
+              />
+            </div>
             <FormSelect<String> value={Some(row.operator.clone())} onchange={on_operator}>
               { for OPERATORS.iter().map(|(value, description)| yew::html_nested!(
                   <FormSelectOption<String> value={value.to_string()} description={description.to_string()} />
@@ -112,6 +141,11 @@ pub struct RuleRowsEditorProps {
   pub on_change: Callback<Vec<RuleRow>>,
   pub add_label: AttrValue,
   pub action_placeholder: AttrValue,
+  /// A loaded profile's `recognized_actions` -- empty when no profile is
+  /// loaded, in which case [`ActionField`] behaves exactly like the plain
+  /// `TextInput` it replaces (see that component's own doc comment).
+  #[prop_or_default]
+  pub recognized_actions: Vec<String>,
 }
 
 /// A permission/prohibition/obligation list: an action `TextInput` per
@@ -169,7 +203,12 @@ pub fn RuleRowsEditor(props: &RuleRowsEditorProps) -> Html {
         html!(
           <div style="border-left: 2px solid var(--pf-t--global--border--color--default, #d2d2d2); padding-left: 0.75rem; margin-bottom: 0.75rem;" key={index}>
             <div style={row_style()}>
-              <TextInput placeholder={props.action_placeholder.clone()} value={rule.action.clone()} onchange={on_action} />
+              <ActionField
+                placeholder={props.action_placeholder.clone()}
+                value={rule.action.clone()}
+                onchange={on_action}
+                recognized_actions={props.recognized_actions.clone()}
+              />
               <Button icon={Icon::Trash} variant={ButtonVariant::Plain} aria_label="Remove rule" onclick={on_remove} />
             </div>
             <ConstraintRowsEditor constraints={rule.constraints.clone()} on_change={on_constraints_change} />
@@ -177,6 +216,69 @@ pub fn RuleRowsEditor(props: &RuleRowsEditorProps) -> Html {
         )
       }) }
       <Button icon={Icon::Plus} variant={ButtonVariant::Secondary} label={props.add_label.to_string()} onclick={on_add} />
+    </div>
+  )
+}
+
+#[derive(Properties, PartialEq)]
+pub struct ActionFieldProps {
+  pub value: String,
+  pub onchange: Callback<String>,
+  pub placeholder: AttrValue,
+  /// Empty when no profile is loaded -- see [`ActionField`]'s own doc.
+  #[prop_or_default]
+  pub recognized_actions: Vec<String>,
+}
+
+/// A single action field: the same free-form `TextInput` this page has
+/// always used, so with no profile loaded this behaves identically to
+/// before this feature existed. Once `recognized_actions` is non-empty
+/// (a profile is loaded), it additionally offers a `FormSelect` "insert
+/// from profile" picker next to the text field -- reusing the same
+/// select component the operator dropdown already uses, for interaction
+/// consistency -- and, if the field's current value is non-empty and not
+/// among `recognized_actions`, a `HelperText` cue explaining evaluation
+/// would produce `Error`. The text field itself is never restricted to
+/// the picker's options: a value picked before this feature existed, or
+/// typed by hand, must remain editable, since the cue -- not a closed
+/// `<select>` -- is what this task asks to gate on.
+#[component]
+pub fn ActionField(props: &ActionFieldProps) -> Html {
+  let trimmed = props.value.trim();
+  let not_recognized = !props.recognized_actions.is_empty() && !trimmed.is_empty() && !props.recognized_actions.iter().any(|a| a == trimmed);
+  let state = if not_recognized { InputState::Warning } else { InputState::Default };
+
+  let picker = if props.recognized_actions.is_empty() {
+    html!()
+  } else {
+    let onchange = props.onchange.clone();
+    let on_pick = Callback::from(move |value: Option<String>| {
+      if let Some(value) = value {
+        onchange.emit(value);
+      }
+    });
+    html!(
+      <FormSelect<String> value={None::<String>} placeholder="insert from profile..." onchange={on_pick}>
+        { for props.recognized_actions.iter().map(|action| yew::html_nested!(
+            <FormSelectOption<String> value={action.clone()} description={action.clone()} />
+          )) }
+      </FormSelect<String>>
+    )
+  };
+
+  html!(
+    <div style="display: flex; flex-direction: column; gap: 0.25rem; flex: 1;">
+      <div style="display: flex; align-items: flex-start; gap: 0.5rem;">
+        <TextInput placeholder={props.placeholder.clone()} value={props.value.clone()} state={state} onchange={props.onchange.clone()} />
+        { picker }
+      </div>
+      if not_recognized {
+        <HelperText>
+          <HelperTextItem variant={HelperTextItemVariant::Warning} icon={HelperTextItemIcon::Visible}>
+            { format!("{trimmed:?} is not in the loaded profile's recognized_actions -- evaluating this will produce an Error decision.") }
+          </HelperTextItem>
+        </HelperText>
+      }
     </div>
   )
 }

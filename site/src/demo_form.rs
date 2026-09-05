@@ -113,7 +113,10 @@ impl DemoForm {
   }
 }
 
-fn split_csv(raw: &str) -> Vec<String> {
+/// `pub(crate)`, not private: `demo_page.rs`'s "insert from profile" picker
+/// for the `recognized_actions` field needs to check whether an action is
+/// already present in the CSV text before appending it.
+pub(crate) fn split_csv(raw: &str) -> Vec<String> {
   raw.split(',').map(str::trim).filter(|s| !s.is_empty()).map(str::to_string).collect()
 }
 

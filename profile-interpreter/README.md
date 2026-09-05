@@ -54,3 +54,17 @@ a missing `odrl:Profile`-typed subject falling back to a placeholder id)
 print to stderr; the JSON output on stdout is always exactly what you'd
 paste into a Section 5.2 request's `config` field (`resolve`) or a
 `Profile` record (`interpret`).
+
+## As a library
+
+This CLI is a thin shell over `src/lib.rs` (`pub mod graph; pub mod
+interpret;`) — any Rust caller can call `graph::Graph::from_turtle`/
+`from_json_ld` and `interpret::interpret` directly, without shelling out
+to a binary. `interpret::Interpreted` carries `declared_left_operands:
+Vec<String>` (the raw `odrl:LeftOperand` local names, not just the
+human-readable warning text) precisely so a caller building UI — the
+`ds-odrl-engine-rs-site` Demonstrator page's "Load ODRL Profile" panel
+is the motivating example — can populate a suggestion list without
+re-parsing prose. `interpret::duty_mode_from_str` exists for the same
+reason: a caller with no Rust-level dependency on the `engine` crate
+itself can still produce a `DutyMode` value to pass to `interpret()`.

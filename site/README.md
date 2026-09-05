@@ -98,6 +98,57 @@ wire contract and ABI a real independent host has to implement, not a
 shortcut that only works because the demo and the engine happen to share
 one Rust compilation.
 
+## Loading a real ODRL Profile document
+
+The Demonstrator page has a "Load ODRL Profile" panel above the form:
+paste a real Turtle or JSON-LD ODRL Profile document, pick its format
+(a paste carries no filename to infer a format from, unlike
+`profile-interpreter`'s own CLI, which infers from extension — so this
+panel asks explicitly, via the same `FormSelect` component the rest of
+the form already uses), and click "Load profile". On success it shows
+the profile's own id, how many actions and left operands it declares,
+and any interpreter warnings (an `odrl:includedIn` relationship not
+followed transitively, an extension it can't represent); on failure it
+shows the parser's actual error message.
+
+A loaded profile then configures the form:
+
+- every action field (the top-level `recognized_actions` field, and each
+  permission/prohibition/obligation's own action) gets an "insert from
+  profile" picker offering the loaded profile's declared actions — the
+  underlying field stays a free-form text input throughout, so a value
+  typed by hand or set before a profile was loaded is never overwritten
+  or restricted;
+- an action field whose current value isn't among the loaded profile's
+  actions gets an inline warning cue (this is a UI hint only, not a
+  gate — the engine's own `Error` decision at evaluation time is still
+  the authority on whether an action is actually unrecognized, since
+  what the engine checks is `config.recognized_actions`, not what a
+  loaded profile happens to declare);
+- every `left_operand` constraint field gets an HTML `<datalist>` of
+  suggestions — the loaded profile's declared `odrl:LeftOperand` names,
+  plus `sub`/`nationality`/`scope`/`dateTime` (this repo's own README
+  Section 5.2 worked example) seeded in even with no profile loaded.
+  `leftOperand` stays deliberately free-form (Section 4.2 of the case
+  study) — a `<datalist>` suggests, it does not restrict, which is why
+  it's the right primitive here rather than a closed `<select>`.
+
+This is a Rust-level dependency on `profile-interpreter` (and, through
+it, `oxrdf`/`oxttl`/`oxjsonld`) — unlike the `engine`/`engine.wasm`
+relationship described above, this is not a wire-contract shortcut:
+`profile-interpreter` is a parsing *adapter* the Demonstrator now runs
+client-side, and it never touches how `evaluate()` itself is called.
+Getting that RDF stack to compile for `wasm32-unknown-unknown` needed
+one extra piece: `getrandom` (pulled in transitively via `oxiri`) only
+builds for this target with its `wasm_js` backend enabled, which needs
+both the `getrandom = { version = "0.3", features = ["wasm_js"] }`
+dependency *and* the `--cfg getrandom_backend="wasm_js"` rustflag in
+`site/.cargo/config.toml` — scoped to `site/` (Cargo resolves
+`.cargo/config.toml` by walking up from the invoking directory, and
+Trunk always invokes from `site/`), not the repository root, so it has
+no effect on `engine`'s own zero-dependency `wasm32-unknown-unknown`
+build.
+
 ## Compliance Results page
 
 `compliance_page.rs` fetches `compliance-data/latest.json` at runtime

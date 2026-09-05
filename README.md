@@ -195,6 +195,10 @@ cargo run -p profile-interpreter -- resolve default-profile.ttl gaia-x-profile.j
 [README](profile-interpreter/README.md) for precisely what is and isn't
 derived from the document — `duty_mode` in particular is never read from
 it (ODRL defines no property for that), always a caller-supplied flag.
+`profile-interpreter` is also a library (`pub mod graph; pub mod
+interpret;`), not just this CLI binary — `site/`'s Demonstrator page
+calls it directly to load a pasted profile document in-browser (see
+`site/README.md`).
 
 ## Building
 
@@ -270,6 +274,14 @@ site, and every page links back to the case study this engine
 implements, filed at
 `docs/case-studies/2026-08-30-attribute-based-odrl-policy-enforcement.md`
 in that repository.
+
+The Demonstrator page can also load a real ODRL Profile document (paste
+Turtle or JSON-LD) using `profile-interpreter`'s own parsing logic
+client-side — see `site/README.md`'s "Loading a real ODRL Profile
+document" section for exactly what that configures (recognized-action
+pickers, an inline "not recognized by this profile" cue, and free-form
+`leftOperand` suggestions via `<datalist>` — Section 4.2's leftOperand
+stays open-ended by design, so this is a suggestion, not a restriction).
 
 Run it locally:
 
