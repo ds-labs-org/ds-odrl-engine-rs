@@ -5,11 +5,13 @@
 //! Usage:
 //!   profile-interpreter interpret <file> [--format ttl|jsonld] [--id <uri>] [--duty-mode advise|deny]
 //!     -> prints one engine::Profile as JSON (this profile's own
-//!        recognized_actions/duty_mode; Section 4.4's per-profile shape)
+//!        actions/duty_mode; Section 4.4's per-profile shape — internal,
+//!        not wire-shaped, since one profile alone is not a request config)
 //!   profile-interpreter resolve <file>... [--duty-mode advise|deny]
-//!     -> interprets every file, then engine::resolve()s them into one
-//!        {recognized_actions, duty_mode} object — exactly Section 5.2's
-//!        request `config` field, ready to paste in
+//!     -> interprets every file, engine::resolve()s them, and prints the
+//!        result as a wire-shaped engine::wire::RequestConfig
+//!        (`@type`/`@id`/`odrl:action`/`odrl:includedIn`/`dutyMode`) —
+//!        exactly Section 5.2's request `config` field, ready to paste in
 //!
 //! Format is inferred from each file's extension (.ttl/.turtle,
 //! .jsonld/.json) unless overridden with --format. --duty-mode defaults
@@ -19,17 +21,19 @@
 use std::path::PathBuf;
 use std::process::ExitCode;
 
+use engine::profile::ActionDecl;
+use engine::wire::WireActionDecl;
 use engine::DutyMode;
-use serde::Serialize;
 
 use profile_interpreter::graph::{parse_by_extension, Graph};
 use profile_interpreter::interpret::interpret;
 
-#[derive(Serialize)]
-struct ResolvedConfigOutput {
-    recognized_actions: Vec<String>,
-    duty_mode: DutyMode,
-}
+/// `resolve` merges N documents, each with its own id — there is no single
+/// profile IRI to carry as the merged config's `@id`, and `RequestConfig`'s
+/// own doc comment is explicit that this field is "carried for shape, not
+/// validated." A fixed, self-describing placeholder rather than a guessed
+/// or synthesized IRI.
+const RESOLVED_CONFIG_ID: &str = "urn:profile-interpreter:resolved-config";
 
 fn parse_duty_mode(s: &str) -> Result<DutyMode, String> {
     profile_interpreter::interpret::duty_mode_from_str(s)
@@ -112,11 +116,32 @@ fn run() -> Result<(), String> {
                 }
                 profiles.push(interpreted.profile);
             }
+            // `engine::ResolvedConfig` deliberately keeps its merged
+            // `actions` list private (profile.rs: "exposing the raw list
+            // would invite a caller to reimplement one of [recognizes/
+            // covers] slightly differently") — only `duty_mode` is public,
+            // so that part comes from `engine::resolve` itself; the
+            // actions union is redone here using the exact same rule
+            // `resolve()` documents (dedup by id, first profile wins),
+            // since this CLI's whole job is producing that union as wire
+            // JSON, which `ResolvedConfig` has no accessor for.
             let resolved = engine::resolve(&profiles);
-            let mut recognized_actions: Vec<String> = resolved.recognized_actions.into_iter().collect();
-            recognized_actions.sort();
-            let output = ResolvedConfigOutput { recognized_actions, duty_mode: resolved.duty_mode };
-            println!("{}", serde_json::to_string_pretty(&output).map_err(|e| e.to_string())?);
+            let mut actions: Vec<ActionDecl> = Vec::new();
+            for profile in &profiles {
+                for action in &profile.actions {
+                    if !actions.iter().any(|a| a.id == action.id) {
+                        actions.push(action.clone());
+                    }
+                }
+            }
+            actions.sort_by(|a, b| a.id.cmp(&b.id));
+            let config = engine::wire::RequestConfig {
+                type_: "odrl:Profile".to_string(),
+                id: RESOLVED_CONFIG_ID.to_string(),
+                actions: actions.iter().map(WireActionDecl::from).collect(),
+                duty_mode: resolved.duty_mode,
+            };
+            println!("{}", serde_json::to_string_pretty(&config).map_err(|e| e.to_string())?);
             Ok(())
         }
         other => Err(format!("unknown command {other:?} — expected \"interpret\" or \"resolve\"")),

@@ -1,6 +1,6 @@
 //! Reads one ODRL Profile document's RDF graph and produces `engine::Profile`
 //! — this engine's own narrowed reading of the Profile Mechanism (Section
-//! 4.4: just `recognized_actions` and a `duty_mode`), not a general ODRL
+//! 4.4: `actions: Vec<ActionDecl>` and a `duty_mode`), not a general ODRL
 //! profile processor.
 //!
 //! **What's read, and why, checked against the W3C ODRL Information
@@ -9,13 +9,19 @@
 //! assumed:** a new Action is declared as an *instance*, not a subclass —
 //! `ex:myAction a odrl:Action .`, optionally with `odrl:includedIn` naming
 //! a parent action. This interpreter collects every `odrl:Action`-typed
-//! subject's local name into `recognized_actions`. It does **not** follow
-//! `includedIn` transitively (if `ex:myAction odrl:includedIn odrl:use`,
-//! recognizing `ex:myAction` does not also imply recognizing actions
-//! `odrl:use` itself includes) — that is exactly the general
-//! action-taxonomy-implication problem Section 7 of the case study names
-//! as out of scope, and this tool does not quietly resolve it as a side
-//! effect of an unrelated feature.
+//! subject into an `ActionDecl { id, included_in }`, capturing that
+//! `odrl:includedIn` object as real data rather than discarding it —
+//! `engine::ResolvedConfig::covers` (see its own doc comment) now walks
+//! exactly this declared edge to resolve action-taxonomy coverage, closing
+//! the gap Section 7 of the case study used to name as out of scope. What
+//! remains genuinely unresolved, honestly: only *declared* edges are
+//! followed (an action a document never types `a odrl:Action` contributes
+//! nothing even as someone else's `includedIn` target — see
+//! `does_not_reach_through_an_action_the_document_never_declares` below),
+//! and this is still a per-request problem if a caller never loads a
+//! profile that declares the edge in the first place — declaring it is
+//! this tool's whole job, not a substitute for a caller actually calling
+//! it.
 //!
 //! **`duty_mode` is deliberately NOT read from the profile document at
 //! all.** The ODRL specification defines no property for a profile to
@@ -38,6 +44,7 @@
 //! interpreter surfaces that as a warning rather than pretending the
 //! extension took effect.
 
+use engine::profile::ActionDecl;
 use engine::{DutyMode, Profile};
 
 use crate::graph::{local_name, odrl, Graph};
@@ -64,7 +71,7 @@ pub struct Interpreted {
     /// (site's Demonstrator page) needs this list to build an autocomplete/
     /// suggestion widget, and re-parsing a warning string for it would be
     /// fragile and wrong. Sorted and deduped, same convention as
-    /// `recognized_actions`.
+    /// `Profile.actions`.
     pub declared_left_operands: Vec<String>,
 }
 
@@ -87,21 +94,25 @@ pub fn interpret(graph: &Graph, id_override: Option<String>, duty_mode: DutyMode
             "urn:uuid:unidentified-profile".to_string()
         });
 
-    let declared_actions = graph.subjects_with_type(&odrl("Action"));
-    for action in &declared_actions {
-        if let Some(parent) = graph.object_node(action, &odrl("includedIn")) {
-            warnings.push(format!(
-                "{} declares odrl:includedIn {} — recognized as its own action only; this tool does not transitively recognize {} (or anything else {} includes) as a consequence, per Section 7's action-implication limitation",
-                local_name(action),
-                local_name(&parent),
-                local_name(&parent),
-                local_name(action),
-            ));
-        }
-    }
-    let mut recognized_actions: Vec<String> = declared_actions.iter().map(|iri| local_name(iri).to_string()).collect();
-    recognized_actions.sort();
-    recognized_actions.dedup();
+    let declared_action_iris = graph.subjects_with_type(&odrl("Action"));
+    let mut actions: Vec<ActionDecl> = declared_action_iris
+        .iter()
+        .map(|action| {
+            let included_in = graph.object_node(action, &odrl("includedIn")).map(|parent| local_name(&parent).to_string());
+            if let Some(parent) = &included_in {
+                warnings.push(format!(
+                    "{} declares odrl:includedIn {} — captured as a real ActionDecl edge, so a permission for {} now covers a request for {} via engine::ResolvedConfig::covers",
+                    local_name(action),
+                    parent,
+                    parent,
+                    local_name(action),
+                ));
+            }
+            ActionDecl { id: local_name(action).to_string(), included_in }
+        })
+        .collect();
+    actions.sort_by(|a, b| a.id.cmp(&b.id));
+    actions.dedup_by(|a, b| a.id == b.id);
 
     let declared_left_operand_iris = graph.subjects_with_type(&odrl("LeftOperand"));
     for left_operand in &declared_left_operand_iris {
@@ -122,7 +133,7 @@ pub fn interpret(graph: &Graph, id_override: Option<String>, duty_mode: DutyMode
         ));
     }
 
-    Interpreted { profile: Profile { id, recognized_actions, duty_mode }, warnings, declared_left_operands }
+    Interpreted { profile: Profile { id, actions, duty_mode }, warnings, declared_left_operands }
 }
 
 #[cfg(test)]
@@ -131,6 +142,14 @@ mod tests {
 
     fn graph(ttl: &str) -> Graph {
         Graph::from_turtle(ttl.as_bytes()).unwrap()
+    }
+
+    fn action_ids(interpreted: &Interpreted) -> Vec<String> {
+        interpreted.profile.actions.iter().map(|a| a.id.clone()).collect()
+    }
+
+    fn included_in_of<'a>(interpreted: &'a Interpreted, id: &str) -> Option<&'a str> {
+        interpreted.profile.actions.iter().find(|a| a.id == id)?.included_in.as_deref()
     }
 
     #[test]
@@ -143,15 +162,18 @@ ex:redistribute a odrl:Action ;
 ex:archive a odrl:Action ."#,
         );
         let interpreted = interpret(&g, None, DutyMode::Advise);
-        assert_eq!(interpreted.profile.recognized_actions, vec!["archive", "redistribute"]);
+        assert_eq!(action_ids(&interpreted), vec!["archive", "redistribute"]);
     }
 
     #[test]
-    fn does_not_transitively_recognize_includedin_parents() {
-        // ex:redistribute includedIn odrl:distribute does NOT mean this
-        // interpreter also recognizes "distribute" — that would be the
-        // general action-implication inference Section 7 names as out of
-        // scope, not this tool's job to quietly resolve.
+    fn captures_a_declared_includedin_edge_as_real_actiondecl_data() {
+        // ex:redistribute odrl:includedIn odrl:distribute is now kept as
+        // ActionDecl::included_in data, not just noted in a warning — this
+        // is exactly what closes Section 7's old "action implication is
+        // not evaluated" gap (see engine::ResolvedConfig::covers's doc
+        // comment). "distribute" itself is not separately declared here,
+        // so it does not appear as its own recognized action — capturing
+        // an edge is not the same as recognizing its target.
         let g = graph(
             r#"@prefix odrl: <http://www.w3.org/ns/odrl/2/>.
 @prefix ex: <http://example.org/>.
@@ -159,9 +181,47 @@ ex:redistribute a odrl:Action ;
     odrl:includedIn odrl:distribute ."#,
         );
         let interpreted = interpret(&g, None, DutyMode::Advise);
-        assert_eq!(interpreted.profile.recognized_actions, vec!["redistribute"]);
-        assert!(!interpreted.profile.recognized_actions.contains(&"distribute".to_string()));
-        assert!(interpreted.warnings.iter().any(|w| w.contains("redistribute") && w.contains("does not transitively recognize")));
+        assert_eq!(action_ids(&interpreted), vec!["redistribute"]);
+        assert_eq!(included_in_of(&interpreted, "redistribute"), Some("distribute"));
+        assert!(interpreted.warnings.iter().any(|w| w.contains("redistribute") && w.contains("distribute") && w.contains("covers")));
+    }
+
+    #[test]
+    fn interpret_then_resolve_lets_a_permission_for_the_parent_cover_a_request_for_the_child() {
+        // The whole point of this tool, proven end to end (not just that
+        // the JSON shape looks right): parse a document declaring
+        // ex:sell includedIn odrl:transfer and odrl:transfer itself as an
+        // action, interpret it, resolve it via engine::resolve, and
+        // confirm engine's own coverage check actually resolves the edge.
+        let g = graph(
+            r#"@prefix odrl: <http://www.w3.org/ns/odrl/2/>.
+@prefix ex: <http://example.org/>.
+ex:sell a odrl:Action ;
+    odrl:includedIn odrl:transfer .
+odrl:transfer a odrl:Action ."#,
+        );
+        let interpreted = interpret(&g, None, DutyMode::Advise);
+        let resolved = engine::resolve(std::slice::from_ref(&interpreted.profile));
+        assert!(resolved.covers("transfer", "sell"), "a permission for transfer must cover a request for sell");
+        assert!(!resolved.covers("sell", "transfer"), "coverage does not run backwards");
+    }
+
+    #[test]
+    fn does_not_reach_through_an_action_the_document_never_declares() {
+        // ex:redistribute claims odrl:includedIn ex:distribute, but
+        // ex:distribute is never itself typed odrl:Action in this
+        // document — the chain must not silently keep walking past that
+        // gap (engine::ResolvedConfig::covers's own documented limit).
+        let g = graph(
+            r#"@prefix odrl: <http://www.w3.org/ns/odrl/2/>.
+@prefix ex: <http://example.org/>.
+ex:use a odrl:Action .
+ex:redistribute a odrl:Action ;
+    odrl:includedIn ex:distribute ."#,
+        );
+        let interpreted = interpret(&g, None, DutyMode::Advise);
+        let resolved = engine::resolve(std::slice::from_ref(&interpreted.profile));
+        assert!(!resolved.covers("use", "redistribute"));
     }
 
     #[test]

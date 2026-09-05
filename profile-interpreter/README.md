@@ -6,11 +6,13 @@ engine's own wire contract actually consumes — an adapter, like
 
 ## Why this exists
 
-Section 5.2's `config` field (`{recognized_actions, duty_mode}`) is
-described as "the host's already-resolved union of every ODRL Profile it
-has loaded" — but nothing in this repo, before now, actually read a real
-ODRL Profile *document* to produce that union. A host had to hand-write
-the JSON. This tool reads the document instead.
+Section 5.2's `config` field — the host's already-resolved union of every
+ODRL Profile it has loaded, now shaped as real ODRL/JSON-LD
+(`{"@type": "odrl:Profile", "odrl:action": [...], "dutyMode": ...}`, see
+`engine`'s own `README.md`) — has to come from somewhere, but nothing in
+this repo, before now, actually read a real ODRL Profile *document* to
+produce it. A host had to hand-write the JSON. This tool reads the
+document instead.
 
 ## What it does, and what it deliberately doesn't
 
@@ -19,11 +21,18 @@ section (<https://www.w3.org/TR/odrl-model/#profile-mechanism>) rather
 than assumed — see `src/interpret.rs`'s module doc for the full reasoning:
 
 - A new Action is declared `ex:myAction a odrl:Action .` — every such
-  subject's local name becomes a `recognized_actions` entry.
-- `odrl:includedIn` (a profile action naming a parent action) is noted as
-  a warning, not followed transitively — chasing it would be exactly the
-  general action-taxonomy-implication problem Section 7 of the case study
-  names as out of scope for this engine.
+  subject becomes an `ActionDecl { id, included_in }` entry of
+  `Profile.actions`.
+- `odrl:includedIn` (a profile action naming a parent action) is captured
+  as that `ActionDecl`'s own `included_in` field — real, usable data, not
+  just a warning. `engine::ResolvedConfig::covers` walks exactly this
+  declared edge to resolve action-taxonomy coverage (a permission for the
+  parent now covers a request for the child), closing the gap Section 7 of
+  the case study used to name as out of scope. This is still narrower than
+  general inference: only *declared* edges are followed, and an action
+  that is never itself typed `a odrl:Action` in the document contributes
+  nothing even as someone else's `includedIn` target — declaring the edge
+  is this tool's job, resolving it at evaluation time is the engine's.
 - `duty_mode` is **never** read from the document — ODRL defines no
   property for a profile to declare its own enforcement behavior (that's
   this engine's own invention, Section 4.5), so it's always a
@@ -37,20 +46,24 @@ than assumed — see `src/interpret.rs`'s module doc for the full reasoning:
 ## Usage
 
 ```sh
-# One profile document -> its own engine::Profile JSON
+# One profile document -> its own engine::Profile JSON (internal shape:
+# id, actions: [{id, included_in}], duty_mode — not wire-shaped, since one
+# profile alone is not a request config)
 profile-interpreter interpret my-profile.ttl --duty-mode advise
 
-# Multiple profile documents -> the merged Section 5.2 `config` field
-# (union of recognized_actions, strictest duty_mode) — engine::resolve()
-# under the hood, the exact function `engine::profile`'s own tests cover.
+# Multiple profile documents -> the merged Section 5.2 `config` field,
+# printed as a wire-shaped engine::wire::RequestConfig
+# (@type/@id/odrl:action/odrl:includedIn/dutyMode) — union of declared
+# actions (and their includedIn edges), strictest duty_mode, the same
+# merge rule engine::profile::resolve()'s own tests cover.
 profile-interpreter resolve default-profile.ttl gaia-x-profile.jsonld --duty-mode deny
 ```
 
 Format is inferred from each file's extension (`.ttl`/`.turtle`,
 `.jsonld`/`.json`); override with `--format ttl|jsonld` if a file's
 extension doesn't match its actual content. Warnings (an `includedIn`
-relationship not followed, an operator extension that can't be honored,
-a missing `odrl:Profile`-typed subject falling back to a placeholder id)
+relationship captured, an operator extension that can't be honored, a
+missing `odrl:Profile`-typed subject falling back to a placeholder id)
 print to stderr; the JSON output on stdout is always exactly what you'd
 paste into a Section 5.2 request's `config` field (`resolve`) or a
 `Profile` record (`interpret`).
