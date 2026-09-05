@@ -1,5 +1,6 @@
 use crate::app_route::AppRoute;
-use crate::pages::{CompliancePage, DemoPage, HomePage};
+use crate::demo_page::DemoPage;
+use crate::pages::{CompliancePage, HomePage};
 use yew::{Html, html};
 
 pub fn switch_app_route(target: AppRoute) -> Html {

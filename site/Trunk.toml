@@ -36,3 +36,19 @@ command_arguments = [
   "-c",
   "cargo build -p engine --target wasm32-unknown-unknown --release --manifest-path /home/coder/deepthought-solutions/ds-odrl-engine-rs-work/Cargo.toml && cp /home/coder/deepthought-solutions/ds-odrl-engine-rs-work/target/wasm32-unknown-unknown/release/engine.wasm assets/engine.wasm",
 ]
+
+# Bug found and fixed while verifying the Demonstrator page under `trunk
+# serve`: without this, `trunk serve` rebuilds *forever*. The pre_build
+# hook above writes freshly-compiled bytes to assets/engine.wasm on every
+# single build (by design -- see that hook's own comment); `trunk serve`'s
+# file watcher also covers `assets/` (it has to, to live-reload on other
+# static asset edits), so that write is itself picked up as a source
+# change, which triggers another build, which writes assets/engine.wasm
+# again, forever -- a rebuild roughly once a second, each one reloading
+# every connected browser tab and discarding any in-page state (silently
+# breaking, among other things, the very form state this Demonstrator
+# page exists to hold). `trunk build` (no watcher) never showed this.
+# Excluding this one generated file from the watch is the fix `--release`
+# `trunk build` doesn't need and `trunk serve` can't safely run without.
+[watch]
+ignore = ["assets/engine.wasm"]

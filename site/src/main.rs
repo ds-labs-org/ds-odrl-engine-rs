@@ -1,6 +1,12 @@
 #[cfg(target_arch = "wasm32")]
 mod app_route;
 #[cfg(target_arch = "wasm32")]
+mod demo_form;
+#[cfg(target_arch = "wasm32")]
+mod demo_page;
+#[cfg(target_arch = "wasm32")]
+mod demo_widgets;
+#[cfg(target_arch = "wasm32")]
 mod engine_bridge;
 #[cfg(target_arch = "wasm32")]
 mod engine_module;
@@ -10,6 +16,8 @@ mod main_view;
 mod pages;
 #[cfg(target_arch = "wasm32")]
 mod switch_app_route;
+#[cfg(target_arch = "wasm32")]
+mod wire;
 
 #[cfg(not(target_arch = "wasm32"))]
 fn main() {
