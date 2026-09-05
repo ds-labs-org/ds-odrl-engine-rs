@@ -3,6 +3,8 @@
 //! set-based operators — see the `Operator` doc comment below for exactly
 //! what each extension does and does not cover).
 
+use std::collections::BTreeSet;
+
 use serde::{Deserialize, Serialize};
 
 use crate::claims::{ClaimValue, Claims};
@@ -407,6 +409,72 @@ impl Constraint {
     /// `xone` is `Some`) rather than the flat atomic case.
     pub fn is_logical(&self) -> bool {
         self.and.is_some() || self.or.is_some() || self.xone.is_some()
+    }
+
+    /// Every claim-map key (`left_operand`) this constraint could actually
+    /// test, sorted and deduplicated — recursing into `odrl:and`/`odrl:or`/
+    /// `odrl:xone` children at any depth. See
+    /// `crate::decision::referenced_left_operands` for what this answers
+    /// and why, at the level a host actually asks it.
+    ///
+    /// Three properties this walk deliberately holds, each with its own
+    /// test in this module:
+    ///
+    /// - **A logical node contributes nothing of its own.** A
+    ///   `Constraint::and`/`or`/`xone` value (or a `{"odrl:and": [...]}`
+    ///   object) carries a *defaulted* `left_operand` of `""` that
+    ///   `evaluate` never reads — this type's own doc comment calls that
+    ///   default inert, and it has to stay inert here too. Collecting it
+    ///   would report an empty-string claim key that no claims map can
+    ///   sensibly supply.
+    /// - **The same `MAX_CONSTRAINT_DEPTH` bound `evaluate` uses.** A node
+    ///   nested past that bound is never evaluated (it is a deterministic
+    ///   non-match), so reporting its `left_operand` would tell a host to
+    ///   go gather a claim that provably cannot change any decision. This
+    ///   walk is bounded identically rather than approximately: same
+    ///   constant, same `depth > MAX` test, same starting depth.
+    /// - **An atomic `left_operand` is reported verbatim, `""` included.**
+    ///   Only the *logical* case's unused default is skipped. An atomic
+    ///   constraint that genuinely names `""` is a real (if odd) claim-key
+    ///   lookup `evaluate` will really perform, and this reports what the
+    ///   engine will really look up, not what a reader might have meant.
+    ///
+    /// Ordering is **sorted** (a `BTreeSet` drains in order), matching the
+    /// convention `profile-interpreter`'s own `declared_left_operands`
+    /// already set. Sorted rather than first-seen because the answer is a
+    /// *set* — nothing about a claim key's position in a constraint tree
+    /// carries meaning for a host gathering claims — and a stable order
+    /// makes the result diffable and safe to print.
+    pub fn referenced_left_operands(&self) -> Vec<String> {
+        let mut names = BTreeSet::new();
+        self.collect_left_operands(0, &mut names);
+        names.into_iter().collect()
+    }
+
+    /// The bounded recursive walk behind `referenced_left_operands`,
+    /// mirroring `evaluate_bounded`'s own structure branch for branch —
+    /// except that where `evaluate` *chooses* one branch by the fixed
+    /// `xone` > `or` > `and` precedence, this visits **every** logical
+    /// field that is `Some`. The two are not in conflict: precedence
+    /// exists to make a hand-written object setting more than one field at
+    /// once evaluate deterministically, whereas a host asking which claims
+    /// to gather is better served by the superset (gathering a claim that
+    /// turns out unused costs nothing; missing one silently changes a
+    /// decision). Every constructor here only ever sets one field, so the
+    /// two walks visit the same nodes for anything this crate can build.
+    pub(crate) fn collect_left_operands(&self, depth: usize, out: &mut BTreeSet<String>) {
+        if depth > MAX_CONSTRAINT_DEPTH {
+            return;
+        }
+        if self.is_logical() {
+            for children in [&self.xone, &self.or, &self.and].into_iter().flatten() {
+                for child in children {
+                    child.collect_left_operands(depth + 1, out);
+                }
+            }
+            return;
+        }
+        out.insert(self.left_operand.clone());
     }
 
     /// Evaluates this constraint against `claims`.
@@ -1169,6 +1237,117 @@ mod tests {
 
         let neither = claims_with(&[("role", ClaimValue::Single("member".into()))]);
         assert!(!constraint.evaluate(&neither));
+    }
+
+    // -- referenced left operands ------------------------------------------
+
+    #[test]
+    fn an_atomic_constraint_references_exactly_its_own_left_operand() {
+        let constraint = Constraint::new("nationality", Operator::IsAnyOf, "FR,DE");
+        assert_eq!(constraint.referenced_left_operands(), vec!["nationality".to_string()]);
+    }
+
+    #[test]
+    fn a_logical_constraint_reports_its_childrens_operands_not_its_own_defaulted_empty_one() {
+        // The exact trap this type's own design creates: `Constraint::and`
+        // (and a `{"odrl:and": [...]}` JSON object) leaves `left_operand`
+        // at `""`, an inert default `evaluate` never reads. A walk that
+        // collected `left_operand` unconditionally would report a bogus
+        // empty-string claim key for every logical node in the tree.
+        let constraint = Constraint::and(vec![
+            Constraint::new("sub", Operator::Eq, "alice"),
+            Constraint::new("scope", Operator::IsAnyOf, "read,write"),
+        ]);
+        assert_eq!(
+            constraint.referenced_left_operands(),
+            vec!["scope".to_string(), "sub".to_string()],
+            "a logical node contributes its children's operands only, never its own unused \
+             defaulted left_operand"
+        );
+    }
+
+    #[test]
+    fn referenced_left_operands_are_sorted_and_deduped_across_a_deep_mixed_nest() {
+        // xone( or( and(sub, scope), sub ), dateTime ) -- `sub` appears
+        // three times at two different depths, `scope` once at depth 3.
+        let constraint = Constraint::xone(vec![
+            Constraint::or(vec![
+                Constraint::and(vec![
+                    Constraint::new("sub", Operator::Eq, "alice"),
+                    Constraint::new("scope", Operator::IsAnyOf, "read"),
+                ]),
+                Constraint::new("sub", Operator::Eq, "root"),
+            ]),
+            Constraint::new("dateTime", Operator::Lt, "2030-01-01"),
+        ]);
+        assert_eq!(
+            constraint.referenced_left_operands(),
+            vec!["dateTime".to_string(), "scope".to_string(), "sub".to_string()],
+            "sorted and deduped, at any depth -- the same stable ordering convention \
+             profile-interpreter's own declared_left_operands already uses"
+        );
+    }
+
+    #[test]
+    fn an_atomic_constraints_literally_empty_left_operand_is_still_reported() {
+        // The other half of the "" rule: only the *logical* case's unused
+        // default is skipped. `{"left_operand": "", ...}` parses (it
+        // supplies all three atomic fields) and `evaluate` really does look
+        // up the empty key in the claims map, so the walk reports what the
+        // engine will really consult rather than second-guessing it.
+        let json = r#"{"left_operand":"","operator":"eq","right_operand":"x"}"#;
+        let constraint: Constraint = serde_json::from_str(json).unwrap();
+        assert_eq!(constraint.referenced_left_operands(), vec![String::new()]);
+    }
+
+    #[test]
+    fn a_constraint_setting_several_logical_fields_at_once_reports_all_of_their_operands() {
+        // `evaluate` resolves the one hand-written-JSON shape that sets
+        // more than one logical field by a fixed xone > or > and
+        // precedence (see
+        // setting_more_than_one_logical_field_at_once_resolves_by_the_documented_xone_or_and_precedence).
+        // This walk deliberately does NOT mirror that precedence: it
+        // reports the superset, because gathering an unused claim is free
+        // and missing a used one silently changes a decision.
+        let json = r#"{
+            "odrl:and": [{"left_operand": "from-and", "operator": "eq", "right_operand": "x"}],
+            "odrl:or": [{"left_operand": "from-or", "operator": "eq", "right_operand": "x"}],
+            "odrl:xone": [{"left_operand": "from-xone", "operator": "eq", "right_operand": "x"}]
+        }"#;
+        let constraint: Constraint = serde_json::from_str(json).unwrap();
+        assert_eq!(
+            constraint.referenced_left_operands(),
+            vec!["from-and".to_string(), "from-or".to_string(), "from-xone".to_string()],
+            "every logical field that is Some is walked, not just the one evaluate's precedence \
+             would pick"
+        );
+    }
+
+    #[test]
+    fn left_operands_nested_past_max_constraint_depth_are_not_reported() {
+        // Deliberately mirrors `evaluate`'s own bound rather than walking
+        // the whole tree: a node `evaluate` can never reach cannot affect
+        // any decision, so reporting its claim key would tell a host to go
+        // gather a claim that provably cannot change an outcome.
+        let mut too_deep = Constraint::new("unreachable-claim", Operator::Eq, "x");
+        for _ in 0..(MAX_CONSTRAINT_DEPTH + 10) {
+            too_deep = Constraint::and(vec![too_deep]);
+        }
+        assert!(
+            too_deep.referenced_left_operands().is_empty(),
+            "a leaf nested past MAX_CONSTRAINT_DEPTH is never evaluated, so it must not be \
+             reported as a referenced left operand either"
+        );
+
+        let mut at_bound = Constraint::new("reachable-claim", Operator::Eq, "x");
+        for _ in 0..MAX_CONSTRAINT_DEPTH {
+            at_bound = Constraint::and(vec![at_bound]);
+        }
+        assert_eq!(
+            at_bound.referenced_left_operands(),
+            vec!["reachable-claim".to_string()],
+            "a leaf exactly AT the bound is still evaluated, so it must still be reported"
+        );
     }
 
     #[test]

@@ -786,7 +786,7 @@ mod tests {
     assert_eq!(file.schema, COVERAGE_SCHEMA);
     assert_eq!(file.rows.len(), 52, "the source gap analysis enumerates 52 vocabulary rows");
     assert_eq!(file.categories.len(), 10);
-    assert_eq!(file.probes.len(), 113);
+    assert_eq!(file.probes.len(), 115);
     assert!(file.spec.contains("odrl-vocab"));
   }
 
@@ -912,7 +912,7 @@ mod tests {
       "lc-andsequence-ignored",            // NotImplemented, negative
       "op-profile-operator-unparseable",   // OutOfScope, negative
       "duty-per-permission-ignored",       // NotImplemented, duties asserted
-      "asset-per-rule-target-ignored",     // NotImplemented, dataset_id asserted
+      "asset-per-rule-target-hit",         // Partial, positive, per-rule odrl:target
       "beh-closed-empty",                  // Implemented, reason_excludes
       "op-isnoneof-absent-satisfies",      // Implemented, positive
       "conflict-invalid-ignored",          // NotImplemented, negative
@@ -949,9 +949,14 @@ mod tests {
   /// generator wrote — not a re-serialization. This checks the property
   /// directly on the committed artifact: several probes carry keys
   /// `crate::wire`'s types do not model, and a round trip would drop the
-  /// one key each of those probes exists to inject.
+  /// one key each of those probes turns on. Most are keys the *engine*
+  /// does not model either — that is what those probes assert. The
+  /// exception is `odrl:target`, which the engine models and this site's
+  /// own mirror of `Rule` deliberately still does not (`site/README.md`):
+  /// a round trip would drop it here just the same, silently turning a
+  /// probe about per-rule assets into one about none.
   #[test]
-  fn a_probes_raw_request_keeps_the_unknown_keys_the_negative_probes_turn_on() {
+  fn a_probes_raw_request_keeps_the_keys_this_sites_own_types_do_not_model() {
     let file = parse_coverage_catalog(LATEST_COVERAGE_JSON).expect("the committed artifact parses");
     let raw_of = |id: &str| {
       probe_json(file.probes.iter().find(|p| p.id == id).unwrap_or_else(|| panic!("no probe {id}"))).to_string()
@@ -961,7 +966,7 @@ mod tests {
       ("lc-andsequence-ignored", "odrl:andSequence"),
       ("conflict-perm-ignored", "\"conflict\""),
       ("duty-per-permission-ignored", "\"duty\""),
-      ("asset-per-rule-target-ignored", "\"target\""),
+      ("asset-per-rule-target-hit", "odrl:target"),
       ("act-implies-ignored", "odrl:implies"),
       ("uid-rule-index-not-uid", "urn:rule:r-7"),
       ("ror-reference-key-ignored", "rightOperandReference"),

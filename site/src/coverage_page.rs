@@ -2,7 +2,7 @@
 //!
 //! A hand-written coverage table tells you what somebody believed about
 //! an engine when they last edited the table. This page does something
-//! else: it fetches 113 exact Section 5.2 requests, runs every one of them
+//! else: it fetches 115 exact Section 5.2 requests, runs every one of them
 //! through the real compiled `engine.wasm` over its
 //! `alloc`/`evaluate`/`dealloc` C ABI in the visitor's own browser, and
 //! then reports, per vocabulary row, whether what the engine *just did*
@@ -703,7 +703,7 @@ fn results(report: &CoverageReport, filters: &Filters) -> Html {
   )
 }
 
-/// The ODRL 2.2 Coverage page: 52 documented vocabulary claims, 113 live
+/// The ODRL 2.2 Coverage page: 52 documented vocabulary claims, 115 live
 /// `evaluate()` calls, and a per-row verdict computed in this browser.
 #[component]
 pub fn CoveragePage() -> Html {

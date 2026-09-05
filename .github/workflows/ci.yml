@@ -21,6 +21,14 @@ jobs:
       - name: cargo test
         run: cargo test --workspace
 
+      # dsp-odrl-adapter's whole capability is behind a default-off Cargo
+      # feature (its README explains why), which means the run above
+      # compiles it as an empty library and executes none of its tests. A
+      # default-off feature nothing ever builds rots silently, so it gets
+      # its own run rather than being trusted to stay green.
+      - name: cargo test (dsp-odrl-adapter opt-in feature)
+        run: cargo test --workspace --features dsp-odrl-adapter/dsp-ingest
+
       # The committed artifacts under compliance/reports/ must be what the
       # current source actually produces. latest.json is the native run's
       # recorded baseline; latest-cases.json is the corpus the site

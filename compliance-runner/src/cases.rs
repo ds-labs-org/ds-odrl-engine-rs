@@ -150,10 +150,7 @@ mod tests {
                 kind: "Set".to_string(),
                 assigner: "urn:uuid:assigner".to_string(),
                 assignee: None,
-                permissions: vec![Rule {
-                    action: "read".to_string(),
-                    constraints: vec![Constraint::new("sub", Operator::Eq, "alice")],
-                }],
+                permissions: vec![Rule::new("read", vec![Constraint::new("sub", Operator::Eq, "alice")])],
                 prohibitions: vec![],
                 obligations: vec![],
             }],

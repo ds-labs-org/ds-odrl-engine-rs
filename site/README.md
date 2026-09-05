@@ -275,3 +275,50 @@ without the corpus its Compliance page executes.
   `dataspace/site` avoids colliding `authority-src/` with `/authority` —
   see `index.html`'s comment on that `copy-file` directive for the
   confirmed failure mode (a directory-redirect 404) this sidesteps.
+- No page surfaces the engine's `referenced_left_operands` /
+  `left_operands_for_request` calls (root README, "Asking which claims a
+  set of policies actually reads"), which report the claim-map keys a set
+  of policies actually reads, nor its `performable_actions` /
+  `performable_actions_for_request` calls (root README, "Asking which
+  actions a caller could actually perform"), which report which declared
+  actions a caller could perform rather than answering about one.
+  **This is a consequence of the opaque-ABI
+  design above, not an oversight.** Those are native Rust entry points;
+  this site has no Rust link to `engine` and knows only the four exports,
+  so reaching them needs a fifth `extern "C"` export in
+  `../engine/src/abi.rs`. That would also be a version-skew hazard here
+  specifically: `engine_bridge::load_engine_instance` resolves every
+  export up front and treats a missing one as fatal, so a site built
+  against a five-export engine would refuse to load an older
+  `engine.wasm` **entirely** — Demonstrator, Compliance Results and
+  Coverage pages alike, not just the missing feature. Expanding the ABI
+  is therefore its own decision. Note the Demonstrator's claim-key
+  suggestion list already covers the complementary, profile-side
+  question, and needs no ABI at all: it is fed by `profile-interpreter`'s
+  `declared_left_operands` (a normal Rust dependency), not by
+  `engine.wasm`.
+- The Demonstrator's rule editor emits no `odrl:refinement` (root README,
+  "Action refinement") — the same deliberate simplification that already
+  keeps it from building nested `odrl:and`/`odrl:or`/`odrl:xone` groups:
+  it is a labelled row per rule and constraint, not a full ODRL policy
+  editor (`src/demo_form.rs`'s own module doc). This costs nothing at the
+  boundary — `odrl:refinement` is optional on the wire, and a request
+  without it evaluates exactly as it did before the engine had the field
+  — but it does mean the site cannot currently demonstrate a refinement
+  end to end. Adding a refinement row to `demo_form.rs` (and to
+  `site/src/wire.rs`'s own mirror of `Rule`, which is this site's
+  independent copy of the shape, not an `engine` type) would be an
+  ordinary form change needing no ABI work, unlike the bullet above.
+- The Demonstrator's rule editor likewise emits no per-rule `odrl:target`
+  (root README, "Per-rule assets (`odrl:target`)"), so a request built
+  here has exactly one asset — the envelope's `dataset_id` — and every
+  rule in it is about that asset, which is what every rule was before the
+  field existed. Same simplification, same cost (none at the boundary:
+  the key is optional and its absence is the documented fallback), and
+  same fix if it is ever wanted: a target row in `demo_form.rs` plus the
+  field on `src/wire.rs`'s own `Rule` mirror, no ABI work. The Coverage
+  Results page **does** exercise the field live against `engine.wasm`
+  today — the `asset-per-rule-target-hit` / `-miss` probe pair in
+  `compliance/reports/latest-coverage.json` is the same policy asked
+  about two different assets — so the capability is demonstrated in the
+  browser even though the Demonstrator cannot author it by hand.

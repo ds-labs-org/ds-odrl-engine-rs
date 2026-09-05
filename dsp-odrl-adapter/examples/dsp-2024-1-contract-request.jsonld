@@ -1,0 +1,83 @@
+{
+  "_comment": [
+    "A Dataspace Protocol ContractRequestMessage carrying an odrl:Offer, in the",
+    "DSP 2024/1 `odrl:`-prefixed JSON-LD shape. Structure copied from the IDSA",
+    "specification's own published example,",
+    "https://github.com/International-Data-Spaces-Association/ids-specification/blob/main/negotiation/message/example/contract-request-message.json",
+    "(fetched 2026-09-06), then extended with the rule shapes this adapter has to",
+    "cover: a nested odrl:and logical constraint, a right operand whose literal",
+    "value itself starts with `odrl:`, a multi-valued right operand, an",
+    "odrl:prohibition with its own odrl:target, an action carrying an",
+    "odrl:refinement, and an odrl:obligation.",
+    "Two deliberate departures from that upstream example, both documented in",
+    "this crate's README: it writes `odrl:operand` where ODRL 2.2 names the",
+    "property `odrl:operator` (this adapter requires the real property and",
+    "reports a named error for a constraint that has none), and its offer omits",
+    "odrl:prohibition/odrl:obligation entirely."
+  ],
+  "@context": [
+    "https://w3id.org/dspace/2024/1/context.json",
+    { "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#" }
+  ],
+  "@type": "dspace:ContractRequestMessage",
+  "dspace:providerPid": "urn:uuid:a343fcbf-99fc-4ce8-8e9b-148c97605aab",
+  "dspace:consumerPid": "urn:uuid:32541fe6-c580-409e-85a8-8a9a32fbe833",
+  "dspace:callbackAddress": "https://consumer.example.org/dsp/callback",
+  "dspace:offer": {
+    "@id": "urn:uuid:d526561f-528e-4d5a-ae12-9a9dd9b7a815",
+    "@type": "odrl:Offer",
+    "odrl:target": "urn:uuid:3dd1add8-4d2d-569e-d634-8394a8836a88",
+    "odrl:assigner": "urn:tsdshhs636378",
+    "odrl:assignee": "urn:jashd766",
+    "odrl:permission": [
+      {
+        "odrl:action": "odrl:use",
+        "odrl:constraint": [
+          {
+            "odrl:and": [
+              {
+                "odrl:leftOperand": "odrl:dateTime",
+                "odrl:operator": "odrl:lteq",
+                "odrl:rightOperand": { "@value": "2026-12-31T06:00:00Z", "@type": "xsd:dateTime" }
+              },
+              {
+                "odrl:leftOperand": "odrl:purpose",
+                "odrl:operator": "odrl:eq",
+                "odrl:rightOperand": "odrl:internal-use-only"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "odrl:action": {
+          "rdf:value": { "@id": "odrl:print" },
+          "odrl:refinement": [
+            {
+              "odrl:leftOperand": "odrl:resolution",
+              "odrl:operator": "odrl:lteq",
+              "odrl:rightOperand": { "@value": "1200", "@type": "xsd:integer" }
+            }
+          ]
+        },
+        "odrl:constraint": []
+      }
+    ],
+    "odrl:prohibition": [
+      {
+        "odrl:action": "odrl:distribute",
+        "odrl:target": "urn:uuid:0f2b6dcb-5f0c-4d1e-9a5f-1c0e6f5f0aa1",
+        "odrl:constraint": [
+          {
+            "odrl:leftOperand": "https://example.org/claims/region",
+            "odrl:operator": "odrl:isAnyOf",
+            "odrl:rightOperand": ["US", "CN"]
+          }
+        ]
+      }
+    ],
+    "odrl:obligation": [
+      { "odrl:action": "odrl:inform" }
+    ]
+  }
+}

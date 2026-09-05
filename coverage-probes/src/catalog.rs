@@ -1,5 +1,5 @@
 //! The catalog: 52 vocabulary rows from the source gap analysis, and the
-//! ~113 `evaluate()` calls that put 49 of them to the test in a browser.
+//! ~115 `evaluate()` calls that put 49 of them to the test in a browser.
 //!
 //! Two design rules every probe here obeys, because without them a probe
 //! proves nothing:
@@ -67,8 +67,21 @@ pub fn flat_config(ids: &[&str]) -> RequestConfig {
     config(ids.iter().map(|id| action(id)).collect())
 }
 
+/// Builds an unrefined rule — `Rule::new`'s own shape. No probe in this
+/// catalog exercises `odrl:refinement`; adding one would rewrite
+/// `compliance/reports/latest-coverage.json`, which is a separate,
+/// deliberate regeneration rather than a side effect of adding the
+/// capability to the engine.
 pub fn rule(action: &str, constraints: Vec<Constraint>) -> Rule {
-    Rule { action: action.to_string(), constraints }
+    Rule::new(action, constraints)
+}
+
+/// An unconstrained rule scoped to one asset by `odrl:target` — a real,
+/// modelled field on `engine::Rule`, so these probes build it as a typed
+/// value like every other supported part of a request, rather than
+/// injecting it as an unknown key through `patch.rs`.
+pub fn targeted_rule(action: &str, target: &str) -> Rule {
+    Rule::targeting(action, target, vec![])
 }
 
 pub fn policy(id: &str, permissions: Vec<Rule>) -> WirePolicy {
@@ -1677,31 +1690,77 @@ fn duty_probes() -> Vec<Probe> {
 // ---------------------------------------------------------------------
 
 fn asset_probes() -> Vec<Probe> {
+    /// One policy carrying a permission on `urn:asset:A` and a prohibition
+    /// on `urn:asset:B`, requested for whichever of the two `requested`
+    /// names — the "permission on A, prohibition on B" shape one ODRL
+    /// policy expresses through each rule's own `odrl:target`. The hit/miss
+    /// pair below differs in nothing but that one field.
+    fn two_asset_request(requested: &str) -> Request {
+        Request {
+            dataset_id: requested.to_string(),
+            policies: vec![WirePolicy {
+                prohibitions: vec![targeted_rule("use", "urn:asset:B")],
+                ..policy("probe", vec![targeted_rule("use", "urn:asset:A")])
+            }],
+            ..base_request()
+        }
+    }
+
     // The one category short enough to read as a literal list; the others
     // interleave shared bindings between their probes and stay pushes.
     vec![
         build(Spec {
-            id: "asset-per-rule-target-ignored",
+            id: "asset-per-rule-target-hit",
+            kind: POSITIVE,
+            title: "a per-rule odrl:target is evaluated: a prohibition scoped to another asset does not deny",
+            asserts: "One policy, permission on urn:asset:A and prohibition on urn:asset:B, requested for \
+                      urn:asset:A. Allow, and the reason names the permission's own target -- the \
+                      prohibition is about another asset and does not participate. Paired with \
+                      asset-per-rule-target-miss, the same policy requested for urn:asset:B.",
+            falsified_by: "Deny -- which would mean the prohibition's target is dropped and every rule is \
+                           implicitly about dataset_id, as every rule was before per-rule targets existed",
+            request: two_asset_request("urn:asset:A"),
+            patches: vec![],
+            expect: allow(
+                "permission[0] of policy 'probe' matched: action 'use' on target 'urn:asset:A', unconstrained",
+            )
+            .with_dataset_id("urn:asset:A"),
+        }),
+        build(Spec {
+            id: "asset-per-rule-target-miss",
             kind: NEGATIVE,
-            title: "a per-rule odrl:target is dropped: a prohibition scoped to another asset still denies",
-            asserts: "The permission targets urn:asset:A, the prohibition targets urn:asset:B, and the \
-                      request is for urn:asset:A. A reader of the targets would Allow. The engine denies: \
-                      dataset_id is the only asset handle on the wire, and it is echoed back unchanged.",
-            falsified_by: "Allow -- which would mean per-rule targets are evaluated",
+            title: "the same policy, requested for the prohibited asset, denies",
+            asserts: "Byte-identical to asset-per-rule-target-hit except for dataset_id (the request's own \
+                      target). Deny, naming the prohibition and its target: the permission on urn:asset:A \
+                      no longer applies and the prohibition on urn:asset:B does.",
+            falsified_by: "Allow -- which would mean the permission's own target is dropped",
+            request: two_asset_request("urn:asset:B"),
+            patches: vec![],
+            expect: deny(
+                "prohibition[0] of policy 'probe' matched: action 'use' on target 'urn:asset:B', unconstrained",
+            )
+            .with_dataset_id("urn:asset:B"),
+        }),
+        build(Spec {
+            id: "asset-target-not-a-collection",
+            kind: NEGATIVE,
+            title: "a per-rule odrl:target is matched as an opaque string, not through any asset taxonomy",
+            asserts: "The permission targets urn:asset:collection and the request is for urn:asset:A, a \
+                      member of it in any real catalog. Deny: this engine has no asset vocabulary, so \
+                      odrl:partOf membership and IRI normalization are both a host's job, exactly as they \
+                      were before per-rule targets existed.",
+            falsified_by: "Allow -- which would mean collection membership is resolved here",
             request: Request {
                 dataset_id: "urn:asset:A".to_string(),
-                policies: vec![WirePolicy {
-                    prohibitions: vec![rule("use", vec![])],
-                    ..policy("probe", vec![rule("use", vec![])])
-                }],
+                policies: vec![policy("probe", vec![targeted_rule("use", "urn:asset:collection")])],
                 ..base_request()
             },
-            patches: vec![
-                Patch::set("/policies/0/permissions/0", "target", json!("urn:asset:A")),
-                Patch::set("/policies/0/prohibitions/0", "target", json!("urn:asset:B")),
-            ],
-            expect: deny("prohibition[0] of policy 'probe' matched: action 'use', unconstrained")
-                .with_dataset_id("urn:asset:A"),
+            patches: vec![],
+            expect: deny(
+                "permission[0] of policy 'probe' covers requested action 'use' but targets \
+                 'urn:asset:collection', not the requested 'urn:asset:A'",
+            )
+            .with_dataset_id("urn:asset:A"),
         }),
         build(Spec {
             id: "asset-output-ignored",
@@ -2713,13 +2772,17 @@ pub fn rows() -> Vec<Row> {
             id: "assets.target",
             category: "assets",
             term: "odrl:target (per-rule)",
-            status: NOT_IMPLEMENTED,
-            why: "Request.dataset_id is the only asset handle on the wire; one policy cannot express \
-                  \"permission on asset A, prohibition on asset B\".",
-            evidence: "engine/src/wire.rs::Request::dataset_id, decision::Rule",
-            asserts: "A prohibition scoped to a different asset than the one requested still denies, and \
-                      the envelope-level dataset_id comes back echoed unchanged.",
-            probe_ids: &["asset-per-rule-target-ignored"],
+            status: PARTIAL,
+            why: "Each rule may carry its own odrl:target, matched against the request's own asset \
+                  (Request.dataset_id); a rule naming none is about whatever is requested. Partial, not \
+                  Implemented: the match is opaque string equality, with no odrl:partOf collection \
+                  membership and no IRI normalization.",
+            evidence: "engine/src/decision.rs::Rule::target, Rule::target_applies",
+            asserts: "One policy, permission on urn:asset:A and prohibition on urn:asset:B: the same \
+                      policy allows a request for A and denies one for B, each reason naming the target \
+                      that decided it. A permission scoped to a collection IRI does not cover a member of \
+                      that collection.",
+            probe_ids: &["asset-per-rule-target-hit", "asset-per-rule-target-miss", "asset-target-not-a-collection"],
             documented_because: None,
             caveat: None,
         }),
@@ -3110,6 +3173,7 @@ mod tests {
             ("beh-open-empty", "beh-closed-empty"),
             ("inheritfrom-control", "inheritfrom-ignored"),
             ("ror-literal-eq", "ror-not-dereferenced"),
+            ("asset-per-rule-target-hit", "asset-per-rule-target-miss"),
         ] {
             assert_ne!(
                 decision_of(hit),

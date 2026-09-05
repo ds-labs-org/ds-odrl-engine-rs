@@ -132,6 +132,38 @@ impl ResolvedConfig {
         self.actions.iter().any(|a| a.id == action)
     }
 
+    /// Every action id some loaded profile actually declared, in
+    /// declaration order — exactly the set `recognizes` above answers
+    /// `true` for, and nothing more.
+    ///
+    /// **A third query, deliberately, not a leak of `actions`.** This type's
+    /// own doc comment says `actions` stays private because every real use
+    /// is either "is this action known at all" (`recognizes`) or "does this
+    /// rule's action cover that requested one" (`covers`), and handing out
+    /// the raw `Vec<ActionDecl>` would invite a caller to reimplement one of
+    /// those two slightly differently. That reasoning is intact:
+    /// `decision::performable_actions` needs a genuinely third query —
+    /// *enumerate* the vocabulary, in order to ask `decide` about each of
+    /// its members — which neither of the other two can express. What this
+    /// returns is bare `&str` ids, **not** `ActionDecl`s: the
+    /// `odrl:includedIn` edges stay behind `covers`, so no caller can walk
+    /// the taxonomy itself and arrive at a second, divergent notion of
+    /// coverage.
+    ///
+    /// Returned in declaration order and **not** deduplicated, because this
+    /// is a report of what was declared: `resolve` already dedupes by id
+    /// when it builds a config from profiles, but `ResolvedConfig::new` is
+    /// public and does not, so a hand-built config with a repeated id
+    /// reports that repeat. A caller wanting a set says so for itself —
+    /// `performable_actions` does exactly that.
+    ///
+    /// An action named only as some other action's `odrl:includedIn` parent,
+    /// and never declared as an `ActionDecl` of its own, is not here: it is
+    /// not `recognizes`d either, and a rule naming it is `Decision::Error`.
+    pub fn declared_actions(&self) -> Vec<&str> {
+        self.actions.iter().map(|a| a.id.as_str()).collect()
+    }
+
     /// Does a rule declaring `rule_action` cover a request for
     /// `requested_action` — either the same action, or `requested_action`
     /// reaching `rule_action` through a chain of `odrl:includedIn` edges
@@ -401,6 +433,50 @@ mod tests {
         ];
         let config = resolve(&profiles);
         assert!(config.covers("transfer", "sell"), "p1's edge (declared first) wins over p2's bare re-declaration");
+    }
+
+    #[test]
+    fn declared_actions_lists_exactly_the_ids_recognizes_accepts_in_declaration_order() {
+        let config = resolve(&[profile(
+            "p1",
+            &[
+                ActionDecl::new("use"),
+                ActionDecl::included_in("distribute", "use"),
+                ActionDecl::included_in("sell", "transfer"),
+            ],
+            DutyMode::Advise,
+        )]);
+        assert_eq!(
+            config.declared_actions(),
+            vec!["use", "distribute", "sell"],
+            "every declared ActionDecl's id, in declaration order"
+        );
+        assert!(
+            !config.declared_actions().contains(&"transfer"),
+            "an action named only as someone else's includedIn target is never separately \
+             declared, so recognizes() rejects it and this must not list it either"
+        );
+        for action in config.declared_actions() {
+            assert!(config.recognizes(action), "declared_actions and recognizes must agree");
+        }
+    }
+
+    #[test]
+    fn declared_actions_is_empty_when_no_profile_was_loaded() {
+        assert!(resolve(&[]).declared_actions().is_empty());
+    }
+
+    #[test]
+    fn declared_actions_reports_a_duplicate_id_a_caller_built_by_hand() {
+        // `resolve` dedupes, but `ResolvedConfig::new` is public and does
+        // not: this accessor reports the raw declaration list, and callers
+        // that need a set (`performable_actions`) dedupe for themselves.
+        let config = ResolvedConfig::new(
+            vec![ActionDecl::new("use"), ActionDecl::new("use")],
+            DutyMode::Advise,
+            Behaviour::Open,
+        );
+        assert_eq!(config.declared_actions(), vec!["use", "use"]);
     }
 
     #[test]

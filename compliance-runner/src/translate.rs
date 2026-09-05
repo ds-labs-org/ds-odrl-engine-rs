@@ -30,6 +30,23 @@
 //! `sub` claim), since `WirePolicy.assignee` itself is purely descriptive
 //! and has no effect on `decide` (`as_decision_policy` drops it).
 //!
+//! **`odrl:target` scoping stays here even though `engine::Rule` now
+//! carries its own `odrl:target`.** That field (see its doc comment in
+//! `engine/src/decision.rs`) covers the individual-asset case this adapter
+//! resolves in `target_matches`'s `TargetRef::Individual` arm — but not
+//! its `TargetRef::Collection` arm, which asks the fixture's
+//! state-of-the-world graph for `<member> odrl:partOf <collection>` facts
+//! the engine never receives and has no vocabulary to express. Emitting
+//! the individual half as a wire target while keeping the collection half
+//! here would split one scoping rule across two layers for no gain, and
+//! would rewrite every request exported to
+//! `compliance/reports/latest-cases.json` — the corpus an independent host
+//! re-runs. So this adapter is deliberately unchanged by that engine
+//! addition, exactly as it is by the native logical constraints
+//! (`Constraint::and`/`or`/`xone`) it also does not use: migrating onto
+//! either is its own decision, not a side effect of the capability
+//! existing.
+//!
 //! **Action-taxonomy coverage is now the engine's own general mechanism,
 //! not a host-side special case.** Earlier revisions of this adapter
 //! hand-coded one exception to exact-string action matching (a

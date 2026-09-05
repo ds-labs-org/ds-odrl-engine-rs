@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["engine", "compliance-runner", "site", "profile-interpreter", "coverage-probes"]
+members = ["engine", "compliance-runner", "site", "profile-interpreter", "coverage-probes", "dsp-odrl-adapter"]
 
 [workspace.package]
 edition = "2021"

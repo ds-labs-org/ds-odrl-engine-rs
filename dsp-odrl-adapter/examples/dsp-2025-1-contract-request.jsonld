@@ -1,0 +1,80 @@
+{
+  "_comment": [
+    "The exact same ODRL policy as dsp-2024-1-contract-request.jsonld, written in",
+    "the Dataspace Protocol 2025/1 shape instead: bare terms resolved through the",
+    "2025/1 context's type-scoped @context (keyed on ContractRequestMessage, with",
+    "@import of https://w3id.org/dspace/2025/1/odrl-profile.jsonld and",
+    "@propagate: true) rather than through an `odrl:` prefix on every key.",
+    "Both documents must ingest to one identical engine::WirePolicy -- that is the",
+    "whole point of expanding against the declared context instead of stripping a",
+    "literal `odrl:` prefix off every key. Terms the 2025/1 odrl-profile context",
+    "does not define (dateTime, purpose, resolution, distribute, inform) are",
+    "written bare here exactly as a real 2025/1 document writes them, and are",
+    "reported as unresolved-but-taken-verbatim warnings by this adapter."
+  ],
+  "@context": [
+    "https://w3id.org/dspace/2025/1/context.jsonld",
+    { "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#" }
+  ],
+  "@type": "ContractRequestMessage",
+  "providerPid": "urn:uuid:a343fcbf-99fc-4ce8-8e9b-148c97605aab",
+  "consumerPid": "urn:uuid:32541fe6-c580-409e-85a8-8a9a32fbe833",
+  "callbackAddress": "https://consumer.example.org/dsp/callback",
+  "offer": {
+    "@id": "urn:uuid:d526561f-528e-4d5a-ae12-9a9dd9b7a815",
+    "@type": "Offer",
+    "target": "urn:uuid:3dd1add8-4d2d-569e-d634-8394a8836a88",
+    "assigner": "urn:tsdshhs636378",
+    "assignee": "urn:jashd766",
+    "permission": [
+      {
+        "action": "use",
+        "constraint": [
+          {
+            "and": [
+              {
+                "leftOperand": "dateTime",
+                "operator": "lteq",
+                "rightOperand": { "@value": "2026-12-31T06:00:00Z", "@type": "xsd:dateTime" }
+              },
+              {
+                "leftOperand": "purpose",
+                "operator": "eq",
+                "rightOperand": "odrl:internal-use-only"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "action": {
+          "rdf:value": { "@id": "odrl:print" },
+          "odrl:refinement": [
+            {
+              "leftOperand": "resolution",
+              "operator": "lteq",
+              "rightOperand": { "@value": "1200", "@type": "xsd:integer" }
+            }
+          ]
+        },
+        "constraint": []
+      }
+    ],
+    "prohibition": [
+      {
+        "action": "distribute",
+        "target": "urn:uuid:0f2b6dcb-5f0c-4d1e-9a5f-1c0e6f5f0aa1",
+        "constraint": [
+          {
+            "leftOperand": "https://example.org/claims/region",
+            "operator": "isAnyOf",
+            "rightOperand": ["US", "CN"]
+          }
+        ]
+      }
+    ],
+    "obligation": [
+      { "action": "inform" }
+    ]
+  }
+}

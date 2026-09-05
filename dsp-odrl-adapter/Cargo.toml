@@ -1,0 +1,28 @@
+[package]
+name = "dsp-odrl-adapter"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Opt-in adapter that ingests a Dataspace Protocol contract offer/agreement's ODRL JSON-LD into this engine's Section 5.2 wire shape — an adapter, not an engine or wire-contract change."
+
+# The whole capability is behind one Cargo feature, default-off, and every
+# dependency this crate has is optional and enabled by it. A host that does
+# not opt in links an empty library with no dependencies at all — see this
+# crate's README ("Why a Cargo feature and not a runtime switch") for the
+# reasoning, which turns on the fact that ingestion happens strictly
+# *before* the engine is ever called, so there is no runtime code path a
+# toggle could sit on.
+[features]
+default = []
+dsp-ingest = ["dep:engine", "dep:serde", "dep:serde_json"]
+
+[[bin]]
+name = "dsp-odrl-adapter"
+path = "src/main.rs"
+required-features = ["dsp-ingest"]
+
+[dependencies]
+engine = { path = "../engine", optional = true }
+serde = { version = "1", features = ["derive"], optional = true }
+serde_json = { version = "1", optional = true }

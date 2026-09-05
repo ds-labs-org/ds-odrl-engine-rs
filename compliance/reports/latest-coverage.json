@@ -6289,18 +6289,128 @@
       "title": "a profile-declared Rule class on a policy is dropped"
     },
     {
-      "asserts": "The permission targets urn:asset:A, the prohibition targets urn:asset:B, and the request is for urn:asset:A. A reader of the targets would Allow. The engine denies: dataset_id is the only asset handle on the wire, and it is echoed back unchanged.",
+      "asserts": "One policy, permission on urn:asset:A and prohibition on urn:asset:B, requested for urn:asset:A. Allow, and the reason names the permission's own target -- the prohibition is about another asset and does not participate. Paired with asset-per-rule-target-miss, the same policy requested for urn:asset:B.",
+      "expect": {
+        "dataset_id": "urn:asset:A",
+        "decision": "Allow",
+        "duties": null,
+        "reason_contains": [
+          "permission[0] of policy 'probe' matched: action 'use' on target 'urn:asset:A', unconstrained"
+        ],
+        "reason_excludes": []
+      },
+      "falsified_by": "Deny -- which would mean the prohibition's target is dropped and every rule is implicitly about dataset_id, as every rule was before per-rule targets existed",
+      "id": "asset-per-rule-target-hit",
+      "kind": "positive",
+      "request": {
+        "action": "use",
+        "claims": {},
+        "config": {
+          "@id": "https://ds42.org/profiles/coverage-probe",
+          "@type": "odrl:Profile",
+          "behaviour": "closed",
+          "dutyMode": "advise",
+          "odrl:action": [
+            {
+              "@id": "use"
+            }
+          ]
+        },
+        "dataset_id": "urn:asset:A",
+        "policies": [
+          {
+            "assignee": null,
+            "assigner": "did:web:provider.example",
+            "id": "probe",
+            "kind": "Set",
+            "obligations": [],
+            "permissions": [
+              {
+                "action": "use",
+                "constraints": [],
+                "odrl:target": "urn:asset:A"
+              }
+            ],
+            "prohibitions": [
+              {
+                "action": "use",
+                "constraints": [],
+                "odrl:target": "urn:asset:B"
+              }
+            ]
+          }
+        ]
+      },
+      "title": "a per-rule odrl:target is evaluated: a prohibition scoped to another asset does not deny"
+    },
+    {
+      "asserts": "Byte-identical to asset-per-rule-target-hit except for dataset_id (the request's own target). Deny, naming the prohibition and its target: the permission on urn:asset:A no longer applies and the prohibition on urn:asset:B does.",
+      "expect": {
+        "dataset_id": "urn:asset:B",
+        "decision": "Deny",
+        "duties": null,
+        "reason_contains": [
+          "prohibition[0] of policy 'probe' matched: action 'use' on target 'urn:asset:B', unconstrained"
+        ],
+        "reason_excludes": []
+      },
+      "falsified_by": "Allow -- which would mean the permission's own target is dropped",
+      "id": "asset-per-rule-target-miss",
+      "kind": "negative",
+      "request": {
+        "action": "use",
+        "claims": {},
+        "config": {
+          "@id": "https://ds42.org/profiles/coverage-probe",
+          "@type": "odrl:Profile",
+          "behaviour": "closed",
+          "dutyMode": "advise",
+          "odrl:action": [
+            {
+              "@id": "use"
+            }
+          ]
+        },
+        "dataset_id": "urn:asset:B",
+        "policies": [
+          {
+            "assignee": null,
+            "assigner": "did:web:provider.example",
+            "id": "probe",
+            "kind": "Set",
+            "obligations": [],
+            "permissions": [
+              {
+                "action": "use",
+                "constraints": [],
+                "odrl:target": "urn:asset:A"
+              }
+            ],
+            "prohibitions": [
+              {
+                "action": "use",
+                "constraints": [],
+                "odrl:target": "urn:asset:B"
+              }
+            ]
+          }
+        ]
+      },
+      "title": "the same policy, requested for the prohibited asset, denies"
+    },
+    {
+      "asserts": "The permission targets urn:asset:collection and the request is for urn:asset:A, a member of it in any real catalog. Deny: this engine has no asset vocabulary, so odrl:partOf membership and IRI normalization are both a host's job, exactly as they were before per-rule targets existed.",
       "expect": {
         "dataset_id": "urn:asset:A",
         "decision": "Deny",
         "duties": null,
         "reason_contains": [
-          "prohibition[0] of policy 'probe' matched: action 'use', unconstrained"
+          "permission[0] of policy 'probe' covers requested action 'use' but targets 'urn:asset:collection', not the requested 'urn:asset:A'"
         ],
         "reason_excludes": []
       },
-      "falsified_by": "Allow -- which would mean per-rule targets are evaluated",
-      "id": "asset-per-rule-target-ignored",
+      "falsified_by": "Allow -- which would mean collection membership is resolved here",
+      "id": "asset-target-not-a-collection",
       "kind": "negative",
       "request": {
         "action": "use",
@@ -6328,20 +6438,14 @@
               {
                 "action": "use",
                 "constraints": [],
-                "target": "urn:asset:A"
+                "odrl:target": "urn:asset:collection"
               }
             ],
-            "prohibitions": [
-              {
-                "action": "use",
-                "constraints": [],
-                "target": "urn:asset:B"
-              }
-            ]
+            "prohibitions": []
           }
         ]
       },
-      "title": "a per-rule odrl:target is dropped: a prohibition scoped to another asset still denies"
+      "title": "a per-rule odrl:target is matched as an opaque string, not through any asset taxonomy"
     },
     {
       "asserts": "The asset a permitted action produces has no representation on the wire. Identical decision and reason to act-base-exact's byte-identical request without the key.",
@@ -7979,18 +8083,20 @@
       "why": "Resolved natively by compliance-runner against the vendored suite's state-of-the-world graph, with a documented local-name-matching fragility."
     },
     {
-      "asserts": "A prohibition scoped to a different asset than the one requested still denies, and the envelope-level dataset_id comes back echoed unchanged.",
+      "asserts": "One policy, permission on urn:asset:A and prohibition on urn:asset:B: the same policy allows a request for A and denies one for B, each reason naming the target that decided it. A permission scoped to a collection IRI does not cover a member of that collection.",
       "category": "assets",
       "caveat": null,
       "documented_because": null,
-      "evidence": "engine/src/wire.rs::Request::dataset_id, decision::Rule",
+      "evidence": "engine/src/decision.rs::Rule::target, Rule::target_applies",
       "id": "assets.target",
       "probe_ids": [
-        "asset-per-rule-target-ignored"
+        "asset-per-rule-target-hit",
+        "asset-per-rule-target-miss",
+        "asset-target-not-a-collection"
       ],
-      "status": "NotImplemented",
+      "status": "Partial",
       "term": "odrl:target (per-rule)",
-      "why": "Request.dataset_id is the only asset handle on the wire; one policy cannot express \"permission on asset A, prohibition on asset B\"."
+      "why": "Each rule may carry its own odrl:target, matched against the request's own asset (Request.dataset_id); a rule naming none is about whatever is requested. Partial, not Implemented: the match is opaque string equality, with no odrl:partOf collection membership and no IRI normalization."
     },
     {
       "asserts": "The injected key leaves act-base-exact's decision and reason unchanged.",

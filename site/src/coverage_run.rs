@@ -1,6 +1,6 @@
 //! The live ODRL 2.2 coverage run's own state machine and async driver:
 //! fetch and instantiate the real compiled `engine.wasm`, fetch the probe
-//! catalog `coverage-probes` exported, drive all 113 probes through the
+//! catalog `coverage-probes` exported, drive all 115 probes through the
 //! *same* `engine_bridge::evaluate` the Demonstrator and Compliance pages
 //! use (so every probe inherits that module's fresh-`memory.buffer()`
 //! discipline by construction, not by a second implementation remembering
@@ -104,7 +104,7 @@ pub async fn run(state: UseStateHandle<RunState>) {
   // Without a real await between this `set` and the next, Yew coalesces
   // the two updates into a single render and "Compiling coverage report"
   // is never painted at all. This stage is not decoration: it derives 52
-  // row verdicts over 113 probe outcomes and tallies both axes.
+  // row verdicts over 115 probe outcomes and tallies both axes.
   yield_for_paint().await;
   state.set(RunState::Done(Box::new(compile_coverage_report(&catalog, outcomes, elapsed_ms, engine_bytes))));
 }

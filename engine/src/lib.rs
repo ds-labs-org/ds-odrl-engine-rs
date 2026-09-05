@@ -8,6 +8,12 @@ pub mod wire;
 
 pub use claims::{ClaimValue, Claims};
 pub use constraint::{Constraint, Operator, MAX_CONSTRAINT_DEPTH};
-pub use decision::{decide, Decision, DecisionOutcome, Policy, Rule, RuleKind, UnrecognizedAction, UnresolvedDuty};
+pub use decision::{
+    decide, performable_actions, referenced_left_operands, Decision, DecisionOutcome, Policy, Rule, RuleKind,
+    UnrecognizedAction, UnresolvedDuty,
+};
 pub use profile::{resolve, ActionDecl, Behaviour, DutyMode, Profile, ResolvedConfig};
-pub use wire::{evaluate_request, parse_error_response, DutyEntry, Request, RequestConfig, Response, WireDecision, WirePolicy};
+pub use wire::{
+    evaluate_request, left_operands_for_request, parse_error_response, performable_actions_for_request, DutyEntry,
+    Request, RequestConfig, Response, WireDecision, WirePolicy,
+};

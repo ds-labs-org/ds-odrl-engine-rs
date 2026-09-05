@@ -46,6 +46,14 @@ than assumed — see `src/interpret.rs`'s module doc for the full reasoning:
   (the former needs no action — this engine's leftOperand is already a
   free-form claims-map key; the latter genuinely can't be honored, since
   `engine::Operator` is a fixed enum) rather than silently ignored.
+- `odrl:refinement` (the engine's `Rule.action_refinement`, root README's
+  "Action refinement") is **not** a Profile-document construct and this
+  tool never emits one: a refinement narrows an action inside a *policy*,
+  whereas a Profile declares which actions exist at all. The connection
+  is indirect and already covered — a refinement's `left_operand`s are
+  ordinary claim-map keys, so a profile declaring them as
+  `odrl:LeftOperand` extensions surfaces them through
+  `declared_left_operands` exactly as it does for a rule's constraints.
 
 ## Usage
 
@@ -132,3 +140,46 @@ Formal Semantics draft's own `"default"` alias for `"closed"`) and
 declares its own `behaviour` (see above) and that panel has no form
 field for one; the Demonstrator's own `behaviour` selection reaches the
 engine through a separate path, not through this crate.
+
+Do not confuse `declared_left_operands` with the `engine` crate's own
+`Policy::referenced_left_operands` / `left_operands_for_request` (root
+README, "Asking which claims a set of policies actually reads"): this
+list is what a **profile document** declares as vocabulary
+(`odrl:LeftOperand`-typed subjects), that one is what **actual policies**
+reference in their constraints. Neither constrains the other — the
+engine's `left_operand` is a free-form claims-map key, never validated
+against a profile's declared vocabulary, which is exactly what the
+warning text emitted alongside this list already says. Both lists are
+sorted and deduped by the same convention, so a caller wanting to compare
+or merge them can.
+
+The **action** half of a resolved config works the other way round, and is
+worth knowing when writing a profile document: the actions `resolve` emits
+into `config.odrl:action` are exactly the enumeration domain of the
+engine's `performable_actions` / `performable_actions_for_request` (root
+README, "Asking which actions a caller could actually perform"). An action
+a profile document never declares as its own `odrl:Action` subject can
+therefore never appear in that answer — not even when some other declared
+action names it as an `odrl:includedIn` parent, which is the same rule
+`engine::ResolvedConfig::recognizes` has always applied to a rule's own
+action. A profile that under-declares its vocabulary quietly narrows what
+a broker asking "what may this caller do?" is told, with no warning from
+here, since nothing in this crate can tell an omission from a deliberately
+narrow profile.
+
+## The other half: ingesting a real contract policy
+
+This crate reads a Profile document — the *vocabulary* declaration — and
+produces a request's `config`. It deliberately does not read a **policy**:
+a Profile says which actions exist, not what any particular offer permits.
+That other half lives in [`dsp-odrl-adapter`](../dsp-odrl-adapter/) (root
+README, "Ingesting a real DSP contract offer"), which turns a Dataspace
+Protocol contract offer/agreement's ODRL JSON-LD into a Section 5.2
+`WirePolicy`, and is opt-in behind a default-off Cargo feature.
+
+The two compose, and are meant to: `dsp-odrl-adapter`'s own
+`minimal_config` is a floor that declares only the actions the ingested
+policy happens to name, with no `odrl:includedIn` edges at all — so a host
+wanting real action-taxonomy coverage builds `config` here, from real
+Profile documents, and passes it alongside the ingested policy rather than
+taking that floor.
