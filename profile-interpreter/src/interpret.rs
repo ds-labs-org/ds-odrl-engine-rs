@@ -49,7 +49,8 @@
 //! engine's `leftOperand` is already a free-form claims-map key (Section
 //! 4.2), so a profile-declared `LeftOperand` needs no registration; but
 //! `engine::Operator` is a fixed, non-extensible enum (`eq`/`neq`/
-//! `isAnyOf`/`lt`/`lteq`/`gt`/`gteq`), so a profile-declared `Operator`
+//! `isAnyOf`/`isAllOf`/`isNoneOf`/`isPartOf`/`lt`/`lteq`/`gt`/`gteq`), so a
+//! profile-declared `Operator`
 //! genuinely cannot be honored without an engine change, and this
 //! interpreter surfaces that as a warning rather than pretending the
 //! extension took effect.
@@ -162,7 +163,7 @@ pub fn interpret(graph: &Graph, id_override: Option<String>, duty_mode: DutyMode
 
     for operator in graph.subjects_with_type(&odrl("Operator")) {
         warnings.push(format!(
-            "profile declares odrl:Operator {} — this engine's Operator enum is fixed (eq/neq/isAnyOf/lt/lteq/gt/gteq); a profile-declared operator cannot be honored without an engine change",
+            "profile declares odrl:Operator {} — this engine's Operator enum is fixed (eq/neq/isAnyOf/isAllOf/isNoneOf/isPartOf/lt/lteq/gt/gteq); a profile-declared operator cannot be honored without an engine change",
             local_name(&operator)
         ));
     }

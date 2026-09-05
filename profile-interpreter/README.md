@@ -76,6 +76,41 @@ print to stderr; the JSON output on stdout is always exactly what you'd
 paste into a Section 5.2 request's `config` field (`resolve`) or a
 `Profile` record (`interpret`).
 
+## `examples/odrl-2.2-common-actions.ttl`
+
+A loadable ODRL Profile document declaring the W3C ODRL 2.2 Vocabulary's
+own Action taxonomy in full — the two Core Vocabulary roots (`use`,
+`transfer`, Section 3.12) plus every one of the 49 Common Vocabulary
+actions Section 4.4 individually defines (40 native `odrl:` terms and 9
+Creative Commons terms ODRL adopts by reference), each with the
+`odrl:includedIn` edge that section's own definition table states for
+it. It was produced by fetching and reading
+<https://www.w3.org/TR/odrl-vocab/> directly, term by term — every edge
+in the file is transcribed from that page's own `Included In:` row, none
+inferred or guessed; the file's own header comment says exactly which
+section each group comes from, and flags a real spec quirk (Section
+4.4.8's own published identifier for "Commercial Use" is the mis-spelled
+`http://creativecommons.org/ns#CommericalUse`, transcribed here as
+published rather than silently corrected). It exists as ready-to-use,
+fully-sourced vocabulary data for a host that wants the *complete*
+standard action taxonomy recognized (as opposed to, say,
+`compliance-runner`'s own deliberately narrow, corpus-driven
+`base_action_vocabulary`, which declares only the handful of actions
+that vendored fixture corpus actually exercises). It parses with this
+crate's existing `interpret`/`resolve` commands unmodified — no parser
+change was needed to load it:
+
+```sh
+# Its own Profile-shaped JSON (51 actions; a placeholder id, since the
+# document itself never types a subject `a odrl:Profile` -- pass --id
+# if you want one):
+profile-interpreter interpret examples/odrl-2.2-common-actions.ttl
+
+# As one of several profiles feeding a Section 5.2 request `config`,
+# alongside whatever profile-specific extensions a host also loads:
+profile-interpreter resolve examples/odrl-2.2-common-actions.ttl my-extension-profile.ttl --duty-mode advise --behaviour open
+```
+
 ## As a library
 
 This CLI is a thin shell over `src/lib.rs` (`pub mod graph; pub mod

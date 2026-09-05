@@ -40,6 +40,26 @@ impl ClaimValue {
                 .any(|v| candidates.contains(&v.as_str())),
         }
     }
+
+    /// `isAllOf` semantics: satisfied only if *every* element of
+    /// `candidates` is present among this value's own member(s)
+    /// (`Operator::IsAllOf`). A single-valued claim is treated as a
+    /// one-element set for this purpose, so it can only satisfy this when
+    /// `candidates` is that one value repeated any number of times — two
+    /// distinct candidates can never both be found among a single string.
+    /// An empty `candidates` slice is vacuously satisfied (the empty set
+    /// is a subset of every set), but `Constraint::evaluate`'s own
+    /// comma-split of `right_operand` never actually produces one — even
+    /// `""` splits into a single empty-string candidate — so that vacuous
+    /// case is reachable only by calling this method directly, not
+    /// through the constraint engine.
+    pub fn matches_all(&self, candidates: &[&str]) -> bool {
+        let members: &[String] = match self {
+            ClaimValue::Single(value) => std::slice::from_ref(value),
+            ClaimValue::Multi(values) => values,
+        };
+        candidates.iter().all(|c| members.iter().any(|m| m == c))
+    }
 }
 
 impl From<String> for ClaimValue {
@@ -93,6 +113,30 @@ mod tests {
         let multi = ClaimValue::Multi(vec!["FR".to_string(), "DE".to_string()]);
         assert!(multi.matches_any(&["US", "DE"]));
         assert!(!multi.matches_any(&["US", "GB"]));
+    }
+
+    #[test]
+    fn matches_all_requires_every_candidate_to_be_present_among_the_members() {
+        let single = ClaimValue::Single("read".to_string());
+        assert!(single.matches_all(&["read"]));
+        assert!(single.matches_all(&["read", "read"]));
+        assert!(!single.matches_all(&["read", "write"]));
+        assert!(!single.matches_all(&["write"]));
+
+        let multi = ClaimValue::Multi(vec!["read".to_string(), "write".to_string(), "delete".to_string()]);
+        assert!(multi.matches_all(&["read", "write"]));
+        assert!(multi.matches_all(&["delete", "read", "write"]));
+        assert!(!multi.matches_all(&["read", "admin"]));
+    }
+
+    #[test]
+    fn matches_all_with_an_empty_candidate_slice_is_vacuously_satisfied() {
+        // The empty set is a subset of every set. `Constraint::evaluate`
+        // never actually calls this with an empty slice (its comma-split
+        // of `right_operand` always yields at least one, possibly empty,
+        // candidate) -- this exercises the method's own direct contract.
+        let single = ClaimValue::Single("read".to_string());
+        assert!(single.matches_all(&[]));
     }
 
     #[test]

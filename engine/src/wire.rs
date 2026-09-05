@@ -14,7 +14,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::claims::Claims;
-use crate::constraint::Operator;
+use crate::constraint::{Constraint, Operator, MAX_CONSTRAINT_DEPTH};
 use crate::decision::{decide, Decision, DecisionOutcome, Policy, Rule};
 use crate::profile::{ActionDecl, Behaviour, DutyMode, ResolvedConfig};
 
@@ -187,6 +187,56 @@ pub struct Response {
     pub duties: Vec<DutyEntry>,
 }
 
+/// Wire name for one `Operator`, shared by `describe_constraint` below —
+/// factored out of that function rather than duplicated, since it's the
+/// same "how should this operator print in a human trace" question.
+fn operator_wire_name(operator: Operator) -> &'static str {
+    match operator {
+        Operator::Eq => "eq",
+        Operator::Neq => "neq",
+        Operator::IsAnyOf => "isAnyOf",
+        Operator::IsAllOf => "isAllOf",
+        Operator::IsNoneOf => "isNoneOf",
+        Operator::IsPartOf => "isPartOf",
+        Operator::Lt => "lt",
+        Operator::Lteq => "lteq",
+        Operator::Gt => "gt",
+        Operator::Gteq => "gteq",
+    }
+}
+
+/// Renders one `Constraint` — atomic or a nested `odrl:and`/`odrl:or`/
+/// `odrl:xone` group — into the same short human-readable form
+/// `describe_rule`'s `reason` trace already used for the flat case, now
+/// recursing into nested children. Not exhaustive (a deep tree reads as
+/// deeply parenthesized, not specially summarized), but never garbled or
+/// panicking: recursion is bounded by the same `MAX_CONSTRAINT_DEPTH`
+/// `Constraint::evaluate` itself is bounded by, past which this prints a
+/// fixed placeholder instead of continuing to recurse — see that
+/// constant's own doc comment in `constraint.rs`.
+fn describe_constraint(constraint: &Constraint, depth: usize) -> String {
+    if depth > MAX_CONSTRAINT_DEPTH {
+        return "<constraint nested past MAX_CONSTRAINT_DEPTH>".to_string();
+    }
+    // Same xone > or > and > atomic precedence `Constraint::evaluate` uses.
+    if let Some(xone) = &constraint.xone {
+        let joined = xone.iter().map(|c| describe_constraint(c, depth + 1)).collect::<Vec<_>>().join(", ");
+        return format!("xone({joined})");
+    }
+    if let Some(or) = &constraint.or {
+        return join_children(or, " || ", depth);
+    }
+    if let Some(and) = &constraint.and {
+        return join_children(and, " && ", depth);
+    }
+    format!("{} {} {}", constraint.left_operand, operator_wire_name(constraint.operator), constraint.right_operand)
+}
+
+fn join_children(children: &[Constraint], separator: &str, depth: usize) -> String {
+    let joined = children.iter().map(|c| describe_constraint(c, depth + 1)).collect::<Vec<_>>().join(separator);
+    format!("({joined})")
+}
+
 fn describe_rule(rule: &Rule, requested_action: &str) -> String {
     let action_clause = if rule.action == requested_action {
         format!("action '{}'", rule.action)
@@ -199,18 +249,7 @@ fn describe_rule(rule: &Rule, requested_action: &str) -> String {
     let constraints = rule
         .constraints
         .iter()
-        .map(|c| {
-            let op = match c.operator {
-                Operator::Eq => "eq",
-                Operator::Neq => "neq",
-                Operator::IsAnyOf => "isAnyOf",
-                Operator::Lt => "lt",
-                Operator::Lteq => "lteq",
-                Operator::Gt => "gt",
-                Operator::Gteq => "gteq",
-            };
-            format!("{} {} {}", c.left_operand, op, c.right_operand)
-        })
+        .map(|c| describe_constraint(c, 0))
         .collect::<Vec<_>>()
         .join(" && ");
     format!("{action_clause}: {constraints}")
@@ -558,6 +597,50 @@ mod tests {
             "prohibition[0] of policy 'policy-2' matched: action 'use': nationality eq US"
         );
         assert!(response.duties.is_empty());
+    }
+
+    #[test]
+    fn a_matching_prohibition_with_a_nested_and_constraint_renders_it_sensibly_in_the_reason() {
+        // End-to-end proof that a native logical constraint (built here
+        // with `Constraint::and`, not compliance-runner's host-side DNF
+        // adapter) flows all the way through `evaluate_request` -- both
+        // the decision itself and the human-readable `reason` trace, which
+        // must render the nested shape legibly rather than garbled or
+        // panicking (`describe_constraint` in this module).
+        let req = Request {
+            dataset_id: "urn:uuid:ds".to_string(),
+            action: "use".to_string(),
+            config: deny_config(&["use"]),
+            policies: vec![WirePolicy {
+                id: "policy-nested".to_string(),
+                kind: "Offer".to_string(),
+                assigner: "did:web:provider.example".to_string(),
+                assignee: None,
+                permissions: vec![Rule::new("use", vec![])],
+                prohibitions: vec![Rule::new(
+                    "use",
+                    vec![crate::constraint::Constraint::and(vec![
+                        crate::constraint::Constraint::new("nationality", Operator::Eq, "US"),
+                        crate::constraint::Constraint::new("scope", Operator::IsAnyOf, "embargoed"),
+                    ])],
+                )],
+                obligations: vec![],
+            }],
+            claims: [
+                ("nationality".to_string(), ClaimValue::Single("US".to_string())),
+                ("scope".to_string(), ClaimValue::Single("embargoed".to_string())),
+            ]
+            .into_iter()
+            .collect(),
+        };
+
+        let response = evaluate_request(&req);
+        assert_eq!(response.decision, WireDecision::Deny);
+        assert_eq!(
+            response.reason,
+            "prohibition[0] of policy 'policy-nested' matched: action 'use': \
+             (nationality eq US && scope isAnyOf embargoed)"
+        );
     }
 
     #[test]

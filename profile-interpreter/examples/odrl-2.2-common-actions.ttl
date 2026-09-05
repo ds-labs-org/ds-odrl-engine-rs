@@ -1,0 +1,186 @@
+# The W3C ODRL 2.2 Vocabulary's own Action taxonomy, transcribed as a
+# loadable ODRL Profile document -- not this repo's invention, not
+# empirically guessed, and not narrowed to only the actions any one
+# corpus happens to use.
+#
+# Source (fetched and read directly, section by section, on 2026-09-05):
+#   https://www.w3.org/TR/odrl-vocab/
+#   - Section 3.12 "Actions for Rules" (ODRL Core Vocabulary) defines the
+#     two root actions: `use` (3.12.1) and `transfer` (3.12.2, labeled
+#     "Transfer Ownership" -- note the *identifier* is `transfer`, not
+#     `transferOwnership`). Neither declares its own `odrl:includedIn`;
+#     they are the two roots of this taxonomy.
+#   - Section 4.4 "Actions for Rules" (ODRL Common Vocabulary) defines 49
+#     more actions, each with its own `Identifier:` and `Included In:`
+#     row in that section's per-term definition table. Every
+#     `odrl:includedIn` edge below is transcribed verbatim from that row
+#     -- none is inferred, guessed, or empirically reverse-engineered
+#     from test-suite behavior the way
+#     `compliance-runner::translate::base_action_vocabulary` documents
+#     doing for `write includedIn use` (a non-spec fact; `write` isn't an
+#     ODRL 2.2 term at all -- see that function's own doc comment). Of
+#     those 49, 40 are native ODRL terms in the
+#     `http://www.w3.org/ns/odrl/2/` namespace and 9 are Creative
+#     Commons terms ODRL 2.2 adopts by reference, in the
+#     `http://creativecommons.org/ns#` namespace -- each of the latter
+#     also carries its own explicit "Included In: use" row in the same
+#     section, so this file declares all 9 rather than omitting them:
+#     the spec's own definition of their placement in the taxonomy is
+#     not underspecified here, whatever the case may be for other CC
+#     properties this vocabulary references elsewhere.
+#
+# What this file deliberately does NOT include: Section 3.11.1's
+# "Instances" listing for the `Action` class itself names several dozen
+# further local names (e.g. `commercialize`, `copy`, `export`, `lease`,
+# `license`, `pay`, `preview`, `secondaryUse`, `share`, `write`,
+# `writeTo`, ...) that appear ONLY in that summary enumeration -- none of
+# them has its own `<section id="term-...">` definition entry with an
+# `Identifier:`/`Included In:` row anywhere in this document (confirmed
+# by checking each one). Declaring an `odrl:includedIn` edge for a name
+# the spec itself never gives its own definition to would be inventing
+# an edge, which this file's whole purpose is to avoid doing. They are
+# left out, not silently folded in as more `use`-children.
+#
+# A spec quirk worth flagging rather than silently "fixing": Section
+# 4.4.8's own `Identifier:` row gives this Creative Commons term's IRI as
+# `http://creativecommons.org/ns#CommericalUse` -- missing a "c" in
+# "Commercial" -- even though the correctly-spelled
+# `http://creativecommons.org/ns#CommercialUse` also appears elsewhere in
+# this same W3C document (in the compatibility-mapping table for the
+# separate, non-common-vocabulary `commercialize` name mentioned above).
+# This file transcribes the ODRL vocabulary's own Common Vocabulary
+# section identifier exactly as published (`CommericalUse`, typo and
+# all) rather than silently correcting it to the spelling a reader might
+# expect -- a profile author copying this term from the live spec page
+# today would hit the identical, mis-spelled IRI.
+#
+# Usage: this document is a loadable ODRL Profile in the sense
+# profile-interpreter's own `interpret`/`resolve` subcommands already
+# understand -- see profile-interpreter/README.md.
+
+@prefix odrl: <http://www.w3.org/ns/odrl/2/>.
+@prefix cc: <http://creativecommons.org/ns#>.
+
+# --- Section 3.12: ODRL Core Vocabulary action roots ---------------------
+
+odrl:use a odrl:Action .
+odrl:transfer a odrl:Action .
+
+# --- Section 4.4: ODRL Common Vocabulary actions, native odrl: terms ----
+# In spec (4.4.x) order; every child not listed here is `includedIn use`.
+
+odrl:acceptTracking a odrl:Action ;
+    odrl:includedIn odrl:use .
+odrl:aggregate a odrl:Action ;
+    odrl:includedIn odrl:use .
+odrl:annotate a odrl:Action ;
+    odrl:includedIn odrl:use .
+odrl:anonymize a odrl:Action ;
+    odrl:includedIn odrl:use .
+odrl:archive a odrl:Action ;
+    odrl:includedIn odrl:use .
+odrl:attribute a odrl:Action ;
+    odrl:includedIn odrl:use .
+odrl:compensate a odrl:Action ;
+    odrl:includedIn odrl:use .
+odrl:concurrentUse a odrl:Action ;
+    odrl:includedIn odrl:use .
+odrl:delete a odrl:Action ;
+    odrl:includedIn odrl:use .
+odrl:derive a odrl:Action ;
+    odrl:includedIn odrl:use .
+odrl:digitize a odrl:Action ;
+    odrl:includedIn odrl:use .
+# 4.4.15 Display: the one non-CC action whose parent is neither `use` nor
+# `transfer` -- it is `includedIn play`, and `play` (4.4.32) is itself
+# `includedIn use`, so the two-hop chain display -> play -> use only
+# resolves at evaluation time because `play` is *also* separately
+# declared below as its own odrl:Action (see this file's own header note
+# on not reaching through an undeclared action, and
+# profile-interpreter's `does_not_reach_through_an_action_the_document_never_declares`
+# test for exactly this failure mode).
+odrl:display a odrl:Action ;
+    odrl:includedIn odrl:play .
+odrl:distribute a odrl:Action ;
+    odrl:includedIn odrl:use .
+odrl:ensureExclusivity a odrl:Action ;
+    odrl:includedIn odrl:use .
+odrl:execute a odrl:Action ;
+    odrl:includedIn odrl:use .
+# 4.4.20 Extract: the other non-`use`, non-`transfer` parent -- child of
+# `reproduce` (4.4.36), which is itself declared below.
+odrl:extract a odrl:Action ;
+    odrl:includedIn odrl:reproduce .
+odrl:give a odrl:Action ;
+    odrl:includedIn odrl:transfer .
+odrl:grantUse a odrl:Action ;
+    odrl:includedIn odrl:use .
+odrl:include a odrl:Action ;
+    odrl:includedIn odrl:use .
+odrl:index a odrl:Action ;
+    odrl:includedIn odrl:use .
+odrl:inform a odrl:Action ;
+    odrl:includedIn odrl:use .
+odrl:install a odrl:Action ;
+    odrl:includedIn odrl:use .
+odrl:modify a odrl:Action ;
+    odrl:includedIn odrl:use .
+odrl:move a odrl:Action ;
+    odrl:includedIn odrl:use .
+odrl:nextPolicy a odrl:Action ;
+    odrl:includedIn odrl:use .
+odrl:obtainConsent a odrl:Action ;
+    odrl:includedIn odrl:use .
+odrl:play a odrl:Action ;
+    odrl:includedIn odrl:use .
+odrl:present a odrl:Action ;
+    odrl:includedIn odrl:use .
+odrl:print a odrl:Action ;
+    odrl:includedIn odrl:use .
+odrl:read a odrl:Action ;
+    odrl:includedIn odrl:use .
+odrl:reproduce a odrl:Action ;
+    odrl:includedIn odrl:use .
+odrl:reviewPolicy a odrl:Action ;
+    odrl:includedIn odrl:use .
+odrl:sell a odrl:Action ;
+    odrl:includedIn odrl:transfer .
+odrl:stream a odrl:Action ;
+    odrl:includedIn odrl:use .
+odrl:synchronize a odrl:Action ;
+    odrl:includedIn odrl:use .
+odrl:textToSpeech a odrl:Action ;
+    odrl:includedIn odrl:use .
+odrl:transform a odrl:Action ;
+    odrl:includedIn odrl:use .
+odrl:translate a odrl:Action ;
+    odrl:includedIn odrl:use .
+odrl:uninstall a odrl:Action ;
+    odrl:includedIn odrl:use .
+odrl:watermark a odrl:Action ;
+    odrl:includedIn odrl:use .
+
+# --- Section 4.4: Creative Commons actions ODRL 2.2 adopts by reference -
+# All 9 carry an explicit "Included In: use" row in the spec itself.
+
+cc:Attribution a odrl:Action ;
+    odrl:includedIn odrl:use .
+# See this file's header note: this IRI is the ODRL 2.2 Vocabulary's own
+# published identifier for "Commercial Use" (4.4.8), spelled exactly as
+# the spec spells it -- "Commerical", not "Commercial".
+cc:CommericalUse a odrl:Action ;
+    odrl:includedIn odrl:use .
+cc:DerivativeWorks a odrl:Action ;
+    odrl:includedIn odrl:use .
+cc:Distribution a odrl:Action ;
+    odrl:includedIn odrl:use .
+cc:Notice a odrl:Action ;
+    odrl:includedIn odrl:use .
+cc:Reproduction a odrl:Action ;
+    odrl:includedIn odrl:use .
+cc:ShareAlike a odrl:Action ;
+    odrl:includedIn odrl:use .
+cc:Sharing a odrl:Action ;
+    odrl:includedIn odrl:use .
+cc:SourceCode a odrl:Action ;
+    odrl:includedIn odrl:use .

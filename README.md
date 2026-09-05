@@ -11,9 +11,32 @@ other host willing to speak its JSON wire contract).
 ## What this is not
 
 This is **not a full ODRL implementation**. `engine`'s own Default Profile
-has seven constraint operators now (`eq`/`neq`/`isAnyOf`, plus `lt`/
-`lteq`/`gt`/`gteq` for UTC `dateTime` comparison) over a flat string/
-string-array claims model, and action-taxonomy coverage limited to
+has ten constraint operators now (`eq`/`neq`/`isAnyOf`/`isAllOf`/
+`isNoneOf`/`isPartOf`, plus `lt`/`lteq`/`gt`/`gteq` for ordering
+comparison) over a flat string/string-array claims model. `lt`/`lteq`/
+`gt`/`gteq` are no longer dateTime-only: each one first tries both sides
+as a recognized `xsd:dateTime`/`xsd:date` — the strict UTC `...Z` form,
+a `dateTime` with a numeric UTC offset (`+02:00`/`-05:30`, converted to
+the equivalent UTC instant), or a bare `xsd:date` (`YYYY-MM-DD`, treated
+as midnight UTC of that date for comparison purposes) — and only if
+either side isn't one of those falls back to comparing both sides as a
+plain `f64` number, closing Section 7's "no age predicate is expressible"
+gap for a numeric claim without adding an operator. Either dispatch
+still misses (not errors) when neither reading applies to both sides; see
+`engine/src/constraint.rs`'s `ordering_matches` and `engine/src/
+temporal.rs`'s `parse_xsd_temporal_nanos` for the exact rules. The three
+set-based operators `isAllOf`, `isNoneOf`, `isPartOf` all reuse `isAnyOf`'s own
+established adaptation of treating `right_operand` as a comma-delimited
+list rather than a JSON-LD array (`Constraint::right_operand` is a single
+`String`); `isPartOf` in particular is a documented degenerate case, not
+general range/hierarchy-membership — it runs the exact same flat
+set-membership test as `isAnyOf`, under a different name, because this
+engine's opaque string-claims model has no general notion of one value
+"containing" another. See `engine/src/constraint.rs`'s `Operator` doc
+comment for the exact semantics and honest limitations of each, including
+`isNoneOf`'s own deliberate exception to the "absent claim key is a miss"
+rule every other operator here follows. Action-taxonomy coverage is still
+limited to
 *declared* `odrl:includedIn` edges (`engine::ResolvedConfig::covers`): a
 permission for a broader action covers a request for a narrower one only
 if every hop of that chain is an `ActionDecl` some loaded profile actually
@@ -22,13 +45,21 @@ never separately declared as its own `ActionDecl` contributes nothing even
 as someone else's `includedIn` target. This closes the general
 action-implication gap earlier revisions of this README described as
 unsupported; what remains is honestly narrower than full RDFS-style
-subsumption reasoning. Nested `odrl:and`/`odrl:or` logical constraints and
-`odrl:PartyCollection`/`odrl:AssetCollection` membership are resolved by
-`compliance-runner`'s own adapter (DNF expansion into sibling/combined
-rules; SOTW-graph `odrl:partOf` lookups) rather than by any change to
-`engine`'s wire contract — a real host would need the equivalent adapter
-logic, not just this engine. `odrl:xone` remains genuinely unsupported (no
-"exactly one" exclusivity), and per-permission `odrl:duty` is resolved
+subsumption reasoning. `engine::Constraint` now natively evaluates nested
+`odrl:and`/`odrl:or`/`odrl:xone` logical groupings, `odrl:xone` (exactly
+one child, not "one or more") included — see "Native logical constraints"
+below for the JSON shape and semantics. `compliance-runner`'s own adapter
+(DNF expansion of `odrl:and`/`odrl:or` into sibling/combined rules ahead
+of ever calling `engine`) remains the pattern the vendored compliance
+suite is actually translated through today — untouched by this addition
+and still how every one of its 68 passing cases gets there; native support
+is a new option a host can adopt instead, not a replacement
+`compliance-runner` has migrated onto. `odrl:PartyCollection`/
+`odrl:AssetCollection` membership is still resolved only by
+`compliance-runner`'s own adapter (SOTW-graph `odrl:partOf` lookups)
+rather than by any change to `engine`'s wire contract — a real host
+wanting that would still need the equivalent adapter logic, not just this
+engine. Per-permission `odrl:duty` is resolved
 only by reading this specific compliance suite's own SOTW-embedded
 `report:DutyReport` fact — `engine` itself still evaluates policy-level
 obligations only (Section 4.5); this is not general per-permission duty
@@ -168,10 +199,16 @@ Request:
   truth (as this engine's own compliance suite does), should choose.
 - `policies` mirrors the host's own `Policy`/`Rule`/`Constraint` shape
   field for field — each rule keeps its **own** declared `action`, not
-  the request's. `constraints` supports seven operators: `eq`, `neq`,
-  `isAnyOf` (which splits `right_operand` on commas, with no escaping
-  convention), and the four UTC-`dateTime`-only comparisons `lt`/`lteq`/
-  `gt`/`gteq`. A rule's `constraints` list matches vacuously when empty.
+  the request's. `constraints` supports ten operators: `eq`, `neq`, the
+  four set-based operators `isAnyOf`/`isAllOf`/`isNoneOf`/`isPartOf`
+  (each splitting `right_operand` on commas, with no escaping
+  convention), and the four ordering comparisons `lt`/`lteq`/`gt`/`gteq`
+  — a UTC `dateTime`, an offset-qualified `dateTime`, or a bare
+  `xsd:date` on both sides compared chronologically, falling back to a
+  plain numeric comparison when either side isn't one of those (see
+  "What this is not" above). `isPartOf` is a documented degenerate case —
+  flat set membership identical to `isAnyOf`, not general range/hierarchy
+  containment. A rule's `constraints` list matches vacuously when empty.
 - `claims` is the flat claims map: each value is a JSON string or array
   of strings, sourced from whatever identity the host already trusts —
   this engine never decodes a JWT or other identity-presentation format
@@ -214,6 +251,84 @@ packed_ptr_len`, plus the toolchain's default `memory` export — see
 skips the ABI entirely and calls `engine::wire::evaluate_request`
 directly.
 
+## Native logical constraints (`odrl:and`/`odrl:or`/`odrl:xone`)
+
+`engine::Constraint` — the element type of a `Rule`'s `constraints` list
+above — can now, on top of its original flat `left_operand`/`operator`/
+`right_operand` shape, itself be a nested `odrl:and`/`odrl:or`/`odrl:xone`
+grouping of further `Constraint`s (W3C ODRL 2.2's `odrl:LogicalConstraint`).
+This is purely additive: `Constraint` keeps its original three fields at
+their original JSON keys, and gains three new, optional fields —
+`and`/`or`/`xone` — each serialized under its own `odrl:`-namespaced key.
+A flat constraint (every existing fixture in this workspace) carries none
+of them and round-trips exactly as before; see
+`engine/src/constraint.rs`'s own doc comment on `Constraint` for the
+full design rationale, including the alternatives tried and rejected
+before this one.
+
+A worked example — a permission whose one constraint is an `odrl:and` of
+two flat conditions:
+
+```json
+{
+  "action": "use",
+  "constraints": [
+    {
+      "odrl:and": [
+        { "left_operand": "nationality", "operator": "eq", "right_operand": "DE" },
+        { "left_operand": "scope", "operator": "isAnyOf", "right_operand": "read,write" }
+      ]
+    }
+  ]
+}
+```
+
+`odrl:and`/`odrl:or`/`odrl:xone` each take an array of nested `Constraint`
+values (flat or themselves logical, nested arbitrarily) and combine them:
+
+- **`odrl:and`** — satisfied when *every* child is satisfied (an empty
+  list is vacuously satisfied, same as `Rule`'s own empty `constraints`).
+- **`odrl:or`** — satisfied when *at least one* child is satisfied (an
+  empty list is never satisfied).
+- **`odrl:xone`** — satisfied when **exactly one** child is satisfied: 0
+  matching children is not satisfied, and — the part a DNF expansion
+  genuinely cannot express — 2-or-more matching children is *also* not
+  satisfied. This is the one capability this repo's own "What this is
+  not" section above used to name as a flat limitation of the host-side
+  `and`/`or` adapter pattern: expanding into an `odrl:or` of pairwise
+  `odrl:and` combinations can express "one or more of these", never "this
+  one, and not also that other one." `Constraint::evaluate`'s `Xone`
+  handling checks the actual count, not a disjunction over combinations.
+
+Evaluation recurses into nested children up to `engine::MAX_CONSTRAINT_DEPTH`
+(64) levels deep; a constraint nested past that bound is treated as a
+deterministic non-match rather than recursed into further, so a
+pathologically deep tree — built directly in Rust, or received as JSON —
+cannot grow the evaluator's call stack unboundedly (relevant in
+particular to the `wasm32-unknown-unknown` guest, which typically runs
+with a smaller stack than a native host). Unlike `ResolvedConfig::covers`'s
+`includedIn`-chain walk, which guards against a real graph cycle via a
+`visited` set, a `Constraint` tree is owned by value throughout (no
+shared or interior-mutable references), so a literal cycle isn't
+representable in memory here at all — the bound exists for depth, not
+cycle detection. See `engine/src/constraint.rs`'s `MAX_CONSTRAINT_DEPTH`
+doc comment and its
+`nesting_past_max_constraint_depth_is_a_deterministic_non_match_not_a_panic`
+test for the exact boundary.
+
+**This is a new capability the engine now offers a host, not a change to
+what any host in this repo actually uses today.** `compliance-runner`'s
+own `translate.rs` adapter — which turns the vendored ODRL-Test-Suite's
+`odrl:and`/`odrl:or`/`odrl:xone` constraint trees into flat, host-side DNF
+before ever building a `Request` (see "What this is not" above,
+and `to_dnf` in `compliance-runner/src/translate.rs`) — is completely
+untouched by this addition and remains exactly how every one of the
+suite's 68 passing cases is translated; it still declines `odrl:xone`
+fixtures with a cited, honest reason rather than silently mistranslating
+them, since DNF cannot express "exactly one." Migrating that adapter onto
+this native support instead is a deliberate, separate later decision, not
+made by this change.
+
 ## Producing `config` from a real ODRL Profile document
 
 `config` above has to come from somewhere — [`profile-interpreter`](profile-interpreter/)
@@ -239,6 +354,16 @@ to `open`).
 interpret;`), not just this CLI binary — `site/`'s Demonstrator page
 calls it directly to load a pasted profile document in-browser (see
 `site/README.md`).
+
+`profile-interpreter/examples/odrl-2.2-common-actions.ttl` is one such
+document worth calling out specifically: the W3C ODRL 2.2 Vocabulary's
+own full Action taxonomy (both Core Vocabulary roots plus all 49 Common
+Vocabulary actions, <https://www.w3.org/TR/odrl-vocab/>), transcribed
+`odrl:includedIn` edge by edge from the live spec — not this repo's own
+narrow, corpus-driven vocabulary the way `compliance-runner`'s is (see
+that crate's `translate.rs`). See `profile-interpreter/README.md` for
+what it contains and a spec quirk (a mis-spelled Creative Commons IRI)
+it deliberately preserves rather than silently fixing.
 
 ## Building
 

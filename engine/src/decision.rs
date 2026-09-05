@@ -878,6 +878,80 @@ mod tests {
     }
 
     #[test]
+    fn a_permission_gated_by_a_native_nested_or_constraint_allows_when_either_branch_matches() {
+        // Proof that `decide` itself (not just `Constraint::evaluate` in
+        // isolation) treats a single `Rule::constraints` entry that is a
+        // logical grouping the same way it always treated a flat one: it
+        // is one constraint the rule's own `Rule::matches` -- `.all()`
+        // over `constraints` -- evaluates via `Constraint::evaluate`,
+        // which now recurses into the nested `odrl:or`.
+        let policy = Policy {
+            permissions: vec![Rule::new(
+                "read",
+                vec![Constraint::or(vec![
+                    Constraint::new("sub", Operator::Eq, "alice"),
+                    Constraint::new("sub", Operator::Eq, "bob"),
+                ])],
+            )],
+            prohibitions: vec![],
+            obligations: vec![],
+        };
+        let config = all_actions_config();
+
+        let alice = claims_with(&[("sub", ClaimValue::Single("alice".into()))]);
+        assert_eq!(decide(&policy, &alice, &config, "read").decision, Decision::Allow);
+
+        let carol = claims_with(&[("sub", ClaimValue::Single("carol".into()))]);
+        assert_eq!(decide(&policy, &carol, &config, "read").decision, Decision::Deny);
+    }
+
+    #[test]
+    fn a_prohibition_gated_by_a_native_xone_constraint_denies_on_exactly_one_match_only() {
+        // The genuinely new capability (Section 7 / this repo's README's
+        // own "no way to express exactly one" limitation), wired all the
+        // way through `decide`: a prohibition naming an `odrl:xone` over
+        // two mutually-exclusive-in-intent scopes must deny when exactly
+        // one holds, but not when neither or both do.
+        let policy = Policy {
+            permissions: vec![Rule::new("read", vec![])],
+            prohibitions: vec![Rule::new(
+                "read",
+                vec![Constraint::xone(vec![
+                    Constraint::new("scope", Operator::IsAnyOf, "internal-only"),
+                    Constraint::new("scope", Operator::IsAnyOf, "embargoed"),
+                ])],
+            )],
+            obligations: vec![],
+        };
+        let config = all_actions_config();
+
+        let neither = claims_with(&[("scope", ClaimValue::Single("public".into()))]);
+        assert_eq!(
+            decide(&policy, &neither, &config, "read").decision,
+            Decision::Allow,
+            "0 of 2 xone branches matching must not trigger the prohibition"
+        );
+
+        let exactly_one = claims_with(&[("scope", ClaimValue::Single("embargoed".into()))]);
+        assert_eq!(
+            decide(&policy, &exactly_one, &config, "read").decision,
+            Decision::Deny,
+            "exactly 1 of 2 xone branches matching must trigger the prohibition"
+        );
+
+        let both = claims_with(&[(
+            "scope",
+            ClaimValue::Multi(vec!["internal-only".into(), "embargoed".into()]),
+        )]);
+        assert_eq!(
+            decide(&policy, &both, &config, "read").decision,
+            Decision::Allow,
+            "2 of 2 xone branches matching must not trigger the prohibition either -- exactly \
+             one, not one-or-more"
+        );
+    }
+
+    #[test]
     fn unrecognized_action_in_an_obligation_yields_error() {
         let policy = Policy {
             permissions: vec![Rule::new("read", vec![])],
