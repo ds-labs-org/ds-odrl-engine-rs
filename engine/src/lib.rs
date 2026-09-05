@@ -3,6 +3,7 @@ pub mod claims;
 pub mod constraint;
 pub mod decision;
 pub mod profile;
+mod temporal;
 pub mod wire;
 
 pub use claims::{ClaimValue, Claims};

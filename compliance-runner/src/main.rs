@@ -31,11 +31,12 @@ fn main() {
         let outcome = (|| -> Result<CaseResult, String> {
             let policy_graph = Graph::parse(&entry.policy_path)?;
             let request_graph = Graph::parse(&entry.request_path)?;
+            let sotw_graph = Graph::parse(&entry.sotw_path)?;
 
             let policy = odrl::parse_policy(&policy_graph)?;
             let request = odrl::parse_request(&request_graph)?;
 
-            match translate::translate(&policy, &request, &entry.id) {
+            match translate::translate(&policy, &request, &sotw_graph, &entry.id) {
                 Translation::Skip(reason) => Ok(CaseResult::Skipped { slug: slug.clone(), title: title.clone(), reason }),
                 Translation::Ready(wire_request) => {
                     let expected_graph = Graph::parse(&entry.expected_report_path)?;

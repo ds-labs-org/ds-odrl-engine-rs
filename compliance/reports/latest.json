@@ -1,47 +1,10 @@
 {
   "total": 68,
-  "passed": 32,
+  "passed": 68,
   "failed": 0,
-  "skipped": 36,
+  "skipped": 0,
   "failing_case_ids": [],
-  "skipped_case_ids": [
-    "testcase-030-alice-read-x",
-    "testcase-031-alice-read-x-past",
-    "testcase-032-alice-read-x-future",
-    "testcase-033-alice-read-x",
-    "testcase-034-alice-read-x-past",
-    "testcase-035-alice-read-x-future",
-    "testcase-036-alice-read-x",
-    "testcase-037-alice-read-x-past",
-    "testcase-038-alice-read-x-future",
-    "testcase-039-alice-read-x",
-    "testcase-040-alice-read-x-past",
-    "testcase-041-alice-read-x-future",
-    "testcase-042-alice-read-x",
-    "testcase-043-alice-read-x-past",
-    "testcase-044-alice-read-x-future",
-    "testcase-045-alice-read-x",
-    "testcase-046-alice-read-x-past",
-    "testcase-047-alice-read-x-future",
-    "testcase-048-alice-read-x",
-    "testcase-049-alice-read-x-past",
-    "testcase-050-alice-read-x-future",
-    "testcase-051-alice",
-    "testcase-052-bob-read-x",
-    "testcase-053-alice-read-x",
-    "testcase-054-alice-read-y",
-    "testcase-055-alice-read-x",
-    "testcase-056-alice-read-y",
-    "testcase-057-bob-read-x",
-    "testcase-059-nonset",
-    "testcase-060-fulfilled",
-    "testcase-061-violated",
-    "testcase-062-big-policy",
-    "testcase-063-big-policy-OoO",
-    "testcase-064-big-policy-past",
-    "testcase-065-alice",
-    "testcase-067-alice-past"
-  ],
+  "skipped_case_ids": [],
   "cases": [
     {
       "slug": "testcase-001-alice",
@@ -307,254 +270,254 @@
     {
       "slug": "testcase-030-alice-read-x",
       "title": "Read request from Alice to resource X returns into yes (temporal eq) (Alice Request Read X).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Allow",
       "expected": null,
       "actual": null,
-      "reason": "constraint's odrl:leftOperand is odrl:dateTime; Section 7: \"Numeric and date/time comparison operators ... remain unimplemented in the Default Profile (Section 4.2)\"."
+      "reason": null
     },
     {
       "slug": "testcase-031-alice-read-x-past",
       "title": "Read request from Alice to resource X returns into yes (temporal eq - past) (Alice Request Read X).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Deny",
       "expected": null,
       "actual": null,
-      "reason": "constraint's odrl:leftOperand is odrl:dateTime; Section 7: \"Numeric and date/time comparison operators ... remain unimplemented in the Default Profile (Section 4.2)\"."
+      "reason": null
     },
     {
       "slug": "testcase-032-alice-read-x-future",
       "title": "Read request from Alice to resource X returns into yes (temporal eq - future) (Alice Request Read X).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Deny",
       "expected": null,
       "actual": null,
-      "reason": "constraint's odrl:leftOperand is odrl:dateTime; Section 7: \"Numeric and date/time comparison operators ... remain unimplemented in the Default Profile (Section 4.2)\"."
+      "reason": null
     },
     {
       "slug": "testcase-033-alice-read-x",
       "title": "Read request from Alice to resource X returns into yes (temporal neq) (Alice Request Read X).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Deny",
       "expected": null,
       "actual": null,
-      "reason": "constraint's odrl:leftOperand is odrl:dateTime; Section 7: \"Numeric and date/time comparison operators ... remain unimplemented in the Default Profile (Section 4.2)\"."
+      "reason": null
     },
     {
       "slug": "testcase-034-alice-read-x-past",
       "title": "Read request from Alice to resource X returns into yes (temporal neq - past) (Alice Request Read X).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Allow",
       "expected": null,
       "actual": null,
-      "reason": "constraint's odrl:leftOperand is odrl:dateTime; Section 7: \"Numeric and date/time comparison operators ... remain unimplemented in the Default Profile (Section 4.2)\"."
+      "reason": null
     },
     {
       "slug": "testcase-035-alice-read-x-future",
       "title": "Read request from Alice to resource X returns into yes (temporal neq - future) (Alice Request Read X).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Allow",
       "expected": null,
       "actual": null,
-      "reason": "constraint's odrl:leftOperand is odrl:dateTime; Section 7: \"Numeric and date/time comparison operators ... remain unimplemented in the Default Profile (Section 4.2)\"."
+      "reason": null
     },
     {
       "slug": "testcase-036-alice-read-x",
       "title": "Read request from Alice to resource X returns into yes (temporal lt) (Alice Request Read X).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Deny",
       "expected": null,
       "actual": null,
-      "reason": "constraint's odrl:leftOperand is odrl:dateTime; Section 7: \"Numeric and date/time comparison operators ... remain unimplemented in the Default Profile (Section 4.2)\"."
+      "reason": null
     },
     {
       "slug": "testcase-037-alice-read-x-past",
       "title": "Read request from Alice to resource X returns into yes (temporal lt - past) (Alice Request Read X).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Allow",
       "expected": null,
       "actual": null,
-      "reason": "constraint's odrl:leftOperand is odrl:dateTime; Section 7: \"Numeric and date/time comparison operators ... remain unimplemented in the Default Profile (Section 4.2)\"."
+      "reason": null
     },
     {
       "slug": "testcase-038-alice-read-x-future",
       "title": "Read request from Alice to resource X returns into yes (temporal lt - future) (Alice Request Read X).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Deny",
       "expected": null,
       "actual": null,
-      "reason": "constraint's odrl:leftOperand is odrl:dateTime; Section 7: \"Numeric and date/time comparison operators ... remain unimplemented in the Default Profile (Section 4.2)\"."
+      "reason": null
     },
     {
       "slug": "testcase-039-alice-read-x",
       "title": "Read request from Alice to resource X returns into yes (temporal lteq) (Alice Request Read X).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Allow",
       "expected": null,
       "actual": null,
-      "reason": "constraint's odrl:leftOperand is odrl:dateTime; Section 7: \"Numeric and date/time comparison operators ... remain unimplemented in the Default Profile (Section 4.2)\"."
+      "reason": null
     },
     {
       "slug": "testcase-040-alice-read-x-past",
       "title": "Read request from Alice to resource X returns into yes (temporal lteq - past) (Alice Request Read X).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Allow",
       "expected": null,
       "actual": null,
-      "reason": "constraint's odrl:leftOperand is odrl:dateTime; Section 7: \"Numeric and date/time comparison operators ... remain unimplemented in the Default Profile (Section 4.2)\"."
+      "reason": null
     },
     {
       "slug": "testcase-041-alice-read-x-future",
       "title": "Read request from Alice to resource X returns into yes (temporal lteq - future) (Alice Request Read X).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Deny",
       "expected": null,
       "actual": null,
-      "reason": "constraint's odrl:leftOperand is odrl:dateTime; Section 7: \"Numeric and date/time comparison operators ... remain unimplemented in the Default Profile (Section 4.2)\"."
+      "reason": null
     },
     {
       "slug": "testcase-042-alice-read-x",
       "title": "Read request from Alice to resource X returns into yes (temporal gt) (Alice Request Read X).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Deny",
       "expected": null,
       "actual": null,
-      "reason": "constraint's odrl:leftOperand is odrl:dateTime; Section 7: \"Numeric and date/time comparison operators ... remain unimplemented in the Default Profile (Section 4.2)\"."
+      "reason": null
     },
     {
       "slug": "testcase-043-alice-read-x-past",
       "title": "Read request from Alice to resource X returns into yes (temporal gt - past) (Alice Request Read X).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Deny",
       "expected": null,
       "actual": null,
-      "reason": "constraint's odrl:leftOperand is odrl:dateTime; Section 7: \"Numeric and date/time comparison operators ... remain unimplemented in the Default Profile (Section 4.2)\"."
+      "reason": null
     },
     {
       "slug": "testcase-044-alice-read-x-future",
       "title": "Read request from Alice to resource X returns into yes (temporal gt - future) (Alice Request Read X).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Allow",
       "expected": null,
       "actual": null,
-      "reason": "constraint's odrl:leftOperand is odrl:dateTime; Section 7: \"Numeric and date/time comparison operators ... remain unimplemented in the Default Profile (Section 4.2)\"."
+      "reason": null
     },
     {
       "slug": "testcase-045-alice-read-x",
       "title": "Read request from Alice to resource X returns into yes (temporal gteq) (Alice Request Read X).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Allow",
       "expected": null,
       "actual": null,
-      "reason": "constraint's odrl:leftOperand is odrl:dateTime; Section 7: \"Numeric and date/time comparison operators ... remain unimplemented in the Default Profile (Section 4.2)\"."
+      "reason": null
     },
     {
       "slug": "testcase-046-alice-read-x-past",
       "title": "Read request from Alice to resource X returns into yes (temporal gteq - past) (Alice Request Read X).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Deny",
       "expected": null,
       "actual": null,
-      "reason": "constraint's odrl:leftOperand is odrl:dateTime; Section 7: \"Numeric and date/time comparison operators ... remain unimplemented in the Default Profile (Section 4.2)\"."
+      "reason": null
     },
     {
       "slug": "testcase-047-alice-read-x-future",
       "title": "Read request from Alice to resource X returns into yes (temporal gteq - future) (Alice Request Read X).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Allow",
       "expected": null,
       "actual": null,
-      "reason": "constraint's odrl:leftOperand is odrl:dateTime; Section 7: \"Numeric and date/time comparison operators ... remain unimplemented in the Default Profile (Section 4.2)\"."
+      "reason": null
     },
     {
       "slug": "testcase-048-alice-read-x",
       "title": "Read request from Alice to resource X returns into yes (temporal + And (year 2024)) (Alice Request Read X).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Allow",
       "expected": null,
       "actual": null,
-      "reason": "constraint is an odrl:LogicalConstraint (odrl:and/odrl:or/odrl:xone); Section 7: \"Nested ODRL logical constraint groups ... remain inherited-limitation out of scope (Section 4.2)\" — catalog_core::Constraint only models atomic constraints."
+      "reason": null
     },
     {
       "slug": "testcase-049-alice-read-x-past",
       "title": "Read request from Alice to resource X returns into yes (temporal + And (year 2024)) (Alice Request Read X - past).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Deny",
       "expected": null,
       "actual": null,
-      "reason": "constraint is an odrl:LogicalConstraint (odrl:and/odrl:or/odrl:xone); Section 7: \"Nested ODRL logical constraint groups ... remain inherited-limitation out of scope (Section 4.2)\" — catalog_core::Constraint only models atomic constraints."
+      "reason": null
     },
     {
       "slug": "testcase-050-alice-read-x-future",
       "title": "Read request from Alice to resource X returns into yes (temporal + And (year 2024)) (Alice Request Read X - future).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Deny",
       "expected": null,
       "actual": null,
-      "reason": "constraint is an odrl:LogicalConstraint (odrl:and/odrl:or/odrl:xone); Section 7: \"Nested ODRL logical constraint groups ... remain inherited-limitation out of scope (Section 4.2)\" — catalog_core::Constraint only models atomic constraints."
+      "reason": null
     },
     {
       "slug": "testcase-051-alice",
       "title": "Read request from people in party collection to resource X returns into yes (Alice Request Read X).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Allow",
       "expected": null,
       "actual": null,
-      "reason": "odrl:assignee is an odrl:PartyCollection; membership (odrl:partOf) is asserted only in the state-of-the-world graph, not carried in the caller's claims — the flat claims model admits only a top-level string/array-of-string field per claim (Section 4.1), the same representability limit Section 7 names for structured attributes (\"Structured PID attributes cannot be carried at all\"), and Section 4.4 separately disclaims ODRL's Party functional roles as outside this engine's narrowed Profile Mechanism reading."
+      "reason": null
     },
     {
       "slug": "testcase-052-bob-read-x",
       "title": "Read request from people in party collection to resource X returns into yes (Bob Request Read X).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Deny",
       "expected": null,
       "actual": null,
-      "reason": "odrl:assignee is an odrl:PartyCollection; membership (odrl:partOf) is asserted only in the state-of-the-world graph, not carried in the caller's claims — the flat claims model admits only a top-level string/array-of-string field per claim (Section 4.1), the same representability limit Section 7 names for structured attributes (\"Structured PID attributes cannot be carried at all\"), and Section 4.4 separately disclaims ODRL's Party functional roles as outside this engine's narrowed Profile Mechanism reading."
+      "reason": null
     },
     {
       "slug": "testcase-053-alice-read-x",
       "title": "Read request from Alice to resource in asset collection returns into yes (Alice Request Read X).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Allow",
       "expected": null,
       "actual": null,
-      "reason": "odrl:target is an odrl:AssetCollection; this engine's wire contract carries no target/resource concept at all (decision::Rule is {action, constraints} only, Section 5.2), so resource-collection membership cannot be represented — the same class of gap Section 7 names for structured claims and Party functional roles (Section 4.1, 4.4)."
+      "reason": null
     },
     {
       "slug": "testcase-054-alice-read-y",
       "title": "Read request from Alice to resource in asset collection returns into yes (Alice Request Read Y).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Deny",
       "expected": null,
       "actual": null,
-      "reason": "odrl:target is an odrl:AssetCollection; this engine's wire contract carries no target/resource concept at all (decision::Rule is {action, constraints} only, Section 5.2), so resource-collection membership cannot be represented — the same class of gap Section 7 names for structured claims and Party functional roles (Section 4.1, 4.4)."
+      "reason": null
     },
     {
       "slug": "testcase-055-alice-read-x",
       "title": "Read request from people in party collection to resource in asset collection returns into yes (Alice Request Read X).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Allow",
       "expected": null,
       "actual": null,
-      "reason": "odrl:assignee is an odrl:PartyCollection; membership (odrl:partOf) is asserted only in the state-of-the-world graph, not carried in the caller's claims — the flat claims model admits only a top-level string/array-of-string field per claim (Section 4.1), the same representability limit Section 7 names for structured attributes (\"Structured PID attributes cannot be carried at all\"), and Section 4.4 separately disclaims ODRL's Party functional roles as outside this engine's narrowed Profile Mechanism reading."
+      "reason": null
     },
     {
       "slug": "testcase-056-alice-read-y",
       "title": "Read request from people in party collection to resource in asset collection returns into yes (Alice Request Read Y).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Deny",
       "expected": null,
       "actual": null,
-      "reason": "odrl:assignee is an odrl:PartyCollection; membership (odrl:partOf) is asserted only in the state-of-the-world graph, not carried in the caller's claims — the flat claims model admits only a top-level string/array-of-string field per claim (Section 4.1), the same representability limit Section 7 names for structured attributes (\"Structured PID attributes cannot be carried at all\"), and Section 4.4 separately disclaims ODRL's Party functional roles as outside this engine's narrowed Profile Mechanism reading."
+      "reason": null
     },
     {
       "slug": "testcase-057-bob-read-x",
       "title": "Read request from people in party collection to resource in asset collection returns into yes (Bob Request Read X).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Deny",
       "expected": null,
       "actual": null,
-      "reason": "odrl:assignee is an odrl:PartyCollection; membership (odrl:partOf) is asserted only in the state-of-the-world graph, not carried in the caller's claims — the flat claims model admits only a top-level string/array-of-string field per claim (Section 4.1), the same representability limit Section 7 names for structured attributes (\"Structured PID attributes cannot be carried at all\"), and Section 4.4 separately disclaims ODRL's Party functional roles as outside this engine's narrowed Profile Mechanism reading."
+      "reason": null
     },
     {
       "slug": "testcase-058-bob-write-y",
@@ -568,65 +531,65 @@
     {
       "slug": "testcase-059-nonset",
       "title": "Read request from Alice to resource X returns into yes, if duty is not violated (Alice Request Read X - duty unknown).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Allow",
       "expected": null,
       "actual": null,
-      "reason": "permission carries a per-permission odrl:duty (ODRL's finer pre/post-condition form nested inside one Permission); Section 7: \"Per-permission nested duties ... are not modeled: catalog_core::Rule has no nested-duty field\" — only policy-level obligations (Section 4.5) are evaluated."
+      "reason": null
     },
     {
       "slug": "testcase-060-fulfilled",
       "title": "Read request from Alice to resource X returns into yes, if duty is not violated (Alice Request Read X- duty fulfilled).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Allow",
       "expected": null,
       "actual": null,
-      "reason": "permission carries a per-permission odrl:duty (ODRL's finer pre/post-condition form nested inside one Permission); Section 7: \"Per-permission nested duties ... are not modeled: catalog_core::Rule has no nested-duty field\" — only policy-level obligations (Section 4.5) are evaluated."
+      "reason": null
     },
     {
       "slug": "testcase-061-violated",
       "title": "Read request from Alice to resource X returns into yes, if duty is not violated (Alice Request Read X - duty violated).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Deny",
       "expected": null,
       "actual": null,
-      "reason": "permission carries a per-permission odrl:duty (ODRL's finer pre/post-condition form nested inside one Permission); Section 7: \"Per-permission nested duties ... are not modeled: catalog_core::Rule has no nested-duty field\" — only policy-level obligations (Section 4.5) are evaluated."
+      "reason": null
     },
     {
       "slug": "testcase-062-big-policy",
       "title": "Read request from Alice to resource X on weekdays from 9-17 in 2024 returns into yes (Alice Request Read X).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Allow",
       "expected": null,
       "actual": null,
-      "reason": "constraint is an odrl:LogicalConstraint (odrl:and/odrl:or/odrl:xone); Section 7: \"Nested ODRL logical constraint groups ... remain inherited-limitation out of scope (Section 4.2)\" — catalog_core::Constraint only models atomic constraints."
+      "reason": null
     },
     {
       "slug": "testcase-063-big-policy-OoO",
       "title": "Read request from Alice to resource X on weekdays from 9-17 in 2024 returns into yes (Alice Request Read X - out of office).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Deny",
       "expected": null,
       "actual": null,
-      "reason": "constraint is an odrl:LogicalConstraint (odrl:and/odrl:or/odrl:xone); Section 7: \"Nested ODRL logical constraint groups ... remain inherited-limitation out of scope (Section 4.2)\" — catalog_core::Constraint only models atomic constraints."
+      "reason": null
     },
     {
       "slug": "testcase-064-big-policy-past",
       "title": "Read request from Alice to resource X on weekdays from 9-17 in 2024 returns into yes (Alice Request Read X - past).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Deny",
       "expected": null,
       "actual": null,
-      "reason": "constraint is an odrl:LogicalConstraint (odrl:and/odrl:or/odrl:xone); Section 7: \"Nested ODRL logical constraint groups ... remain inherited-limitation out of scope (Section 4.2)\" — catalog_core::Constraint only models atomic constraints."
+      "reason": null
     },
     {
       "slug": "testcase-065-alice",
       "title": "Read request from people in party collection to resource X in 2024 returns into yes (Alice Request Read X).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Allow",
       "expected": null,
       "actual": null,
-      "reason": "odrl:assignee is an odrl:PartyCollection; membership (odrl:partOf) is asserted only in the state-of-the-world graph, not carried in the caller's claims — the flat claims model admits only a top-level string/array-of-string field per claim (Section 4.1), the same representability limit Section 7 names for structured attributes (\"Structured PID attributes cannot be carried at all\"), and Section 4.4 separately disclaims ODRL's Party functional roles as outside this engine's narrowed Profile Mechanism reading."
+      "reason": null
     },
     {
       "slug": "testcase-066-bob-sell",
@@ -640,11 +603,11 @@
     {
       "slug": "testcase-067-alice-past",
       "title": "Read request from people in party collection to resource X in 2024 returns into yes (Alice Request Read X - past).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Deny",
       "expected": null,
       "actual": null,
-      "reason": "odrl:assignee is an odrl:PartyCollection; membership (odrl:partOf) is asserted only in the state-of-the-world graph, not carried in the caller's claims — the flat claims model admits only a top-level string/array-of-string field per claim (Section 4.1), the same representability limit Section 7 names for structured attributes (\"Structured PID attributes cannot be carried at all\"), and Section 4.4 separately disclaims ODRL's Party functional roles as outside this engine's narrowed Profile Mechanism reading."
+      "reason": null
     },
     {
       "slug": "testcase-068-bob-write-y-past",

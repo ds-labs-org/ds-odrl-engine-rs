@@ -118,6 +118,10 @@ fn describe_rule(rule: &Rule) -> String {
                 Operator::Eq => "eq",
                 Operator::Neq => "neq",
                 Operator::IsAnyOf => "isAnyOf",
+                Operator::Lt => "lt",
+                Operator::Lteq => "lteq",
+                Operator::Gt => "gt",
+                Operator::Gteq => "gteq",
             };
             format!("{} {} {}", c.left_operand, op, c.right_operand)
         })

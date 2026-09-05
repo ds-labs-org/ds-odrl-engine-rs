@@ -26,6 +26,10 @@ pub fn report_ns(local: &str) -> String {
     format!("https://w3id.org/force/compliance-report#{local}")
 }
 
+pub fn dct(local: &str) -> String {
+    format!("http://purl.org/dc/terms/{local}")
+}
+
 /// The `local-name` half of an IRI (after the last `/` or `#`) — this
 /// vendored suite's own convention for turning e.g.
 /// `http://example.org/alice` into `alice`, or `odrl:read` into `read`,
@@ -65,6 +69,27 @@ impl Graph {
         Ok(Self { triples })
     }
 
+    /// Parses Turtle directly from a string — used by tests that need a
+    /// small SOTW/policy fixture without writing a temp file.
+    #[cfg(test)]
+    pub fn parse_str(content: &str) -> Result<Self, String> {
+        let mut triples = Vec::new();
+        for triple in TurtleParser::new().for_reader(content.as_bytes()) {
+            triples.push(triple.map_err(|e| e.to_string())?);
+        }
+        Ok(Self { triples })
+    }
+
+    /// A SOTW graph with no facts — every `Graph`-derived lookup this
+    /// module offers (`objects_by_subject_local_name`,
+    /// `first_literal_for_predicate`, ...) is defined to return nothing
+    /// rather than panic on an empty graph, so this is a safe default for
+    /// tests that don't exercise any SOTW-derived feature.
+    #[cfg(test)]
+    pub fn empty() -> Self {
+        Self { triples: Vec::new() }
+    }
+
     pub fn triples(&self) -> &[Triple] {
         &self.triples
     }
@@ -99,6 +124,47 @@ impl Graph {
 
     pub fn type_of(&self, subject: &str) -> Option<String> {
         self.object_node(subject, RDF_TYPE)
+    }
+
+    /// Node-valued objects of `predicate` across every triple whose
+    /// *subject's* local name matches `subject_local` — used to answer
+    /// "what is `<subject>` `partOf` (or similar)", starting only from a
+    /// local name (the shape `RequestInfo`'s `assignee`/`target` are
+    /// already reduced to) rather than a full IRI.
+    pub fn objects_by_subject_local_name(&self, subject_local: &str, predicate: &str) -> Vec<String> {
+        self.triples
+            .iter()
+            .filter(|t| local_name(&subject_id(&t.subject)) == subject_local && t.predicate.as_str() == predicate)
+            .filter_map(|t| term_id(&t.object))
+            .collect()
+    }
+
+    /// Subjects of every triple whose `predicate` points at an object
+    /// matching `object_local` by local name — the reverse direction from
+    /// `objects_by_subject_local_name`, used to find (e.g.) the
+    /// `report:DutyReport` node whose `report:rule` names a given duty.
+    pub fn subjects_by_object_local_name(&self, predicate: &str, object_local: &str) -> Vec<String> {
+        self.triples
+            .iter()
+            .filter(|t| t.predicate.as_str() == predicate)
+            .filter(|t| term_id(&t.object).is_some_and(|id| local_name(&id) == object_local))
+            .map(|t| subject_id(&t.subject))
+            .collect()
+    }
+
+    /// The first literal value found for `predicate`, regardless of
+    /// subject — used for the vendored suite's `temp:currentTime
+    /// dct:issued "..."` fact, which every fixture's SOTW graph carries
+    /// exactly once under a subject this graph has no other reason to
+    /// name ahead of time.
+    pub fn first_literal_for_predicate(&self, predicate: &str) -> Option<String> {
+        self.triples
+            .iter()
+            .find(|t| t.predicate.as_str() == predicate)
+            .and_then(|t| match &t.object {
+                Term::Literal(l) => Some(l.value().to_string()),
+                _ => None,
+            })
     }
 
     /// The first subject found with the given `rdf:type`, trying each
@@ -149,5 +215,63 @@ ex:alice a odrl:Permission;
         );
 
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    fn write_fixture(name: &str, content: &str) -> Graph {
+        let dir = std::env::temp_dir().join(format!("compliance-runner-graph-test-{name}-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("fixture.ttl");
+        std::fs::write(&path, content).unwrap();
+        let g = Graph::parse(&path).unwrap();
+        std::fs::remove_dir_all(&dir).ok();
+        g
+    }
+
+    #[test]
+    fn objects_by_subject_local_name_looks_up_by_local_name_not_full_iri() {
+        let g = write_fixture(
+            "partof",
+            r#"@prefix odrl: <http://www.w3.org/ns/odrl/2/>.
+@prefix ex: <http://example.org/>.
+ex:alice odrl:partOf ex:partyCollection."#,
+        );
+        assert_eq!(
+            g.objects_by_subject_local_name("alice", &odrl("partOf")),
+            vec![odrl2("partyCollection")]
+        );
+        assert!(g.objects_by_subject_local_name("bob", &odrl("partOf")).is_empty());
+    }
+
+    fn odrl2(local: &str) -> String {
+        format!("http://example.org/{local}")
+    }
+
+    #[test]
+    fn subjects_by_object_local_name_finds_the_reverse_edge() {
+        let g = write_fixture(
+            "dutyreport",
+            r#"@prefix report: <https://w3id.org/force/compliance-report#>.
+@prefix ex: <http://example.org/>.
+ex:report1 report:rule ex:duty1."#,
+        );
+        assert_eq!(
+            g.subjects_by_object_local_name(&report_ns("rule"), "duty1"),
+            vec!["http://example.org/report1".to_string()]
+        );
+    }
+
+    #[test]
+    fn first_literal_for_predicate_finds_the_currenttime_fact() {
+        let g = write_fixture(
+            "currenttime",
+            r#"@prefix dct: <http://purl.org/dc/terms/>.
+@prefix temp: <http://example.com/request/>.
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
+temp:currentTime dct:issued "2024-02-12T11:20:10.999Z"^^xsd:dateTime."#,
+        );
+        assert_eq!(
+            g.first_literal_for_predicate("http://purl.org/dc/terms/issued").as_deref(),
+            Some("2024-02-12T11:20:10.999Z")
+        );
     }
 }

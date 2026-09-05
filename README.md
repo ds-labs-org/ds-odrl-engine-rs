@@ -10,16 +10,24 @@ other host willing to speak its JSON wire contract).
 
 ## What this is not
 
-This is **not a full ODRL implementation**. It implements a deliberately
-narrowed subset of ODRL's Common Vocabulary and Profile Mechanism — three
-constraint operators (`eq`/`neq`/`isAnyOf`) over a flat string/
-string-array claims model, exact-string action recognition with no
-`includedIn`/`implies` inference, atomic constraints with no nested
-`odrl:and`/`or`/`xone` groups, no numeric or date/time comparison, no
-`odrl:PartyCollection`/`odrl:AssetCollection` membership, and
-policy-level duties only (no per-permission nested duties). Every one of
-these gaps is load-bearing design, not an oversight: see the design
-rationale below for why, and
+This is **not a full ODRL implementation**. `engine`'s own Default Profile
+has seven constraint operators now (`eq`/`neq`/`isAnyOf`, plus `lt`/
+`lteq`/`gt`/`gteq` for UTC `dateTime` comparison) over a flat string/
+string-array claims model, and exact-string action recognition with one
+narrow, vocabulary-sourced exception (`odrl:use` covers everything except
+the transfer-category actions) — no general `includedIn`/`implies`
+inference otherwise. Nested `odrl:and`/`odrl:or` logical constraints and
+`odrl:PartyCollection`/`odrl:AssetCollection` membership are resolved by
+`compliance-runner`'s own adapter (DNF expansion into sibling/combined
+rules; SOTW-graph `odrl:partOf` lookups) rather than by any change to
+`engine`'s wire contract — a real host would need the equivalent adapter
+logic, not just this engine. `odrl:xone` remains genuinely unsupported (no
+"exactly one" exclusivity), and per-permission `odrl:duty` is resolved
+only by reading this specific compliance suite's own SOTW-embedded
+`report:DutyReport` fact — `engine` itself still evaluates policy-level
+obligations only (Section 4.5); this is not general per-permission duty
+modeling. See the design rationale below for what's load-bearing versus
+what's compliance-suite-specific, and
 [`compliance/reports/latest.md`](compliance/reports/latest.md) for
 exactly which constructs pass, fail, or are skipped today, case by case,
 against a real external ODRL test suite.
@@ -160,13 +168,12 @@ Section 5.2 JSON request contract, calls `engine::evaluate_request`
 natively (no WASM host needed for this), and (re)writes
 [`compliance/reports/latest.md`](compliance/reports/latest.md) and
 `latest.json` — pass/fail/skip counts, a table of any failing cases
-(expected vs. actual decision and why), and a table of skipped cases,
-each citing the specific Section 7 limitation of the case study that
-makes it unrepresentable in this engine's current wire contract
-(numeric/date-time operators, nested `odrl:and`/`or`/`xone` groups,
-party/asset-collection membership, per-permission nested duties, ODRL
-action implication). A case is only ever skipped for one of those named,
-cited reasons — never to avoid a fail.
+(expected vs. actual decision and why), and a table of any skipped cases,
+each citing a specific, real reason (today: only `odrl:xone`, or a
+constraint operator outside `eq`/`neq`/`isAnyOf`/`lt`/`lteq`/`gt`/`gteq` —
+see `translate.rs`'s `unsupported_operator`/`xone_unsupported`). A case is
+only ever skipped for one of those named, cited reasons — never to avoid
+a fail.
 
 **RDF stack**: parsing uses `oxrdf`/`oxttl` (the Oxigraph project)
 throughout — `oxttl::TurtleParser` yields `oxrdf::Triple`/`Term` directly,
@@ -194,22 +201,26 @@ As of the fixtures currently vendored (68 cases):
 
 | total | passed | failed | skipped |
 |---|---|---|---|
-| 68 | 32 | 0 | 36 |
+| 68 | 68 | 0 | 0 |
 
-Zero failures: every case this engine's wire contract can represent at
-all currently agrees with the suite's expected verdict. `odrl:use` is
-recognized as covering `read`/`write`/`distribute` (per the W3C ODRL
-Vocabulary's own "Included In: use" declarations) while correctly
-excluding transfer-category actions (`sell`, `give`, `transfer`) — see
-`compliance-runner/src/translate.rs`'s module doc for the citation. The
-remaining 36 skips are each attributable to one of the ODRL constructs
-this engine's Default Profile does not model — general action-taxonomy
-implication beyond the `use` special case above, numeric/date-time
-constraints, nested logical constraint groups, party/asset-collection
-membership, and per-permission nested duties — see the table in
-[`compliance/reports/latest.md`](compliance/reports/latest.md) for the
-case-by-case citation, and Section 7 of the case study for why each is
-out of scope in this revision.
+Every vendored case passes, including the largest fixture in the corpus —
+`policy-20.ttl`'s "business hours on every weekday of 2024," an
+`odrl:or` of 262 `odrl:and`-of-two-`dateTime`-constraints branches,
+expanded by `to_dnf` into 262 sibling permission rules and evaluated
+exactly like any other. `odrl:use` is recognized as covering
+`read`/`write`/`distribute` (per the W3C ODRL Vocabulary's own "Included
+In: use" declarations) while correctly excluding transfer-category
+actions (`sell`, `give`, `transfer`) — see
+`compliance-runner/src/translate.rs`'s module doc for that citation, and
+for how `dateTime` constraints, logical `and`/`or` groups, party/asset
+collection membership, and per-permission duty state are each resolved
+(new `lt`/`lteq`/`gt`/`gteq` operators in `engine`, or SOTW-graph lookups
+in the adapter) without weakening the mapping or silently forcing a pass.
+Nothing in this corpus exercises `odrl:xone` or a numeric/date-time
+operator this Default Profile doesn't have — a case that did would still
+be honestly skipped, cited, and counted, not silently dropped. See "What
+this is not" above for the real, remaining gap between this engine and a
+general ODRL implementation, which is wider than "0 skips" might suggest.
 
 ## Compliance suite attribution
 

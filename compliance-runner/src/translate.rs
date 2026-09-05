@@ -1,7 +1,7 @@
-//! Adapts one (policy, request) fixture pair into Section 5.2's JSON
-//! request contract, or determines that the pair needs a capability
-//! Section 7 names as out of scope and returns a one-line, cited reason
-//! instead.
+//! Adapts one (policy, request, state-of-the-world) fixture triple into
+//! Section 5.2's JSON request contract, or determines that the fixture
+//! needs a capability this engine genuinely lacks and returns a one-line,
+//! cited reason instead.
 //!
 //! **The adapter's own translation convention, stated once here because
 //! nothing in Section 5.2 specifies it:** the engine's `decide` algorithm
@@ -40,7 +40,46 @@
 //! includedIn/implies chain (a *profile's own* declared extensions, per
 //! Section 3.5's Profile Mechanism) remains unevaluated, per Section 7.
 //!
-//! If **no** rule of a policy survives this scoping, the policy has
+//! **State-of-the-world facts become claims or membership checks, not
+//! wire-contract changes.** Three more capabilities, added after the
+//! above, all resolved by reading the fixture's own SOTW graph rather than
+//! by extending `engine`'s Section 5.2 schema:
+//!
+//! - `odrl:dateTime` constraints: `engine::Operator` gained `lt`/`lteq`/
+//!   `gt`/`gteq` (a real, additive Default Profile extension — see
+//!   `engine::constraint`'s doc comment). This adapter resolves what "the
+//!   current time" is from the SOTW's own `temp:currentTime dct:issued
+//!   "..."` fact and injects it as an ordinary `dateTime` claim — the
+//!   engine still just does claims-map lookups, unaware this one happens
+//!   to mean "now" rather than an identity attribute.
+//! - `odrl:and`/`odrl:or` logical constraints: expanded into disjunctive
+//!   normal form (`to_dnf`) — an `and` becomes multiple constraints on the
+//!   SAME rule (the engine's own `Rule::matches` already ANDs its
+//!   `constraints` list), an `or` becomes MULTIPLE sibling rules, one per
+//!   disjunct (`decide` already ORs a policy's permissions: "any one
+//!   matching permission is enough, not all"). No engine change needed for
+//!   either. `odrl:xone` is NOT modeled — nothing in this corpus uses it,
+//!   and this engine can express "at least one" but not xone's "exactly
+//!   one, not more" exclusivity, so it stays a genuine, cited skip rather
+//!   than a silent (and wrong) approximation as `or`.
+//! - `odrl:PartyCollection`/`odrl:AssetCollection` membership: resolved
+//!   directly against the SOTW graph's own `<member> odrl:partOf
+//!   <collection>` facts (`is_member_of`), the same way an
+//!   `odrl:assignee`/`odrl:target` match already was for an individual —
+//!   still no claim or wire-contract change, since membership is decided
+//!   once, at translate time, not evaluated inside the engine.
+//! - A per-permission `odrl:duty`: this engine still has no nested-duty
+//!   *model* (Section 4.5 evaluates only policy-level obligations) — what
+//!   this adapter does is narrower than that: it reads the SOTW's own
+//!   `report:DutyReport` fact for that duty node (this vendored corpus's
+//!   own way of stating "here is what actually happened" for a duty) and
+//!   excludes the rule entirely when `report:deonticState` is
+//!   `report:Violated`. A `Fulfilled` or `NonSet` (unknown) state leaves
+//!   the rule in play, matching this corpus's own expected reports. This
+//!   resolves the three fixture cases that exercise it; it is not a claim
+//!   that per-permission duties are modeled in general.
+//!
+//! If **no** rule of a policy survives all of the above, the policy has
 //! nothing to say about the request under evaluation and is omitted from
 //! `policies` entirely — deliberately not included as an empty-rules
 //! shell, which would instead trigger `decide`'s own *open* exception for
@@ -50,22 +89,13 @@
 
 use engine::{ClaimValue, Claims, Constraint, DutyMode, Operator, Request, RequestConfig, Rule, WirePolicy};
 
+use crate::graph::{dct, local_name, odrl, report_ns, Graph};
 use crate::odrl::{ConstraintForm, PartyRef, PolicyInfo, RequestInfo, RuleKind, TargetRef};
 
 pub enum Translation {
     Ready(Request),
     Skip(String),
 }
-
-const S7_PARTY_COLLECTION: &str = "odrl:assignee is an odrl:PartyCollection; membership (odrl:partOf) is asserted only in the state-of-the-world graph, not carried in the caller's claims — the flat claims model admits only a top-level string/array-of-string field per claim (Section 4.1), the same representability limit Section 7 names for structured attributes (\"Structured PID attributes cannot be carried at all\"), and Section 4.4 separately disclaims ODRL's Party functional roles as outside this engine's narrowed Profile Mechanism reading.";
-
-const S7_ASSET_COLLECTION: &str = "odrl:target is an odrl:AssetCollection; this engine's wire contract carries no target/resource concept at all (decision::Rule is {action, constraints} only, Section 5.2), so resource-collection membership cannot be represented — the same class of gap Section 7 names for structured claims and Party functional roles (Section 4.1, 4.4).";
-
-const S7_NESTED_DUTY: &str = "permission carries a per-permission odrl:duty (ODRL's finer pre/post-condition form nested inside one Permission); Section 7: \"Per-permission nested duties ... are not modeled: catalog_core::Rule has no nested-duty field\" — only policy-level obligations (Section 4.5) are evaluated.";
-
-const S7_LOGICAL_CONSTRAINT: &str = "constraint is an odrl:LogicalConstraint (odrl:and/odrl:or/odrl:xone); Section 7: \"Nested ODRL logical constraint groups ... remain inherited-limitation out of scope (Section 4.2)\" — catalog_core::Constraint only models atomic constraints.";
-
-const S7_DATETIME: &str = "constraint's odrl:leftOperand is odrl:dateTime; Section 7: \"Numeric and date/time comparison operators ... remain unimplemented in the Default Profile (Section 4.2)\".";
 
 /// ODRL Vocabulary actions formally "Included In: transfer" rather than
 /// "Included In: use" (<https://www.w3.org/TR/vocab-odrl/> §3.12) — the set
@@ -74,11 +104,94 @@ const TRANSFER_CATEGORY_ACTIONS: &[&str] = &["transfer", "sell", "give"];
 
 fn unsupported_operator(op: &str) -> String {
     format!(
-        "constraint operator odrl:{op} has no equivalent in the Default Profile's eq/neq/isAnyOf set; Section 7: \"Numeric and date/time comparison operators ... and isPartOf/range-membership beyond isAnyOf remain unimplemented in the Default Profile (Section 4.2)\"."
+        "constraint operator odrl:{op} has no equivalent in the Default Profile's eq/neq/isAnyOf/lt/lteq/gt/gteq set; Section 7: \"...isPartOf/range-membership beyond isAnyOf remain unimplemented in the Default Profile (Section 4.2)\"."
     )
 }
 
-pub fn translate(policy: &PolicyInfo, req: &RequestInfo, dataset_id: &str) -> Translation {
+fn xone_unsupported(branch_count: usize) -> String {
+    format!(
+        "constraint is an odrl:LogicalConstraint using odrl:xone over {branch_count} branch(es); this engine can express \"at least one\" via sibling permission rules (odrl:or) but not xone's \"exactly one, not more\" exclusivity, and nothing in this vendored corpus exercises it, so it is left genuinely unsupported rather than silently approximated as odrl:or."
+    )
+}
+
+fn resolve_operator(local: &str) -> Result<Operator, String> {
+    match local {
+        "eq" => Ok(Operator::Eq),
+        "neq" => Ok(Operator::Neq),
+        "lt" => Ok(Operator::Lt),
+        "lteq" => Ok(Operator::Lteq),
+        "gt" => Ok(Operator::Gt),
+        "gteq" => Ok(Operator::Gteq),
+        other => Err(unsupported_operator(other)),
+    }
+}
+
+/// Expands a (possibly Boolean-combined) constraint into disjunctive
+/// normal form: an OR of AND-conjunctions, each a flat `Vec<Constraint>`
+/// ready to attach to one engine `Rule`. See this module's doc comment for
+/// why `and`/`or` need no engine change, and why `xone` is a hard error
+/// here rather than an approximation.
+fn to_dnf(form: &ConstraintForm) -> Result<Vec<Vec<Constraint>>, String> {
+    match form {
+        ConstraintForm::Atomic { left_operand, operator, right_operand } => {
+            let op = resolve_operator(operator)?;
+            Ok(vec![vec![Constraint::new(left_operand.clone(), op, right_operand.clone())]])
+        }
+        ConstraintForm::And(children) => {
+            let mut conjunctions: Vec<Vec<Constraint>> = vec![Vec::new()];
+            for child in children {
+                let child_dnf = to_dnf(child)?;
+                let mut expanded = Vec::with_capacity(conjunctions.len() * child_dnf.len());
+                for prefix in &conjunctions {
+                    for disjunct in &child_dnf {
+                        let mut combined = prefix.clone();
+                        combined.extend(disjunct.iter().cloned());
+                        expanded.push(combined);
+                    }
+                }
+                conjunctions = expanded;
+            }
+            Ok(conjunctions)
+        }
+        ConstraintForm::Or(children) => {
+            let mut disjuncts = Vec::new();
+            for child in children {
+                disjuncts.extend(to_dnf(child)?);
+            }
+            Ok(disjuncts)
+        }
+        ConstraintForm::Xone(children) => Err(xone_unsupported(children.len())),
+    }
+}
+
+/// Does the SOTW graph assert `<member> odrl:partOf <collection>` (by
+/// local name, matching the rest of this adapter's convention)?
+fn is_member_of(sotw: &Graph, member_local: &str, collection_local: &str) -> bool {
+    sotw.objects_by_subject_local_name(member_local, &odrl("partOf"))
+        .iter()
+        .any(|object| local_name(object) == collection_local)
+}
+
+/// `true` only if the SOTW graph carries a `report:DutyReport` for this
+/// duty node whose `report:deonticState` is explicitly `report:Violated`.
+/// No matching report, or any other state (`Fulfilled`, `NonSet`), is
+/// "not violated" — the same not-proven-guilty default this corpus's own
+/// fixtures expect (Section 7's per-permission-duty limitation is
+/// otherwise still real; see this module's doc comment).
+fn duty_is_violated(sotw: &Graph, duty_id: &str) -> bool {
+    let duty_local = local_name(duty_id);
+    sotw.subjects_by_object_local_name(&report_ns("rule"), duty_local).iter().any(|report_node| {
+        sotw.type_of(report_node).as_deref() == Some(report_ns("DutyReport").as_str())
+            && sotw.object_node(report_node, &report_ns("deonticState")).as_deref().map(local_name)
+                == Some("Violated")
+    })
+}
+
+fn current_time(sotw: &Graph) -> Option<String> {
+    sotw.first_literal_for_predicate(&dct("issued"))
+}
+
+pub fn translate(policy: &PolicyInfo, req: &RequestInfo, sotw: &Graph, dataset_id: &str) -> Translation {
     let mut permissions = Vec::new();
     let mut prohibitions = Vec::new();
 
@@ -93,55 +206,55 @@ pub fn translate(policy: &PolicyInfo, req: &RequestInfo, dataset_id: &str) -> Tr
             continue;
         }
 
-        if matches!(rule.assignee, Some(PartyRef::Collection)) {
-            return Translation::Skip(S7_PARTY_COLLECTION.to_string());
-        }
-        if matches!(rule.target, Some(TargetRef::Collection)) {
-            return Translation::Skip(S7_ASSET_COLLECTION.to_string());
-        }
-
         let assignee_matches = match &rule.assignee {
             None => true,
             Some(PartyRef::Individual(name)) => name == &req.assignee,
-            Some(PartyRef::Collection) => unreachable!("handled above"),
+            Some(PartyRef::Collection(collection)) => is_member_of(sotw, &req.assignee, collection),
         };
         let target_matches = match &rule.target {
             None => true,
             Some(TargetRef::Individual(name)) => Some(name) == req.target.as_ref(),
-            Some(TargetRef::Collection) => unreachable!("handled above"),
+            Some(TargetRef::Collection(collection)) => {
+                req.target.as_deref().is_some_and(|t| is_member_of(sotw, t, collection))
+            }
         };
         if !(assignee_matches && target_matches) {
             continue;
         }
 
-        if rule.has_nested_duty {
-            return Translation::Skip(S7_NESTED_DUTY.to_string());
-        }
-
-        let mut constraints = Vec::new();
-        if let Some(PartyRef::Individual(name)) = &rule.assignee {
-            constraints.push(Constraint::new("sub", Operator::Eq, name.clone()));
-        }
-        match &rule.constraint {
-            None => {}
-            Some(ConstraintForm::Logical) => return Translation::Skip(S7_LOGICAL_CONSTRAINT.to_string()),
-            Some(ConstraintForm::Atomic { left_operand, operator, right_operand }) => {
-                if left_operand == "dateTime" {
-                    return Translation::Skip(S7_DATETIME.to_string());
-                }
-                let op = match operator.as_str() {
-                    "eq" => Operator::Eq,
-                    "neq" => Operator::Neq,
-                    other => return Translation::Skip(unsupported_operator(other)),
-                };
-                constraints.push(Constraint::new(left_operand.clone(), op, right_operand.clone()));
+        if let Some(duty_id) = &rule.nested_duty {
+            if duty_is_violated(sotw, duty_id) {
+                continue;
             }
         }
 
-        let engine_rule = Rule::new(req.action.clone(), constraints);
-        match rule.kind {
-            RuleKind::Permission => permissions.push(engine_rule),
-            RuleKind::Prohibition => prohibitions.push(engine_rule),
+        let mut base_constraints = Vec::new();
+        match &rule.assignee {
+            Some(PartyRef::Individual(name)) => {
+                base_constraints.push(Constraint::new("sub", Operator::Eq, name.clone()));
+            }
+            Some(PartyRef::Collection(_)) => {
+                base_constraints.push(Constraint::new("sub", Operator::Eq, req.assignee.clone()));
+            }
+            None => {}
+        }
+
+        let disjuncts = match &rule.constraint {
+            None => vec![Vec::new()],
+            Some(form) => match to_dnf(form) {
+                Ok(d) => d,
+                Err(reason) => return Translation::Skip(reason),
+            },
+        };
+
+        for disjunct in disjuncts {
+            let mut constraints = base_constraints.clone();
+            constraints.extend(disjunct);
+            let engine_rule = Rule::new(req.action.clone(), constraints);
+            match rule.kind {
+                RuleKind::Permission => permissions.push(engine_rule),
+                RuleKind::Prohibition => prohibitions.push(engine_rule),
+            }
         }
     }
 
@@ -161,6 +274,9 @@ pub fn translate(policy: &PolicyInfo, req: &RequestInfo, dataset_id: &str) -> Tr
 
     let mut claims: Claims = Claims::new();
     claims.insert("sub".to_string(), ClaimValue::from(req.assignee.clone()));
+    if let Some(now) = current_time(sotw) {
+        claims.insert("dateTime".to_string(), ClaimValue::from(now));
+    }
 
     Translation::Ready(Request {
         dataset_id: dataset_id.to_string(),
@@ -187,33 +303,28 @@ mod tests {
     }
 
     fn unconstrained(kind: RuleKind) -> RuleInfo {
-        RuleInfo { kind, assignee: None, action: None, target: None, constraint: None, has_nested_duty: false }
+        RuleInfo { kind, assignee: None, action: None, target: None, constraint: None, nested_duty: None }
+    }
+
+    fn allow(policy: &PolicyInfo, req: &RequestInfo, sotw: &Graph) -> engine::WireDecision {
+        match translate(policy, req, sotw, "ds1") {
+            Translation::Ready(wire) => engine::evaluate_request(&wire).decision,
+            Translation::Skip(reason) => panic!("expected a translated request, got skip: {reason}"),
+        }
     }
 
     #[test]
     fn unconstrained_permission_allows_any_assignee_and_action() {
         let p = policy("p1", vec![unconstrained(RuleKind::Permission)]);
         let r = req("alice", "read", None);
-        match translate(&p, &r, "ds1") {
-            Translation::Ready(wire) => {
-                let response = engine::evaluate_request(&wire);
-                assert_eq!(response.decision, engine::WireDecision::Allow);
-            }
-            Translation::Skip(reason) => panic!("expected a translated request, got skip: {reason}"),
-        }
+        assert_eq!(allow(&p, &r, &Graph::empty()), engine::WireDecision::Allow);
     }
 
     #[test]
     fn unconstrained_prohibition_denies_any_assignee_and_action() {
         let p = policy("p2", vec![unconstrained(RuleKind::Prohibition)]);
         let r = req("bob", "sell", None);
-        match translate(&p, &r, "ds1") {
-            Translation::Ready(wire) => {
-                let response = engine::evaluate_request(&wire);
-                assert_eq!(response.decision, engine::WireDecision::Deny);
-            }
-            Translation::Skip(reason) => panic!("expected a translated request, got skip: {reason}"),
-        }
+        assert_eq!(allow(&p, &r, &Graph::empty()), engine::WireDecision::Deny);
     }
 
     #[test]
@@ -224,19 +335,18 @@ mod tests {
             action: Some("read".to_string()),
             target: None,
             constraint: None,
-            has_nested_duty: false,
+            nested_duty: None,
         };
         let p = policy("p3", vec![rule]);
         let r = req("bob", "read", None);
-        match translate(&p, &r, "ds1") {
+        match translate(&p, &r, &Graph::empty(), "ds1") {
             Translation::Ready(wire) => {
                 assert!(
                     wire.policies.is_empty(),
                     "a rule scoped to a different assignee must not survive translation as an \
                      empty-permissions shell, which would trigger decide()'s own open exception"
                 );
-                let response = engine::evaluate_request(&wire);
-                assert_eq!(response.decision, engine::WireDecision::Deny);
+                assert_eq!(engine::evaluate_request(&wire).decision, engine::WireDecision::Deny);
             }
             Translation::Skip(reason) => panic!("expected a translated request, got skip: {reason}"),
         }
@@ -250,52 +360,11 @@ mod tests {
             action: Some("read".to_string()),
             target: Some(TargetRef::Individual("x".to_string())),
             constraint: None,
-            has_nested_duty: false,
+            nested_duty: None,
         };
         let p = policy("p4", vec![rule]);
         let r = req("alice", "read", Some("y"));
-        match translate(&p, &r, "ds1") {
-            Translation::Ready(wire) => {
-                assert!(wire.policies.is_empty());
-                let response = engine::evaluate_request(&wire);
-                assert_eq!(response.decision, engine::WireDecision::Deny);
-            }
-            Translation::Skip(reason) => panic!("expected a translated request, got skip: {reason}"),
-        }
-    }
-
-    #[test]
-    fn party_collection_assignee_is_skipped() {
-        let rule = RuleInfo {
-            kind: RuleKind::Permission,
-            assignee: Some(PartyRef::Collection),
-            action: Some("read".to_string()),
-            target: None,
-            constraint: None,
-            has_nested_duty: false,
-        };
-        let p = policy("p5", vec![rule]);
-        let r = req("alice", "read", None);
-        assert!(matches!(translate(&p, &r, "ds1"), Translation::Skip(_)));
-    }
-
-    #[test]
-    fn datetime_constraint_is_skipped() {
-        let rule = RuleInfo {
-            kind: RuleKind::Permission,
-            assignee: Some(PartyRef::Individual("alice".to_string())),
-            action: Some("read".to_string()),
-            target: None,
-            constraint: Some(ConstraintForm::Atomic {
-                left_operand: "dateTime".to_string(),
-                operator: "eq".to_string(),
-                right_operand: "2024-02-12T11:20:10.999Z".to_string(),
-            }),
-            has_nested_duty: false,
-        };
-        let p = policy("p6", vec![rule]);
-        let r = req("alice", "read", None);
-        assert!(matches!(translate(&p, &r, "ds1"), Translation::Skip(_)));
+        assert_eq!(allow(&p, &r, &Graph::empty()), engine::WireDecision::Deny);
     }
 
     #[test]
@@ -306,17 +375,11 @@ mod tests {
             action: Some("use".to_string()),
             target: None,
             constraint: None,
-            has_nested_duty: false,
+            nested_duty: None,
         };
         let p = policy("p7", vec![rule]);
         let r = req("alice", "read", None);
-        match translate(&p, &r, "ds1") {
-            Translation::Ready(wire) => {
-                let response = engine::evaluate_request(&wire);
-                assert_eq!(response.decision, engine::WireDecision::Allow);
-            }
-            Translation::Skip(reason) => panic!("expected a translated request, got skip: {reason}"),
-        }
+        assert_eq!(allow(&p, &r, &Graph::empty()), engine::WireDecision::Allow);
     }
 
     #[test]
@@ -327,17 +390,11 @@ mod tests {
             action: Some("use".to_string()),
             target: None,
             constraint: None,
-            has_nested_duty: false,
+            nested_duty: None,
         };
         let p = policy("p8", vec![rule]);
         let r = req("alice", "write", None);
-        match translate(&p, &r, "ds1") {
-            Translation::Ready(wire) => {
-                let response = engine::evaluate_request(&wire);
-                assert_eq!(response.decision, engine::WireDecision::Deny);
-            }
-            Translation::Skip(reason) => panic!("expected a translated request, got skip: {reason}"),
-        }
+        assert_eq!(allow(&p, &r, &Graph::empty()), engine::WireDecision::Deny);
     }
 
     #[test]
@@ -348,23 +405,15 @@ mod tests {
             action: Some("use".to_string()),
             target: None,
             constraint: None,
-            has_nested_duty: false,
+            nested_duty: None,
         };
         let p = policy("p9", vec![rule]);
         let r = req("alice", "read", None);
-        match translate(&p, &r, "ds1") {
-            Translation::Ready(wire) => {
-                assert!(wire.policies.is_empty());
-                let response = engine::evaluate_request(&wire);
-                assert_eq!(
-                    response.decision,
-                    engine::WireDecision::Deny,
-                    "assignee mismatch (bob vs alice) excludes the rule regardless of the \
-                     generic 'use' action matching 'read'"
-                );
-            }
-            Translation::Skip(reason) => panic!("expected a translated request, got skip: {reason}"),
-        }
+        assert_eq!(
+            allow(&p, &r, &Graph::empty()),
+            engine::WireDecision::Deny,
+            "assignee mismatch (bob vs alice) excludes the rule regardless of the generic 'use' action matching 'read'"
+        );
     }
 
     #[test]
@@ -380,20 +429,281 @@ mod tests {
             action: Some("use".to_string()),
             target: None,
             constraint: None,
-            has_nested_duty: false,
+            nested_duty: None,
         };
         let p = policy("p10", vec![rule]);
         let r = req("alice", "sell", None);
-        match translate(&p, &r, "ds1") {
+        match translate(&p, &r, &Graph::empty(), "ds1") {
             Translation::Ready(wire) => {
-                assert!(
-                    wire.policies.is_empty(),
-                    "a generic 'use' permission must not be treated as covering 'sell'"
-                );
-                let response = engine::evaluate_request(&wire);
-                assert_eq!(response.decision, engine::WireDecision::Deny);
+                assert!(wire.policies.is_empty(), "a generic 'use' permission must not be treated as covering 'sell'");
+                assert_eq!(engine::evaluate_request(&wire).decision, engine::WireDecision::Deny);
             }
             Translation::Skip(reason) => panic!("expected a translated request, got skip: {reason}"),
         }
+    }
+
+    fn sotw_with_current_time(iso: &str) -> Graph {
+        Graph::parse_str(&format!(
+            r#"@prefix dct: <http://purl.org/dc/terms/>.
+@prefix temp: <http://example.com/request/>.
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
+temp:currentTime dct:issued "{iso}"^^xsd:dateTime."#
+        ))
+        .unwrap()
+    }
+
+    #[test]
+    fn datetime_atomic_constraint_is_evaluated_not_skipped() {
+        let rule = RuleInfo {
+            kind: RuleKind::Permission,
+            assignee: Some(PartyRef::Individual("alice".to_string())),
+            action: Some("read".to_string()),
+            target: None,
+            constraint: Some(ConstraintForm::Atomic {
+                left_operand: "dateTime".to_string(),
+                operator: "gt".to_string(),
+                right_operand: "2024-01-01T00:00:00Z".to_string(),
+            }),
+            nested_duty: None,
+        };
+        let p = policy("p11", vec![rule]);
+        let r = req("alice", "read", None);
+        assert_eq!(
+            allow(&p, &r, &sotw_with_current_time("2024-06-01T00:00:00Z")),
+            engine::WireDecision::Allow
+        );
+        assert_eq!(
+            allow(&p, &r, &sotw_with_current_time("2017-01-01T00:00:00Z")),
+            engine::WireDecision::Deny
+        );
+    }
+
+    #[test]
+    fn and_logical_constraint_becomes_multiple_constraints_on_one_rule() {
+        // "between 2024-01-01 and 2024-12-31" — mirrors policy-15/-21.
+        let rule = RuleInfo {
+            kind: RuleKind::Permission,
+            assignee: None,
+            action: Some("read".to_string()),
+            target: None,
+            constraint: Some(ConstraintForm::And(vec![
+                ConstraintForm::Atomic {
+                    left_operand: "dateTime".to_string(),
+                    operator: "gt".to_string(),
+                    right_operand: "2024-01-01T00:00:00Z".to_string(),
+                },
+                ConstraintForm::Atomic {
+                    left_operand: "dateTime".to_string(),
+                    operator: "lt".to_string(),
+                    right_operand: "2024-12-31T23:59:59Z".to_string(),
+                },
+            ])),
+            nested_duty: None,
+        };
+        let p = policy("p12", vec![rule]);
+        let r = req("alice", "read", None);
+        assert_eq!(allow(&p, &r, &sotw_with_current_time("2024-06-01T00:00:00Z")), engine::WireDecision::Allow);
+        assert_eq!(
+            allow(&p, &r, &sotw_with_current_time("2025-06-01T00:00:00Z")),
+            engine::WireDecision::Deny,
+            "outside the AND'd window on the far side"
+        );
+        assert_eq!(
+            allow(&p, &r, &sotw_with_current_time("2017-06-01T00:00:00Z")),
+            engine::WireDecision::Deny,
+            "outside the AND'd window on the near side"
+        );
+    }
+
+    #[test]
+    fn or_logical_constraint_becomes_sibling_permission_rules() {
+        // "9-17 on day 1, OR 9-17 on day 2" — the same shape as policy-20's
+        // 262-branch "business hours in 2024", shrunk to two branches.
+        let branch = |start: &str, end: &str| ConstraintForm::And(vec![
+            ConstraintForm::Atomic { left_operand: "dateTime".into(), operator: "gt".into(), right_operand: start.into() },
+            ConstraintForm::Atomic { left_operand: "dateTime".into(), operator: "lt".into(), right_operand: end.into() },
+        ]);
+        let rule = RuleInfo {
+            kind: RuleKind::Permission,
+            assignee: None,
+            action: Some("read".to_string()),
+            target: None,
+            constraint: Some(ConstraintForm::Or(vec![
+                branch("2024-01-01T09:00:00Z", "2024-01-01T17:00:00Z"),
+                branch("2024-01-02T09:00:00Z", "2024-01-02T17:00:00Z"),
+            ])),
+            nested_duty: None,
+        };
+        let p = policy("p13", vec![rule]);
+        let r = req("alice", "read", None);
+        assert_eq!(
+            allow(&p, &r, &sotw_with_current_time("2024-01-01T11:00:00Z")),
+            engine::WireDecision::Allow,
+            "inside the first disjunct"
+        );
+        assert_eq!(
+            allow(&p, &r, &sotw_with_current_time("2024-01-02T11:00:00Z")),
+            engine::WireDecision::Allow,
+            "inside the second disjunct"
+        );
+        assert_eq!(
+            allow(&p, &r, &sotw_with_current_time("2024-01-01T20:00:00Z")),
+            engine::WireDecision::Deny,
+            "inside neither disjunct"
+        );
+    }
+
+    #[test]
+    fn xone_logical_constraint_is_skipped() {
+        let rule = RuleInfo {
+            kind: RuleKind::Permission,
+            assignee: None,
+            action: Some("read".to_string()),
+            target: None,
+            constraint: Some(ConstraintForm::Xone(vec![
+                ConstraintForm::Atomic { left_operand: "dateTime".into(), operator: "gt".into(), right_operand: "2024-01-01T00:00:00Z".into() },
+            ])),
+            nested_duty: None,
+        };
+        let p = policy("p14", vec![rule]);
+        let r = req("alice", "read", None);
+        assert!(matches!(translate(&p, &r, &Graph::empty(), "ds1"), Translation::Skip(_)));
+    }
+
+    #[test]
+    fn unsupported_operator_is_skipped() {
+        let rule = RuleInfo {
+            kind: RuleKind::Permission,
+            assignee: None,
+            action: Some("read".to_string()),
+            target: None,
+            constraint: Some(ConstraintForm::Atomic {
+                left_operand: "count".into(),
+                operator: "isPartOf".into(),
+                right_operand: "5".into(),
+            }),
+            nested_duty: None,
+        };
+        let p = policy("p15", vec![rule]);
+        let r = req("alice", "read", None);
+        assert!(matches!(translate(&p, &r, &Graph::empty(), "ds1"), Translation::Skip(_)));
+    }
+
+    fn sotw_with_membership(member: &str, collection: &str) -> Graph {
+        Graph::parse_str(&format!(
+            r#"@prefix odrl: <http://www.w3.org/ns/odrl/2/>.
+@prefix ex: <http://example.org/>.
+ex:{member} odrl:partOf ex:{collection}."#
+        ))
+        .unwrap()
+    }
+
+    #[test]
+    fn party_collection_assignee_resolves_via_sotw_membership() {
+        let rule = RuleInfo {
+            kind: RuleKind::Permission,
+            assignee: Some(PartyRef::Collection("partyCollection".to_string())),
+            action: Some("read".to_string()),
+            target: None,
+            constraint: None,
+            nested_duty: None,
+        };
+        let p = policy("p16", vec![rule]);
+        let member = req("alice", "read", None);
+        assert_eq!(
+            allow(&p, &member, &sotw_with_membership("alice", "partyCollection")),
+            engine::WireDecision::Allow
+        );
+        let non_member = req("mallory", "read", None);
+        assert_eq!(
+            allow(&p, &non_member, &sotw_with_membership("alice", "partyCollection")),
+            engine::WireDecision::Deny,
+            "the SOTW graph asserts alice's membership, not mallory's"
+        );
+    }
+
+    #[test]
+    fn asset_collection_target_resolves_via_sotw_membership() {
+        let rule = RuleInfo {
+            kind: RuleKind::Permission,
+            assignee: Some(PartyRef::Individual("alice".to_string())),
+            action: Some("read".to_string()),
+            target: Some(TargetRef::Collection("assetCollection".to_string())),
+            constraint: None,
+            nested_duty: None,
+        };
+        let p = policy("p17", vec![rule]);
+        let in_collection = req("alice", "read", Some("x"));
+        assert_eq!(
+            allow(&p, &in_collection, &sotw_with_membership("x", "assetCollection")),
+            engine::WireDecision::Allow
+        );
+        let outside_collection = req("alice", "read", Some("y"));
+        assert_eq!(
+            allow(&p, &outside_collection, &sotw_with_membership("x", "assetCollection")),
+            engine::WireDecision::Deny
+        );
+        let no_target_named = req("alice", "read", None);
+        assert_eq!(
+            allow(&p, &no_target_named, &sotw_with_membership("x", "assetCollection")),
+            engine::WireDecision::Deny,
+            "membership cannot be checked without a target to check it for"
+        );
+    }
+
+    fn sotw_with_duty_state(duty_id: &str, state: &str) -> Graph {
+        Graph::parse_str(&format!(
+            r#"@prefix report: <https://w3id.org/force/compliance-report#>.
+@prefix ex: <http://example.org/>.
+ex:report1 a report:DutyReport;
+    report:rule <{duty_id}>;
+    report:deonticState report:{state}."#
+        ))
+        .unwrap()
+    }
+
+    #[test]
+    fn permission_with_a_violated_nested_duty_is_excluded() {
+        let rule = RuleInfo {
+            kind: RuleKind::Permission,
+            assignee: Some(PartyRef::Individual("alice".to_string())),
+            action: Some("read".to_string()),
+            target: None,
+            constraint: None,
+            nested_duty: Some("urn:uuid:duty-1".to_string()),
+        };
+        let p = policy("p18", vec![rule]);
+        let r = req("alice", "read", None);
+        assert_eq!(
+            allow(&p, &r, &sotw_with_duty_state("urn:uuid:duty-1", "Violated")),
+            engine::WireDecision::Deny
+        );
+    }
+
+    #[test]
+    fn permission_with_a_fulfilled_or_nonset_nested_duty_still_grants() {
+        let rule = RuleInfo {
+            kind: RuleKind::Permission,
+            assignee: Some(PartyRef::Individual("alice".to_string())),
+            action: Some("read".to_string()),
+            target: None,
+            constraint: None,
+            nested_duty: Some("urn:uuid:duty-1".to_string()),
+        };
+        let p = policy("p19", vec![rule]);
+        let r = req("alice", "read", None);
+        assert_eq!(
+            allow(&p, &r, &sotw_with_duty_state("urn:uuid:duty-1", "Fulfilled")),
+            engine::WireDecision::Allow
+        );
+        assert_eq!(
+            allow(&p, &r, &sotw_with_duty_state("urn:uuid:duty-1", "NonSet")),
+            engine::WireDecision::Allow
+        );
+        assert_eq!(
+            allow(&p, &r, &Graph::empty()),
+            engine::WireDecision::Allow,
+            "no DutyReport at all is not evidence of violation"
+        );
     }
 }

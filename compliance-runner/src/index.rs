@@ -18,6 +18,7 @@ pub struct TestCaseEntry {
     pub title: String,
     pub policy_path: PathBuf,
     pub request_path: PathBuf,
+    pub sotw_path: PathBuf,
     pub expected_report_path: PathBuf,
 }
 
@@ -40,6 +41,7 @@ pub fn parse_index(vendor_root: &Path) -> Result<Vec<TestCaseEntry>, String> {
     let title_pred = "http://purl.org/dc/terms/title";
     let policy_pred = "http://example.org/policySource";
     let request_pred = "http://example.org/requestSource";
+    let sotw_pred = "http://example.org/sotwSource";
     let expected_pred = "http://example.org/expectedReportSource";
 
     let mut subjects: Vec<String> = Vec::new();
@@ -68,6 +70,9 @@ pub fn parse_index(vendor_root: &Path) -> Result<Vec<TestCaseEntry>, String> {
         let request_url = g
             .object_node(&id, request_pred)
             .ok_or_else(|| format!("{id}: no requestSource"))?;
+        let sotw_url = g
+            .object_node(&id, sotw_pred)
+            .ok_or_else(|| format!("{id}: no sotwSource"))?;
         let expected_url = g
             .object_node(&id, expected_pred)
             .ok_or_else(|| format!("{id}: no expectedReportSource"))?;
@@ -77,6 +82,7 @@ pub fn parse_index(vendor_root: &Path) -> Result<Vec<TestCaseEntry>, String> {
             title,
             policy_path: rewrite_to_local_path(vendor_root, &policy_url)?,
             request_path: rewrite_to_local_path(vendor_root, &request_url)?,
+            sotw_path: rewrite_to_local_path(vendor_root, &sotw_url)?,
             expected_report_path: rewrite_to_local_path(vendor_root, &expected_url)?,
         });
     }
