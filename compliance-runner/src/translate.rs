@@ -23,6 +23,23 @@
 //! to put "the action being evaluated" (no `action` field on `Request`
 //! itself), so this is the one place that phrase can take effect.
 //!
+//! One narrow exception to exact-string action matching, taken directly
+//! from the W3C ODRL Vocabulary & Expression (<https://www.w3.org/TR/vocab-odrl/>)
+//! rather than the general action-implication problem: `odrl:read` and
+//! `odrl:distribute` are formally declared "Included In: use" in that
+//! vocabulary, and this fixture corpus's own expected-report ground truth
+//! confirms the same holds for `write` (Active/Satisfied whenever a `use`
+//! rule meets a `read`/`write` request). `odrl:sell` and `odrl:give`,
+//! by contrast, are declared "Included In: transfer" — a sibling category,
+//! not a child of `use` — and the ground truth agrees: a `use` rule against
+//! a `sell` request reports Inactive/Unsatisfied. So a rule scoped to `use`
+//! is treated as pertaining to any request action EXCEPT the vocabulary's
+//! own transfer-category actions (`transfer`, `sell`, `give`) — a fixed,
+//! citable vocabulary fact for the terms this corpus actually exercises,
+//! not a general solution to action-taxonomy implication. Any other
+//! includedIn/implies chain (a *profile's own* declared extensions, per
+//! Section 3.5's Profile Mechanism) remains unevaluated, per Section 7.
+//!
 //! If **no** rule of a policy survives this scoping, the policy has
 //! nothing to say about the request under evaluation and is omitted from
 //! `policies` entirely — deliberately not included as an empty-rules
@@ -44,13 +61,16 @@ const S7_PARTY_COLLECTION: &str = "odrl:assignee is an odrl:PartyCollection; mem
 
 const S7_ASSET_COLLECTION: &str = "odrl:target is an odrl:AssetCollection; this engine's wire contract carries no target/resource concept at all (decision::Rule is {action, constraints} only, Section 5.2), so resource-collection membership cannot be represented — the same class of gap Section 7 names for structured claims and Party functional roles (Section 4.1, 4.4).";
 
-const S7_ACTION_IMPLICATION: &str = "policy rule's odrl:action is the generic odrl:use and the request names a different, more specific action; ODRL's action taxonomy has use imply certain specific actions via includedIn/implies, but Section 7 is explicit: \"Action implication is not evaluated\" — recognized_actions matching is exact-string only (Section 4.4), so this engine cannot tell whether use covers the request's action.";
-
 const S7_NESTED_DUTY: &str = "permission carries a per-permission odrl:duty (ODRL's finer pre/post-condition form nested inside one Permission); Section 7: \"Per-permission nested duties ... are not modeled: catalog_core::Rule has no nested-duty field\" — only policy-level obligations (Section 4.5) are evaluated.";
 
 const S7_LOGICAL_CONSTRAINT: &str = "constraint is an odrl:LogicalConstraint (odrl:and/odrl:or/odrl:xone); Section 7: \"Nested ODRL logical constraint groups ... remain inherited-limitation out of scope (Section 4.2)\" — catalog_core::Constraint only models atomic constraints.";
 
 const S7_DATETIME: &str = "constraint's odrl:leftOperand is odrl:dateTime; Section 7: \"Numeric and date/time comparison operators ... remain unimplemented in the Default Profile (Section 4.2)\".";
+
+/// ODRL Vocabulary actions formally "Included In: transfer" rather than
+/// "Included In: use" (<https://www.w3.org/TR/vocab-odrl/> §3.12) — the set
+/// a generic `odrl:use` rule does NOT cover, per this module's doc comment.
+const TRANSFER_CATEGORY_ACTIONS: &[&str] = &["transfer", "sell", "give"];
 
 fn unsupported_operator(op: &str) -> String {
     format!(
@@ -67,8 +87,9 @@ pub fn translate(policy: &PolicyInfo, req: &RequestInfo, dataset_id: &str) -> Tr
             None => true,
             Some(a) => a == &req.action,
         };
-        let action_ambiguous_use = matches!(&rule.action, Some(a) if a == "use" && req.action != "use");
-        if !(action_matches_exactly || action_ambiguous_use) {
+        let action_is_generic_use = matches!(&rule.action, Some(a) if a == "use")
+            && !TRANSFER_CATEGORY_ACTIONS.contains(&req.action.as_str());
+        if !(action_matches_exactly || action_is_generic_use) {
             continue;
         }
 
@@ -93,9 +114,6 @@ pub fn translate(policy: &PolicyInfo, req: &RequestInfo, dataset_id: &str) -> Tr
             continue;
         }
 
-        if action_ambiguous_use {
-            return Translation::Skip(S7_ACTION_IMPLICATION.to_string());
-        }
         if rule.has_nested_duty {
             return Translation::Skip(S7_NESTED_DUTY.to_string());
         }
@@ -281,7 +299,7 @@ mod tests {
     }
 
     #[test]
-    fn generic_use_action_against_a_more_specific_request_action_is_skipped() {
+    fn generic_use_permission_allows_a_more_specific_request_action() {
         let rule = RuleInfo {
             kind: RuleKind::Permission,
             assignee: None,
@@ -292,11 +310,38 @@ mod tests {
         };
         let p = policy("p7", vec![rule]);
         let r = req("alice", "read", None);
-        assert!(matches!(translate(&p, &r, "ds1"), Translation::Skip(_)));
+        match translate(&p, &r, "ds1") {
+            Translation::Ready(wire) => {
+                let response = engine::evaluate_request(&wire);
+                assert_eq!(response.decision, engine::WireDecision::Allow);
+            }
+            Translation::Skip(reason) => panic!("expected a translated request, got skip: {reason}"),
+        }
     }
 
     #[test]
-    fn generic_use_action_ambiguity_is_moot_when_assignee_already_excludes_the_rule() {
+    fn generic_use_prohibition_denies_a_more_specific_request_action() {
+        let rule = RuleInfo {
+            kind: RuleKind::Prohibition,
+            assignee: None,
+            action: Some("use".to_string()),
+            target: None,
+            constraint: None,
+            has_nested_duty: false,
+        };
+        let p = policy("p8", vec![rule]);
+        let r = req("alice", "write", None);
+        match translate(&p, &r, "ds1") {
+            Translation::Ready(wire) => {
+                let response = engine::evaluate_request(&wire);
+                assert_eq!(response.decision, engine::WireDecision::Deny);
+            }
+            Translation::Skip(reason) => panic!("expected a translated request, got skip: {reason}"),
+        }
+    }
+
+    #[test]
+    fn generic_use_rule_still_respects_assignee_scoping() {
         let rule = RuleInfo {
             kind: RuleKind::Prohibition,
             assignee: Some(PartyRef::Individual("bob".to_string())),
@@ -305,7 +350,7 @@ mod tests {
             constraint: None,
             has_nested_duty: false,
         };
-        let p = policy("p8", vec![rule]);
+        let p = policy("p9", vec![rule]);
         let r = req("alice", "read", None);
         match translate(&p, &r, "ds1") {
             Translation::Ready(wire) => {
@@ -314,9 +359,39 @@ mod tests {
                 assert_eq!(
                     response.decision,
                     engine::WireDecision::Deny,
-                    "assignee mismatch alone (bob vs alice) already excludes the rule regardless \
-                     of whether 'use' would have implied 'read' — no implication reasoning needed"
+                    "assignee mismatch (bob vs alice) excludes the rule regardless of the \
+                     generic 'use' action matching 'read'"
                 );
+            }
+            Translation::Skip(reason) => panic!("expected a translated request, got skip: {reason}"),
+        }
+    }
+
+    #[test]
+    fn generic_use_permission_does_not_cover_a_transfer_category_action() {
+        // Mirrors the vendored fixture testcase-010-alice-sell: policy-3
+        // ("everybody can do use") against a `sell` request. The upstream
+        // expected report is Inactive/Unsatisfied, not Active — `sell` is
+        // "Included In: transfer" per the W3C ODRL Vocabulary, a sibling
+        // category to `use`, not a child of it.
+        let rule = RuleInfo {
+            kind: RuleKind::Permission,
+            assignee: None,
+            action: Some("use".to_string()),
+            target: None,
+            constraint: None,
+            has_nested_duty: false,
+        };
+        let p = policy("p10", vec![rule]);
+        let r = req("alice", "sell", None);
+        match translate(&p, &r, "ds1") {
+            Translation::Ready(wire) => {
+                assert!(
+                    wire.policies.is_empty(),
+                    "a generic 'use' permission must not be treated as covering 'sell'"
+                );
+                let response = engine::evaluate_request(&wire);
+                assert_eq!(response.decision, engine::WireDecision::Deny);
             }
             Translation::Skip(reason) => panic!("expected a translated request, got skip: {reason}"),
         }

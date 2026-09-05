@@ -1,22 +1,10 @@
 {
   "total": 68,
-  "passed": 20,
+  "passed": 32,
   "failed": 0,
-  "skipped": 48,
+  "skipped": 36,
   "failing_case_ids": [],
   "skipped_case_ids": [
-    "testcase-007-alice",
-    "testcase-008-bob",
-    "testcase-009-bob-write-y",
-    "testcase-010-alice-sell",
-    "testcase-011-alice",
-    "testcase-012-bob",
-    "testcase-013-bob-write-y",
-    "testcase-014-alice-sell",
-    "testcase-015-alice",
-    "testcase-017-alice-sell",
-    "testcase-019-bob",
-    "testcase-020-bob-sell",
     "testcase-030-alice-read-x",
     "testcase-031-alice-read-x-past",
     "testcase-032-alice-read-x-future",
@@ -112,83 +100,83 @@
     {
       "slug": "testcase-007-alice",
       "title": "Any request to use results into yes (Alice Request).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Allow",
       "expected": null,
       "actual": null,
-      "reason": "policy rule's odrl:action is the generic odrl:use and the request names a different, more specific action; ODRL's action taxonomy has use imply certain specific actions via includedIn/implies, but Section 7 is explicit: \"Action implication is not evaluated\" — recognized_actions matching is exact-string only (Section 4.4), so this engine cannot tell whether use covers the request's action."
+      "reason": null
     },
     {
       "slug": "testcase-008-bob",
       "title": "Any request to use results into yes (Bob Request).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Allow",
       "expected": null,
       "actual": null,
-      "reason": "policy rule's odrl:action is the generic odrl:use and the request names a different, more specific action; ODRL's action taxonomy has use imply certain specific actions via includedIn/implies, but Section 7 is explicit: \"Action implication is not evaluated\" — recognized_actions matching is exact-string only (Section 4.4), so this engine cannot tell whether use covers the request's action."
+      "reason": null
     },
     {
       "slug": "testcase-009-bob-write-y",
       "title": "Any request to use results into yes (Bob Request Write).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Allow",
       "expected": null,
       "actual": null,
-      "reason": "policy rule's odrl:action is the generic odrl:use and the request names a different, more specific action; ODRL's action taxonomy has use imply certain specific actions via includedIn/implies, but Section 7 is explicit: \"Action implication is not evaluated\" — recognized_actions matching is exact-string only (Section 4.4), so this engine cannot tell whether use covers the request's action."
+      "reason": null
     },
     {
       "slug": "testcase-010-alice-sell",
       "title": "Any request to use results into yes (Alice Request Sell).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Deny",
       "expected": null,
       "actual": null,
-      "reason": "policy rule's odrl:action is the generic odrl:use and the request names a different, more specific action; ODRL's action taxonomy has use imply certain specific actions via includedIn/implies, but Section 7 is explicit: \"Action implication is not evaluated\" — recognized_actions matching is exact-string only (Section 4.4), so this engine cannot tell whether use covers the request's action."
+      "reason": null
     },
     {
       "slug": "testcase-011-alice",
       "title": "Any request to use results into no (Alice Request).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Deny",
       "expected": null,
       "actual": null,
-      "reason": "policy rule's odrl:action is the generic odrl:use and the request names a different, more specific action; ODRL's action taxonomy has use imply certain specific actions via includedIn/implies, but Section 7 is explicit: \"Action implication is not evaluated\" — recognized_actions matching is exact-string only (Section 4.4), so this engine cannot tell whether use covers the request's action."
+      "reason": null
     },
     {
       "slug": "testcase-012-bob",
       "title": "Any request to use results into no (Bob Request).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Deny",
       "expected": null,
       "actual": null,
-      "reason": "policy rule's odrl:action is the generic odrl:use and the request names a different, more specific action; ODRL's action taxonomy has use imply certain specific actions via includedIn/implies, but Section 7 is explicit: \"Action implication is not evaluated\" — recognized_actions matching is exact-string only (Section 4.4), so this engine cannot tell whether use covers the request's action."
+      "reason": null
     },
     {
       "slug": "testcase-013-bob-write-y",
       "title": "Any request to use results into no (Bob Request Write).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Deny",
       "expected": null,
       "actual": null,
-      "reason": "policy rule's odrl:action is the generic odrl:use and the request names a different, more specific action; ODRL's action taxonomy has use imply certain specific actions via includedIn/implies, but Section 7 is explicit: \"Action implication is not evaluated\" — recognized_actions matching is exact-string only (Section 4.4), so this engine cannot tell whether use covers the request's action."
+      "reason": null
     },
     {
       "slug": "testcase-014-alice-sell",
       "title": "Any request to use results into no (Alice Request Sell).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Deny",
       "expected": null,
       "actual": null,
-      "reason": "policy rule's odrl:action is the generic odrl:use and the request names a different, more specific action; ODRL's action taxonomy has use imply certain specific actions via includedIn/implies, but Section 7 is explicit: \"Action implication is not evaluated\" — recognized_actions matching is exact-string only (Section 4.4), so this engine cannot tell whether use covers the request's action."
+      "reason": null
     },
     {
       "slug": "testcase-015-alice",
       "title": "Any request from Alice to use returns into yes (Alice Request).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Allow",
       "expected": null,
       "actual": null,
-      "reason": "policy rule's odrl:action is the generic odrl:use and the request names a different, more specific action; ODRL's action taxonomy has use imply certain specific actions via includedIn/implies, but Section 7 is explicit: \"Action implication is not evaluated\" — recognized_actions matching is exact-string only (Section 4.4), so this engine cannot tell whether use covers the request's action."
+      "reason": null
     },
     {
       "slug": "testcase-016-bob",
@@ -202,11 +190,11 @@
     {
       "slug": "testcase-017-alice-sell",
       "title": "Any request from Alice to use returns into yes (Alice Request Sell).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Deny",
       "expected": null,
       "actual": null,
-      "reason": "policy rule's odrl:action is the generic odrl:use and the request names a different, more specific action; ODRL's action taxonomy has use imply certain specific actions via includedIn/implies, but Section 7 is explicit: \"Action implication is not evaluated\" — recognized_actions matching is exact-string only (Section 4.4), so this engine cannot tell whether use covers the request's action."
+      "reason": null
     },
     {
       "slug": "testcase-018-alice",
@@ -220,20 +208,20 @@
     {
       "slug": "testcase-019-bob",
       "title": "Any request from Bob to use returns into no (Bob Request).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Deny",
       "expected": null,
       "actual": null,
-      "reason": "policy rule's odrl:action is the generic odrl:use and the request names a different, more specific action; ODRL's action taxonomy has use imply certain specific actions via includedIn/implies, but Section 7 is explicit: \"Action implication is not evaluated\" — recognized_actions matching is exact-string only (Section 4.4), so this engine cannot tell whether use covers the request's action."
+      "reason": null
     },
     {
       "slug": "testcase-020-bob-sell",
       "title": "Any request from Bob to use returns into no (Bob Request Sell).",
-      "status": "skipped",
-      "decision": null,
+      "status": "passed",
+      "decision": "Deny",
       "expected": null,
       "actual": null,
-      "reason": "policy rule's odrl:action is the generic odrl:use and the request names a different, more specific action; ODRL's action taxonomy has use imply certain specific actions via includedIn/implies, but Section 7 is explicit: \"Action implication is not evaluated\" — recognized_actions matching is exact-string only (Section 4.4), so this engine cannot tell whether use covers the request's action."
+      "reason": null
     },
     {
       "slug": "testcase-021-alice",
