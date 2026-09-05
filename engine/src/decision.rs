@@ -1,12 +1,18 @@
 //! Enforcement decision semantics — this proposal's choice (case study
-//! Section 4.3), extended with Section 4.4's profile-driven action check
-//! and Section 4.5's policy-level duty evaluation.
+//! Section 4.3), extended with Section 4.4's profile-driven action check,
+//! Section 4.5's policy-level duty evaluation, and real `odrl:includedIn`
+//! action-taxonomy coverage (`ResolvedConfig::covers`, `profile.rs`).
 //!
-//! Stated per `(Policy, claims, config)`, with no requested-action
-//! parameter: this is a whole-policy decision, not (yet) a per-action
-//! one. Section 4.3's deny-overrides/permission-requirement algorithm
-//! never branches on `Rule::action` itself — only Section 4.4's
-//! unrecognized-action check does, ahead of that algorithm.
+//! Stated per `(Policy, claims, config, requested_action)`. A permission
+//! or prohibition rule now matters only if it *covers* `requested_action`
+//! — an exact match, or a declared `includedIn` chain from the requested
+//! action up to the rule's own — checked ahead of (and independently of)
+//! that rule's `constraints`; Section 4.4's unrecognized-action check
+//! (a rule naming an action no loaded profile knows about *at all*) still
+//! runs first, unaffected by coverage. A policy-level duty's own `action`
+//! (what the caller must *do*, e.g. `notify`) is a different thing
+//! entirely from `requested_action` (what the caller is asking *for*) —
+//! duty satisfaction never involves coverage matching.
 
 use std::fmt;
 
@@ -40,6 +46,16 @@ impl Rule {
     /// `reason` trace, which needs the same match test `decide` uses.
     pub(crate) fn matches(&self, claims: &Claims) -> bool {
         self.constraints.iter().all(|c| c.evaluate(claims))
+    }
+
+    /// Does this rule's own declared action cover `requested_action` —
+    /// `ResolvedConfig::covers`'s doc comment has the real semantics. A
+    /// permission/prohibition rule is only ever considered for
+    /// `matches()`/duty purposes once this also holds; duty satisfaction
+    /// never calls this at all (a duty's action is what must be *done*,
+    /// not what's being requested).
+    pub(crate) fn covers_action(&self, requested_action: &str, config: &ResolvedConfig) -> bool {
+        config.covers(&self.action, requested_action)
     }
 
     /// Section 4.5's duty-satisfaction check — deliberately *not* the same
@@ -233,7 +249,14 @@ fn unresolved_duties(policy: &Policy, claims: &Claims) -> Vec<UnresolvedDuty> {
 /// prohibition is unaffected — it cannot be denied twice). Under
 /// `duty_mode: "advise"`, unresolved duties never change `decision`,
 /// only the returned `unresolved_duties` list.
-pub fn decide(policy: &Policy, claims: &Claims, config: &ResolvedConfig) -> DecisionOutcome {
+///
+/// `requested_action` is the one action this whole decision is *about* —
+/// a permission or prohibition rule is only in play if it covers this
+/// action (`Rule::covers_action`, exact match or a declared `includedIn`
+/// chain); the "empty permissions list is open" exception (Section 4.3)
+/// still turns on the list being empty, not on whether anything in it
+/// happens to cover `requested_action`.
+pub fn decide(policy: &Policy, claims: &Claims, config: &ResolvedConfig, requested_action: &str) -> DecisionOutcome {
     if let Some(unrecognized) = first_unrecognized_action(policy, config) {
         return DecisionOutcome {
             decision: Decision::Error(unrecognized),
@@ -241,10 +264,13 @@ pub fn decide(policy: &Policy, claims: &Claims, config: &ResolvedConfig) -> Deci
         };
     }
 
-    let denied_by_prohibition = policy.prohibitions.iter().any(|rule| rule.matches(claims));
+    let denied_by_prohibition = policy
+        .prohibitions
+        .iter()
+        .any(|rule| rule.covers_action(requested_action, config) && rule.matches(claims));
 
-    let permission_requirement_met =
-        policy.permissions.is_empty() || policy.permissions.iter().any(|rule| rule.matches(claims));
+    let permission_requirement_met = policy.permissions.is_empty()
+        || policy.permissions.iter().any(|rule| rule.covers_action(requested_action, config) && rule.matches(claims));
 
     let mut decision = if denied_by_prohibition {
         Decision::Deny
@@ -270,10 +296,14 @@ mod tests {
     use super::*;
     use crate::claims::ClaimValue;
     use crate::constraint::Operator;
-    use crate::profile::{DutyMode, Profile};
+    use crate::profile::{ActionDecl, DutyMode, Profile};
 
     fn claims_with(pairs: &[(&str, ClaimValue)]) -> Claims {
         pairs.iter().map(|(k, v)| (k.to_string(), v.clone())).collect()
+    }
+
+    fn flat(names: &[&str]) -> Vec<ActionDecl> {
+        names.iter().map(|n| ActionDecl::new(*n)).collect()
     }
 
     fn config_recognizing(actions: &[&str]) -> ResolvedConfig {
@@ -283,7 +313,7 @@ mod tests {
     fn config_with_duty_mode(actions: &[&str], duty_mode: DutyMode) -> ResolvedConfig {
         crate::profile::resolve(&[Profile {
             id: "https://example.org/profiles/test".to_string(),
-            recognized_actions: actions.iter().map(|a| a.to_string()).collect(),
+            actions: flat(actions),
             duty_mode,
         }])
     }
@@ -300,7 +330,7 @@ mod tests {
             obligations: vec![],
         };
         let claims = claims_with(&[]);
-        assert_eq!(decide(&policy, &claims, &all_actions_config()).decision, Decision::Allow);
+        assert_eq!(decide(&policy, &claims, &all_actions_config(), "read").decision, Decision::Allow);
     }
 
     #[test]
@@ -314,7 +344,7 @@ mod tests {
             obligations: vec![],
         };
         let claims = claims_with(&[("sub", ClaimValue::Single("alice".into()))]);
-        assert_eq!(decide(&policy, &claims, &all_actions_config()).decision, Decision::Allow);
+        assert_eq!(decide(&policy, &claims, &all_actions_config(), "read").decision, Decision::Allow);
     }
 
     #[test]
@@ -329,7 +359,7 @@ mod tests {
         };
         let claims = claims_with(&[("sub", ClaimValue::Single("alice".into()))]);
         assert_eq!(
-            decide(&policy, &claims, &all_actions_config()).decision,
+            decide(&policy, &claims, &all_actions_config(), "read").decision,
             Decision::Deny,
             "deny-overrides: a matching prohibition wins even though a permission also matches"
         );
@@ -346,7 +376,7 @@ mod tests {
             obligations: vec![],
         };
         let claims = claims_with(&[("sub", ClaimValue::Single("alice".into()))]);
-        assert_eq!(decide(&policy, &claims, &all_actions_config()).decision, Decision::Allow);
+        assert_eq!(decide(&policy, &claims, &all_actions_config(), "read").decision, Decision::Allow);
     }
 
     #[test]
@@ -361,7 +391,7 @@ mod tests {
         };
         let claims = claims_with(&[("sub", ClaimValue::Single("alice".into()))]);
         assert_eq!(
-            decide(&policy, &claims, &all_actions_config()).decision,
+            decide(&policy, &claims, &all_actions_config(), "read").decision,
             Decision::Deny,
             "closed default: a non-empty permissions list that never matches must deny"
         );
@@ -376,7 +406,7 @@ mod tests {
         };
         let claims = claims_with(&[]);
         assert_eq!(
-            decide(&policy, &claims, &all_actions_config()).decision,
+            decide(&policy, &claims, &all_actions_config(), "read").decision,
             Decision::Allow,
             "Section 4.3's named departure: no permission rules at all is treated as open"
         );
@@ -390,7 +420,7 @@ mod tests {
             obligations: vec![],
         };
         let claims = claims_with(&[]);
-        assert_eq!(decide(&policy, &claims, &all_actions_config()).decision, Decision::Deny);
+        assert_eq!(decide(&policy, &claims, &all_actions_config(), "read").decision, Decision::Deny);
     }
 
     #[test]
@@ -398,14 +428,14 @@ mod tests {
         let policy = Policy {
             permissions: vec![
                 Rule::new("read", vec![Constraint::new("sub", Operator::Eq, "bob")]),
-                Rule::new("write", vec![]),
+                Rule::new("read", vec![]),
             ],
             prohibitions: vec![],
             obligations: vec![],
         };
         let claims = claims_with(&[("sub", ClaimValue::Single("alice".into()))]);
         assert_eq!(
-            decide(&policy, &claims, &all_actions_config()).decision,
+            decide(&policy, &claims, &all_actions_config(), "read").decision,
             Decision::Allow,
             "multiple permission rules are alternative grants, not a conjunction"
         );
@@ -416,13 +446,13 @@ mod tests {
         let policy = Policy {
             permissions: vec![Rule::new("read", vec![])],
             prohibitions: vec![
-                Rule::new("write", vec![Constraint::new("sub", Operator::Eq, "bob")]),
+                Rule::new("read", vec![Constraint::new("sub", Operator::Eq, "bob")]),
                 Rule::new("read", vec![]),
             ],
             obligations: vec![],
         };
         let claims = claims_with(&[("sub", ClaimValue::Single("alice".into()))]);
-        assert_eq!(decide(&policy, &claims, &all_actions_config()).decision, Decision::Deny);
+        assert_eq!(decide(&policy, &claims, &all_actions_config(), "read").decision, Decision::Deny);
     }
 
     #[test]
@@ -457,9 +487,9 @@ mod tests {
         let claims = claims_with(&[]);
         let config = config_recognizing(&["distribute"]);
         assert_eq!(
-            decide(&policy, &claims, &config).decision,
+            decide(&policy, &claims, &config, "distribute").decision,
             Decision::Allow,
-            "an action present in the resolved config's recognized_actions is evaluated by \
+            "an action present in the resolved config's declared actions is evaluated by \
              Section 4.3's algorithm as usual"
         );
     }
@@ -473,7 +503,7 @@ mod tests {
         };
         let claims = claims_with(&[]);
         let config = config_recognizing(&["read", "write"]);
-        match decide(&policy, &claims, &config).decision {
+        match decide(&policy, &claims, &config, "read").decision {
             Decision::Error(unrecognized) => {
                 assert_eq!(unrecognized.action, "anonymize");
                 assert_eq!(unrecognized.rule_kind, RuleKind::Permission);
@@ -501,7 +531,7 @@ mod tests {
         };
         let claims = claims_with(&[]);
         let config = config_recognizing(&["read", "write"]);
-        match decide(&policy, &claims, &config).decision {
+        match decide(&policy, &claims, &config, "read").decision {
             Decision::Error(unrecognized) => {
                 assert_eq!(unrecognized.action, "anonymize");
                 assert_eq!(unrecognized.rule_kind, RuleKind::Prohibition);
@@ -527,9 +557,25 @@ mod tests {
         let claims = claims_with(&[("sub", ClaimValue::Single("alice".into()))]);
         let config = config_recognizing(&["read"]);
         assert!(
-            matches!(decide(&policy, &claims, &config).decision, Decision::Error(_)),
+            matches!(decide(&policy, &claims, &config, "read").decision, Decision::Error(_)),
             "the action check must not be skipped just because the rule would have missed anyway"
         );
+    }
+
+    #[test]
+    fn unrecognized_action_is_reported_even_when_it_would_not_have_covered_the_request() {
+        // Section 4.4's Error check runs on every rule's own declared
+        // action, ahead of and independent from coverage matching — a
+        // rule naming a vocabulary-unknown action is a configuration gap
+        // regardless of what's actually being requested.
+        let policy = Policy {
+            permissions: vec![Rule::new("anonymize", vec![])],
+            prohibitions: vec![],
+            obligations: vec![],
+        };
+        let claims = claims_with(&[]);
+        let config = config_recognizing(&["read"]);
+        assert!(matches!(decide(&policy, &claims, &config, "write").decision, Decision::Error(_)));
     }
 
     #[test]
@@ -543,17 +589,17 @@ mod tests {
         let config = crate::profile::resolve(&[
             Profile {
                 id: "https://example.org/profiles/a".to_string(),
-                recognized_actions: vec!["read".to_string()],
+                actions: flat(&["read"]),
                 duty_mode: DutyMode::Advise,
             },
             Profile {
                 id: "https://example.org/profiles/b".to_string(),
-                recognized_actions: vec!["modify".to_string()],
+                actions: flat(&["modify"]),
                 duty_mode: DutyMode::Deny,
             },
         ]);
         assert_eq!(
-            decide(&policy, &claims, &config).decision,
+            decide(&policy, &claims, &config, "modify").decision,
             Decision::Allow,
             "an action recognized by only one of two loaded profiles is still recognized by \
              the union (Section 4.4's named fail-open choice, implemented as specified)"
@@ -563,6 +609,50 @@ mod tests {
             DutyMode::Deny,
             "the resolved config's duty_mode is the strictest across loaded profiles"
         );
+    }
+
+    #[test]
+    fn a_permission_for_a_broader_action_covers_a_request_for_an_includedin_specific_one() {
+        // The Section 3.5 worked example, end to end through decide():
+        // a permission for the broad "transfer" action covers a request
+        // for the specific "sell" action, with no host-side pre-filtering
+        // or rewriting of Rule::action needed.
+        let policy = Policy {
+            permissions: vec![Rule::new("transfer", vec![])],
+            prohibitions: vec![],
+            obligations: vec![],
+        };
+        let claims = claims_with(&[]);
+        let config = crate::profile::resolve(&[Profile {
+            id: "https://example.org/profiles/test".to_string(),
+            actions: vec![ActionDecl::new("transfer"), ActionDecl::included_in("sell", "transfer")],
+            duty_mode: DutyMode::Advise,
+        }]);
+        assert_eq!(decide(&policy, &claims, &config, "sell").decision, Decision::Allow);
+    }
+
+    #[test]
+    fn a_permission_that_does_not_cover_the_requested_action_denies_not_errors() {
+        // "sell" and "give" are siblings (both includedIn "transfer");
+        // a permission naming only "sell" does not cover a "give" request
+        // — an ordinary closed-default Deny, not a configuration Error,
+        // since "give" is still a recognized (just uncovered) action.
+        let policy = Policy {
+            permissions: vec![Rule::new("sell", vec![])],
+            prohibitions: vec![],
+            obligations: vec![],
+        };
+        let claims = claims_with(&[]);
+        let config = crate::profile::resolve(&[Profile {
+            id: "https://example.org/profiles/test".to_string(),
+            actions: vec![
+                ActionDecl::new("transfer"),
+                ActionDecl::included_in("sell", "transfer"),
+                ActionDecl::included_in("give", "transfer"),
+            ],
+            duty_mode: DutyMode::Advise,
+        }]);
+        assert_eq!(decide(&policy, &claims, &config, "give").decision, Decision::Deny);
     }
 
     #[test]
@@ -577,7 +667,7 @@ mod tests {
         };
         let claims = claims_with(&[("sub", ClaimValue::Single("alice".into()))]);
         let config = config_with_duty_mode(&["read", "notify"], DutyMode::Deny);
-        let outcome = decide(&policy, &claims, &config);
+        let outcome = decide(&policy, &claims, &config, "read");
         assert_eq!(
             outcome.decision,
             Decision::Allow,
@@ -599,7 +689,7 @@ mod tests {
         };
         let claims = claims_with(&[]);
         let config = config_with_duty_mode(&["read", "notify"], DutyMode::Deny);
-        let outcome = decide(&policy, &claims, &config);
+        let outcome = decide(&policy, &claims, &config, "read");
         assert_eq!(
             outcome.decision,
             Decision::Deny,
@@ -623,7 +713,7 @@ mod tests {
         };
         let claims = claims_with(&[]);
         let config = config_with_duty_mode(&["read", "delete-after-30-days"], DutyMode::Deny);
-        let outcome = decide(&policy, &claims, &config);
+        let outcome = decide(&policy, &claims, &config, "read");
         assert_eq!(
             outcome.decision,
             Decision::Deny,
@@ -642,7 +732,7 @@ mod tests {
         };
         let claims = claims_with(&[]);
         let config = config_with_duty_mode(&["read", "notify"], DutyMode::Advise);
-        let outcome = decide(&policy, &claims, &config);
+        let outcome = decide(&policy, &claims, &config, "read");
         assert_eq!(
             outcome.decision,
             Decision::Allow,
@@ -667,7 +757,7 @@ mod tests {
         };
         let claims = claims_with(&[]);
         let config = config_with_duty_mode(&["read", "notify"], DutyMode::Advise);
-        let outcome = decide(&policy, &claims, &config);
+        let outcome = decide(&policy, &claims, &config, "read");
         assert_eq!(outcome.decision, Decision::Deny);
         assert_eq!(outcome.unresolved_duties.len(), 1);
     }
@@ -687,7 +777,7 @@ mod tests {
         };
         let claims = claims_with(&[("sub", ClaimValue::Single("alice".into()))]);
         let config = config_with_duty_mode(&["read", "notify", "delete-after-30-days"], DutyMode::Advise);
-        let outcome = decide(&policy, &claims, &config);
+        let outcome = decide(&policy, &claims, &config, "read");
         assert_eq!(outcome.decision, Decision::Allow);
         assert_eq!(
             outcome.unresolved_duties,
@@ -713,14 +803,14 @@ mod tests {
         };
         let claims = claims_with(&[]);
         let config = config_recognizing(&["read"]);
-        match decide(&policy, &claims, &config).decision {
+        match decide(&policy, &claims, &config, "read").decision {
             Decision::Error(unrecognized) => {
                 assert_eq!(unrecognized.action, "anonymize");
                 assert_eq!(unrecognized.rule_kind, RuleKind::Duty);
                 assert_eq!(unrecognized.rule_index, 0);
             }
             other => panic!(
-                "an obligation naming an action outside recognized_actions must yield Error \
+                "an obligation naming an action outside the declared vocabulary must yield Error \
                  exactly as an unrecognized permission/prohibition action would, got {other:?}"
             ),
         }
