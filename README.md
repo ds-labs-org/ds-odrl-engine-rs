@@ -194,12 +194,17 @@ As of the fixtures currently vendored (68 cases):
 
 | total | passed | failed | skipped |
 |---|---|---|---|
-| 68 | 20 | 0 | 48 |
+| 68 | 32 | 0 | 36 |
 
 Zero failures: every case this engine's wire contract can represent at
-all currently agrees with the suite's expected verdict. The 48 skips are
-each attributable to one of the ODRL constructs this engine's Default
-Profile does not model — action implication, numeric/date-time
+all currently agrees with the suite's expected verdict. `odrl:use` is
+recognized as covering `read`/`write`/`distribute` (per the W3C ODRL
+Vocabulary's own "Included In: use" declarations) while correctly
+excluding transfer-category actions (`sell`, `give`, `transfer`) — see
+`compliance-runner/src/translate.rs`'s module doc for the citation. The
+remaining 36 skips are each attributable to one of the ODRL constructs
+this engine's Default Profile does not model — general action-taxonomy
+implication beyond the `use` special case above, numeric/date-time
 constraints, nested logical constraint groups, party/asset-collection
 membership, and per-permission nested duties — see the table in
 [`compliance/reports/latest.md`](compliance/reports/latest.md) for the
