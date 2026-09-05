@@ -168,9 +168,10 @@ Request:
   truth (as this engine's own compliance suite does), should choose.
 - `policies` mirrors the host's own `Policy`/`Rule`/`Constraint` shape
   field for field — each rule keeps its **own** declared `action`, not
-  the request's. `constraints` supports exactly `eq`, `neq`, and
+  the request's. `constraints` supports seven operators: `eq`, `neq`,
   `isAnyOf` (which splits `right_operand` on commas, with no escaping
-  convention). A rule's `constraints` list matches vacuously when empty.
+  convention), and the four UTC-`dateTime`-only comparisons `lt`/`lteq`/
+  `gt`/`gteq`. A rule's `constraints` list matches vacuously when empty.
 - `claims` is the flat claims map: each value is a JSON string or array
   of strings, sourced from whatever identity the host already trusts —
   this engine never decodes a JWT or other identity-presentation format
