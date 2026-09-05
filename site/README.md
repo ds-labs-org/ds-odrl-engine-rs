@@ -113,18 +113,24 @@ shows the parser's actual error message.
 
 A loaded profile then configures the form:
 
-- every action field (the top-level `recognized_actions` field, and each
-  permission/prohibition/obligation's own action) gets an "insert from
-  profile" picker offering the loaded profile's declared actions — the
-  underlying field stays a free-form text input throughout, so a value
-  typed by hand or set before a profile was loaded is never overwritten
-  or restricted;
+- every action field — the new top-level "Requested Action" field
+  (Section 5.2's `Request.action`), the `odrl:action` (`recognized_actions`)
+  field, and each permission/prohibition/obligation's own action — gets an
+  "insert from profile" picker offering the loaded profile's declared
+  actions; the underlying field stays a free-form text input throughout, so
+  a value typed by hand or set before a profile was loaded is never
+  overwritten or restricted;
 - an action field whose current value isn't among the loaded profile's
-  actions gets an inline warning cue (this is a UI hint only, not a
-  gate — the engine's own `Error` decision at evaluation time is still
-  the authority on whether an action is actually unrecognized, since
-  what the engine checks is `config.recognized_actions`, not what a
-  loaded profile happens to declare);
+  declared actions gets an inline warning cue (a UI hint only, not a
+  gate — the engine's own decision at evaluation time is still the
+  authority: `Error` if this is a rule's own unrecognized action, `Deny`
+  if this is the requested action and nothing declared covers it);
+- the loaded profile's own declared actions **and their `odrl:includedIn`
+  edges** flow directly into the constructed request's
+  `config.odrl:action` list, not just into the suggestion pickers above —
+  a permission for a profile-declared parent action genuinely covers a
+  request for a profile-declared child action, exercised end to end
+  against the real compiled `engine.wasm`, not just displayed in the UI;
 - every `left_operand` constraint field gets an HTML `<datalist>` of
   suggestions — the loaded profile's declared `odrl:LeftOperand` names,
   plus `sub`/`nationality`/`scope`/`dateTime` (this repo's own README

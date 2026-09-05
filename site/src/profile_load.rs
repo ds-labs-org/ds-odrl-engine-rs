@@ -23,10 +23,20 @@ pub enum ProfileFormat {
   JsonLd,
 }
 
+/// Mirrors `engine::ActionDecl` field for field (`id`, `included_in`) --
+/// site has no Rust-level dependency on the `engine` crate itself (see
+/// this module's own doc comment), so this is `interpreted.profile.actions`
+/// copied out by field access, never `engine::ActionDecl` named directly.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LoadedAction {
+  pub id: String,
+  pub included_in: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct LoadedProfile {
   pub id: String,
-  pub recognized_actions: Vec<String>,
+  pub actions: Vec<LoadedAction>,
   pub declared_left_operands: Vec<String>,
   pub warnings: Vec<String>,
 }
@@ -47,7 +57,12 @@ pub fn load_profile(text: &str, format: ProfileFormat, duty_mode: &str) -> Resul
   let interpreted = interpret(&graph, None, duty_mode);
   Ok(LoadedProfile {
     id: interpreted.profile.id,
-    recognized_actions: interpreted.profile.recognized_actions,
+    actions: interpreted
+      .profile
+      .actions
+      .iter()
+      .map(|a| LoadedAction { id: a.id.clone(), included_in: a.included_in.clone() })
+      .collect(),
     declared_left_operands: interpreted.declared_left_operands,
     warnings: interpreted.warnings,
   })

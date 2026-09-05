@@ -81,7 +81,7 @@ pub fn ProfilePanel(props: &ProfilePanelProps) -> Html {
             { format!(
               "{} — declares {} recognized action(s) and {} left operand(s).",
               profile.id,
-              profile.recognized_actions.len(),
+              profile.actions.len(),
               profile.declared_left_operands.len(),
             ) }
           </p>

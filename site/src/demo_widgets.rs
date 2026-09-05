@@ -238,10 +238,12 @@ pub struct ActionFieldProps {
 /// select component the operator dropdown already uses, for interaction
 /// consistency -- and, if the field's current value is non-empty and not
 /// among `recognized_actions`, a `HelperText` cue explaining evaluation
-/// would produce `Error`. The text field itself is never restricted to
-/// the picker's options: a value picked before this feature existed, or
-/// typed by hand, must remain editable, since the cue -- not a closed
-/// `<select>` -- is what this task asks to gate on.
+/// could produce `Error` (for a rule's own action) or `Deny` (for the
+/// top-level requested action, this component's other use -- see
+/// `demo_page.rs`'s "Requested Action" section). The text field itself is
+/// never restricted to the picker's options: a value picked before this
+/// feature existed, or typed by hand, must remain editable, since the cue
+/// -- not a closed `<select>` -- is what this task asks to gate on.
 #[component]
 pub fn ActionField(props: &ActionFieldProps) -> Html {
   let trimmed = props.value.trim();
@@ -275,7 +277,7 @@ pub fn ActionField(props: &ActionFieldProps) -> Html {
       if not_recognized {
         <HelperText>
           <HelperTextItem variant={HelperTextItemVariant::Warning} icon={HelperTextItemIcon::Visible}>
-            { format!("{trimmed:?} is not in the loaded profile's recognized_actions -- evaluating this will produce an Error decision.") }
+            { format!("{trimmed:?} is not among the loaded profile's declared actions -- this can change the evaluation outcome: Error if this is a rule's own action (Section 4.4's unrecognized-action check), or Deny if this is the requested action and nothing declared covers it.") }
           </HelperTextItem>
         </HelperText>
       }

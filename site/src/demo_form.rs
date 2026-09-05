@@ -7,6 +7,7 @@
 
 use std::collections::BTreeMap;
 
+use crate::profile_load::LoadedProfile;
 use crate::wire;
 
 /// A single `left_operand`/`operator`/`right_operand` constraint row.
@@ -49,9 +50,16 @@ pub struct ClaimRow {
 /// input list has no field for either -- only `kind` and `assigner` are
 /// user-editable, matching how the case study's Section 5.2 example
 /// itself only varies those two per policy.
+///
+/// `action` is the new top-level "requested action" (Section 5.2's
+/// `Request.action`) -- what this whole request is *about*, distinct from
+/// each permission/prohibition/obligation's own declared action in
+/// `permissions`/`prohibitions`/`obligations` below, which `engine::decide`
+/// now compares against it via coverage rather than exact identity.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DemoForm {
   pub dataset_id: String,
+  pub action: String,
   pub recognized_actions: String,
   pub duty_mode: String,
   pub policy_kind: String,
@@ -73,7 +81,8 @@ impl DemoForm {
   pub fn example() -> Self {
     Self {
       dataset_id: "urn:uuid:example-dataset-1".to_string(),
-      recognized_actions: "use, distribute, notify".to_string(),
+      action: "use".to_string(),
+      recognized_actions: "use, distribute->use, notify".to_string(),
       duty_mode: "advise".to_string(),
       policy_kind: "Offer".to_string(),
       assigner: "did:web:provider.example".to_string(),
@@ -101,6 +110,7 @@ impl DemoForm {
   pub fn empty() -> Self {
     Self {
       dataset_id: String::new(),
+      action: String::new(),
       recognized_actions: String::new(),
       duty_mode: "advise".to_string(),
       policy_kind: String::new(),
@@ -120,6 +130,25 @@ pub(crate) fn split_csv(raw: &str) -> Vec<String> {
   raw.split(',').map(str::trim).filter(|s| !s.is_empty()).map(str::to_string).collect()
 }
 
+/// Parses one `recognized_actions` CSV token into a `WireActionDecl`. This
+/// field has no per-action UI for declaring `odrl:includedIn` (unlike a
+/// loaded profile, which carries real edges -- see `to_request` below), so
+/// a `child->parent` token is this form's own minimal stand-in: typing
+/// `distribute->use` declares `distribute includedIn use`. A token with no
+/// `->` is a parentless action, same as before this field could express
+/// `includedIn` at all.
+fn parse_action_token(token: &str) -> wire::WireActionDecl {
+  match token.split_once("->") {
+    Some((child, parent)) => wire::WireActionDecl {
+      id: child.trim().to_string(),
+      included_in: Some(wire::WireNodeRef { id: parent.trim().to_string() }),
+    },
+    None => wire::WireActionDecl { id: token.trim().to_string(), included_in: None },
+  }
+}
+
+const CONFIG_ID: &str = "https://example.org/profiles/demonstrator";
+
 fn to_wire_rule(row: &RuleRow) -> wire::Rule {
   wire::Rule {
     action: row.action.trim().to_string(),
@@ -137,11 +166,17 @@ fn to_wire_rule(row: &RuleRow) -> wire::Rule {
 
 /// Builds Section 5.2's request shape from the current form state. Rows
 /// with an empty key/action are still included as-is (an empty action
-/// simply won't match `recognized_actions`, surfacing as an ordinary
-/// engine-level outcome rather than a client-side validation error) --
-/// the one exception is claim rows, where an empty key has no wire
-/// representation at all and is dropped.
-pub fn to_request(form: &DemoForm) -> wire::Request {
+/// simply won't be covered by `config.odrl:action`, surfacing as an
+/// ordinary engine-level outcome rather than a client-side validation
+/// error) -- the one exception is claim rows, where an empty key has no
+/// wire representation at all and is dropped.
+///
+/// `loaded_profile`'s own declared actions (and their `includedIn` edges)
+/// flow into `config.odrl:action` here, not just into the form's
+/// suggestion pickers as before -- a profile action already present (by
+/// id) wins over a same-named manual `recognized_actions` entry, mirroring
+/// `engine::profile::resolve`'s own "first declared wins" merge rule.
+pub fn to_request(form: &DemoForm, loaded_profile: Option<&LoadedProfile>) -> wire::Request {
   let mut claims = BTreeMap::new();
   for row in &form.claims {
     let key = row.key.trim();
@@ -156,10 +191,29 @@ pub fn to_request(form: &DemoForm) -> wire::Request {
     claims.insert(key.to_string(), value);
   }
 
+  let mut actions: Vec<wire::WireActionDecl> = Vec::new();
+  if let Some(profile) = loaded_profile {
+    for action in &profile.actions {
+      actions.push(wire::WireActionDecl {
+        id: action.id.clone(),
+        included_in: action.included_in.clone().map(|id| wire::WireNodeRef { id }),
+      });
+    }
+  }
+  for token in split_csv(&form.recognized_actions) {
+    let decl = parse_action_token(&token);
+    if !actions.iter().any(|a| a.id == decl.id) {
+      actions.push(decl);
+    }
+  }
+
   wire::Request {
     dataset_id: form.dataset_id.clone(),
+    action: form.action.trim().to_string(),
     config: wire::RequestConfig {
-      recognized_actions: split_csv(&form.recognized_actions),
+      type_: "odrl:Profile".to_string(),
+      id: loaded_profile.map(|p| p.id.clone()).unwrap_or_else(|| CONFIG_ID.to_string()),
+      actions,
       duty_mode: form.duty_mode.clone(),
     },
     policies: vec![wire::Policy {

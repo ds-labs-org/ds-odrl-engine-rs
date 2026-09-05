@@ -5,7 +5,9 @@
 //! reuses as-is). Replaces the earlier proof-of-concept single button.
 
 use crate::demo_form::{ClaimRow, DemoForm, RuleRow};
-use crate::demo_widgets::{ClaimRowsEditor, RuleRowsEditor, DEFAULT_LEFT_OPERAND_SUGGESTIONS, LEFT_OPERAND_DATALIST_ID};
+use crate::demo_widgets::{
+  ActionField, ClaimRowsEditor, RuleRowsEditor, DEFAULT_LEFT_OPERAND_SUGGESTIONS, LEFT_OPERAND_DATALIST_ID,
+};
 use crate::engine_bridge;
 use crate::pages::case_study_credit;
 use crate::profile_load::LoadedProfile;
@@ -46,7 +48,7 @@ pub fn DemoPage() -> Html {
   let loaded_profile = use_state(|| None::<LoadedProfile>);
 
   let recognized_actions_from_profile: Vec<String> =
-    loaded_profile.as_ref().map(|p| p.recognized_actions.clone()).unwrap_or_default();
+    loaded_profile.as_ref().map(|p| p.actions.iter().map(|a| a.id.clone()).collect()).unwrap_or_default();
   let left_operand_suggestions: Vec<String> = {
     let mut suggestions: Vec<String> = DEFAULT_LEFT_OPERAND_SUGGESTIONS.iter().map(|s| s.to_string()).collect();
     if let Some(profile) = loaded_profile.as_ref() {
@@ -62,11 +64,12 @@ pub fn DemoPage() -> Html {
     Callback::from(move |profile: LoadedProfile| loaded_profile.set(Some(profile)))
   };
 
-  let request = crate::demo_form::to_request(&form);
+  let request = crate::demo_form::to_request(&form, (*loaded_profile).as_ref());
   let request_json = serde_json::to_string_pretty(&request)
     .unwrap_or_else(|err| format!("<could not serialize this form as JSON: {err}>"));
 
   let on_dataset_id = field_onchange(form.clone(), |f, v| f.dataset_id = v);
+  let on_action = field_onchange(form.clone(), |f, v| f.action = v);
   let on_recognized_actions = field_onchange(form.clone(), |f, v| f.recognized_actions = v);
   let on_pick_recognized_action = {
     let form = form.clone();
@@ -226,6 +229,23 @@ pub fn DemoPage() -> Html {
       </Content>
 
       <Content>
+        <Title level={Level::H2}>{ "Requested Action" }</Title>
+        <p>
+          { "Section 5.2's top-level " }<code>{ "action" }</code>{ " field -- the one action this \
+             whole request is about, distinct from a permission/prohibition/obligation's own \
+             declared action below. The engine compares the two via " }
+          <code>{ "engine::ResolvedConfig::covers" }</code>
+          { " (exact match, or a declared " }<code>{ "odrl:includedIn" }</code>{ " chain)." }
+        </p>
+        <ActionField
+          placeholder="action being requested (e.g. sell)"
+          value={form.action.clone()}
+          onchange={on_action}
+          recognized_actions={recognized_actions_from_profile.clone()}
+        />
+      </Content>
+
+      <Content>
         <Title level={Level::H2}>{ "Claims" }</Title>
         <p>{ "The identity claims presented to the engine (Section 4.1) -- toggle \"list\" for a comma-separated, multi-valued claim." }</p>
         <ClaimRowsEditor claims={form.claims.clone()} on_change={on_claims} />
@@ -235,9 +255,9 @@ pub fn DemoPage() -> Html {
         <Title level={Level::H2}>{ "Config" }</Title>
         <div style="display: flex; flex-direction: column; gap: 0.7rem; max-width: 30rem;">
           <label>
-            { "recognized_actions (comma-separated)" }
+            { "odrl:action (comma-separated; \"child->parent\" declares odrl:includedIn)" }
             <div style="display: flex; align-items: flex-start; gap: 0.5rem;">
-              <TextInput placeholder="use, distribute, notify" value={form.recognized_actions.clone()} onchange={on_recognized_actions} />
+              <TextInput placeholder="use, distribute->use, notify" value={form.recognized_actions.clone()} onchange={on_recognized_actions} />
               if !recognized_actions_from_profile.is_empty() {
                 <FormSelect<String> value={None::<String>} placeholder="insert from profile..." onchange={on_pick_recognized_action}>
                   { for recognized_actions_from_profile.iter().map(|action| yew::html_nested!(

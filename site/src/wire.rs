@@ -42,10 +42,41 @@ pub struct Policy {
   pub obligations: Vec<Rule>,
 }
 
-/// Section 5.2's `config` object.
+/// A JSON-LD reference to another node by IRI -- `{"@id": "..."}`, used
+/// here for `WireActionDecl`'s `odrl:includedIn`. Mirrors
+/// `engine::wire::WireNodeRef`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WireNodeRef {
+  #[serde(rename = "@id")]
+  pub id: String,
+}
+
+/// One entry of `RequestConfig`'s `odrl:action` list. Mirrors
+/// `engine::wire::WireActionDecl`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WireActionDecl {
+  #[serde(rename = "@id")]
+  pub id: String,
+  #[serde(rename = "odrl:includedIn", default, skip_serializing_if = "Option::is_none")]
+  pub included_in: Option<WireNodeRef>,
+}
+
+/// Section 5.2's `config` object -- real ODRL/JSON-LD vocabulary
+/// (`@type`/`@id`/`odrl:action`/`odrl:includedIn`), not the earlier bare
+/// `{"recognized_actions": [...], "duty_mode": ...}` shape. `dutyMode`
+/// stays outside the `odrl:` namespace deliberately -- see
+/// `engine::wire::RequestConfig`'s own doc comment: ODRL defines no
+/// property for a profile's own enforcement behavior, so namespacing it as
+/// real ODRL vocabulary would misrepresent this engine's own invention.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RequestConfig {
-  pub recognized_actions: Vec<String>,
+  #[serde(rename = "@type")]
+  pub type_: String,
+  #[serde(rename = "@id")]
+  pub id: String,
+  #[serde(rename = "odrl:action")]
+  pub actions: Vec<WireActionDecl>,
+  #[serde(rename = "dutyMode")]
   pub duty_mode: String,
 }
 
@@ -60,13 +91,17 @@ pub enum ClaimValue {
   Multi(Vec<String>),
 }
 
-/// Section 5.2's request envelope. `claims` is a `BTreeMap` (not the
+/// Section 5.2's request envelope. `action` (new) is the one action the
+/// whole request is about -- evaluated against every policy's own rule
+/// actions via `engine::ResolvedConfig::covers`, distinct from a rule's own
+/// declared `action` on `Rule` above. `claims` is a `BTreeMap` (not the
 /// insertion-ordered map the form itself keeps) purely for a
 /// deterministic raw-JSON preview -- the engine itself is indifferent to
 /// key order.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Request {
   pub dataset_id: String,
+  pub action: String,
   pub config: RequestConfig,
   pub policies: Vec<Policy>,
   pub claims: BTreeMap<String, ClaimValue>,
