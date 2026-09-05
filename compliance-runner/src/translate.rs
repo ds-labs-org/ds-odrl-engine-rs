@@ -4,41 +4,56 @@
 //! cited reason instead.
 //!
 //! **The adapter's own translation convention, stated once here because
-//! nothing in Section 5.2 specifies it:** the engine's `decide` algorithm
-//! (`engine::decision`) takes no requested-action or target parameter at
-//! all — it is a whole-`(Policy, claims)` decision (`decision.rs`'s own
-//! module doc says so plainly). A real host is therefore responsible for
-//! having already scoped a harvested `Policy`'s rules to the one
-//! action/target actually being evaluated *before* it ever reaches this
-//! engine (Section 5.2: "the host serializes the harvested `Vec<Policy>`
-//! for one dataset directly, with no translation layer"). This compliance
-//! runner plays that host role: for each of a policy's permission/
-//! prohibition rules, it keeps the rule only if the rule's own
-//! `odrl:assignee`/`odrl:action`/`odrl:target` (when present) match the
-//! request's — an `odrl:assignee` becomes a `sub eq <name>` constraint
-//! (Section 4.1's `sub` claim), since `WirePolicy.assignee` itself is
-//! purely descriptive and has no effect on `decide` (`as_decision_policy`
-//! drops it). A rule that survives this scoping has its `action` field
-//! set to the request's own action — the wire contract has nowhere else
-//! to put "the action being evaluated" (no `action` field on `Request`
-//! itself), so this is the one place that phrase can take effect.
+//! nothing in Section 5.2 specifies it:** `Request` now carries its own
+//! top-level `action` — the one action the whole request is about — and
+//! `engine::decide` itself only considers a permission/prohibition rule
+//! when `ResolvedConfig::covers(rule.action, requested_action)` holds
+//! (exact match, or a declared `odrl:includedIn` chain; see
+//! `engine::profile::ResolvedConfig::covers`'s own doc comment). This
+//! runner therefore no longer pre-filters a policy's rules to the
+//! request's action, nor rewrites a surviving rule's `action` to equal
+//! it: each translated `Rule` keeps its own action exactly as
+//! `odrl.rs::parse_rule` read it off the policy document. The one
+//! exception is a rule that declares **no** `odrl:action` at all (this
+//! corpus has two: policy-1's "everybody can do everything" and policy-2's
+//! "nobody can do anything") — ODRL's own Rule class does not make action
+//! optional, so an absent one is this corpus's way of saying "any action,"
+//! which this engine's wire contract has no vocabulary term for; the only
+//! faithful translation is to set that one rule's `action` to the
+//! request's own, so it trivially covers whatever is asked. This is a
+//! stand-in for genuinely missing source data, not a re-introduction of
+//! the removed action-implication special case below.
 //!
-//! One narrow exception to exact-string action matching, taken directly
-//! from the W3C ODRL Vocabulary & Expression (<https://www.w3.org/TR/vocab-odrl/>)
-//! rather than the general action-implication problem: `odrl:read` and
-//! `odrl:distribute` are formally declared "Included In: use" in that
-//! vocabulary, and this fixture corpus's own expected-report ground truth
-//! confirms the same holds for `write` (Active/Satisfied whenever a `use`
-//! rule meets a `read`/`write` request). `odrl:sell` and `odrl:give`,
-//! by contrast, are declared "Included In: transfer" — a sibling category,
-//! not a child of `use` — and the ground truth agrees: a `use` rule against
-//! a `sell` request reports Inactive/Unsatisfied. So a rule scoped to `use`
-//! is treated as pertaining to any request action EXCEPT the vocabulary's
-//! own transfer-category actions (`transfer`, `sell`, `give`) — a fixed,
-//! citable vocabulary fact for the terms this corpus actually exercises,
-//! not a general solution to action-taxonomy implication. Any other
-//! includedIn/implies chain (a *profile's own* declared extensions, per
-//! Section 3.5's Profile Mechanism) remains unevaluated, per Section 7.
+//! What DOES still need translate-time work is scoping by
+//! `odrl:assignee`/`odrl:target` (when present) against the request's own —
+//! an `odrl:assignee` becomes a `sub eq <name>` constraint (Section 4.1's
+//! `sub` claim), since `WirePolicy.assignee` itself is purely descriptive
+//! and has no effect on `decide` (`as_decision_policy` drops it).
+//!
+//! **Action-taxonomy coverage is now the engine's own general mechanism,
+//! not a host-side special case.** Earlier revisions of this adapter
+//! hand-coded one exception to exact-string action matching (a
+//! `TRANSFER_CATEGORY_ACTIONS` constant and an `action_is_generic_use`
+//! check) because `engine::decide` had no requested-action parameter at
+//! all. That workaround is gone — `ResolvedConfig::covers` (see its doc
+//! comment) resolves any *declared* `odrl:includedIn` chain, closing
+//! Section 7's "action implication is not evaluated" gap for real. The
+//! underlying vocabulary facts that workaround encoded are still real and
+//! still worth declaring, just as actual `ActionDecl` data in
+//! [`base_action_vocabulary`] rather than adapter logic: per the W3C ODRL
+//! Vocabulary & Expression (<https://www.w3.org/TR/vocab-odrl/>),
+//! `odrl:read` and `odrl:distribute` are formally declared "Included In:
+//! use," and this fixture corpus's own expected-report ground truth
+//! confirms the same holds empirically for `write` (Active/Satisfied
+//! whenever a `use` rule meets a `read`/`write` request) — so
+//! `base_action_vocabulary` declares `write includedIn use` on that same
+//! empirical basis, not by guessing. `odrl:sell` and `odrl:give` are
+//! declared "Included In: transfer," a sibling category, not a child of
+//! `use` — the ground truth agrees (a `use` rule against a `sell` request
+//! reports Inactive/Unsatisfied). Any other includedIn/implies chain (a
+//! *profile's own* declared extensions, per Section 3.5's Profile
+//! Mechanism) remains unevaluated by this fixed base vocabulary — only
+//! what a real profile document declares would extend it further.
 //!
 //! **State-of-the-world facts become claims or membership checks, not
 //! wire-contract changes.** Three more capabilities, added after the
@@ -79,14 +94,20 @@
 //!   resolves the three fixture cases that exercise it; it is not a claim
 //!   that per-permission duties are modeled in general.
 //!
-//! If **no** rule of a policy survives all of the above, the policy has
-//! nothing to say about the request under evaluation and is omitted from
-//! `policies` entirely — deliberately not included as an empty-rules
-//! shell, which would instead trigger `decide`'s own *open* exception for
-//! a policy with zero permissions (Section 4.3) and silently invert the
-//! intended "this policy doesn't apply here" outcome into an unconditional
-//! Allow.
+//! If **no** rule of a policy survives assignee/target scoping or duty
+//! exclusion, the policy has nothing to say about the request under
+//! evaluation and is omitted from `policies` entirely — deliberately not
+//! included as an empty-rules shell, which would instead trigger
+//! `decide`'s own *open* exception for a policy with zero permissions
+//! (Section 4.3) and silently invert the intended "this policy doesn't
+//! apply here" outcome into an unconditional Allow. Action coverage no
+//! longer participates in this omission decision at all — a rule whose
+//! action doesn't cover the request's still survives translation, and is
+//! instead excluded by `engine::decide`'s own coverage check at
+//! evaluation time.
 
+use engine::profile::ActionDecl;
+use engine::wire::WireActionDecl;
 use engine::{ClaimValue, Claims, Constraint, DutyMode, Operator, Request, RequestConfig, Rule, WirePolicy};
 
 use crate::graph::{dct, local_name, odrl, report_ns, Graph};
@@ -97,10 +118,42 @@ pub enum Translation {
     Skip(String),
 }
 
-/// ODRL Vocabulary actions formally "Included In: transfer" rather than
-/// "Included In: use" (<https://www.w3.org/TR/vocab-odrl/> §3.12) — the set
-/// a generic `odrl:use` rule does NOT cover, per this module's doc comment.
-const TRANSFER_CATEGORY_ACTIONS: &[&str] = &["transfer", "sell", "give"];
+/// The `@id` this adapter's own resolved config travels under — never
+/// validated by the engine (`RequestConfig`'s own doc comment: "carried
+/// for shape, not validated"), just a stable, self-describing label for
+/// this runner's fixed vocabulary.
+const CONFIG_ID: &str = "https://ds42.org/profiles/compliance-runner";
+
+/// This adapter's fixed base vocabulary: every action this vendored corpus
+/// actually uses (`compensate`, `read`, `sell`, `use`, `write` — confirmed
+/// by grepping `data/policies/*.ttl`/`data/requests/*.ttl` for every
+/// `odrl:action`, not guessed) plus the `odrl:includedIn` edges this
+/// module's doc comment cites and justifies. Declaring `distribute`,
+/// `transfer`, and `give` too costs nothing (this corpus never uses them
+/// as a rule or request action) but keeps the vocabulary fact intact and
+/// citable exactly as the W3C ODRL Vocabulary states it, not narrowed to
+/// only the pairs this corpus happens to exercise.
+fn base_action_vocabulary() -> Vec<ActionDecl> {
+    vec![
+        ActionDecl::new("use"),
+        ActionDecl::included_in("read", "use"),
+        ActionDecl::included_in("write", "use"),
+        ActionDecl::included_in("distribute", "use"),
+        ActionDecl::new("transfer"),
+        ActionDecl::included_in("sell", "transfer"),
+        ActionDecl::included_in("give", "transfer"),
+        ActionDecl::new("compensate"),
+    ]
+}
+
+fn base_request_config() -> RequestConfig {
+    RequestConfig {
+        type_: "odrl:Profile".to_string(),
+        id: CONFIG_ID.to_string(),
+        actions: base_action_vocabulary().iter().map(WireActionDecl::from).collect(),
+        duty_mode: DutyMode::Advise,
+    }
+}
 
 fn unsupported_operator(op: &str) -> String {
     format!(
@@ -196,15 +249,12 @@ pub fn translate(policy: &PolicyInfo, req: &RequestInfo, sotw: &Graph, dataset_i
     let mut prohibitions = Vec::new();
 
     for rule in &policy.rules {
-        let action_matches_exactly = match &rule.action {
-            None => true,
-            Some(a) => a == &req.action,
-        };
-        let action_is_generic_use = matches!(&rule.action, Some(a) if a == "use")
-            && !TRANSFER_CATEGORY_ACTIONS.contains(&req.action.as_str());
-        if !(action_matches_exactly || action_is_generic_use) {
-            continue;
-        }
+        // No `odrl:action` at all is this corpus's way of saying "any
+        // action" (policy-1/-2's unconditional grant/deny) — see this
+        // module's doc comment for why the request's own action is the
+        // only faithful stand-in for genuinely missing source data, not a
+        // rewrite of a rule that already names one.
+        let action = rule.action.clone().unwrap_or_else(|| req.action.clone());
 
         let assignee_matches = match &rule.assignee {
             None => true,
@@ -250,7 +300,7 @@ pub fn translate(policy: &PolicyInfo, req: &RequestInfo, sotw: &Graph, dataset_i
         for disjunct in disjuncts {
             let mut constraints = base_constraints.clone();
             constraints.extend(disjunct);
-            let engine_rule = Rule::new(req.action.clone(), constraints);
+            let engine_rule = Rule::new(action.clone(), constraints);
             match rule.kind {
                 RuleKind::Permission => permissions.push(engine_rule),
                 RuleKind::Prohibition => prohibitions.push(engine_rule),
@@ -280,10 +330,8 @@ pub fn translate(policy: &PolicyInfo, req: &RequestInfo, sotw: &Graph, dataset_i
 
     Translation::Ready(Request {
         dataset_id: dataset_id.to_string(),
-        config: RequestConfig {
-            recognized_actions: vec![req.action.clone()],
-            duty_mode: DutyMode::Advise,
-        },
+        action: req.action.clone(),
+        config: base_request_config(),
         policies,
         claims,
     })
@@ -368,7 +416,11 @@ mod tests {
     }
 
     #[test]
-    fn generic_use_permission_allows_a_more_specific_request_action() {
+    fn use_permission_covers_a_read_request_via_the_base_vocabularys_declared_includedin() {
+        // Previously this was `action_is_generic_use`, a host-side special
+        // case; now it's `engine::decide`'s own coverage check against
+        // `base_action_vocabulary`'s declared `read includedIn use` edge —
+        // same outcome, different (general, not one-off) mechanism.
         let rule = RuleInfo {
             kind: RuleKind::Permission,
             assignee: None,
@@ -383,7 +435,7 @@ mod tests {
     }
 
     #[test]
-    fn generic_use_prohibition_denies_a_more_specific_request_action() {
+    fn use_prohibition_covers_a_write_request_via_the_base_vocabularys_declared_includedin() {
         let rule = RuleInfo {
             kind: RuleKind::Prohibition,
             assignee: None,
@@ -398,7 +450,7 @@ mod tests {
     }
 
     #[test]
-    fn generic_use_rule_still_respects_assignee_scoping() {
+    fn use_rule_still_respects_assignee_scoping_regardless_of_action_coverage() {
         let rule = RuleInfo {
             kind: RuleKind::Prohibition,
             assignee: Some(PartyRef::Individual("bob".to_string())),
@@ -417,12 +469,15 @@ mod tests {
     }
 
     #[test]
-    fn generic_use_permission_does_not_cover_a_transfer_category_action() {
+    fn use_permission_does_not_cover_a_transfer_category_action_via_engine_coverage_not_translate_time_filtering() {
         // Mirrors the vendored fixture testcase-010-alice-sell: policy-3
         // ("everybody can do use") against a `sell` request. The upstream
         // expected report is Inactive/Unsatisfied, not Active — `sell` is
         // "Included In: transfer" per the W3C ODRL Vocabulary, a sibling
-        // category to `use`, not a child of it.
+        // category to `use`, not a child of it. Unlike before this
+        // revision, the rule now survives translation unchanged (it is no
+        // longer excluded by a translate-time action filter) and is denied
+        // by `engine::decide`'s own coverage check instead.
         let rule = RuleInfo {
             kind: RuleKind::Permission,
             assignee: None,
@@ -435,11 +490,45 @@ mod tests {
         let r = req("alice", "sell", None);
         match translate(&p, &r, &Graph::empty(), "ds1") {
             Translation::Ready(wire) => {
-                assert!(wire.policies.is_empty(), "a generic 'use' permission must not be treated as covering 'sell'");
+                assert!(
+                    !wire.policies.is_empty(),
+                    "the rule keeps its own declared action ('use') and survives translation; \
+                     it is engine::decide's coverage check, not translate-time filtering, that \
+                     denies this request"
+                );
                 assert_eq!(engine::evaluate_request(&wire).decision, engine::WireDecision::Deny);
             }
             Translation::Skip(reason) => panic!("expected a translated request, got skip: {reason}"),
         }
+    }
+
+    #[test]
+    fn transfer_permission_covers_a_sell_request_via_the_base_vocabularys_declared_includedin() {
+        // The Section 3.5 worked example ("transfer implies give and
+        // sell"), through this runner's own translation.
+        let rule = RuleInfo {
+            kind: RuleKind::Permission,
+            assignee: None,
+            action: Some("transfer".to_string()),
+            target: None,
+            constraint: None,
+            nested_duty: None,
+        };
+        let p = policy("p20", vec![rule]);
+        let r = req("alice", "sell", None);
+        assert_eq!(allow(&p, &r, &Graph::empty()), engine::WireDecision::Allow);
+    }
+
+    #[test]
+    fn a_rule_with_no_declared_action_covers_whatever_the_request_asks_for() {
+        // policy-1/-2's own shape: "everybody can do everything" /
+        // "nobody can do anything" declare no odrl:action on their rule at
+        // all — the one case this adapter still fills in with the
+        // request's own action, since the wire contract has no "any
+        // action" vocabulary term.
+        let p = policy("p21", vec![unconstrained(RuleKind::Permission)]);
+        let r = req("alice", "compensate", None);
+        assert_eq!(allow(&p, &r, &Graph::empty()), engine::WireDecision::Allow);
     }
 
     fn sotw_with_current_time(iso: &str) -> Graph {

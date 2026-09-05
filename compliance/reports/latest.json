@@ -1,9 +1,12 @@
 {
   "total": 68,
-  "passed": 68,
-  "failed": 0,
+  "passed": 66,
+  "failed": 2,
   "skipped": 0,
-  "failing_case_ids": [],
+  "failing_case_ids": [
+    "testcase-014-alice-sell",
+    "testcase-020-bob-sell"
+  ],
   "skipped_case_ids": [],
   "cases": [
     {
@@ -126,11 +129,11 @@
     {
       "slug": "testcase-014-alice-sell",
       "title": "Any request to use results into no (Alice Request Sell).",
-      "status": "passed",
-      "decision": "Deny",
-      "expected": null,
-      "actual": null,
-      "reason": null
+      "status": "failed",
+      "decision": null,
+      "expected": "Deny",
+      "actual": "Allow",
+      "reason": "policy 'urn:uuid:b0d32e25-f642-4afa-9098-0e23750f7ad6' has no permissions (open default)"
     },
     {
       "slug": "testcase-015-alice",
@@ -180,11 +183,11 @@
     {
       "slug": "testcase-020-bob-sell",
       "title": "Any request from Bob to use returns into no (Bob Request Sell).",
-      "status": "passed",
-      "decision": "Deny",
-      "expected": null,
-      "actual": null,
-      "reason": null
+      "status": "failed",
+      "decision": null,
+      "expected": "Deny",
+      "actual": "Allow",
+      "reason": "policy 'urn:uuid:e4b538e6-2613-4de4-8930-48fee524aa40' has no permissions (open default)"
     },
     {
       "slug": "testcase-021-alice",

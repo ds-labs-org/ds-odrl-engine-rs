@@ -66,13 +66,21 @@ pub fn render(results: &[CaseResult]) -> (String, String) {
     let _ = writeln!(md);
     let _ = writeln!(
         md,
-        "Every vendored fixture policy carries exactly one permission or prohibition rule, so \
-         `translate.rs`'s \"omit the policy when its sole rule doesn't pertain to this request\" \
-         convention (see that module's doc comment) is always all-or-nothing here: this corpus \
-         never exercises `decide`'s own Section 4.3 open-on-empty-permissions departure as an \
-         observable divergence from this suite's closed-world default. A corpus with a policy \
-         mixing a matched permission and an unrelated prohibition could still surface that gap as \
-         a genuine failure; this one happens not to."
+        "Since `engine`'s `odrl:includedIn` action-coverage revision, `translate.rs` no \
+         longer pre-filters a policy's rules by action at all — every rule survives translation \
+         with its own declared action (or, absent one, the request's own — see that module's doc \
+         comment), and `engine::decide` alone decides whether a rule's action covers the \
+         request's. Two vendored fixtures (`testcase-014-alice-sell`, `testcase-020-bob-sell`) \
+         now fail as a direct, honest consequence: each policy's *only* rule is a prohibition on \
+         `use` that does not cover the fixture's `sell` request, leaving that policy's \
+         `permissions` list empty — which `decide`'s own Section 4.3 departure treats as *open* \
+         regardless of an unrelated, non-covering prohibition being present, producing Allow where \
+         this suite's closed-world ground truth expects Deny. Earlier revisions never surfaced this: \
+         a translate-time action pre-filter used to discard such a policy's sole rule outright, \
+         which happened to route the request through Section 5.2's *different* empty-policies \
+         default (closed), masking the divergence rather than resolving it. See `README.md`'s \
+         compliance summary for the fuller account; this is a property of the vendored engine's own \
+         decision algorithm, not a translation bug, and is not silently worked around here."
     );
     let _ = writeln!(md);
 
