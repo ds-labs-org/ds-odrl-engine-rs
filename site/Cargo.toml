@@ -24,7 +24,15 @@ patternfly-yew = { version = "0.8", features = ["experimental"] }
 yew = "0.23"
 yew-nested-router = { version = "0.9.0" }
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+# `raw_value` is a feature flag on a dependency already present, not a new
+# dependency. It lets the Compliance Results page hand each exported case's
+# request bytes to engine.wasm *verbatim* (serde_json::value::RawValue)
+# instead of deserializing into src/wire.rs's types and re-serializing:
+# that round trip would silently drop a nested odrl:and/or/xone constraint
+# (src/wire.rs models only the flat shape), and wouldn't be byte-identical
+# to what the native run evaluated anyway, since serde_json::Value's map is
+# key-sorted. See src/compliance_cases.rs's header comment.
+serde_json = { version = "1", features = ["raw_value"] }
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3"

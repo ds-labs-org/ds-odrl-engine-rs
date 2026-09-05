@@ -415,8 +415,11 @@ cargo run -p compliance-runner
 This adapts every `(policy, request, state-of-the-world, expected-report)`
 fixture the vendored suite indexes in `data/index.ttl` into `engine`'s
 Section 5.2 JSON request contract, calls `engine::evaluate_request`
-natively (no WASM host needed for this), and (re)writes
-[`compliance/reports/latest.md`](compliance/reports/latest.md) and
+natively (no WASM host needed for this), and (re)writes three artifacts
+under `compliance/reports/`.
+
+The first two are this run's own report:
+[`latest.md`](compliance/reports/latest.md) and
 `latest.json` — pass/fail/skip counts, a table of any failing cases
 (expected vs. actual decision and why), and a table of any skipped cases,
 each citing a specific, real reason (today: only `odrl:xone`, or a
@@ -424,6 +427,19 @@ constraint operator outside `eq`/`neq`/`isAnyOf`/`lt`/`lteq`/`gt`/`gteq` —
 see `translate.rs`'s `unsupported_operator`/`xone_unsupported`). A case is
 only ever skipped for one of those named, cited reasons — never to avoid
 a fail.
+
+The third, `latest-cases.json`, is not a report at all: it is the **test
+corpus itself**, exported so an independent host can re-run it. For each
+case it carries the exact `engine::wire::Request` this run fed
+`engine::evaluate_request`, plus the vendored suite's own expected
+decision (`ground_truth::expected_decision`) — and deliberately no tally
+and no decision this engine produced, since nothing in that file may
+pre-decide the outcome a re-running host is supposed to compute. `site/`'s
+Compliance Results page fetches it and re-executes every case against the
+compiled `engine.wasm` in the visitor's browser (see below); any other
+host willing to speak the Section 5.2 wire contract can do the same. See
+`compliance-runner/src/cases.rs`. All three artifacts are written by one
+invocation and are meant to be regenerated and committed together.
 
 **RDF stack**: parsing uses `oxrdf`/`oxttl` (the Oxigraph project)
 throughout — `oxttl::TurtleParser` yields `oxrdf::Triple`/`Term` directly,
@@ -455,8 +471,18 @@ that lets you edit a Section 5.2 request by hand and evaluate it against
 a *real* compiled `engine.wasm` (fetched and driven over its raw C ABI —
 `alloc`/`dealloc`/`evaluate` — exactly as a JS or JVM host would, with no
 Rust-level dependency on the `engine` crate; see `site/README.md` for
-why), and a Compliance Results page rendering the vendored suite's
-current pass/fail/skip counts from `compliance/reports/latest.json`. It
+why), and a Compliance Results page that **re-runs the entire vendored
+compliance corpus live, in the visitor's own browser**, against that same
+`engine.wasm` — fetching `compliance/reports/latest-cases.json` (every
+case's exact Section 5.2 request plus the suite's expected decision) and
+computing its own pass/fail tally over the raw ABI, case by case, with a
+four-step progress display. `compliance/reports/latest.json` is still
+fetched, now as the *native* run's recorded baseline, and the page
+cross-checks its live result against it per case — a real native-vs-wasm
+consistency check over one corpus and one engine source. The page is
+explicit about the boundary: the Turtle→request translation and the
+`report:*` ground truth were computed natively and travel in the
+artifact; what runs in the browser is the engine and its ABI. It
 shares its visual identity (teal brand ramp, monospace heading/code
 stack, mesh logo) with the [ds42.org dataspace
 study](https://github.com/Deepthought-Solutions/dataspace)'s own docs
@@ -497,11 +523,17 @@ Pages on every push to `main` that touches `site/`, `engine/`, or
 
 ## Current compliance summary
 
-As of the fixtures currently vendored (68 cases):
+As of the fixtures currently vendored (68 cases), from the native
+`compliance-runner` run recorded in `compliance/reports/latest.json`:
 
 | total | passed | failed | skipped |
 |---|---|---|---|
 | 68 | 68 | 0 | 0 |
+
+These numbers are also reproducible *without* trusting this file or that
+one: the site's Compliance Results page re-runs all 68 exported cases
+against the compiled `engine.wasm` in your own browser and computes the
+same tally there, then cross-checks it against the table above.
 
 The largest fixture in the corpus — `policy-20.ttl`'s "business hours on
 every weekday of 2024," an `odrl:or` of 262 `odrl:and`-of-two-`dateTime`-

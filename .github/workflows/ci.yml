@@ -20,3 +20,17 @@ jobs:
 
       - name: cargo test
         run: cargo test --workspace
+
+      # The committed compliance artifacts must be what the current source
+      # actually produces. compliance/reports/latest.json is the native
+      # run's recorded baseline, and latest-cases.json is the corpus the
+      # site re-executes against engine.wasm in a visitor's browser -- so a
+      # commit that changes translate.rs (or the engine's own decisions)
+      # without regenerating both would ship a site whose live run
+      # disagrees with its own baseline, in front of a visitor, long after
+      # this could have caught it. Costs milliseconds on top of a build CI
+      # already does.
+      - name: compliance reports are up to date
+        run: |
+          cargo run -p compliance-runner --release
+          git diff --exit-code compliance/reports/

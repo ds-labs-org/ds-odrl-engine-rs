@@ -1,98 +1,38 @@
-//! The real Compliance Results page: fetches `compliance-data/latest.json` at
-//! *runtime* -- via `fetch()`, exactly like `engine_module.rs` fetches
-//! `engine.wasm` -- rather than baking it into this crate at Rust compile
-//! time the way the Home page's own compliance summary does (`pages.rs`).
-//! Those two pages deliberately differ: the Home page's summary is four
-//! numbers a stale build can't get wrong for long (it's rebuilt whenever
-//! this site is), while this page's whole point is the full ~70-row
-//! breakdown -- and a future `compliance-runner` re-run should be able to
-//! update what this page shows via nothing more than re-copying
-//! `compliance/reports/latest.json` and redeploying the already-built
-//! site, with no Rust code change in between.
+//! The Compliance Results page. It no longer *displays* a verdict
+//! somebody else committed -- it computes one, here, now, in the
+//! visitor's own browser.
 //!
-//! `index.html`'s own `copy-file` directive lands that file at
-//! `dist/compliance-data/latest.json`; the relative fetch below resolves it
-//! against this page's `<base href>` the same way `engine_module.rs`
-//! documents for `engine.wasm`. The asset's own directory is named
-//! `compliance-data`, not `compliance` -- see `index.html`'s copy-file
-//! comment for why reusing this page's own `/compliance` route name for
-//! the physical directory breaks direct loads of that route.
+//! On mount it drives four stages (see `compliance_run.rs`): fetch and
+//! instantiate the real compiled `engine.wasm`; fetch the corpus of
+//! per-case Section 5.2 requests `compliance-runner` exported to
+//! `compliance/reports/latest-cases.json`; run every one of them through
+//! `engine.wasm`'s raw `alloc`/`evaluate`/`dealloc` C ABI, comparing each
+//! answer against the vendored suite's own expected decision; then tally.
+//!
+//! `compliance-data/latest.json` -- what this page used to render
+//! outright -- keeps its `copy-file` and is still fetched, but in a
+//! better job: it is now the *native* run's recorded baseline, and stage
+//! four cross-checks the live tally against it. Same corpus, same engine
+//! source, one run through `engine::evaluate_request` natively and one
+//! through the compiled `engine.wasm` ABI in a browser; a divergence is a
+//! real cross-host finding (or the signal that someone regenerated one
+//! artifact and not the other, which `compliance_cases.rs`'s own tests
+//! also catch at `cargo test` time).
+//!
+//! Scope honesty, stated on the page itself as well as here: the live run
+//! proves that the real compiled `engine.wasm`, instantiated in this
+//! browser and driven over its four-export ABI, returns the suite's
+//! expected decision for every translated request. It does **not**
+//! re-derive the Turtle -> `Request` translation (`translate.rs`) or the
+//! `report:*` -> Allow/Deny ground truth in-browser; both were computed
+//! natively and travel inside the artifact.
 
+use crate::compliance_cases::{CaseOutcome, CaseStatus, LiveReport};
+use crate::compliance_run::{RunProgress, RunState, Stage, run};
 use crate::pages::{STAT_ROW_CSS, case_study_credit, stat_row_html};
 use patternfly_yew::prelude::*;
-use serde::Deserialize;
-use wasm_bindgen::{JsCast, JsValue};
-use wasm_bindgen_futures::{JsFuture, spawn_local};
-use web_sys::Response;
+use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
-
-/// Mirrors `compliance-runner/src/report.rs`'s `JsonCase` field-for-field,
-/// including which fields are only ever populated for one `status`:
-/// `decision` for `"passed"`, `expected`/`actual` for `"failed"`, and
-/// `reason` for both `"failed"` (why the divergence) and `"skipped"` (the
-/// Section 7 citation).
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-struct ComplianceCase {
-  slug: String,
-  title: String,
-  status: String,
-  decision: Option<String>,
-  expected: Option<String>,
-  actual: Option<String>,
-  reason: Option<String>,
-}
-
-/// Mirrors `compliance-runner/src/report.rs`'s `JsonReport`. The two id
-/// lists are redundant with `cases[].status` (this page filters on the
-/// latter) and aren't otherwise used here, but are kept as fields --
-/// rather than dropped from the struct -- so a shape mismatch against the
-/// real file would still show up as a `serde` error instead of silently
-/// ignoring unknown keys.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-struct ComplianceReport {
-  total: u64,
-  passed: u64,
-  failed: u64,
-  skipped: u64,
-  #[allow(dead_code)]
-  failing_case_ids: Vec<String>,
-  #[allow(dead_code)]
-  skipped_case_ids: Vec<String>,
-  cases: Vec<ComplianceCase>,
-}
-
-async fn fetch_compliance_report() -> Result<ComplianceReport, String> {
-  let window = web_sys::window().ok_or_else(|| "no `window` (not running in a browser)".to_string())?;
-
-  let response: Response = JsFuture::from(window.fetch_with_str("compliance-data/latest.json"))
-    .await
-    .map_err(describe_js_error)?
-    .dyn_into()
-    .map_err(|_| "fetch() did not resolve to a Response".to_string())?;
-
-  if !response.ok() {
-    return Err(format!("compliance-data/latest.json fetch returned HTTP {}", response.status()));
-  }
-
-  let text = JsFuture::from(response.text().map_err(describe_js_error)?)
-    .await
-    .map_err(describe_js_error)?
-    .as_string()
-    .ok_or_else(|| "response.text() did not resolve to a string".to_string())?;
-
-  serde_json::from_str(&text).map_err(|err| format!("compliance-data/latest.json did not match the expected shape: {err}"))
-}
-
-fn describe_js_error(err: JsValue) -> String {
-  err.as_string().unwrap_or_else(|| format!("{err:?}"))
-}
-
-#[derive(Clone, PartialEq)]
-enum FetchState {
-  Loading,
-  Ready(ComplianceReport),
-  Failed(String),
-}
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum StatusFilter {
@@ -100,23 +40,26 @@ enum StatusFilter {
   Passed,
   Failed,
   Skipped,
+  Errored,
 }
 
 impl StatusFilter {
-  fn matches(self, status: &str) -> bool {
+  fn matches(self, status: CaseStatus) -> bool {
     match self {
       StatusFilter::All => true,
-      StatusFilter::Passed => status == "passed",
-      StatusFilter::Failed => status == "failed",
-      StatusFilter::Skipped => status == "skipped",
+      StatusFilter::Passed => status == CaseStatus::Passed,
+      StatusFilter::Failed => status == CaseStatus::Failed,
+      StatusFilter::Skipped => status == CaseStatus::Skipped,
+      StatusFilter::Errored => status == CaseStatus::Errored,
     }
   }
 }
 
-/// This page's own layout CSS: the search/filter toolbar and the table's
-/// slug/detail cell styling. Kept page-scoped the same way `pages.rs`'s
-/// `HOME_CSS` is -- an inline `<style>` tag, `ds-oe-`-prefixed classes --
-/// rather than added to `assets/theme.css`, since only this page uses it.
+/// This page's own layout CSS: the run banner, the search/filter toolbar
+/// and the table's slug/detail cell styling. Kept page-scoped the same
+/// way `pages.rs`'s `HOME_CSS` is -- an inline `<style>` tag, `ds-oe-`-
+/// prefixed classes -- rather than added to `assets/theme.css`, since
+/// only this page uses it.
 const COMPLIANCE_CSS: &str = r#"
 .ds-oe-compliance-toolbar {
   display: flex;
@@ -148,41 +91,64 @@ const COMPLIANCE_CSS: &str = r#"
   text-align: center;
   color: var(--pf-t--global--text--color--subtle, #6a6e73);
 }
+.ds-oe-run-panel {
+  margin: 1rem 0 1.25rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--pf-t--global--border--color--default, #d2d2d2);
+  border-radius: 0.35rem;
+}
+.ds-oe-run-bar { max-width: 32rem; margin-top: 1rem; }
+.ds-oe-run-provenance {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin: 0.75rem 0 0.25rem;
+  font-size: 0.9rem;
+}
+.ds-oe-run-provenance code { font-size: 0.85em; }
+.ds-oe-run-note {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  color: var(--pf-t--global--text--color--subtle, #6a6e73);
+}
 "#;
 
-fn status_label(status: &str) -> Html {
+fn status_label(status: CaseStatus) -> Html {
   let (color, text) = match status {
-    "passed" => (Color::Green, "Passed"),
-    "failed" => (Color::Red, "Failed"),
-    "skipped" => (Color::Grey, "Skipped"),
-    other => (Color::Orange, other),
+    CaseStatus::Passed => (Color::Green, "Passed"),
+    CaseStatus::Failed => (Color::Red, "Failed"),
+    CaseStatus::Skipped => (Color::Grey, "Skipped"),
+    CaseStatus::Errored => (Color::Orange, "Errored"),
   };
   html!(<Label label={text.to_string()} color={color} compact=true />)
 }
 
-fn detail_html(case: &ComplianceCase) -> Html {
-  match case.status.as_str() {
-    "failed" => {
-      let expected = case.expected.clone().unwrap_or_else(|| "?".to_string());
-      let actual = case.actual.clone().unwrap_or_else(|| "?".to_string());
+/// Per-case detail. Strictly richer than the static file this page used
+/// to render: `latest.json` carries a `reason` only for failed and
+/// skipped cases, while a live run gets the engine's own reason for
+/// *every* evaluated case -- so a passing row can now show what actually
+/// matched, not just that something did.
+fn detail_html(outcome: &CaseOutcome) -> Html {
+  let reason = outcome.reason.clone().unwrap_or_default();
+  match outcome.status {
+    CaseStatus::Passed => html!(
+      <span class="ds-oe-compliance-detail">
+        { outcome.actual.as_deref().map(|d| format!("decision: {d}")).unwrap_or_default() }
+        if !reason.is_empty() { { format!(" — {reason}") } }
+      </span>
+    ),
+    CaseStatus::Failed | CaseStatus::Errored => {
+      let expected = outcome.expected.clone().unwrap_or_else(|| "?".to_string());
+      let actual = outcome.actual.clone().unwrap_or_else(|| "?".to_string());
       html!(
         <span class="ds-oe-compliance-detail">
           <strong>{ format!("expected {expected}, actual {actual}") }</strong>
-          if let Some(reason) = &case.reason {
-            { format!(" — {reason}") }
-          }
+          if !reason.is_empty() { { format!(" — {reason}") } }
         </span>
       )
     }
-    "skipped" => html!(
-      <span class="ds-oe-compliance-detail">{ case.reason.clone().unwrap_or_default() }</span>
-    ),
-    "passed" => html!(
-      <span class="ds-oe-compliance-detail">
-        { case.decision.as_deref().map(|d| format!("decision: {d}")).unwrap_or_default() }
-      </span>
-    ),
-    _ => html!(),
+    CaseStatus::Skipped => html!(<span class="ds-oe-compliance-detail">{ reason }</span>),
   }
 }
 
@@ -190,128 +156,307 @@ fn detail_html(case: &ComplianceCase) -> Html {
 /// literal child type it checks at macro-expansion time -- so each item
 /// has to be a real `<ToggleGroupItem>` tag rather than a wrapper
 /// component; this just builds the one piece (its `onchange`) that
-/// differs per filter value, so the four call sites below stay a
+/// differs per filter value, so the five call sites below stay a
 /// one-liner each.
 fn filter_onchange(filter: &UseStateHandle<StatusFilter>, value: StatusFilter) -> Callback<()> {
   let filter = filter.clone();
   Callback::from(move |()| filter.set(value))
 }
 
-/// The real Compliance Results page: a live-fetched summary stat row,
-/// then a search/status-filterable table over every case in
-/// `compliance-data/latest.json`.
-#[component]
-pub fn CompliancePage() -> Html {
-  let state = use_state(|| FetchState::Loading);
-  {
-    let state = state.clone();
-    use_effect_with((), move |()| {
-      spawn_local(async move {
-        state.set(match fetch_compliance_report().await {
-          Ok(report) => FetchState::Ready(report),
-          Err(message) => FetchState::Failed(message),
-        });
-      });
-      || ()
-    });
+fn step_status(state: &RunState, stage: Stage) -> ProgressStepperStepStatus {
+  if state.failed_at(stage) {
+    ProgressStepperStepStatus::Danger
+  } else if state.is_complete(stage) {
+    ProgressStepperStepStatus::Success
+  } else if state.current_stage() == Some(stage) {
+    ProgressStepperStepStatus::Info
+  } else {
+    ProgressStepperStepStatus::Pending
   }
+}
 
-  let filter = use_state(|| StatusFilter::All);
-  let search = use_state(String::new);
+/// The "Performing tests" step's live description -- the one place where
+/// a number changes several times per run.
+fn evaluating_description(state: &RunState) -> Option<String> {
+  let progress = state.progress()?;
+  let mut text = format!("{} / {} evaluated — {} passed, {} failed", progress.done, progress.total, progress.passed, progress.failed);
+  if progress.errored > 0 {
+    text.push_str(&format!(", {} errored", progress.errored));
+  }
+  if progress.skipped > 0 {
+    text.push_str(&format!(", {} skipped", progress.skipped));
+  }
+  Some(text)
+}
+
+/// `ProgressStepper` takes a `ChildrenRenderer<ProgressStepperChildVariant>`,
+/// i.e. its children must be literal `<ProgressStepperStep>` tags -- the
+/// same macro-expansion constraint `ToggleGroup` imposes above -- so the
+/// four steps are written out rather than generated from `Stage::ALL` in
+/// a loop. `Stage::ALL` still drives their *labels* and statuses, so the
+/// ordering lives in one place.
+fn stepper(state: &RunState) -> Html {
+  let [loading_wasm, loading_cases, evaluating, compiling] = Stage::ALL;
+  html!(
+    <ProgressStepper>
+      <ProgressStepperStep
+        status={step_status(state, loading_wasm)}
+        is_current={state.current_stage() == Some(loading_wasm)}
+      >
+        <span>{ loading_wasm.label() }</span>
+      </ProgressStepperStep>
+      <ProgressStepperStep
+        status={step_status(state, loading_cases)}
+        is_current={state.current_stage() == Some(loading_cases)}
+      >
+        <span>{ loading_cases.label() }</span>
+      </ProgressStepperStep>
+      <ProgressStepperStep
+        status={step_status(state, evaluating)}
+        is_current={state.current_stage() == Some(evaluating)}
+        description={evaluating_description(state)}
+      >
+        <span>{ evaluating.label() }</span>
+      </ProgressStepperStep>
+      <ProgressStepperStep
+        status={step_status(state, compiling)}
+        is_current={state.current_stage() == Some(compiling)}
+      >
+        <span>{ compiling.label() }</span>
+      </ProgressStepperStep>
+    </ProgressStepper>
+  )
+}
+
+fn progress_bar(progress: &RunProgress) -> Html {
+  let total = progress.total.max(1) as f64;
+  html!(
+    <div class="ds-oe-run-bar">
+      <Progress
+        value={progress.done as f64}
+        range={0f64..total}
+        value_text={format!("{} / {}", progress.done, progress.total)}
+      />
+    </div>
+  )
+}
+
+/// The run panel, shown while a run is in flight and after a *failed*
+/// one: the four-step stepper, the live progress bar, and -- on failure
+/// -- which stage broke and its raw error text, with the later steps left
+/// `Pending` rather than spinning forever. A finished run replaces this
+/// with one line of provenance instead (see [`provenance`]); the stepper
+/// has nothing left to say once every step is green.
+fn run_panel(state: &RunState, on_rerun: Callback<MouseEvent>) -> Html {
+  html!(
+    <div class="ds-oe-run-panel">
+      { stepper(state) }
+      if let Some(progress) = state.progress() {
+        { progress_bar(progress) }
+      }
+      if let RunState::Failed { stage, message } = state {
+        <div class="ds-oe-run-bar">
+          <Alert inline=true r#type={AlertType::Danger} title={format!("{} failed", stage.label())}>
+            <p>{ message.clone() }</p>
+          </Alert>
+        </div>
+        { rerun_button(on_rerun) }
+      }
+    </div>
+  )
+}
+
+/// Re-running does not re-fetch `engine.wasm` (the instance is cached in
+/// `engine_bridge`'s thread-local), so this genuinely re-executes every
+/// case against the already-loaded module, in milliseconds, on demand.
+fn rerun_button(on_rerun: Callback<MouseEvent>) -> Html {
+  html!(
+    <p class="ds-oe-run-note">
+      <Button variant={ButtonVariant::Secondary} onclick={on_rerun}>{ "Re-run in this browser" }</Button>
+    </p>
+  )
+}
+
+/// One line of provenance for a finished run: what was executed, where,
+/// how long it took, and whether it agrees with the native run recorded
+/// in `compliance/reports/latest.json`.
+fn provenance(report: &LiveReport) -> Html {
+  html!(
+    <>
+      <p class="ds-oe-run-provenance">
+        <span>
+          { format!(
+            "Ran {} cases against engine.wasm ({} bytes) in your browser in {:.0} ms — {} passed, {} failed, {} errored, {} skipped.",
+            report.total, report.engine_bytes, report.elapsed_ms, report.passed, report.failed, report.errored, report.skipped
+          ) }
+        </span>
+      </p>
+      <p class="ds-oe-run-note">
+        { "Corpus: " }<code>{ report.suite.clone() }</code>
+        { ", fetched from " }<code>{ "compliance-data/latest-cases.json" }</code>
+        { " — the artifact this run actually read, named here so a browser-cached copy is visible rather than silent." }
+      </p>
+      { baseline_note(report) }
+    </>
+  )
+}
+
+fn baseline_note(report: &LiveReport) -> Html {
+  match &report.baseline {
+    None => html!(
+      <p class="ds-oe-run-note">
+        { "The native run's recorded baseline (" }<code>{ "compliance-data/latest.json" }</code>
+        { ") could not be loaded, so no native-vs-wasm cross-check was made. The live numbers above stand on their own." }
+      </p>
+    ),
+    Some(comparison) if comparison.matches() => html!(
+      <p class="ds-oe-run-note">
+        { format!(
+          "Matches the native compliance-runner run recorded in compliance/reports/latest.json ({} total, {} passed, {} failed, {} skipped), case for case.",
+          comparison.total, comparison.passed, comparison.failed, comparison.skipped
+        ) }
+      </p>
+    ),
+    Some(comparison) => html!(
+      <div class="ds-oe-run-bar">
+        <Alert
+          inline=true
+          r#type={AlertType::Warning}
+          title={format!("{} case(s) disagree with the native run", comparison.divergences.len())}
+        >
+          <p>
+            { "This browser's run over " }<code>{ "engine.wasm" }</code>
+            { " and the native run recorded in " }<code>{ "compliance/reports/latest.json" }</code>
+            { " reached different verdicts (native / live):" }
+          </p>
+          <ul>
+            { for comparison.divergences.iter().map(|d| html!(
+              <li key={d.slug.clone()}>
+                <code>{ d.slug.clone() }</code>{ format!(" — {} / {}", d.native, d.live) }
+              </li>
+            )) }
+          </ul>
+        </Alert>
+      </div>
+    ),
+  }
+}
+
+fn results_table(report: &LiveReport, filter: &UseStateHandle<StatusFilter>, search: &UseStateHandle<String>) -> Html {
+  let query = search.trim().to_lowercase();
+  let filtered: Vec<&CaseOutcome> = report
+    .outcomes
+    .iter()
+    .filter(|outcome| filter.matches(outcome.status))
+    .filter(|outcome| {
+      query.is_empty() || outcome.slug.to_lowercase().contains(&query) || outcome.title.to_lowercase().contains(&query)
+    })
+    .collect();
+
   let on_search = {
     let search = search.clone();
     Callback::from(move |value: String| search.set(value))
   };
 
-  let body = match &*state {
-    FetchState::Loading => html!(
-      <Alert inline=true r#type={AlertType::Info} title="Loading compliance-data/latest.json...">
-        { "Fetching the compliance-runner's latest results." }
-      </Alert>
-    ),
-    FetchState::Failed(message) => html!(
-      <Alert inline=true r#type={AlertType::Danger} title="Could not load compliance results">
-        <p>{ message.clone() }</p>
-      </Alert>
-    ),
-    FetchState::Ready(report) => {
-      let query = search.trim().to_lowercase();
-      let filtered: Vec<&ComplianceCase> = report
-        .cases
-        .iter()
-        .filter(|case| filter.matches(&case.status))
-        .filter(|case| query.is_empty() || case.slug.to_lowercase().contains(&query) || case.title.to_lowercase().contains(&query))
-        .collect();
+  html!(
+    <>
+      <style>{ STAT_ROW_CSS }</style>
+      { stat_row_html(report.total, report.passed, report.failed, report.skipped) }
 
-      html!(
-        <>
-          <style>{ STAT_ROW_CSS }</style>
-          { stat_row_html(report.total, report.passed, report.failed, report.skipped) }
+      <div class="ds-oe-compliance-toolbar">
+        <div class="ds-oe-compliance-search">
+          <TextInput placeholder="Search by slug or title..." value={(**search).clone()} onchange={on_search} />
+        </div>
+        <ToggleGroup>
+          <ToggleGroupItem
+            text={format!("All ({})", report.total)}
+            selected={**filter == StatusFilter::All}
+            onchange={filter_onchange(filter, StatusFilter::All)}
+          />
+          <ToggleGroupItem
+            text={format!("Passed ({})", report.passed)}
+            selected={**filter == StatusFilter::Passed}
+            onchange={filter_onchange(filter, StatusFilter::Passed)}
+          />
+          <ToggleGroupItem
+            text={format!("Failed ({})", report.failed)}
+            selected={**filter == StatusFilter::Failed}
+            onchange={filter_onchange(filter, StatusFilter::Failed)}
+          />
+          <ToggleGroupItem
+            text={format!("Skipped ({})", report.skipped)}
+            selected={**filter == StatusFilter::Skipped}
+            onchange={filter_onchange(filter, StatusFilter::Skipped)}
+          />
+          <ToggleGroupItem
+            text={format!("Errored ({})", report.errored)}
+            selected={**filter == StatusFilter::Errored}
+            onchange={filter_onchange(filter, StatusFilter::Errored)}
+          />
+        </ToggleGroup>
+      </div>
+      <p class="ds-oe-compliance-count">
+        { format!("Showing {} of {} cases.", filtered.len(), report.outcomes.len()) }
+      </p>
 
-          <div class="ds-oe-compliance-toolbar">
-            <div class="ds-oe-compliance-search">
-              <TextInput placeholder="Search by slug or title..." value={(*search).clone()} onchange={on_search} />
-            </div>
-            <ToggleGroup>
-              <ToggleGroupItem
-                text={format!("All ({})", report.total)}
-                selected={*filter == StatusFilter::All}
-                onchange={filter_onchange(&filter, StatusFilter::All)}
-              />
-              <ToggleGroupItem
-                text={format!("Passed ({})", report.passed)}
-                selected={*filter == StatusFilter::Passed}
-                onchange={filter_onchange(&filter, StatusFilter::Passed)}
-              />
-              <ToggleGroupItem
-                text={format!("Failed ({})", report.failed)}
-                selected={*filter == StatusFilter::Failed}
-                onchange={filter_onchange(&filter, StatusFilter::Failed)}
-              />
-              <ToggleGroupItem
-                text={format!("Skipped ({})", report.skipped)}
-                selected={*filter == StatusFilter::Skipped}
-                onchange={filter_onchange(&filter, StatusFilter::Skipped)}
-              />
-            </ToggleGroup>
-          </div>
-          <p class="ds-oe-compliance-count">
-            { format!("Showing {} of {} cases.", filtered.len(), report.cases.len()) }
-          </p>
+      <div class="ds-oe-compliance-table-wrap">
+        <table class="pf-v6-c-table" role="grid">
+          <thead>
+            <tr role="row">
+              <th role="columnheader">{ "Slug" }</th>
+              <th role="columnheader">{ "Title" }</th>
+              <th role="columnheader">{ "Status" }</th>
+              <th role="columnheader">{ "Details" }</th>
+            </tr>
+          </thead>
+          <tbody>
+            { for filtered.iter().map(|outcome| html!(
+              <tr role="row" key={outcome.slug.clone()}>
+                <td role="cell"><span class="ds-oe-compliance-slug">{ outcome.slug.clone() }</span></td>
+                <td role="cell">{ outcome.title.clone() }</td>
+                <td role="cell">{ status_label(outcome.status) }</td>
+                <td role="cell">{ detail_html(outcome) }</td>
+              </tr>
+            )) }
+            if filtered.is_empty() {
+              <tr role="row">
+                <td role="cell" colspan="4">
+                  <div class="ds-oe-compliance-empty">{ "No cases match this search/filter." }</div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </>
+  )
+}
 
-          <div class="ds-oe-compliance-table-wrap">
-            <table class="pf-v6-c-table" role="grid">
-              <thead>
-                <tr role="row">
-                  <th role="columnheader">{ "Slug" }</th>
-                  <th role="columnheader">{ "Title" }</th>
-                  <th role="columnheader">{ "Status" }</th>
-                  <th role="columnheader">{ "Details" }</th>
-                </tr>
-              </thead>
-              <tbody>
-                { for filtered.iter().map(|case| html!(
-                  <tr role="row" key={case.slug.clone()}>
-                    <td role="cell"><span class="ds-oe-compliance-slug">{ case.slug.clone() }</span></td>
-                    <td role="cell">{ case.title.clone() }</td>
-                    <td role="cell">{ status_label(&case.status) }</td>
-                    <td role="cell">{ detail_html(case) }</td>
-                  </tr>
-                )) }
-                if filtered.is_empty() {
-                  <tr role="row">
-                    <td role="cell" colspan="4">
-                      <div class="ds-oe-compliance-empty">{ "No cases match this search/filter." }</div>
-                    </td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
-        </>
-      )
-    }
+/// The real Compliance Results page: a live, in-browser run of the whole
+/// vendored corpus against the compiled `engine.wasm`, then the same
+/// searchable/filterable table over what *this* run produced.
+#[component]
+pub fn CompliancePage() -> Html {
+  let state = use_state(|| RunState::LoadingWasm);
+  // Bumped by the Re-run button; the effect below re-runs the whole
+  // sequence whenever it changes (and once, on mount, at 0).
+  let run_token = use_state(|| 0u32);
+
+  {
+    let state = state.clone();
+    use_effect_with(*run_token, move |_| {
+      spawn_local(run(state));
+      || ()
+    });
+  }
+
+  let on_rerun = {
+    let run_token = run_token.clone();
+    Callback::from(move |_: MouseEvent| run_token.set(*run_token + 1))
   };
+
+  let filter = use_state(|| StatusFilter::All);
+  let search = use_state(String::new);
 
   html!(
     <>
@@ -321,13 +466,25 @@ pub fn CompliancePage() -> Html {
         <p>
           { "Every case from the vendored " }
           <a href="https://github.com/SolidLabResearch/ODRL-Test-Suite" target="_blank" rel="noopener noreferrer">{ "SolidLabResearch/ODRL-Test-Suite" }</a>
-          { ", run by " }<code>{ "compliance-runner" }</code>{ " against " }<code>{ "engine.wasm" }</code>
-          { "'s Section 5.2 contract. This table is fetched at runtime from " }
-          <code>{ "compliance-data/latest.json" }</code>{ " (a served copy of " }
-          <code>{ "compliance/reports/latest.json" }</code>
-          { "), so it reflects whatever the compliance-runner last wrote without needing a rebuild of this \
-             site -- unlike the Home page's own summary tally, which is embedded at this site's own compile \
-             time. See the full generated report, including the same breakdown as Markdown, at " }
+          { ", run " }<strong>{ "right now, in this browser" }</strong>{ ", against the real compiled " }
+          <code>{ "engine.wasm" }</code>{ " over its raw " }<code>{ "alloc" }</code>{ "/" }
+          <code>{ "evaluate" }</code>{ "/" }<code>{ "dealloc" }</code>
+          { " C ABI — the same way any independent JS or JVM host would drive it. The numbers below are \
+             computed here, not read from a committed file: this page fetches " }
+          <code>{ "compliance-data/latest-cases.json" }</code>
+          { " (the per-case Section 5.2 requests " }<code>{ "compliance-runner" }</code>
+          { " exported) and evaluates each one itself." }
+        </p>
+        <p>
+          { "What this does " }<em>{ "not" }</em>{ " re-derive in your browser: the vendored suite's \
+             Turtle-to-request translation (" }<code>{ "compliance-runner/src/translate.rs" }</code>
+          { ") and its " }<code>{ "report:*" }</code>{ " expected-decision ground truth (" }
+          <code>{ "ground_truth.rs" }</code>
+          { ") were both computed natively and travel inside the fetched artifact. The live run proves the \
+             engine and its ABI across a real host boundary, not the adapter that produced the corpus. The \
+             native run's own recorded verdicts (" }<code>{ "compliance/reports/latest.json" }</code>
+          { ") are fetched too, purely as a baseline to cross-check this run against. See the full generated \
+             report as Markdown at " }
           <a href="https://github.com/ds-labs-org/ds-odrl-engine-rs/blob/main/compliance/reports/latest.md" target="_blank" rel="noopener noreferrer">
             { "compliance/reports/latest.md" }
           </a>
@@ -335,7 +492,13 @@ pub fn CompliancePage() -> Html {
         </p>
       </Content>
 
-      { body }
+      if let RunState::Done(report) = &*state {
+        { provenance(report) }
+        { rerun_button(on_rerun) }
+        { results_table(report, &filter, &search) }
+      } else {
+        { run_panel(&state, on_rerun) }
+      }
 
       { case_study_credit() }
     </>

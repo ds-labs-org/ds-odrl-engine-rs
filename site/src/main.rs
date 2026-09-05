@@ -1,7 +1,20 @@
 #[cfg(target_arch = "wasm32")]
 mod app_route;
+// Deliberately NOT wasm32-gated like every other module here: `cargo test
+// --workspace` is a native build, so this module's unit tests -- the
+// artifact parsing, the expected-vs-actual comparison, the tally, and the
+// cross-check against the native run's baseline -- would silently never
+// compile, let alone run, behind that gate. Only its callers
+// (`compliance_run`, `compliance_page`) touch the browser. The
+// `allow(dead_code)` applies on the native side only, where nothing but
+// those tests uses it, and keeps `cargo clippy --workspace --all-targets`
+// clean without hiding real dead code from the wasm build.
+#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+mod compliance_cases;
 #[cfg(target_arch = "wasm32")]
 mod compliance_page;
+#[cfg(target_arch = "wasm32")]
+mod compliance_run;
 #[cfg(target_arch = "wasm32")]
 mod demo_form;
 #[cfg(target_arch = "wasm32")]

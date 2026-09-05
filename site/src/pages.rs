@@ -374,9 +374,11 @@ pub fn HomePage() -> Html {
           <CardTitle><Title level={Level::H3}>{ "Compliance results" }</Title></CardTitle>
           <CardBody>
             <p>
-              { "See every case from the vendored ODRL Test Suite the engine is checked against \
-                 today -- expected vs. actual decision, and, for anything skipped, the specific, \
-                 cited reason." }
+              { "Every case from the vendored ODRL Test Suite, re-run live in your own browser \
+                 against the compiled " }<code>{ "engine.wasm" }</code>
+              { " -- expected vs. actual decision, the engine's own reason for each, and, for \
+                 anything skipped, the specific cited reason. The summary above is the native \
+                 run's; that page computes its own and cross-checks the two." }
             </p>
             <Link<AppRoute> to={AppRoute::Compliance} class={classes!("ds-oe-btn", "ds-oe-btn--primary")}>
               { "View compliance results" }

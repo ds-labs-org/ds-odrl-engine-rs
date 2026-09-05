@@ -26,12 +26,38 @@ thread_local! {
 }
 
 /// The instantiated `engine.wasm` module's memory and the three exported
-/// functions this bridge calls (Section 5.1's ABI).
+/// functions this bridge calls (Section 5.1's ABI), plus the fetched
+/// artifact's own byte length -- kept so a caller can state exactly which
+/// compiled binary it drove (`engine_module::fetch_engine_wasm_len`
+/// reports the same number for the Home page, from its own separate
+/// fetch).
 struct EngineInstance {
   memory: WebAssembly::Memory,
   alloc: Function,
   dealloc: Function,
   evaluate: Function,
+  byte_len: usize,
+}
+
+/// Fetches and instantiates `engine.wasm` if this page hasn't already,
+/// and returns the compiled artifact's byte length. Idempotent: a later
+/// call returns the cached instance's length without re-fetching.
+///
+/// Split out of [`evaluate`] so a caller that wants "loading the module"
+/// to be its own observable stage -- the Compliance Results page's live
+/// runner, whose first progress step is exactly this -- can await it
+/// separately, instead of having it silently fold into the first case's
+/// `evaluate()` call and make that one case look inexplicably slow.
+pub async fn ensure_loaded() -> Result<usize, String> {
+  let cached = ENGINE.with(|cell| cell.borrow().as_ref().map(|engine| engine.byte_len));
+  if let Some(byte_len) = cached {
+    return Ok(byte_len);
+  }
+
+  let instance = load_engine_instance().await?;
+  let byte_len = instance.byte_len;
+  ENGINE.with(|cell| *cell.borrow_mut() = Some(instance));
+  Ok(byte_len)
 }
 
 /// Evaluates `request_json` (Section 5.2's request shape) against
@@ -39,11 +65,7 @@ struct EngineInstance {
 /// string on success. Fetches and instantiates `engine.wasm` on the first
 /// call only; later calls reuse the cached instance.
 pub async fn evaluate(request_json: &str) -> Result<String, String> {
-  let already_loaded = ENGINE.with(|cell| cell.borrow().is_some());
-  if !already_loaded {
-    let instance = load_engine_instance().await?;
-    ENGINE.with(|cell| *cell.borrow_mut() = Some(instance));
-  }
+  ensure_loaded().await?;
 
   ENGINE.with(|cell| {
     let borrowed = cell.borrow();
@@ -100,7 +122,7 @@ async fn load_engine_instance() -> Result<EngineInstance, String> {
   let dealloc = get_exported_function(&exports, "dealloc")?;
   let evaluate = get_exported_function(&exports, "evaluate")?;
 
-  Ok(EngineInstance { memory, alloc, dealloc, evaluate })
+  Ok(EngineInstance { memory, alloc, dealloc, evaluate, byte_len: module_bytes.len() })
 }
 
 fn get_exported_function(exports: &Object, name: &str) -> Result<Function, String> {
@@ -173,6 +195,21 @@ fn call_ignoring_result(f: &Function, a: u32, b: u32) -> Result<(), String> {
     .map_err(describe_js_error)
 }
 
+/// Renders a caught `JsValue` as a short, user-presentable message,
+/// preferring the most specific form available: a plain JS string, then a
+/// real JS `Error`'s own `.message` (this is the common case for a failed
+/// `fetch()` -- it rejects with a `TypeError`, not a string, so
+/// `as_string()` alone always misses it), and only as a last resort the
+/// full `{err:?}` debug dump wasm-bindgen produces (a multi-line stack
+/// trace with mangled wasm symbol names) -- found leaking into a
+/// user-facing `Alert` by an adversarial review of the first feature to
+/// put this fallback somewhere prominent enough to notice.
 fn describe_js_error(err: JsValue) -> String {
-  err.as_string().unwrap_or_else(|| format!("{err:?}"))
+  if let Some(s) = err.as_string() {
+    return s;
+  }
+  if let Some(message) = err.dyn_ref::<js_sys::Error>().map(|e| e.message()) {
+    return message.into();
+  }
+  format!("{err:?}")
 }

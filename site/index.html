@@ -38,14 +38,18 @@
          path relative to this page's own <base href> above. -->
     <link data-trunk rel="copy-file" href="assets/engine.wasm" />
 
-    <!-- The Compliance Results page (src/compliance_page.rs) fetches this
-         at runtime rather than reading it at this site's own Rust compile
-         time (unlike the Home page's compile-time-embedded summary, see
-         src/pages.rs), so redeploying this site after a future
-         compliance-runner run picks up new numbers with no Rust code
-         change -- just re-copying this file and rebuilding. href is
-         relative to this file's own directory (site/), one level up into
-         the sibling compliance/ crate's generated report;
+    <!-- The *native* compliance-runner run's own recorded verdicts. The
+         Compliance Results page (src/compliance_page.rs) no longer renders
+         this file: it re-runs the whole corpus against engine.wasm in the
+         visitor's browser (see the next copy-file directive) and fetches
+         this one only as the baseline to cross-check that live run
+         against, per case. Still fetched at runtime rather than read at
+         this site's own Rust compile time (unlike the Home page's
+         compile-time-embedded summary, see src/pages.rs), so redeploying
+         after a future compliance-runner run picks up new numbers with no
+         Rust code change -- just re-copying this file and rebuilding. href
+         is relative to this file's own directory (site/), one level up
+         into the sibling compliance/ crate's generated report;
          data-target-path lands it at dist/compliance-data/latest.json.
 
          Deliberately NOT "compliance" (this app's own `/compliance`
@@ -62,6 +66,22 @@
          asset's own directory sidesteps the collision entirely rather
          than fighting server-side rewrite rules. -->
     <link data-trunk rel="copy-file" href="../compliance/reports/latest.json" data-target-path="compliance-data" />
+
+    <!-- The live compliance runner's test corpus: every case's exact
+         engine::wire::Request plus the vendored suite's own expected
+         decision, written by `cargo run -p compliance-runner --release`
+         alongside latest.json above (see compliance-runner/src/cases.rs).
+         The Compliance Results page fetches this at runtime and
+         re-executes all of it against engine.wasm in the visitor's own
+         browser, so the numbers that page shows are computed there rather
+         than read out of a committed file. Same compliance-data/ target
+         directory as latest.json above, for exactly the same /compliance
+         route-collision reason documented there.
+
+         Trunk's copy-file fails the build outright if this file is
+         missing, which is the right failure mode here: the site must not
+         deploy without the corpus its Compliance page executes. -->
+    <link data-trunk rel="copy-file" href="../compliance/reports/latest-cases.json" data-target-path="compliance-data" />
 
     <!-- This product's own mark: same mesh/node visual language as the
          ds42.org dataspace study this engine implements (see the case

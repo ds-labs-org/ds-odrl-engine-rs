@@ -157,12 +157,97 @@ build.
 
 ## Compliance Results page
 
-`compliance_page.rs` fetches `compliance-data/latest.json` at runtime
-(copied from `../compliance/reports/latest.json` by `index.html`'s own
-`copy-file` directive) rather than embedding it at this site's Rust
-compile time, so redeploying after a future `compliance-runner` run
-picks up new numbers with no code change — just re-copying that file and
-rebuilding.
+This page does not display a compliance verdict somebody else committed.
+It **computes one, in your browser, on load**, by running the whole
+vendored ODRL Test Suite corpus against the real compiled `engine.wasm`
+over the same raw `alloc`/`evaluate`/`dealloc` ABI described above.
+
+Four stages, shown as a PatternFly `ProgressStepper` while they run:
+
+1. **Loading engine.wasm** — `engine_bridge::ensure_loaded()`, split out
+   of `evaluate()` so this is its own observable step rather than
+   silently folding into the first case's evaluation. Returns the
+   fetched artifact's byte length, which the finished report prints.
+2. **Loading test cases** — fetches `compliance-data/latest-cases.json`,
+   the corpus `compliance-runner` exports (see
+   `../compliance-runner/src/cases.rs`): for every case, the *exact*
+   `engine::wire::Request` the native run evaluated, plus the vendored
+   suite's own expected decision. It deliberately carries **no** tally
+   and **no** decision the native engine produced — nothing in that file
+   may pre-decide what this page is supposed to compute. A wrong
+   `schema`, an empty `cases` array or a truncated body fails this stage
+   loudly. `compliance-data/latest.json` is fetched here too, but only
+   as the native run's *baseline* (see below).
+3. **Performing tests** — every case's request bytes go to
+   `engine_bridge::evaluate()` **verbatim** (via
+   `serde_json::value::RawValue`, never re-serialized through
+   `src/wire.rs`, which models only flat constraints and would silently
+   drop a nested `odrl:and`/`or`/`xone` one), and each answer is compared
+   against the suite's expected decision. A case whose response isn't
+   Section 5.2's envelope, or whose decision isn't one of
+   `Allow`/`Deny`/`Error`, is counted **errored** — never quietly passed
+   — and the loop continues, so one bad case can't hide the other 67.
+4. **Compiling result report** — tally, then cross-check against the
+   baseline.
+
+The run makes **no artificial delay of any kind**. It yields to the
+event loop (a real `setTimeout(0)` macrotask — a resolved-`Promise`
+microtask drains *before* paint and would leave the counter jumping 0 to
+68 in one frame) at most once per ~16 ms, so the progress count is a real
+count rather than theatre, and the finished report prints the run's
+measured wall-clock milliseconds.
+
+**`compliance-data/latest.json` kept its `copy-file`, in a better job.**
+It is no longer this page's source of truth; it is the *native*
+`compliance-runner` run's recorded verdicts, and stage 4 compares the
+live per-case results against it. Same corpus, same engine source, one
+run through `engine::evaluate_request` natively and one through the
+compiled `engine.wasm` ABI in a browser — so agreement is a real
+native-vs-wasm cross-host check, and a divergence is either a genuine
+finding or the signal that someone regenerated one artifact and not the
+other. A failed baseline fetch is deliberately **not** fatal: the live
+run is the authority and the page just says the cross-check was
+unavailable. (Both artifacts come from one `cargo run -p
+compliance-runner --release` invocation, so they agree by construction;
+`src/compliance_cases.rs`'s own tests also assert at `cargo test` time
+that the two committed files list the same slugs in the same order.)
+
+**What the live run does and does not prove.** It proves that the real
+compiled `engine.wasm`, instantiated in the visitor's own browser and
+driven over its four-export C ABI, returns the vendored suite's expected
+decision for every translated request, computed on their machine, now. It
+does **not** re-derive the Turtle → `Request` translation
+(`../compliance-runner/src/translate.rs`, with its own documented
+fragilities) or the `report:*` → Allow/Deny ground truth
+(`ground_truth.rs`) in-browser: both were computed natively and travel
+inside the fetched artifact. Making those live too would mean shipping
+the whole vendored corpus to `dist/` and lifting `translate.rs` into a
+library this site depends on — deliberately out of scope. The page says
+this in its own prose, not just here.
+
+Code layout, and one deliberate exception to this crate's `#[cfg]`
+convention: `src/compliance_cases.rs` (artifact parsing, the
+expected-vs-actual comparison, the tally, the baseline cross-check) is
+**not** `#[cfg(target_arch = "wasm32")]`-gated like every other module
+here, because `cargo test --workspace` is a native build and a gated
+module's unit tests would silently never compile, let alone run.
+`src/compliance_run.rs` (the async driver and the state machine) and
+`src/compliance_page.rs` (rendering) stay gated, since every line of them
+touches the browser.
+
+Regenerate both artifacts with:
+
+```sh
+cargo run -p compliance-runner --release
+```
+
+`Trunk.toml` deliberately does *not* run that as a build hook: it would
+make a site build mutate tracked files outside `site/`, add a native
+`oxrdf`/`oxttl` compile to every `trunk serve` rebuild, and undercut
+`pages.yml`'s trigger design, which keys on `compliance/reports/**` being
+*committed*. Trunk's `copy-file` does fail the build if either artifact
+is missing, which is the right failure mode — this site must not deploy
+without the corpus its Compliance page executes.
 
 ## Known limitations
 
@@ -173,8 +258,14 @@ rebuilding.
   `404.html`-redirect trick (or an equivalent) if deep-linking to a
   sub-route is required — not yet set up here since every current page
   is reachable from the Home nav.
-- The Compliance Results page's asset is deliberately copied to
-  `compliance-data/latest.json`, **not** `compliance/`, which would
+- `copy-file` assets are not content-hashed (true of `engine.wasm` today
+  too), so a returning visitor's browser may serve a cached
+  `latest-cases.json`. Not a regression, and not silent: the finished run
+  prints the artifact's own declared `suite` line and case count, so a
+  stale fetch is visible rather than invisible, and a corpus whose
+  `schema` doesn't match fails stage 2 outright.
+- The Compliance Results page's assets are deliberately copied to
+  `compliance-data/`, **not** `compliance/`, which would
   collide with this app's own `/compliance` SPA route the same way
   `dataspace/site` avoids colliding `authority-src/` with `/authority` —
   see `index.html`'s comment on that `copy-file` directive for the
