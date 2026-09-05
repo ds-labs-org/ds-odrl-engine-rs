@@ -33,3 +33,17 @@ web-sys = { version = "0.3", features = [
   "Response",
   "console",
 ] }
+
+# Client-side ODRL Profile parsing for the "Load ODRL Profile" demonstrator
+# panel (profile-interpreter's own Graph::from_turtle/from_json_ld + Section
+# 4.4's interpret()) -- separate from the note above about engine.wasm: this
+# is Rust-level reuse of a parsing *adapter*, not a shortcut around the
+# ABI-driven evaluate() call.
+profile-interpreter = { path = "../profile-interpreter" }
+oxrdf = "0.3.4"
+oxttl = "0.2.4"
+oxjsonld = "0.2.6"
+# oxrdf's transitive getrandom dependency needs the wasm_js backend to build
+# for wasm32-unknown-unknown at all; see site/.cargo/config.toml for the
+# matching rustflag this also requires.
+getrandom = { version = "0.3", features = ["wasm_js"] }
