@@ -3,27 +3,33 @@
 //! module doc for exactly what is and isn't derived from the document.
 //!
 //! Usage:
-//!   profile-interpreter interpret <file> [--format ttl|jsonld] [--id <uri>] [--duty-mode advise|deny]
+//!   profile-interpreter interpret <file> [--format ttl|jsonld] [--id <uri>] [--duty-mode advise|deny] [--behaviour open|closed]
 //!     -> prints one engine::Profile as JSON (this profile's own
-//!        actions/duty_mode; Section 4.4's per-profile shape — internal,
-//!        not wire-shaped, since one profile alone is not a request config)
-//!   profile-interpreter resolve <file>... [--duty-mode advise|deny]
+//!        actions/duty_mode/behaviour; Section 4.4's per-profile shape —
+//!        internal, not wire-shaped, since one profile alone is not a
+//!        request config)
+//!   profile-interpreter resolve <file>... [--duty-mode advise|deny] [--behaviour open|closed]
 //!     -> interprets every file, engine::resolve()s them, and prints the
 //!        result as a wire-shaped engine::wire::RequestConfig
-//!        (`@type`/`@id`/`odrl:action`/`odrl:includedIn`/`dutyMode`) —
-//!        exactly Section 5.2's request `config` field, ready to paste in
+//!        (`@type`/`@id`/`odrl:action`/`odrl:includedIn`/`dutyMode`/
+//!        `behaviour`) — exactly Section 5.2's request `config` field,
+//!        ready to paste in
 //!
 //! Format is inferred from each file's extension (.ttl/.turtle,
-//! .jsonld/.json) unless overridden with --format. --duty-mode defaults
-//! to "advise" and is never read from the document itself (see
-//! interpret.rs's doc comment for why).
+//! .jsonld/.json) unless overridden with --format. --duty-mode and
+//! --behaviour default to "advise" and "open" respectively, and neither
+//! is ever read from the document itself (see interpret.rs's doc comment
+//! for why: ODRL defines no property for either — `behaviour` is the
+//! ODRL Community Group's own named concept, but its own Formal
+//! Semantics draft describes it as an *evaluator* input, not something a
+//! Profile document declares about itself).
 
 use std::path::PathBuf;
 use std::process::ExitCode;
 
 use engine::profile::ActionDecl;
 use engine::wire::WireActionDecl;
-use engine::DutyMode;
+use engine::{Behaviour, DutyMode};
 
 use profile_interpreter::graph::{parse_by_extension, Graph};
 use profile_interpreter::interpret::interpret;
@@ -38,6 +44,11 @@ const RESOLVED_CONFIG_ID: &str = "urn:profile-interpreter:resolved-config";
 fn parse_duty_mode(s: &str) -> Result<DutyMode, String> {
     profile_interpreter::interpret::duty_mode_from_str(s)
         .map_err(|_| format!("--duty-mode must be \"advise\" or \"deny\", got {s:?}"))
+}
+
+fn parse_behaviour(s: &str) -> Result<Behaviour, String> {
+    profile_interpreter::interpret::behaviour_from_str(s)
+        .map_err(|_| format!("--behaviour must be \"open\", \"closed\", or \"default\", got {s:?}"))
 }
 
 fn load(path: &PathBuf, format: Option<&str>) -> Result<Graph, String> {
@@ -64,6 +75,7 @@ fn run() -> Result<(), String> {
     let mut format: Option<String> = None;
     let mut id: Option<String> = None;
     let mut duty_mode = DutyMode::Advise;
+    let mut behaviour = Behaviour::Open;
 
     let mut i = 0;
     while i < args.len() {
@@ -78,6 +90,10 @@ fn run() -> Result<(), String> {
             }
             "--duty-mode" => {
                 duty_mode = parse_duty_mode(args.get(i + 1).ok_or("--duty-mode needs a value")?)?;
+                i += 2;
+            }
+            "--behaviour" => {
+                behaviour = parse_behaviour(args.get(i + 1).ok_or("--behaviour needs a value")?)?;
                 i += 2;
             }
             other => {
@@ -96,7 +112,7 @@ fn run() -> Result<(), String> {
                 return Err("interpret takes exactly one file — did you mean `resolve` for multiple?".to_string());
             }
             let g = load(&files[0], format.as_deref())?;
-            let interpreted = interpret(&g, id, duty_mode);
+            let interpreted = interpret(&g, id, duty_mode, behaviour);
             for warning in &interpreted.warnings {
                 eprintln!("warning: {warning}");
             }
@@ -110,7 +126,7 @@ fn run() -> Result<(), String> {
             let mut profiles = Vec::new();
             for path in &files {
                 let g = load(path, format.as_deref())?;
-                let interpreted = interpret(&g, None, duty_mode);
+                let interpreted = interpret(&g, None, duty_mode, behaviour);
                 for warning in &interpreted.warnings {
                     eprintln!("warning ({}): {warning}", path.display());
                 }
@@ -140,6 +156,7 @@ fn run() -> Result<(), String> {
                 id: RESOLVED_CONFIG_ID.to_string(),
                 actions: actions.iter().map(WireActionDecl::from).collect(),
                 duty_mode: resolved.duty_mode,
+                behaviour: resolved.behaviour,
             };
             println!("{}", serde_json::to_string_pretty(&config).map_err(|e| e.to_string())?);
             Ok(())

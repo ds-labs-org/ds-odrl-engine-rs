@@ -62,6 +62,7 @@ pub struct DemoForm {
   pub action: String,
   pub recognized_actions: String,
   pub duty_mode: String,
+  pub behaviour: String,
   pub policy_kind: String,
   pub assigner: String,
   pub permissions: Vec<RuleRow>,
@@ -84,6 +85,7 @@ impl DemoForm {
       action: "use".to_string(),
       recognized_actions: "use, distribute->use, notify".to_string(),
       duty_mode: "advise".to_string(),
+      behaviour: "open".to_string(),
       policy_kind: "Offer".to_string(),
       assigner: "did:web:provider.example".to_string(),
       permissions: vec![RuleRow {
@@ -113,6 +115,7 @@ impl DemoForm {
       action: String::new(),
       recognized_actions: String::new(),
       duty_mode: "advise".to_string(),
+      behaviour: "open".to_string(),
       policy_kind: String::new(),
       assigner: String::new(),
       permissions: vec![RuleRow::default()],
@@ -215,6 +218,7 @@ pub fn to_request(form: &DemoForm, loaded_profile: Option<&LoadedProfile>) -> wi
       id: loaded_profile.map(|p| p.id.clone()).unwrap_or_else(|| CONFIG_ID.to_string()),
       actions,
       duty_mode: form.duty_mode.clone(),
+      behaviour: form.behaviour.clone(),
     },
     policies: vec![wire::Policy {
       id: DEMO_POLICY_ID.to_string(),

@@ -48,13 +48,22 @@ pub struct LoadedProfile {
 /// with no `--id`-equivalent override: the panel has no field for one, so
 /// a document without its own `odrl:Profile`-typed subject falls back to
 /// interpret()'s own placeholder id, surfaced as one of its warnings.
+///
+/// `interpret()`'s own `behaviour` parameter is passed a fixed value
+/// here, not threaded from the form: `Profile.behaviour` only ever gets
+/// stored, never branched on, by `interpret()`'s own logic -- it changes
+/// nothing this function returns (`id`/`actions`/`declared_left_operands`/
+/// `warnings` are all behaviour-independent), so exposing it as a real
+/// parameter here would be API surface with no observable effect. The
+/// form's own `behaviour` selection reaches the engine directly through
+/// `demo_form::to_request`'s `config.behaviour` instead.
 pub fn load_profile(text: &str, format: ProfileFormat, duty_mode: &str) -> Result<LoadedProfile, String> {
   let graph = match format {
     ProfileFormat::Turtle => Graph::from_turtle(text.as_bytes()),
     ProfileFormat::JsonLd => Graph::from_json_ld(text.as_bytes()),
   }?;
   let duty_mode = duty_mode_from_str(duty_mode)?;
-  let interpreted = interpret(&graph, None, duty_mode);
+  let interpreted = interpret(&graph, None, duty_mode, profile_interpreter::interpret::default_behaviour());
   Ok(LoadedProfile {
     id: interpreted.profile.id,
     actions: interpreted

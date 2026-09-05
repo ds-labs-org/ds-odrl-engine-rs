@@ -24,15 +24,17 @@
 //!   prohibited action is `use`, the request's is `sell`) with **no**
 //!   `PermissionReport` at all, yet the fixture's own title still reads
 //!   "results into no." A policy with nothing that actively grants a
-//!   request denies it, full stop — unlike this engine's own Section 4.3
-//!   departure (a policy with a literally *empty* permissions list is
-//!   treated as open), which is exactly why that departure is named in
-//!   Section 4.3 as a reviewable, non-default choice: this reference
-//!   suite is built against the *other* reading. A translated request
-//!   whose sole policy nets no surviving rules is therefore an empty
-//!   `policies` array (see `translate.rs`), not an empty-permissions
-//!   shell — matching this closed default instead of accidentally
-//!   invoking the engine's own open one.
+//!   request denies it, full stop — unlike `engine`'s own historical
+//!   Section 4.3 departure (a policy with a literally *empty* permissions
+//!   list was unconditionally treated as open), which is exactly why that
+//!   departure was named in Section 4.3 as a reviewable, non-default
+//!   choice: this reference suite is built against the *other* reading.
+//!   `Behaviour` is now a real, per-request engine parameter
+//!   (`translate.rs`'s `base_request_config` sets it to `Closed`
+//!   directly) rather than something this ground-truth mapping merely
+//!   had to be aware of — `engine::decide` itself now agrees with this
+//!   suite's closed-world assumption, not just this file's own reading of
+//!   its fixtures.
 //!
 //! `report:DutyReport` rule-reports are ignored here: every fixture that
 //! carries one is already skipped by `translate.rs` before this function

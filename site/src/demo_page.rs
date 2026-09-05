@@ -92,6 +92,14 @@ pub fn DemoPage() -> Html {
       form.set(next);
     })
   };
+  let on_behaviour = {
+    let form = form.clone();
+    Callback::from(move |value: Option<String>| {
+      let mut next = (*form).clone();
+      next.behaviour = value.unwrap_or_else(|| "open".to_string());
+      form.set(next);
+    })
+  };
   let on_policy_kind = field_onchange(form.clone(), |f, v| f.policy_kind = v);
   let on_assigner = field_onchange(form.clone(), |f, v| f.assigner = v);
   let on_permissions = rules_onchange(form.clone(), |f, v| f.permissions = v);
@@ -272,6 +280,13 @@ pub fn DemoPage() -> Html {
             <FormSelect<String> value={Some(form.duty_mode.clone())} onchange={on_duty_mode}>
               <FormSelectOption<String> value="advise" description="advise — unresolved duties are recorded, decision can still Allow" />
               <FormSelectOption<String> value="deny" description="deny — an unresolved duty forces Deny" />
+            </FormSelect<String>>
+          </label>
+          <label>
+            { "behaviour (ODRL Formal Semantics, Section 3.6)" }
+            <FormSelect<String> value={Some(form.behaviour.clone())} onchange={on_behaviour}>
+              <FormSelectOption<String> value="open" description="open — an empty permissions list is vacuously Allow (Section 4.3's own default)" />
+              <FormSelectOption<String> value="closed" description="closed — nothing actively permits denies, full stop" />
             </FormSelect<String>>
           </label>
         </div>

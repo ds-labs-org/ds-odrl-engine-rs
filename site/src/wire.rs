@@ -68,6 +68,10 @@ pub struct WireActionDecl {
 /// `engine::wire::RequestConfig`'s own doc comment: ODRL defines no
 /// property for a profile's own enforcement behavior, so namespacing it as
 /// real ODRL vocabulary would misrepresent this engine's own invention.
+/// `behaviour` (new) is the ODRL Community Group's own Formal Semantics
+/// axis (Section 3.6) -- `"open"` (an empty `permissions` list is
+/// vacuously met, Section 4.3's own original default) or `"closed"`
+/// (nothing actively permits denies, full stop).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RequestConfig {
   #[serde(rename = "@type")]
@@ -78,6 +82,7 @@ pub struct RequestConfig {
   pub actions: Vec<WireActionDecl>,
   #[serde(rename = "dutyMode")]
   pub duty_mode: String,
+  pub behaviour: String,
 }
 
 /// A single claim's value: either one string, or a list of strings for a

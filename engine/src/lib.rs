@@ -9,5 +9,5 @@ pub mod wire;
 pub use claims::{ClaimValue, Claims};
 pub use constraint::{Constraint, Operator};
 pub use decision::{decide, Decision, DecisionOutcome, Policy, Rule, RuleKind, UnrecognizedAction, UnresolvedDuty};
-pub use profile::{resolve, DutyMode, Profile, ResolvedConfig};
+pub use profile::{resolve, ActionDecl, Behaviour, DutyMode, Profile, ResolvedConfig};
 pub use wire::{evaluate_request, parse_error_response, DutyEntry, Request, RequestConfig, Response, WireDecision, WirePolicy};

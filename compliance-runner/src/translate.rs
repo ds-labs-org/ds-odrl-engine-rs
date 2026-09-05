@@ -152,6 +152,15 @@ fn base_request_config() -> RequestConfig {
         id: CONFIG_ID.to_string(),
         actions: base_action_vocabulary().iter().map(WireActionDecl::from).collect(),
         duty_mode: DutyMode::Advise,
+        // `ground_truth.rs`'s own doc comment already established this
+        // suite is built against the ODRL Formal Semantics draft's closed
+        // default (Section 3.6), not `engine`'s own historical Open
+        // default (Section 4.3) — confirmed against exactly the fixture
+        // (`testcase-014-alice-sell`) this now fixes for real. Setting
+        // `Behaviour::Closed` here makes that alignment an actual engine
+        // parameter instead of relying on an empty-`policies`-array side
+        // effect of rule pre-filtering, which no longer exists.
+        behaviour: engine::profile::Behaviour::Closed,
     }
 }
 
