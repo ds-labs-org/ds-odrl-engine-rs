@@ -13,10 +13,16 @@ other host willing to speak its JSON wire contract).
 This is **not a full ODRL implementation**. `engine`'s own Default Profile
 has seven constraint operators now (`eq`/`neq`/`isAnyOf`, plus `lt`/
 `lteq`/`gt`/`gteq` for UTC `dateTime` comparison) over a flat string/
-string-array claims model, and exact-string action recognition with one
-narrow, vocabulary-sourced exception (`odrl:use` covers everything except
-the transfer-category actions) — no general `includedIn`/`implies`
-inference otherwise. Nested `odrl:and`/`odrl:or` logical constraints and
+string-array claims model, and action-taxonomy coverage limited to
+*declared* `odrl:includedIn` edges (`engine::ResolvedConfig::covers`): a
+permission for a broader action covers a request for a narrower one only
+if every hop of that chain is an `ActionDecl` some loaded profile actually
+declared — an edge nothing ever declared is never inferred, and an action
+never separately declared as its own `ActionDecl` contributes nothing even
+as someone else's `includedIn` target. This closes the general
+action-implication gap earlier revisions of this README described as
+unsupported; what remains is honestly narrower than full RDFS-style
+subsumption reasoning. Nested `odrl:and`/`odrl:or` logical constraints and
 `odrl:PartyCollection`/`odrl:AssetCollection` membership are resolved by
 `compliance-runner`'s own adapter (DNF expansion into sibling/combined
 rules; SOTW-graph `odrl:partOf` lookups) rather than by any change to
@@ -33,9 +39,9 @@ exactly which constructs pass, fail, or are skipped today, case by case,
 against a real external ODRL test suite.
 
 **Known adapter fragility, not exercised by the vendored corpus** (found
-by an independent review of v0.2.0, none of it changes the 68/68 result
-since no vendored fixture triggers them — recorded here rather than
-silently left for the next person to rediscover):
+by an independent review of v0.2.0, none of it changes the current
+pass/fail result since no vendored fixture triggers them — recorded here
+rather than silently left for the next person to rediscover):
 
 - `translate.rs`'s `is_member_of`/`duty_is_violated` match SOTW-graph
   nodes by **local name only**, not full IRI — a same-named node in a
@@ -65,10 +71,10 @@ silently left for the next person to rediscover):
   handling ODRL's own `odrl:remedy` construct implies. Untested by this
   corpus — no vendored fixture attaches a duty to a prohibition.
 
-None of these are hard to fix; they're recorded because the corpus
-passing 68/68 does not mean they don't exist, and a future contributor
-extending the vendored fixtures (or pointing this adapter at a different
-policy source) should not have to rediscover them by a wrong verdict.
+None of these are hard to fix; they're recorded because a case passing
+does not mean they don't exist, and a future contributor extending the
+vendored fixtures (or pointing this adapter at a different policy source)
+should not have to rediscover them by a wrong verdict.
 
 ## Design rationale
 
@@ -94,9 +100,16 @@ Request:
 ```json
 {
   "dataset_id": "urn:uuid:example-dataset-1",
+  "action": "use",
   "config": {
-    "recognized_actions": ["use", "distribute", "notify"],
-    "duty_mode": "advise"
+    "@type": "odrl:Profile",
+    "@id": "https://example.org/profiles/default",
+    "odrl:action": [
+      {"@id": "use"},
+      {"@id": "distribute", "odrl:includedIn": {"@id": "use"}},
+      {"@id": "notify"}
+    ],
+    "dutyMode": "advise"
   },
   "policies": [
     {
@@ -126,12 +139,24 @@ Request:
 }
 ```
 
+- `action` is the one action this whole request is *about* — what the
+  caller is actually asking to do. A permission/prohibition rule is only
+  in play if it *covers* `action` (`engine::ResolvedConfig::covers`: an
+  exact match, or a declared `odrl:includedIn` chain — see `engine/src/
+  profile.rs`'s doc comment); a real host no longer pre-filters a policy's
+  rules to one action or rewrites `Rule.action` before calling this engine.
 - `config` is the host's already-resolved union of every ODRL Profile it
-  has loaded (recognized actions, and the strictest loaded `duty_mode`)
-  — resolved once at host startup, travelling in the request so the
-  engine itself stays stateless.
+  has loaded, expressed as real ODRL/JSON-LD vocabulary — every declared
+  action plus any `odrl:includedIn` parent it names, and the strictest
+  loaded `dutyMode` — resolved once at host startup, travelling in the
+  request so the engine itself stays stateless. `dutyMode` (not
+  `odrl:dutyMode`) deliberately stays outside the `odrl:` namespace: ODRL
+  defines no property for a profile's own enforcement behavior, and
+  namespacing this engine's own invention as if it were real ODRL
+  vocabulary would misrepresent it.
 - `policies` mirrors the host's own `Policy`/`Rule`/`Constraint` shape
-  field for field. `constraints` supports exactly `eq`, `neq`, and
+  field for field — each rule keeps its **own** declared `action`, not
+  the request's. `constraints` supports exactly `eq`, `neq`, and
   `isAnyOf` (which splits `right_operand` on commas, with no escaping
   convention). A rule's `constraints` list matches vacuously when empty.
 - `claims` is the flat claims map: each value is a JSON string or array
@@ -145,7 +170,7 @@ Response:
 {
   "dataset_id": "urn:uuid:example-dataset-1",
   "decision": "Allow",
-  "reason": "permission[0] of policy 'policy-1' matched: nationality eq DE",
+  "reason": "permission[0] of policy 'policy-1' matched: action 'use': nationality eq DE",
   "duties": [
     { "policy_id": "policy-1", "action": "notify", "resolved": false }
   ]
@@ -153,8 +178,8 @@ Response:
 ```
 
 - `decision` is one of `"Allow"`, `"Deny"`, or `"Error"` (an `Error`
-  means a rule named an action outside every loaded profile's
-  `recognized_actions` — a configuration gap, not a policy decision — and
+  means a rule named an action outside every loaded profile's declared
+  `odrl:action` list — a configuration gap, not a policy decision — and
   a caller **must** treat it as fail-closed).
 - `reason` is a short, human-readable trace of which rule or constraint
   drove the outcome. It is diagnostic text, not a machine-parseable
@@ -188,10 +213,11 @@ cargo run -p profile-interpreter -- resolve default-profile.ttl gaia-x-profile.j
 ```
 
 `interpret` reads one document into its own `engine::Profile` record
-(Section 4.4's per-profile shape: `id`, `recognized_actions`,
-`duty_mode`); `resolve` reads several and merges them with
-`engine::resolve()` (union of `recognized_actions`, strictest
-`duty_mode`) into exactly the `config` object above. See its own
+(Section 4.4's per-profile shape: `id`, `actions: Vec<ActionDecl>` — each
+optionally naming an `odrl:includedIn` parent — and `duty_mode`); `resolve`
+reads several and merges them (union of declared actions and their
+`includedIn` edges, strictest `duty_mode`) into exactly the wire-shaped
+`config` object above. See its own
 [README](profile-interpreter/README.md) for precisely what is and isn't
 derived from the document — `duty_mode` in particular is never read from
 it (ODRL defines no property for that), always a caller-supplied flag.
@@ -250,12 +276,14 @@ over parsed triples is simpler than standing up a queryable store for
 lookups no more elaborate than "objects of this subject/predicate."
 
 See `compliance-runner/src/translate.rs` for the adapter's own stated
-translation convention (there is no requested-action/target parameter in
-`engine`'s wire contract at all, so a host — here, the runner itself —
-must already have scoped a policy's rules to the one action/target under
-evaluation before calling it) and `compliance-runner/src/ground_truth.rs`
-for how a single Allow/Deny verdict is derived from the vendored suite's
-own `report:*` compliance-report vocabulary.
+translation convention (each rule keeps its own declared action; the
+translated request's top-level `action` carries the fixture's requested
+one; `engine::decide`'s own coverage check, not translate-time filtering,
+decides whether a rule's action applies — there is still no `target`
+parameter on the wire, so target scoping remains a translate-time
+concern) and `compliance-runner/src/ground_truth.rs` for how a single
+Allow/Deny verdict is derived from the vendored suite's own `report:*`
+compliance-report vocabulary.
 
 ## Documentation and demonstrator site
 
@@ -278,10 +306,14 @@ in that repository.
 The Demonstrator page can also load a real ODRL Profile document (paste
 Turtle or JSON-LD) using `profile-interpreter`'s own parsing logic
 client-side — see `site/README.md`'s "Loading a real ODRL Profile
-document" section for exactly what that configures (recognized-action
-pickers, an inline "not recognized by this profile" cue, and free-form
-`leftOperand` suggestions via `<datalist>` — Section 4.2's leftOperand
-stays open-ended by design, so this is a suggestion, not a restriction).
+document" section for exactly what that configures: action pickers on
+every action field (including the top-level requested-action field), an
+inline "not among the loaded profile's declared actions" cue, the
+profile's own declared `odrl:includedIn` edges flowing straight into the
+constructed request's `config.odrl:action` (not just the picker UI), and
+free-form `leftOperand` suggestions via `<datalist>` — Section 4.2's
+leftOperand stays open-ended by design, so this is a suggestion, not a
+restriction.
 
 Run it locally:
 
@@ -311,26 +343,49 @@ As of the fixtures currently vendored (68 cases):
 
 | total | passed | failed | skipped |
 |---|---|---|---|
-| 68 | 68 | 0 | 0 |
+| 68 | 66 | 2 | 0 |
 
-Every vendored case passes, including the largest fixture in the corpus —
-`policy-20.ttl`'s "business hours on every weekday of 2024," an
-`odrl:or` of 262 `odrl:and`-of-two-`dateTime`-constraints branches,
-expanded by `to_dnf` into 262 sibling permission rules and evaluated
-exactly like any other. `odrl:use` is recognized as covering
-`read`/`write`/`distribute` (per the W3C ODRL Vocabulary's own "Included
-In: use" declarations) while correctly excluding transfer-category
-actions (`sell`, `give`, `transfer`) — see
-`compliance-runner/src/translate.rs`'s module doc for that citation, and
-for how `dateTime` constraints, logical `and`/`or` groups, party/asset
-collection membership, and per-permission duty state are each resolved
-(new `lt`/`lteq`/`gt`/`gteq` operators in `engine`, or SOTW-graph lookups
-in the adapter) without weakening the mapping or silently forcing a pass.
+The largest fixture in the corpus — `policy-20.ttl`'s "business hours on
+every weekday of 2024," an `odrl:or` of 262 `odrl:and`-of-two-`dateTime`-
+constraints branches, expanded by `to_dnf` into 262 sibling permission
+rules — still passes, evaluated exactly like any other. `read`/`write`/
+`distribute` are declared `odrl:includedIn use` (per the W3C ODRL
+Vocabulary's own "Included In: use" declarations, `write` confirmed
+empirically against this corpus's own ground truth), and `sell`/`give`
+`odrl:includedIn transfer`, as real `ActionDecl` data in
+`compliance-runner/src/translate.rs`'s `base_action_vocabulary` — resolved
+by `engine::ResolvedConfig::covers` itself now, not a host-side special
+case. See that module's doc comment for the citation, and for how
+`dateTime` constraints, logical `and`/`or` groups, party/asset collection
+membership, and per-permission duty state are each resolved (new
+`lt`/`lteq`/`gt`/`gteq` operators in `engine`, or SOTW-graph lookups in the
+adapter) without weakening the mapping or silently forcing a pass.
+
+**Two known, honestly-failing cases** (`testcase-014-alice-sell`,
+`testcase-020-bob-sell`): each fixture's policy has exactly one rule, a
+prohibition on `use`, and no permissions at all. Requested against a
+`sell` action (which `use` does not cover), that prohibition never
+applies — leaving the policy's `permissions` list empty, which
+`engine::decide`'s own Section 4.3 "empty permissions is open" departure
+treats as Allow regardless of an unrelated, non-covering prohibition
+being present. This vendored suite's own closed-world ground truth
+expects Deny. Earlier revisions of this adapter never surfaced this: a
+translate-time action pre-filter used to discard that sole rule outright
+whenever its action didn't (loosely) match the request, which routed the
+request through Section 5.2's *different*, closed empty-`policies`-array
+default instead — masking the divergence rather than resolving it. This
+is a property of the engine's own decision algorithm interacting with
+real fixtures for the first time, not a translation bug, and it is not
+silently worked around here; see `compliance-runner/src/report.rs` and
+[`compliance/reports/latest.md`](compliance/reports/latest.md) for the
+full account.
+
 Nothing in this corpus exercises `odrl:xone` or a numeric/date-time
 operator this Default Profile doesn't have — a case that did would still
 be honestly skipped, cited, and counted, not silently dropped. See "What
 this is not" above for the real, remaining gap between this engine and a
-general ODRL implementation, which is wider than "0 skips" might suggest.
+general ODRL implementation, which is wider than these numbers might
+suggest.
 
 ## Compliance suite attribution
 
@@ -345,7 +400,7 @@ that commit sha for provenance.
 translates each upstream `(policy, request, state-of-the-world,
 expected-report)` fixture — expressed in full ODRL/Turtle against that
 suite's own vocabulary — into this engine's own narrower Section 5.2 JSON
-request contract, which has no notion of a requested action/target
+request contract, which has a requested `action` but no `target`
 parameter, no RDF, and none of the ODRL constructs listed under "What
 this is not" above. A fixture that cannot be represented in that contract
 is skipped, cited by name, rather than silently passed or force-fitted.
