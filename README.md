@@ -233,6 +233,46 @@ evaluation before calling it) and `compliance-runner/src/ground_truth.rs`
 for how a single Allow/Deny verdict is derived from the vendored suite's
 own `report:*` compliance-report vocabulary.
 
+## Documentation and demonstrator site
+
+`site/` is a Yew + Trunk single-page app with three pages: a landing page
+explaining what this engine is and is not, an in-browser demonstrator
+that lets you edit a Section 5.2 request by hand and evaluate it against
+a *real* compiled `engine.wasm` (fetched and driven over its raw C ABI —
+`alloc`/`dealloc`/`evaluate` — exactly as a JS or JVM host would, with no
+Rust-level dependency on the `engine` crate; see `site/README.md` for
+why), and a Compliance Results page rendering the vendored suite's
+current pass/fail/skip counts from `compliance/reports/latest.json`. It
+shares its visual identity (teal brand ramp, monospace heading/code
+stack, mesh logo) with the [ds42.org dataspace
+study](https://github.com/Deepthought-Solutions/dataspace)'s own docs
+site, and every page links back to the case study this engine
+implements, filed at
+`docs/case-studies/2026-08-30-attribute-based-odrl-policy-enforcement.md`
+in that repository.
+
+Run it locally:
+
+```sh
+cd site && trunk serve
+```
+
+Then open <http://localhost:8080>. `trunk serve` rebuilds `engine.wasm`
+from the `engine` crate's current source on every change (see
+`site/Trunk.toml`'s `pre_build` hook) so the demonstrator always reflects
+whatever the engine currently does, not a stale compiled snapshot.
+
+The repository's GitHub Actions workflow
+(`.github/workflows/pages.yml`) builds this site with `trunk build
+--release --public-url /ds-odrl-engine-rs/` and deploys it to GitHub
+Pages on every push to `main` that touches `site/`, `engine/`, or
+`compliance/reports/`. Its eventual URL will be
+<https://ds-labs-org.github.io/ds-odrl-engine-rs/> — **enabling GitHub
+Pages itself (repo Settings -> Pages -> Source: GitHub Actions) is a
+manual, one-time step that has not been done yet as of this writing**;
+until it is, the workflow's deploy job will fail even though the build
+succeeds.
+
 ## Current compliance summary
 
 As of the fixtures currently vendored (68 cases):
