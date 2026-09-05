@@ -5,6 +5,35 @@
 
     <title>ds-odrl-engine-rs</title>
 
+    <!-- GitHub Pages SPA redirect, part 2 of 2 -- see site/404.html for
+         part 1 and the rafgraham/spa-github-pages mechanics this
+         implements in full. If a direct hit or reload on a client-side
+         route 404'd and got redirected here by that file's encoded query
+         string (e.g. "?/coverage&a=b"), this script runs before anything
+         else on the page -- including before Trunk's own bootstrap
+         script fetches and instantiates the Yew app's wasm module, which
+         is emitted later in this document -- and rewrites the URL back
+         to the real path ("/coverage?a=b") using `history.replaceState`,
+         which rewrites browser history without triggering a navigation.
+         `yew_nested_router`'s `Router<AppRoute>` (see src/app_route.rs,
+         src/main.rs) only reads `window.location` once it mounts, well
+         after this script has already run, so the app boots straight
+         into the intended route instead of flashing Home first. A no-op
+         on every ordinary load, including a normal in-app client-side
+         navigation: the `if` only matches the "?/" marker 404.html
+         writes, never a real query string a user, bookmark, or link
+         would produce. -->
+    <script type="text/javascript">
+      (function (l) {
+        if (l.search[1] === '/') {
+          var decoded = l.search.slice(1).split('&').map(function (s) {
+            return s.replace(/~and~/g, '&');
+          }).join('?');
+          window.history.replaceState(null, null, l.pathname.slice(0, -1) + decoded + l.hash);
+        }
+      })(window.location);
+    </script>
+
     <!-- data-trunk-public-url stamps this <base href> from Trunk's own
          --public-url at build time (e.g. "/ds-odrl-engine-rs/" for the
          GitHub Pages deploy, "/" for a local `trunk serve`). Every
@@ -117,6 +146,16 @@
          it again for use as the favicon. -->
     <link data-trunk rel="copy-file" href="assets/logo.svg" data-target-path="brand" />
     <link data-trunk rel="icon" type="image/svg+xml" href="assets/logo.svg" />
+
+    <!-- GitHub Pages' own 404 page for this site, wired into the Trunk
+         build (rather than hand-copied into dist/ separately) so it's
+         produced on every build and can't silently drift from
+         index.html's matching redirect-decode script above. See
+         site/404.html for the full mechanics. No data-target-path: like
+         assets/engine.wasm above, copy-file with none lands the file at
+         dist/404.html, which is exactly where GitHub Pages looks for a
+         static host's custom 404 response. -->
+    <link data-trunk rel="copy-file" href="404.html" />
 </head>
 <body>
 </body>

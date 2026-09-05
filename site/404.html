@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ds-odrl-engine-rs</title>
+    <script type="text/javascript">
+      // GitHub Pages SPA redirect, part 1 of 2 -- adapted from
+      // rafgraham/spa-github-pages (MIT,
+      // https://github.com/rafgraph/spa-github-pages), the standard,
+      // well-tested workaround for the fact that GitHub Pages is a static
+      // host with no server-side rewrite rule. This site's router
+      // (yew_nested_router) uses real History-API paths like
+      // "/ds-odrl-engine-rs/coverage", so a direct hit or reload on that
+      // URL asks GitHub Pages for a literal file at that path, finds
+      // none, and serves *this* file instead of ever loading index.html
+      // and booting the Yew app.
+      //
+      // This script runs in that situation and rewrites the 404'd URL
+      // into index.html's own URL, folding the original path into a
+      // query string GitHub Pages won't try to resolve as a file --
+      // "/ds-odrl-engine-rs/coverage?a=b#c" becomes
+      // "/ds-odrl-engine-rs/?/coverage&a=b#c" -- then redirects the
+      // browser there. The matching head script in index.html reverses
+      // this back into the real path with `history.replaceState` before
+      // the Yew app boots, so the app sees the intended route directly
+      // instead of flashing Home first.
+      //
+      // pathSegmentsToKeep = 1 because this is a GitHub Pages *project*
+      // site (ds-labs-org.github.io/ds-odrl-engine-rs/), not a custom
+      // domain or a user/org root site: the first path segment
+      // ("ds-odrl-engine-rs") is the repo name, not part of this app's
+      // own route space, and must be preserved rather than folded into
+      // the redirect query string. This has to agree with the
+      // "/ds-odrl-engine-rs/" `--public-url` that
+      // .github/workflows/pages.yml passes to `trunk build`, which is
+      // what index.html's `<base data-trunk-public-url />` stamps into
+      // the `<base href>` every relative URL on this site resolves
+      // against.
+      var pathSegmentsToKeep = 1;
+
+      var l = window.location;
+      l.replace(
+        l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+        l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + '/?/' +
+        l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~') +
+        (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+        l.hash
+      );
+    </script>
+</head>
+<body>
+</body>
+</html>

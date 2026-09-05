@@ -252,12 +252,17 @@ without the corpus its Compliance page executes.
 ## Known limitations
 
 - Cross-doc/page links are client-side SPA routes resolved against the
-  page's `<base>` href, so a **direct** deep link (bookmark, shared URL)
-  requires the static host to serve `index.html` for unknown paths.
-  `trunk serve` does this automatically; GitHub Pages needs the
-  `404.html`-redirect trick (or an equivalent) if deep-linking to a
-  sub-route is required — not yet set up here since every current page
-  is reachable from the Home nav.
+  page's `<base>` href, so a **direct** deep link (bookmark, shared URL,
+  or a reload on a sub-route) requires the static host to serve
+  `index.html` for unknown paths. `trunk serve` does this automatically.
+  GitHub Pages does not, so it needs the `404.html`-redirect trick — now
+  wired in: `site/404.html` (produced by Trunk's own `copy-file`, not
+  hand-maintained) redirects a 404'd GitHub Pages request back to
+  `index.html` with the original path folded into a query string, and a
+  matching head script in `site/index.html` decodes it back with
+  `history.replaceState` before the Yew app boots, so a direct hit or
+  reload on `/demo`, `/compliance`, or `/coverage` lands on the right
+  page instead of a 404. Confirmed against the live deployment.
 - `copy-file` assets are not content-hashed (true of `engine.wasm` today
   too), so a returning visitor's browser may serve a cached
   `latest-cases.json`. Not a regression, and not silent: the finished run
