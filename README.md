@@ -32,6 +32,44 @@ what's compliance-suite-specific, and
 exactly which constructs pass, fail, or are skipped today, case by case,
 against a real external ODRL test suite.
 
+**Known adapter fragility, not exercised by the vendored corpus** (found
+by an independent review of v0.2.0, none of it changes the 68/68 result
+since no vendored fixture triggers them — recorded here rather than
+silently left for the next person to rediscover):
+
+- `translate.rs`'s `is_member_of`/`duty_is_violated` match SOTW-graph
+  nodes by **local name only**, not full IRI — a same-named node in a
+  different namespace would false-positive a membership or duty-state
+  check. A **blank-node** `odrl:duty` is worse: the policy and SOTW files
+  are parsed as separate graphs, so a parser-assigned blank-node label
+  can't be relied on to correlate between them, meaning a violated duty
+  on a blank-node-identified rule could silently stay in play. The vendored
+  corpus only uses `urn:uuid:`-identified duties, which sidesteps both.
+- `graph.rs`'s `first_literal_for_predicate` (used for "now") returns the
+  *first* `dct:issued` triple in file order across the whole SOTW graph —
+  a second one in some future SOTW fixture would silently win or lose by
+  parse order, not by any stated rule.
+- `odrl.rs`'s `parse_rule` reads only the *first* `odrl:constraint` and
+  `odrl:duty` triple per rule; ODRL permits more than one of each (an
+  implicit AND). A rule with two constraint triples would silently drop
+  one rather than combine them.
+- An IRI-valued `odrl:rightOperand` (rather than a literal) is read as an
+  empty string by `literal_value`, which is a silent miss — fail-open for
+  a prohibition's constraint, fail-closed for a permission's.
+- `odrl.rs` never parses a Policy-level `odrl:obligation` at all —
+  `WirePolicy.obligations` is always empty from this adapter, independent
+  of Section 4.5's own duty-mode support in `engine`.
+- `duty_is_violated`'s exclusion is applied identically to prohibitions
+  as to permissions; a violated duty attached to a *prohibition* would
+  drop the prohibition (fail-open) rather than the intended asymmetric
+  handling ODRL's own `odrl:remedy` construct implies. Untested by this
+  corpus — no vendored fixture attaches a duty to a prohibition.
+
+None of these are hard to fix; they're recorded because the corpus
+passing 68/68 does not mean they don't exist, and a future contributor
+extending the vendored fixtures (or pointing this adapter at a different
+policy source) should not have to rediscover them by a wrong verdict.
+
 ## Design rationale
 
 This engine implements the design proposed in the ds42.org dataspace
