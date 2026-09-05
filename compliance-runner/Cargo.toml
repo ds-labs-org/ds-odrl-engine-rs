@@ -8,3 +8,7 @@ description = "Runner for the ODRL compliance suite against the engine crate"
 
 [dependencies]
 engine = { path = "../engine" }
+oxrdf = "0.3.4"
+oxttl = "0.2.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
