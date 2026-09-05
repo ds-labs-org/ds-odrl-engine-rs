@@ -1,0 +1,10 @@
+[package]
+name = "compliance-runner"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Runner for the ODRL compliance suite against the engine crate"
+
+[dependencies]
+engine = { path = "../engine" }

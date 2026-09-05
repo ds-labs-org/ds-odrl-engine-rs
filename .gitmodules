@@ -1,0 +1,3 @@
+[submodule "compliance/vendor/odrl-test-suite"]
+	path = compliance/vendor/odrl-test-suite
+	url = https://github.com/SolidLabResearch/ODRL-Test-Suite.git
