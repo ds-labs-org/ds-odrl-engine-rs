@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use crate::claims::Claims;
 use crate::constraint::Operator;
 use crate::decision::{decide, Decision, DecisionOutcome, Policy, Rule};
-use crate::profile::{ActionDecl, DutyMode, ResolvedConfig};
+use crate::profile::{ActionDecl, Behaviour, DutyMode, ResolvedConfig};
 
 /// A JSON-LD reference to another node by IRI — `{"@id": "..."}"`, ODRL's
 /// own convention for "this property's value is another resource," used
@@ -73,6 +73,17 @@ impl From<&WireActionDecl> for ActionDecl {
 /// naming anything other than `"odrl:Profile"` there is not rejected, the
 /// field exists so the object reads as self-describing JSON-LD without
 /// this engine taking on a JSON-LD processor's actual obligations.
+///
+/// `behaviour` (new this revision) is the ODRL Community Group's own
+/// Formal Semantics draft term (Section 3.6) — unlike `dutyMode`, this
+/// *is* the standards body's own named concept, so it keeps that name
+/// rather than being invented here, though it stays outside the `odrl:`
+/// namespace too since the draft does not clearly define a corresponding
+/// RDF property for it, only an evaluator input parameter. `#[serde(default)]`
+/// so a request built against an earlier revision of this wire contract
+/// (before this field existed) still deserializes, defaulting to `Open`
+/// — Section 4.3's own original, unconditional behavior, unchanged for
+/// any caller that never sets this.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RequestConfig {
     #[serde(rename = "@type")]
@@ -83,11 +94,17 @@ pub struct RequestConfig {
     pub actions: Vec<WireActionDecl>,
     #[serde(rename = "dutyMode")]
     pub duty_mode: DutyMode,
+    #[serde(default)]
+    pub behaviour: Behaviour,
 }
 
 impl From<&RequestConfig> for ResolvedConfig {
     fn from(config: &RequestConfig) -> Self {
-        ResolvedConfig::new(config.actions.iter().map(ActionDecl::from).collect(), config.duty_mode)
+        ResolvedConfig::new(
+            config.actions.iter().map(ActionDecl::from).collect(),
+            config.duty_mode,
+            config.behaviour,
+        )
     }
 }
 
@@ -461,6 +478,7 @@ mod tests {
                 },
             ],
             duty_mode: DutyMode::Advise,
+            behaviour: Behaviour::Closed,
         };
         let value = serde_json::to_value(&config).unwrap();
         assert_eq!(value["@type"], "odrl:Profile");
@@ -468,9 +486,27 @@ mod tests {
         assert_eq!(value["odrl:action"][0]["@id"], "use");
         assert_eq!(value["odrl:action"][1]["odrl:includedIn"]["@id"], "transfer");
         assert_eq!(value["dutyMode"], "advise");
+        assert_eq!(value["behaviour"], "closed");
         assert!(
             value["odrl:action"][0].get("odrl:includedIn").is_none(),
             "an action with no parent must not serialize a null odrl:includedIn"
+        );
+    }
+
+    #[test]
+    fn config_missing_behaviour_deserializes_defaulting_to_open() {
+        let json = r#"{
+            "@type": "odrl:Profile",
+            "@id": "https://example.org/profiles/default",
+            "odrl:action": [{"@id": "use"}],
+            "dutyMode": "advise"
+        }"#;
+        let config: RequestConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(
+            config.behaviour,
+            Behaviour::Open,
+            "a request built against an earlier revision of this wire contract, with no \
+             behaviour field at all, must still deserialize and behave exactly as before"
         );
     }
 
@@ -484,6 +520,7 @@ mod tests {
             id: "https://example.org/profiles/test".to_string(),
             actions: actions.iter().map(|a| action(a)).collect(),
             duty_mode: DutyMode::Advise,
+            behaviour: Behaviour::Open,
         }
     }
 
@@ -536,6 +573,7 @@ mod tests {
                     WireActionDecl { id: "sell".to_string(), included_in: Some(WireNodeRef { id: "transfer".to_string() }) },
                 ],
                 duty_mode: DutyMode::Advise,
+                behaviour: Behaviour::Open,
             },
             policies: vec![WirePolicy {
                 id: "policy-transfer".to_string(),

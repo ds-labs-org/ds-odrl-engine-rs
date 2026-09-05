@@ -26,6 +26,49 @@ pub enum DutyMode {
     Deny,
 }
 
+/// The ODRL Community Group's own named axis (case study Section 3.6,
+/// its Formal Semantics draft report): what a policy with no matching
+/// permission at all should mean. `Open` ("anything not permitted is
+/// unaffected") is Section 4.3's own, deliberate departure from a fully
+/// closed-world reading — the engine's long-standing default, because an
+/// `Offer` with an empty `permissions` list is the common harvested-data
+/// case, not the exception. `Closed` ("anything not explicitly permitted
+/// is denied") is the Formal Semantics draft's own stated default, and
+/// exactly what a caller wanting XACML's `deny-unless-permit` posture, or
+/// matching an external ODRL evaluator's own closed-world ground truth
+/// (as this engine's own compliance suite does), should choose instead.
+///
+/// This governs *only* the empty-`permissions`-list case — an explicit,
+/// covering, but unsatisfied permission still denies under either
+/// setting; a matching prohibition still denies under either setting.
+/// Named `Behaviour` (not, say, `EmptyPermissionsMode`) deliberately
+/// matching the Formal Semantics draft's own vocabulary — Section 3.6
+/// already discusses it under that name, and this is that same knob,
+/// finally a real, host-configurable parameter rather than a fixed
+/// choice baked into the algorithm.
+///
+/// Deserializes the draft's own third value, `"default"`, as `Closed` —
+/// the draft states plainly that `default` *is* `closed`, so this is not
+/// a third behavior, just the spec's own synonym; serializing never
+/// re-emits it, since "default" names a resolved value, not a distinct
+/// one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Behaviour {
+    #[serde(rename = "open")]
+    Open,
+    #[serde(rename = "closed", alias = "default")]
+    Closed,
+}
+
+impl Default for Behaviour {
+    /// `Open` — Section 4.3's own original, unconditional choice, before
+    /// this became a real parameter. Preserved as the default so an
+    /// existing caller that never sets this sees no behavior change.
+    fn default() -> Self {
+        Behaviour::Open
+    }
+}
+
 /// One action a profile declares — `ex:myAction a odrl:Action`, optionally
 /// with `odrl:includedIn` naming a broader parent action, exactly the W3C
 /// ODRL Information Model's own Profile Mechanism pattern
@@ -54,6 +97,8 @@ pub struct Profile {
     pub id: String,
     pub actions: Vec<ActionDecl>,
     pub duty_mode: DutyMode,
+    #[serde(default)]
+    pub behaviour: Behaviour,
 }
 
 /// The merged configuration a broker resolves **once, at its own
@@ -71,11 +116,12 @@ pub struct Profile {
 pub struct ResolvedConfig {
     actions: Vec<ActionDecl>,
     pub duty_mode: DutyMode,
+    pub behaviour: Behaviour,
 }
 
 impl ResolvedConfig {
-    pub fn new(actions: Vec<ActionDecl>, duty_mode: DutyMode) -> Self {
-        Self { actions, duty_mode }
+    pub fn new(actions: Vec<ActionDecl>, duty_mode: DutyMode, behaviour: Behaviour) -> Self {
+        Self { actions, duty_mode, behaviour }
     }
 
     /// Is `action` declared at all, by any loaded profile — Section 4.4's
@@ -140,7 +186,8 @@ impl ResolvedConfig {
 /// wins if two profiles disagree, an edge case nothing in this corpus
 /// exercises and not worth a more elaborate merge rule for), and the
 /// **strictest** (`deny` beats `advise`) of every profile's `duty_mode`
-/// (Section 4.4).
+/// (Section 4.4), and — the same "strictest wins" rule — the **strictest**
+/// (`closed` beats `open`) of every profile's `behaviour`.
 ///
 /// The union choice is a *named* fail-open limitation (Section 7): this
 /// engine has no way to scope a request to only the profile(s) a specific
@@ -158,6 +205,7 @@ impl ResolvedConfig {
 pub fn resolve(profiles: &[Profile]) -> ResolvedConfig {
     let mut actions: Vec<ActionDecl> = Vec::new();
     let mut duty_mode = DutyMode::Advise;
+    let mut behaviour = Behaviour::Open;
 
     for profile in profiles {
         for action in &profile.actions {
@@ -168,9 +216,12 @@ pub fn resolve(profiles: &[Profile]) -> ResolvedConfig {
         if profile.duty_mode == DutyMode::Deny {
             duty_mode = DutyMode::Deny;
         }
+        if profile.behaviour == Behaviour::Closed {
+            behaviour = Behaviour::Closed;
+        }
     }
 
-    ResolvedConfig { actions, duty_mode }
+    ResolvedConfig { actions, duty_mode, behaviour }
 }
 
 #[cfg(test)]
@@ -178,7 +229,11 @@ mod tests {
     use super::*;
 
     fn profile(id: &str, actions: &[ActionDecl], duty_mode: DutyMode) -> Profile {
-        Profile { id: id.to_string(), actions: actions.to_vec(), duty_mode }
+        Profile { id: id.to_string(), actions: actions.to_vec(), duty_mode, behaviour: Behaviour::Open }
+    }
+
+    fn profile_with_behaviour(id: &str, actions: &[ActionDecl], behaviour: Behaviour) -> Profile {
+        Profile { id: id.to_string(), actions: actions.to_vec(), duty_mode: DutyMode::Advise, behaviour }
     }
 
     fn flat(names: &[&str]) -> Vec<ActionDecl> {
@@ -246,6 +301,11 @@ mod tests {
         assert_eq!(profile.actions.len(), 4);
         assert_eq!(profile.actions[1].included_in.as_deref(), Some("use"));
         assert_eq!(profile.duty_mode, DutyMode::Advise);
+        assert_eq!(
+            profile.behaviour,
+            Behaviour::Open,
+            "a profile document from before this parameter existed must still deserialize, defaulting to Open"
+        );
     }
 
     #[test]
@@ -341,5 +401,49 @@ mod tests {
         ];
         let config = resolve(&profiles);
         assert!(config.covers("transfer", "sell"), "p1's edge (declared first) wins over p2's bare re-declaration");
+    }
+
+    #[test]
+    fn no_profiles_resolves_to_open_the_original_unconditional_default() {
+        assert_eq!(resolve(&[]).behaviour, Behaviour::Open);
+    }
+
+    #[test]
+    fn resolves_the_strictest_behaviour_closed_beats_open_either_order() {
+        let open_then_closed =
+            vec![profile_with_behaviour("p1", &flat(&["use"]), Behaviour::Open), profile_with_behaviour("p2", &flat(&["distribute"]), Behaviour::Closed)];
+        assert_eq!(resolve(&open_then_closed).behaviour, Behaviour::Closed);
+
+        let closed_then_open =
+            vec![profile_with_behaviour("p1", &flat(&["use"]), Behaviour::Closed), profile_with_behaviour("p2", &flat(&["distribute"]), Behaviour::Open)];
+        assert_eq!(resolve(&closed_then_open).behaviour, Behaviour::Closed);
+    }
+
+    #[test]
+    fn all_open_profiles_resolve_to_open() {
+        let profiles =
+            vec![profile_with_behaviour("p1", &flat(&["use"]), Behaviour::Open), profile_with_behaviour("p2", &flat(&["distribute"]), Behaviour::Open)];
+        assert_eq!(resolve(&profiles).behaviour, Behaviour::Open);
+    }
+
+    #[test]
+    fn behaviour_deserializes_open_and_closed() {
+        assert_eq!(serde_json::from_str::<Behaviour>("\"open\"").unwrap(), Behaviour::Open);
+        assert_eq!(serde_json::from_str::<Behaviour>("\"closed\"").unwrap(), Behaviour::Closed);
+    }
+
+    #[test]
+    fn behaviour_deserializes_the_formal_semantics_drafts_own_default_alias_as_closed() {
+        assert_eq!(
+            serde_json::from_str::<Behaviour>("\"default\"").unwrap(),
+            Behaviour::Closed,
+            "the Formal Semantics draft states plainly that its own \"default\" value is closed"
+        );
+    }
+
+    #[test]
+    fn behaviour_never_serializes_the_default_alias_back_out() {
+        assert_eq!(serde_json::to_string(&Behaviour::Closed).unwrap(), "\"closed\"");
+        assert_eq!(serde_json::to_string(&Behaviour::Open).unwrap(), "\"open\"");
     }
 }

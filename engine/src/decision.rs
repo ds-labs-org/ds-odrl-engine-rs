@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::claims::Claims;
 use crate::constraint::Constraint;
-use crate::profile::{DutyMode, ResolvedConfig};
+use crate::profile::{Behaviour, DutyMode, ResolvedConfig};
 
 /// One permission or prohibition rule: an action plus the constraints that
 /// must all be satisfied for the rule to "match" a claims set (Section
@@ -235,12 +235,18 @@ fn unresolved_duties(policy: &Policy, claims: &Claims) -> Vec<UnresolvedDuty> {
 /// requirement — gated by Section 4.4's unrecognized-action check, and
 /// followed by Section 4.5's duty evaluation.
 ///
-/// The ODRL Community Group's `Behaviour` axis (Section 3.6) names the
-/// alternative this proposal departs from: a strict `closed` reading
-/// ("anything not permitted is prohibited") would deny a policy with an
-/// empty `permissions` list outright; this proposal instead treats that
-/// one degenerate case as `open`, because an empty-`permissions` `Offer`
-/// is the common harvested-data case, not the exception (Section 4.3).
+/// **The ODRL Community Group's `Behaviour` axis (Section 3.6) is now a
+/// real, host-configurable parameter (`config.behaviour`), not a fixed
+/// choice baked into this function.** Under `Behaviour::Open` — Section
+/// 4.3's own original, unconditional default — a policy with an empty
+/// `permissions` list has its permission requirement met vacuously
+/// (because an empty-`permissions` `Offer` is the common harvested-data
+/// case, not the exception); under `Behaviour::Closed`, it is not: the
+/// permission requirement is met only by an actual covering, matching
+/// permission, same as a non-empty list under either setting. This
+/// governs *only* that one degenerate case — a matching prohibition
+/// still denies, and a non-empty `permissions` list that never matches
+/// still denies, under either setting.
 ///
 /// Duty evaluation (Section 4.5) runs after the permission/prohibition
 /// decision is reached, and can only ever *tighten* it: under
@@ -253,9 +259,7 @@ fn unresolved_duties(policy: &Policy, claims: &Claims) -> Vec<UnresolvedDuty> {
 /// `requested_action` is the one action this whole decision is *about* —
 /// a permission or prohibition rule is only in play if it covers this
 /// action (`Rule::covers_action`, exact match or a declared `includedIn`
-/// chain); the "empty permissions list is open" exception (Section 4.3)
-/// still turns on the list being empty, not on whether anything in it
-/// happens to cover `requested_action`.
+/// chain).
 pub fn decide(policy: &Policy, claims: &Claims, config: &ResolvedConfig, requested_action: &str) -> DecisionOutcome {
     if let Some(unrecognized) = first_unrecognized_action(policy, config) {
         return DecisionOutcome {
@@ -269,8 +273,12 @@ pub fn decide(policy: &Policy, claims: &Claims, config: &ResolvedConfig, request
         .iter()
         .any(|rule| rule.covers_action(requested_action, config) && rule.matches(claims));
 
-    let permission_requirement_met = policy.permissions.is_empty()
-        || policy.permissions.iter().any(|rule| rule.covers_action(requested_action, config) && rule.matches(claims));
+    let any_permission_covers_and_matches =
+        policy.permissions.iter().any(|rule| rule.covers_action(requested_action, config) && rule.matches(claims));
+    let permission_requirement_met = match config.behaviour {
+        Behaviour::Open => policy.permissions.is_empty() || any_permission_covers_and_matches,
+        Behaviour::Closed => any_permission_covers_and_matches,
+    };
 
     let mut decision = if denied_by_prohibition {
         Decision::Deny
@@ -311,10 +319,15 @@ mod tests {
     }
 
     fn config_with_duty_mode(actions: &[&str], duty_mode: DutyMode) -> ResolvedConfig {
+        config_with(actions, duty_mode, Behaviour::Open)
+    }
+
+    fn config_with(actions: &[&str], duty_mode: DutyMode, behaviour: Behaviour) -> ResolvedConfig {
         crate::profile::resolve(&[Profile {
             id: "https://example.org/profiles/test".to_string(),
             actions: flat(actions),
             duty_mode,
+            behaviour,
         }])
     }
 
@@ -421,6 +434,72 @@ mod tests {
         };
         let claims = claims_with(&[]);
         assert_eq!(decide(&policy, &claims, &all_actions_config(), "read").decision, Decision::Deny);
+    }
+
+    #[test]
+    fn behaviour_closed_denies_an_empty_permissions_list_instead_of_the_open_exception() {
+        let policy = Policy {
+            permissions: vec![],
+            prohibitions: vec![],
+            obligations: vec![],
+        };
+        let claims = claims_with(&[]);
+        let config = config_with(&["read"], DutyMode::Advise, Behaviour::Closed);
+        assert_eq!(
+            decide(&policy, &claims, &config, "read").decision,
+            Decision::Deny,
+            "Behaviour::Closed: no permission rules at all denies, the Formal Semantics draft's \
+             own closed default, not Section 4.3's Open exception"
+        );
+    }
+
+    #[test]
+    fn behaviour_closed_still_evaluates_a_non_empty_permissions_list_normally() {
+        let policy = Policy {
+            permissions: vec![Rule::new("read", vec![])],
+            prohibitions: vec![],
+            obligations: vec![],
+        };
+        let claims = claims_with(&[]);
+        let config = config_with(&["read"], DutyMode::Advise, Behaviour::Closed);
+        assert_eq!(
+            decide(&policy, &claims, &config, "read").decision,
+            Decision::Allow,
+            "Behaviour only changes the EMPTY-list case; an actual covering, matching \
+             permission still allows under Closed exactly as it does under Open"
+        );
+    }
+
+    #[test]
+    fn behaviour_closed_denies_past_an_unrelated_non_covering_prohibition() {
+        // The exact shape of the vendored ODRL-Test-Suite regression this
+        // parameter exists to let a host correct: a policy's only rule is
+        // a prohibition that does not cover the requested action, leaving
+        // `permissions` empty. Behaviour::Open (the engine's own default)
+        // allows here; Behaviour::Closed — matching that suite's own
+        // closed-world ground truth — denies, without weakening Section
+        // 4.3's own Open default for hosts that still want it.
+        let policy = Policy {
+            permissions: vec![],
+            prohibitions: vec![Rule::new("use", vec![])],
+            obligations: vec![],
+        };
+        let claims = claims_with(&[]);
+        let config_open = config_with(&["use", "sell"], DutyMode::Advise, Behaviour::Open);
+        assert_eq!(
+            decide(&policy, &claims, &config_open, "sell").decision,
+            Decision::Allow,
+            "Open: the empty permissions list is still vacuously met even though the lone \
+             prohibition (use) does not cover the request (sell)"
+        );
+
+        let config_closed = config_with(&["use", "sell"], DutyMode::Advise, Behaviour::Closed);
+        assert_eq!(
+            decide(&policy, &claims, &config_closed, "sell").decision,
+            Decision::Deny,
+            "Closed: nothing actively permits sell, so it denies regardless of the unrelated \
+             non-covering prohibition"
+        );
     }
 
     #[test]
@@ -591,11 +670,13 @@ mod tests {
                 id: "https://example.org/profiles/a".to_string(),
                 actions: flat(&["read"]),
                 duty_mode: DutyMode::Advise,
+                behaviour: Behaviour::Open,
             },
             Profile {
                 id: "https://example.org/profiles/b".to_string(),
                 actions: flat(&["modify"]),
                 duty_mode: DutyMode::Deny,
+                behaviour: Behaviour::Open,
             },
         ]);
         assert_eq!(
@@ -627,6 +708,7 @@ mod tests {
             id: "https://example.org/profiles/test".to_string(),
             actions: vec![ActionDecl::new("transfer"), ActionDecl::included_in("sell", "transfer")],
             duty_mode: DutyMode::Advise,
+            behaviour: Behaviour::Open,
         }]);
         assert_eq!(decide(&policy, &claims, &config, "sell").decision, Decision::Allow);
     }
@@ -651,6 +733,7 @@ mod tests {
                 ActionDecl::included_in("give", "transfer"),
             ],
             duty_mode: DutyMode::Advise,
+            behaviour: Behaviour::Open,
         }]);
         assert_eq!(decide(&policy, &claims, &config, "give").decision, Decision::Deny);
     }
