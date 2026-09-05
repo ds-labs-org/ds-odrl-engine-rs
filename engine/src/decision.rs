@@ -35,7 +35,10 @@ impl Rule {
         }
     }
 
-    fn matches(&self, claims: &Claims) -> bool {
+    /// `pub(crate)`, not private: Section 5.2's `wire` module re-derives
+    /// *which* rule/constraint drove a decision for its human-readable
+    /// `reason` trace, which needs the same match test `decide` uses.
+    pub(crate) fn matches(&self, claims: &Claims) -> bool {
         self.constraints.iter().all(|c| c.evaluate(claims))
     }
 
