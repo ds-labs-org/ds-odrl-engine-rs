@@ -1,6 +1,8 @@
 #[cfg(target_arch = "wasm32")]
 mod app_route;
 #[cfg(target_arch = "wasm32")]
+mod engine_bridge;
+#[cfg(target_arch = "wasm32")]
 mod engine_module;
 #[cfg(target_arch = "wasm32")]
 mod main_view;
