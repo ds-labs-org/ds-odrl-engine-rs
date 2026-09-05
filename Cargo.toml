@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["engine", "compliance-runner", "site", "profile-interpreter"]
+members = ["engine", "compliance-runner", "site", "profile-interpreter", "coverage-probes"]
 
 [workspace.package]
 edition = "2021"

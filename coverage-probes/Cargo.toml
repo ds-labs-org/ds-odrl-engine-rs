@@ -1,0 +1,25 @@
+[package]
+name = "coverage-probes"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Generates compliance/reports/latest-coverage.json: one exact engine::wire::Request per W3C ODRL 2.2 vocabulary claim, plus the outcome that would demonstrate that claim, for the site's live in-browser coverage report"
+publish = false
+
+# Deliberately its own workspace crate rather than a second `--bin` in
+# `compliance-runner`, for three concrete reasons:
+#
+# 1. `compliance-runner` exits(1) without the
+#    `compliance/vendor/odrl-test-suite` submodule. This catalog has
+#    nothing to do with that suite and must regenerate from a bare clone.
+# 2. It needs `profile-interpreter` (for the shipped 51-term ODRL 2.2
+#    action taxonomy, parsed out of Turtle at generation time).
+#    `compliance-runner` has no such dependency and should not gain one.
+# 3. CI runs `cargo run -p compliance-runner --release` with no `--bin`;
+#    adding a second binary to that package would break that invocation.
+[dependencies]
+engine = { path = "../engine" }
+profile-interpreter = { path = "../profile-interpreter" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

@@ -15,10 +15,22 @@
 //! shows in the address bar (which would break this fetch under e.g.
 //! "/ds-odrl-engine-rs/demo"). This is the mechanism, exercised for real
 //! every time the Home page mounts.
+//!
+//! Failures here are rendered by the Home page in an `Alert`, so this
+//! module uses `engine_bridge::describe_js_error` rather than a local
+//! formatter of its own. It carried the weaker version --
+//! `err.as_string().unwrap_or_else(|| format!("{err:?}"))` -- until the
+//! Coverage page's shared-plumbing extraction went looking for every copy
+//! of it: a failed `fetch()` rejects with a `TypeError`, not a string, so
+//! that version could only ever produce the raw wasm-bindgen debug dump
+//! in front of a visitor, which is precisely the leak an adversarial
+//! review had already fixed in `engine_bridge` itself.
 
-use wasm_bindgen::{JsCast, JsValue};
+use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::Response;
+
+use crate::engine_bridge::describe_js_error;
 
 /// Fetches `engine.wasm` relative to the document's own `<base href>` and
 /// returns its raw byte length on success.
@@ -40,8 +52,4 @@ pub async fn fetch_engine_wasm_len() -> Result<usize, String> {
     .map_err(describe_js_error)?;
   let bytes = js_sys::Uint8Array::new(&buffer);
   Ok(bytes.length() as usize)
-}
-
-fn describe_js_error(err: JsValue) -> String {
-  err.as_string().unwrap_or_else(|| format!("{err:?}"))
 }

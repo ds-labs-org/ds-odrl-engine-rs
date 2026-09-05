@@ -2,13 +2,15 @@ name: Deploy site to GitHub Pages
 
 # Redeploy whenever something the published site actually reads changes:
 # the site crate itself, the engine crate it compiles to wasm and embeds
-# via Trunk.toml's pre_build hook (see site/Trunk.toml), the compliance
-# report the Compliance Results page fetches at runtime (see
-# site/index.html's copy-file of ../compliance/reports/latest.json), or
-# this workflow file. Deliberately NOT compliance-runner/** or
-# compliance/vendor/** -- those produce the report but aren't the report,
-# so a compliance-runner-source-only commit that hasn't been run yet
-# doesn't trigger a redeploy with stale numbers.
+# via Trunk.toml's pre_build hook (see site/Trunk.toml), the artifacts
+# under compliance/reports/ that the Compliance Results and ODRL 2.2
+# Coverage pages fetch at runtime (see site/index.html's three copy-file
+# directives), or this workflow file. Deliberately NOT
+# compliance-runner/**, coverage-probes/**, compliance/vendor/**, or
+# profile-interpreter/examples/*.ttl -- every one of those *produces* an
+# artifact without *being* one, so a generator-source-only commit that
+# hasn't been re-run yet must not trigger a redeploy with stale content.
+# The omission is the policy, not an oversight.
 on:
   push:
     branches: [main]

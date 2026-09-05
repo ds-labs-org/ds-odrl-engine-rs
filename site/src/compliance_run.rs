@@ -11,6 +11,11 @@
 //! actually run it. This module is `#[cfg(target_arch = "wasm32")]`-gated
 //! like the rest of the crate because every line of it touches `window`,
 //! `js_sys`, or the ABI bridge.
+//!
+//! The browser plumbing itself (`fetch_text`, `yield_for_paint`,
+//! `FRAME_MS`) now lives in `run_support.rs`, shared with the Coverage
+//! page's own runner -- see that module's header for why `fetch_text`
+//! moving there is a fix to *this* page and not only a de-duplication.
 
 use yew::prelude::*;
 
@@ -19,6 +24,7 @@ use crate::compliance_cases::{
   non_evaluated_outcome, parse_baseline, parse_case_file, request_json,
 };
 use crate::engine_bridge;
+use crate::run_support::{fetch_text, yield_for_paint, FRAME_MS};
 
 /// The four steps the page shows, in the order they run.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -121,64 +127,6 @@ impl RunState {
   }
 }
 
-/// Hands control back to the browser's event loop so a pending Yew render
-/// can actually paint. A resolved-`Promise` await would only reach the
-/// *microtask* queue, which drains before the browser paints -- so this
-/// goes through a real macrotask (`setTimeout(0)`) instead.
-///
-/// Called at most once per ~16 ms (one frame), never once per case: on
-/// real hardware the whole 68-case run finishes in a few tens of
-/// milliseconds, and a timeout per case would be manufacturing hundreds
-/// of milliseconds of delay purely to make a fast thing look busy. This
-/// module contains no artificial delay of any other kind either -- the
-/// elapsed time the finished report prints is real work, measured.
-async fn yield_for_paint() {
-  let promise = js_sys::Promise::new(&mut |resolve, _reject| {
-    match web_sys::window() {
-      Some(window) => {
-        let _ = window.set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, 0);
-      }
-      // No `window` never happens in a browser, but a never-resolving
-      // promise here would hang the whole run rather than degrade it --
-      // so resolve immediately instead.
-      None => {
-        let _ = resolve.call0(&wasm_bindgen::JsValue::undefined());
-      }
-    }
-  });
-  let _ = wasm_bindgen_futures::JsFuture::from(promise).await;
-}
-
-/// One frame at 60 Hz: the shortest interval at which yielding could let
-/// anything new actually appear on screen.
-const FRAME_MS: f64 = 16.0;
-
-async fn fetch_text(url: &str) -> Result<String, String> {
-  use wasm_bindgen::JsCast;
-
-  let window = web_sys::window().ok_or_else(|| "no `window` (not running in a browser)".to_string())?;
-
-  let response: web_sys::Response = wasm_bindgen_futures::JsFuture::from(window.fetch_with_str(url))
-    .await
-    .map_err(describe_js_error)?
-    .dyn_into()
-    .map_err(|_| "fetch() did not resolve to a Response".to_string())?;
-
-  if !response.ok() {
-    return Err(format!("{url} fetch returned HTTP {}", response.status()));
-  }
-
-  wasm_bindgen_futures::JsFuture::from(response.text().map_err(describe_js_error)?)
-    .await
-    .map_err(describe_js_error)?
-    .as_string()
-    .ok_or_else(|| format!("{url}: response.text() did not resolve to a string"))
-}
-
-fn describe_js_error(err: wasm_bindgen::JsValue) -> String {
-  err.as_string().unwrap_or_else(|| format!("{err:?}"))
-}
-
 /// Runs the whole four-stage sequence, publishing each transition through
 /// `state`. Every terminal path is either `Done` or `Failed`: no stage
 /// can stay active forever.
@@ -187,8 +135,19 @@ fn describe_js_error(err: wasm_bindgen::JsValue) -> String {
 /// live run is the authority here, and must not be blocked by the file it
 /// is merely being cross-checked against; the page then says the
 /// cross-check was unavailable.
+///
+/// `LoadingWasm` is set before the first await of any kind, so it paints
+/// on a first load — but on a *re-run*, `ensure_loaded()` resolves
+/// straight from its cached thread-local with no real suspension point
+/// reached at all, which coalesces this `set` with the next one into a
+/// single render (the Coverage page's own runner hit exactly this, on
+/// its own re-run path, and this module shares the same
+/// `engine_bridge::ensure_loaded` cache and so shares the same latent
+/// bug). The explicit `yield_for_paint()` forces a real macrotask
+/// boundary regardless of whether `ensure_loaded` actually suspends.
 pub async fn run(state: UseStateHandle<RunState>) {
   state.set(RunState::LoadingWasm);
+  yield_for_paint().await;
   let engine_bytes = match engine_bridge::ensure_loaded().await {
     Ok(bytes) => bytes,
     Err(message) => return state.set(RunState::Failed { stage: Stage::LoadingWasm, message }),

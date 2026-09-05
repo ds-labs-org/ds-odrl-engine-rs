@@ -83,6 +83,30 @@
          deploy without the corpus its Compliance page executes. -->
     <link data-trunk rel="copy-file" href="../compliance/reports/latest-cases.json" data-target-path="compliance-data" />
 
+    <!-- The ODRL 2.2 Coverage page's probe catalog: 52 documented
+         vocabulary claims and the 113 exact Section 5.2 requests that put
+         49 of them to the test, written by `cargo run -p coverage-probes
+         --release` (see coverage-probes/src/catalog.rs). That page
+         fetches this at runtime and executes every probe against
+         engine.wasm in the visitor's own browser, then decides per row
+         whether what the engine just did agrees with the status this
+         study documents -- so a row can come back *contradicted*, which
+         is the whole point of it being live rather than rendered.
+
+         Same compliance-data/ target directory as the two artifacts
+         above, and for a sharper version of the same reason: this page's
+         own route is `/coverage`, so a data directory literally named
+         `coverage` would reproduce the /compliance route-vs-directory
+         307-redirect collision documented at length above, exactly. That
+         this directory is named `compliance-data` rather than
+         `compliance` is precisely what makes it safe to reuse for a
+         second page's data.
+
+         Trunk's copy-file fails the build outright if this file is
+         missing, which is again the right failure mode: the site must not
+         deploy a Coverage page with no catalog to execute. -->
+    <link data-trunk rel="copy-file" href="../compliance/reports/latest-coverage.json" data-target-path="compliance-data" />
+
     <!-- This product's own mark: same mesh/node visual language as the
          ds42.org dataspace study this engine implements (see the case
          study link on every page), re-drawn with this product's own

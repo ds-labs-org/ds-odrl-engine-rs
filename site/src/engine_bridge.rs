@@ -204,7 +204,12 @@ fn call_ignoring_result(f: &Function, a: u32, b: u32) -> Result<(), String> {
 /// trace with mangled wasm symbol names) -- found leaking into a
 /// user-facing `Alert` by an adversarial review of the first feature to
 /// put this fallback somewhere prominent enough to notice.
-fn describe_js_error(err: JsValue) -> String {
+///
+/// `pub(crate)` rather than private since that review: `run_support`'s
+/// `fetch_text` needs exactly this, and the alternative -- a second,
+/// weaker formatter next to the fetch that needs it -- is what the review
+/// found the first time.
+pub(crate) fn describe_js_error(err: JsValue) -> String {
   if let Some(s) = err.as_string() {
     return s;
   }

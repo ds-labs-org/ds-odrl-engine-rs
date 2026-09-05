@@ -280,8 +280,24 @@ fn describe_reason(policy: &WirePolicy, outcome: &DecisionOutcome, claims: &Clai
                 );
             }
 
-            let permission_requirement_met =
-                policy.permissions.is_empty() || policy.permissions.iter().any(covers_and_matches);
+            // The same `match config.behaviour` arms `decide` itself uses
+            // (decision.rs). Reconstructing this branch with `Open`'s rule
+            // hardcoded — `permissions.is_empty() || ...`, as this line
+            // read before — got the *decision* right and the *trace*
+            // wrong for exactly one input: an empty `permissions` list
+            // under `behaviour: "closed"`. `decide` correctly denies it;
+            // this function then saw `permissions.is_empty()` as
+            // satisfying the requirement, skipped the closed-default
+            // branch, found no unresolved duty either, and fell through
+            // to "denied for a reason this trace could not reconstruct" —
+            // an unhelpful non-answer for a perfectly ordinary,
+            // deliberately-configured decision. Found by a coverage probe
+            // (`beh-closed-empty`) built to assert exactly this reason.
+            let any_permission_covers_and_matches = policy.permissions.iter().any(covers_and_matches);
+            let permission_requirement_met = match config.behaviour {
+                Behaviour::Open => policy.permissions.is_empty() || any_permission_covers_and_matches,
+                Behaviour::Closed => any_permission_covers_and_matches,
+            };
             if !permission_requirement_met {
                 return format!(
                     "no permission of policy '{}' covered and matched requested action '{requested_action}' (closed default)",
@@ -761,6 +777,66 @@ mod tests {
             "Section 5.2: duties is empty whenever duty_mode: deny already forced the decision, \
              the information is already carried by decision itself"
         );
+    }
+
+    #[test]
+    fn an_empty_permissions_list_under_closed_behaviour_traces_the_closed_default_not_a_non_answer() {
+        // The regression guard for `describe_reason`'s own copy of the
+        // permission-requirement rule: `decide` branches on
+        // `config.behaviour`, and this trace has to branch the same way or
+        // it reports "denied for a reason this trace could not
+        // reconstruct" for the one decision `behaviour: "closed"` exists
+        // to produce. The decision itself was always right; only the
+        // human-readable reason was wrong.
+        let mut config = deny_config(&["use"]);
+        config.behaviour = Behaviour::Closed;
+        let req = Request {
+            dataset_id: "urn:uuid:ds".to_string(),
+            action: "use".to_string(),
+            config,
+            policies: vec![WirePolicy {
+                id: "policy-empty".to_string(),
+                kind: "Set".to_string(),
+                assigner: "did:web:provider.example".to_string(),
+                assignee: None,
+                permissions: vec![],
+                prohibitions: vec![],
+                obligations: vec![],
+            }],
+            claims: Claims::new(),
+        };
+
+        let response = evaluate_request(&req);
+        assert_eq!(response.decision, WireDecision::Deny);
+        assert_eq!(
+            response.reason,
+            "no permission of policy 'policy-empty' covered and matched requested action 'use' (closed default)"
+        );
+    }
+
+    #[test]
+    fn an_empty_permissions_list_under_open_behaviour_still_traces_the_open_default() {
+        // The other side of the same branch, so the fix above cannot
+        // silently swap which arm is hardcoded.
+        let req = Request {
+            dataset_id: "urn:uuid:ds".to_string(),
+            action: "use".to_string(),
+            config: deny_config(&["use"]),
+            policies: vec![WirePolicy {
+                id: "policy-empty".to_string(),
+                kind: "Set".to_string(),
+                assigner: "did:web:provider.example".to_string(),
+                assignee: None,
+                permissions: vec![],
+                prohibitions: vec![],
+                obligations: vec![],
+            }],
+            claims: Claims::new(),
+        };
+
+        let response = evaluate_request(&req);
+        assert_eq!(response.decision, WireDecision::Allow);
+        assert_eq!(response.reason, "policy 'policy-empty' has no permissions (open default)");
     }
 
     #[test]

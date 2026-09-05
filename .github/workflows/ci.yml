@@ -21,16 +21,27 @@ jobs:
       - name: cargo test
         run: cargo test --workspace
 
-      # The committed compliance artifacts must be what the current source
-      # actually produces. compliance/reports/latest.json is the native
-      # run's recorded baseline, and latest-cases.json is the corpus the
-      # site re-executes against engine.wasm in a visitor's browser -- so a
-      # commit that changes translate.rs (or the engine's own decisions)
-      # without regenerating both would ship a site whose live run
-      # disagrees with its own baseline, in front of a visitor, long after
-      # this could have caught it. Costs milliseconds on top of a build CI
-      # already does.
+      # The committed artifacts under compliance/reports/ must be what the
+      # current source actually produces. latest.json is the native run's
+      # recorded baseline; latest-cases.json is the corpus the site
+      # re-executes against engine.wasm in a visitor's browser; and
+      # latest-coverage.json is the ODRL 2.2 vocabulary probe catalog the
+      # Coverage page executes the same way. A commit that changes
+      # translate.rs, the probe catalog, or the shipped action taxonomy
+      # without regenerating them would ship a site whose live run
+      # disagrees with its own committed data, in front of a visitor, long
+      # after this could have caught it. Costs milliseconds on top of a
+      # build CI already does.
+      #
+      # Note what this check can and cannot catch for the coverage
+      # catalog: that artifact records requests and *expectations*, never
+      # decisions, so a diff here catches a catalog change but NOT an
+      # engine change that alters a decision or a `reason` string. The
+      # guard for that is coverage-probes' own
+      # `every_probe_expectation_holds_against_the_native_engine` test,
+      # run by the `cargo test` step above.
       - name: compliance reports are up to date
         run: |
           cargo run -p compliance-runner --release
+          cargo run -p coverage-probes --release
           git diff --exit-code compliance/reports/

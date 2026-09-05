@@ -5,10 +5,10 @@ use yew::prelude::*;
 use yew_nested_router::prelude::Switch as RouterSwitch;
 
 /// The page shell: masthead brand, sidebar nav, and a router `Switch`
-/// plugging in whichever of the three routes (Home/Demo/Compliance) is
-/// current. Structurally mirrors the ds42.org dataspace study's own
-/// `MainView` (Masthead/Page/Nav via patternfly-yew), not its nav items --
-/// this product has its own three-page shape.
+/// plugging in whichever of the four routes (Home/Demo/Compliance/
+/// Coverage) is current. Structurally mirrors the ds42.org dataspace
+/// study's own `MainView` (Masthead/Page/Nav via patternfly-yew), not its
+/// nav items -- this product has its own four-page shape.
 #[component]
 pub fn MainView() -> Html {
   let brand = html!(
@@ -25,6 +25,7 @@ pub fn MainView() -> Html {
           <NavRouterItem<AppRoute> to={AppRoute::Home}>{ "Home" }</NavRouterItem<AppRoute>>
           <NavRouterItem<AppRoute> to={AppRoute::Demo}>{ "Demonstrator" }</NavRouterItem<AppRoute>>
           <NavRouterItem<AppRoute> to={AppRoute::Compliance}>{ "Compliance Results" }</NavRouterItem<AppRoute>>
+          <NavRouterItem<AppRoute> to={AppRoute::Coverage}>{ "ODRL 2.2 Coverage" }</NavRouterItem<AppRoute>>
         </NavList>
       </Nav>
     </PageSidebar>
