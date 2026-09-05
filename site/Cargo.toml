@@ -1,0 +1,35 @@
+[package]
+name = "ds-odrl-engine-rs-site"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Documentation and demonstrator site for ds-odrl-engine-rs: renders engine.wasm's own C ABI (alloc/dealloc/evaluate) exactly as a real JS/JVM host would, over the compiled artifact rather than by linking the engine crate."
+publish = false
+
+# NOTE: engine is deliberately NOT a dependency here (neither `engine = {
+# path = "../engine" }` nor any Rust-level link). Section 5's own design is
+# that a host talks to engine.wasm as an opaque compiled artifact over its
+# four-export C ABI (see engine/src/abi.rs) -- this site fetches and
+# instantiates that artifact at runtime with wasm-bindgen/js-sys the same
+# way a real JS or JVM host would, so it stays an honest demonstration of
+# the wire contract rather than a shortcut that only works because the
+# demo and the engine share one Rust compilation.
+[dependencies]
+console_error_panic_hook = "0.1"
+console_log = "1"
+fern = "0.7"
+log = "0.4"
+patternfly-yew = { version = "0.8", features = ["experimental"] }
+yew = "0.23"
+yew-nested-router = { version = "0.9.0" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+web-sys = { version = "0.3", features = [
+  "Window",
+  "Response",
+  "console",
+] }

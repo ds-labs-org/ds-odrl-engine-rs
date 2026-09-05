@@ -1,0 +1,93 @@
+/*
+ * ds-odrl-engine-rs site-wide theme.
+ *
+ * PatternFly's own stylesheets ship "Red Hat Text/Display/Mono" as the
+ * default font stack; those webfonts aren't vendored here (see index.html --
+ * only the patternfly + FontAwesome assets are self-hosted), so the site
+ * currently falls back to generic Helvetica/Arial. This file re-points a
+ * handful of PatternFly's own design tokens (not raw component CSS) at a
+ * system monospace stack and a teal brand ramp -- the same visual identity
+ * as the ds42.org dataspace study this engine implements (see
+ * assets/logo.svg and every page's case-study credit), adapted rather than
+ * copied verbatim so every PatternFly component picks the change up
+ * automatically instead of needing per-component overrides.
+ *
+ * Loaded after the patternfly/patternfly-addons <link data-trunk rel="sass">
+ * tags in index.html, so these rules win the cascade at equal specificity.
+ */
+
+:root {
+  --ds-oe-font-mono: ui-monospace, "JetBrains Mono", "Cascadia Code", "SFMono-Regular", Menlo, Consolas,
+    "Liberation Mono", monospace;
+
+  /* Light-theme brand ramp: PatternFly derives --color--brand--default from
+     --200 and --hover/--clicked from --300 (see tokens-default.scss). */
+  --pf-t--global--color--brand--100: #99f6e4;
+  --pf-t--global--color--brand--200: #14b8a6;
+  --pf-t--global--color--brand--300: #0f766e;
+  --pf-t--global--color--brand--400: #115e59;
+  --pf-t--global--color--brand--500: #134e4a;
+
+  /* Headings and inline/code text switch to the monospace stack; body
+     copy keeps PatternFly's own sans stack for long-form readability. */
+  --pf-t--global--font--family--heading: var(--ds-oe-font-mono);
+  --pf-t--global--font--family--mono: var(--ds-oe-font-mono);
+}
+
+/* Dark-theme brand ramp: PatternFly's dark tokens use a separate 3-step
+   --dark--color--brand--100/200/300 ramp (default=100, hover/clicked=200) --
+   see tokens-dark.scss. Brighter than the light ramp so it still pops
+   against the dark background. */
+.pf-v6-theme-dark {
+  --pf-t--global--dark--color--brand--100: #5eead4;
+  --pf-t--global--dark--color--brand--200: #2dd4bf;
+  --pf-t--global--dark--color--brand--300: #14b8a6;
+}
+
+/* Masthead: thicker, brand-colored divider instead of the default hairline. */
+.pf-v6-c-masthead {
+  --pf-v6-c-masthead--BorderWidth: 2px;
+  --pf-v6-c-masthead--BorderColor: var(--pf-t--global--color--brand--default);
+}
+.pf-v6-c-masthead__brand .pf-v6-c-title {
+  letter-spacing: -0.02em;
+}
+
+/* Sidebar nav: brand-colored rail on the current item instead of a plain
+   background swap. */
+.pf-v6-c-nav__link {
+  border-inline-start: 3px solid transparent;
+}
+.pf-v6-c-nav__link.pf-m-current {
+  border-inline-start-color: var(--pf-t--global--color--brand--default);
+  font-weight: 600;
+}
+
+/* Subtle blueprint/PCB dot-grid on every content section -- a quiet nod to
+   the network-mesh mark, not decoration loud enough to fight long-form
+   reading. Uses background-image (a separate layer from the component's
+   own background-color), so it composes instead of overriding. */
+.pf-v6-c-page__main-section {
+  background-image: radial-gradient(var(--pf-t--global--border--color--default) 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-position: -12px -12px;
+}
+
+/* Inline code and fenced blocks (wire-contract JSON, ABI signatures, etc.):
+   monospace stack plus a faint brand-tinted border, closer to a terminal
+   pane than a plain <pre>. */
+.pf-v6-c-content code,
+.pf-v6-c-content pre {
+  font-family: var(--ds-oe-font-mono);
+}
+.pf-v6-c-content pre {
+  border: 1px solid var(--pf-t--global--border--color--default);
+  border-inline-start: 3px solid var(--pf-t--global--color--brand--default);
+  border-radius: 4px;
+}
+
+/* Table headers: brand-colored underline instead of the default hairline,
+   consistent with the masthead/nav accent treatment. */
+.pf-v6-c-table__th {
+  border-block-end: 2px solid var(--pf-t--global--color--brand--default);
+}

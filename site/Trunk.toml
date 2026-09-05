@@ -1,0 +1,38 @@
+[[node_packages]]
+name = "@patternfly/patternfly"
+version = "6.4.0"
+
+[[node_packages]]
+name = "@fortawesome/fontawesome-free"
+version = "7.1.0"
+
+# engine.wasm is a *build artifact of a sibling workspace crate*, not a
+# static asset this repo ships -- it must be freshly (re)compiled from
+# engine/src every time this site builds, and it must exist on disk
+# *before* Trunk's own asset-copy step runs `<link data-trunk rel=
+# "copy-file" href="assets/engine.wasm" />` in index.html, or that step
+# either fails outright (clean checkout, no target/ yet) or silently
+# copies a stale wasm binary that predates the engine's actual source
+# (confirmed on the ds42.org site's own analogous build.rs/generated-rdf
+# hook, which hit both failure modes without a pre_build hook forcing the
+# generator to run to completion first -- see that site's Trunk.toml).
+# `stage = "pre_build"` runs this ahead of Trunk's asset pipeline so
+# site/assets/engine.wasm is already correct and no longer changing by
+# the time index.html's copy-file directive reads it.
+#
+# Both steps (build, then copy) are one `sh -c` hook rather than two
+# separate [[hooks]] entries: Trunk spawns every hook in a given stage
+# concurrently (see trunk's own src/hooks.rs -- `spawn_hooks` collects a
+# `FuturesUnordered` of tokio tasks, one per hook, run at the same time),
+# not in the array order they're listed. Two separate pre_build hooks for
+# "build" and "copy" raced in practice -- confirmed empirically: `cp`
+# finished before the `cargo build` it was supposed to follow completed a
+# rebuild, on a source change slow enough for the race to matter -- so the
+# ordering has to be enforced inside a single hook's own shell command.
+[[hooks]]
+stage = "pre_build"
+command = "sh"
+command_arguments = [
+  "-c",
+  "cargo build -p engine --target wasm32-unknown-unknown --release --manifest-path /home/coder/deepthought-solutions/ds-odrl-engine-rs-work/Cargo.toml && cp /home/coder/deepthought-solutions/ds-odrl-engine-rs-work/target/wasm32-unknown-unknown/release/engine.wasm assets/engine.wasm",
+]

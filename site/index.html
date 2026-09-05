@@ -1,0 +1,54 @@
+<html lang="en">
+<head>
+    <meta content="text/html;charset=utf-8" http-equiv="Content-Type"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>ds-odrl-engine-rs</title>
+
+    <!-- data-trunk-public-url stamps this <base href> from Trunk's own
+         --public-url at build time (e.g. "/ds-odrl-engine-rs/" for the
+         GitHub Pages deploy, "/" for a local `trunk serve`). Every
+         relative URL on this page -- including the runtime `fetch()` of
+         engine.wasm in src/engine_module.rs, which asks for the plain
+         relative path "engine.wasm" -- resolves against this <base>
+         rather than the document's own request path, so the site works
+         unmodified whether it's served at the root or under a GitHub
+         Pages project subpath. See site/Trunk.toml's pre_build hook
+         comment for how engine.wasm itself gets into dist/. -->
+    <base data-trunk-public-url />
+
+    <link data-trunk rel="sass" href="target/node_modules/@patternfly/patternfly/6.4.0/patternfly.scss">
+    <link data-trunk rel="sass" href="target/node_modules/@patternfly/patternfly/6.4.0/patternfly-addons.scss">
+    <link data-trunk rel="copy-dir" href="target/node_modules/@patternfly/patternfly/6.4.0/assets" data-target-path="assets/">
+
+    <link data-trunk rel="copy-dir" href="target/node_modules/@fortawesome/fontawesome-free/7.1.0/webfonts">
+
+    <!-- This site's own theme: re-points a handful of PatternFly design
+         tokens (brand color ramp, heading/mono font stack) rather than
+         fighting component CSS directly -- adapted from the ds42.org
+         dataspace study's own site theme (same visual identity, this
+         product's own mark). Must load after the two patternfly sass
+         links above so it wins the cascade at equal specificity. -->
+    <link data-trunk rel="css" href="assets/theme.css">
+
+    <!-- The compiled engine module, rebuilt fresh by Trunk.toml's own
+         pre_build hook every time this site builds -- see that file's
+         header comment for why a hook (not a plain Cargo dependency) is
+         required. Lands at dist/engine.wasm, fetched at runtime via a
+         path relative to this page's own <base href> above. -->
+    <link data-trunk rel="copy-file" href="assets/engine.wasm" />
+
+    <!-- This product's own mark: same mesh/node visual language as the
+         ds42.org dataspace study this engine implements (see the case
+         study link on every page), re-drawn with this product's own
+         aria-label so the SVG is honest about which site it's on.
+         data-target-path is a target DIRECTORY for copy-file (the source
+         basename is preserved), so this lands at dist/brand/logo.svg for
+         the masthead brand mark; the plain rel="icon" link below copies
+         it again for use as the favicon. -->
+    <link data-trunk rel="copy-file" href="assets/logo.svg" data-target-path="brand" />
+    <link data-trunk rel="icon" type="image/svg+xml" href="assets/logo.svg" />
+</head>
+<body>
+</body>
+</html>
