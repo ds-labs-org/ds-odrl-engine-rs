@@ -680,6 +680,79 @@ ex:report1 a report:DutyReport;
         );
     }
 
+    fn atom(name: &str) -> ConstraintForm {
+        ConstraintForm::Atomic { left_operand: name.into(), operator: "eq".into(), right_operand: "v".into() }
+    }
+
+    fn dnf_shape(form: &ConstraintForm) -> Vec<Vec<String>> {
+        to_dnf(form)
+            .unwrap()
+            .iter()
+            .map(|conjunct| conjunct.iter().map(|c| c.left_operand.clone()).collect())
+            .collect()
+    }
+
+    #[test]
+    fn to_dnf_distributes_an_and_over_nested_ors() {
+        // (a OR b) AND (c OR d) — a shape this corpus never produces (its
+        // fixtures only nest the other way around, OR-of-ANDs) but a valid
+        // ODRL LogicalConstraint tree all the same. Correct DNF is the
+        // full 2x2 cartesian product; dropping or duplicating a disjunct
+        // here would be a silent wrong answer for any policy shaped this
+        // way.
+        let form = ConstraintForm::And(vec![
+            ConstraintForm::Or(vec![atom("a"), atom("b")]),
+            ConstraintForm::Or(vec![atom("c"), atom("d")]),
+        ]);
+        assert_eq!(
+            dnf_shape(&form),
+            vec![vec!["a", "c"], vec!["a", "d"], vec!["b", "c"], vec!["b", "d"]]
+        );
+    }
+
+    #[test]
+    fn to_dnf_handles_three_levels_of_alternating_nesting() {
+        // (a AND (b OR c)) OR d — one level deeper than the corpus's own
+        // deepest shape (policy-20's OR of two-constraint ANDs): the inner
+        // OR must distribute over its sibling atom inside the AND, and the
+        // outer OR must keep the lone `d` disjunct intact alongside.
+        let form = ConstraintForm::Or(vec![
+            ConstraintForm::And(vec![atom("a"), ConstraintForm::Or(vec![atom("b"), atom("c")])]),
+            atom("d"),
+        ]);
+        assert_eq!(dnf_shape(&form), vec![vec!["a", "b"], vec!["a", "c"], vec!["d"]]);
+    }
+
+    #[test]
+    fn to_dnf_of_an_and_of_ands_stays_one_flat_conjunction() {
+        // Pure conjunctive nesting must not multiply disjuncts: exactly
+        // one engine Rule should come out, carrying all four constraints.
+        let form = ConstraintForm::And(vec![
+            ConstraintForm::And(vec![atom("a"), atom("b")]),
+            ConstraintForm::And(vec![atom("c"), atom("d")]),
+        ]);
+        assert_eq!(dnf_shape(&form), vec![vec!["a", "b", "c", "d"]]);
+    }
+
+    #[test]
+    fn to_dnf_propagates_an_unsupported_operator_from_any_depth() {
+        // The loud-skip posture must survive nesting: an unsupported
+        // operator buried two levels down is still a translation error,
+        // never silently dropped from the expansion.
+        let form = ConstraintForm::Or(vec![
+            ConstraintForm::And(vec![
+                atom("a"),
+                ConstraintForm::Atomic {
+                    left_operand: "resource".into(),
+                    operator: "isPartOf".into(),
+                    right_operand: "set".into(),
+                },
+            ]),
+            atom("d"),
+        ]);
+        assert!(to_dnf(&form).is_err());
+    }
+
     #[test]
     fn permission_with_a_fulfilled_or_nonset_nested_duty_still_grants() {
         let rule = RuleInfo {

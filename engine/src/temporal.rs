@@ -24,14 +24,41 @@ fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
     era * 146097 + doe - 719468
 }
 
+/// The strictly-digits field parser. `str::parse::<i64>` alone is not
+/// enough: it accepts a leading `+`/`-`, so `"+024"` or `"-1"` would slip
+/// through a fixed-width field and silently misparse (e.g.
+/// `"+024-01-01T..."` as year 24) instead of being rejected.
 fn digits(s: &str, from: usize, to: usize) -> Option<i64> {
-    s.get(from..to)?.parse().ok()
+    let field = s.get(from..to)?;
+    if !field.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    field.parse().ok()
+}
+
+fn days_in_month(y: i64, m: i64) -> i64 {
+    match m {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        _ => {
+            if (y % 4 == 0 && y % 100 != 0) || y % 400 == 0 {
+                29
+            } else {
+                28
+            }
+        }
+    }
 }
 
 /// Parses `YYYY-MM-DDTHH:MM:SS(.fff+)?Z` into nanoseconds since the Unix
 /// epoch. `None` for anything else (a non-UTC offset, a malformed string,
-/// a non-numeric field) — a parse failure is a constraint *miss*, the same
-/// posture `Constraint::evaluate` already takes for an absent claim.
+/// a non-numeric or out-of-range field — `2023-02-29`, month `13`, minute
+/// `99`, ... are rejected, not rolled over into the next valid instant) —
+/// a parse failure is a constraint *miss*, the same posture
+/// `Constraint::evaluate` already takes for an absent claim. The one
+/// deliberate leniency is XSD's own: `24:00:00` (with a zero fraction) is
+/// a valid `xsd:dateTime` lexical form meaning the *following* midnight,
+/// and the day-rollover arithmetic below already produces exactly that.
 pub fn parse_utc_datetime_nanos(s: &str) -> Option<i128> {
     let bytes = s.as_bytes();
     if bytes.len() < 20 || *bytes.last()? != b'Z' {
@@ -65,6 +92,15 @@ pub fn parse_utc_datetime_nanos(s: &str) -> Option<i128> {
         }
         _ => return None,
     };
+
+    if !(1..=12).contains(&month) || !(1..=days_in_month(year, month)).contains(&day) {
+        return None;
+    }
+    let ordinary_time = hour <= 23 && minute <= 59 && second <= 59;
+    let xsd_end_of_day = hour == 24 && minute == 0 && second == 0 && nanos == 0;
+    if !(ordinary_time || xsd_end_of_day) {
+        return None;
+    }
 
     let days = days_from_civil(year, month, day);
     let seconds = days * 86_400 + hour * 3_600 + minute * 60 + second;
@@ -109,5 +145,77 @@ mod tests {
         assert_eq!(parse_utc_datetime_nanos("not-a-date"), None);
         assert_eq!(parse_utc_datetime_nanos("2024-01-01T00:00:00+01:00"), None);
         assert_eq!(parse_utc_datetime_nanos(""), None);
+    }
+
+    #[test]
+    fn rejects_wrong_separators_and_lowercase_designators() {
+        assert_eq!(parse_utc_datetime_nanos("2024-01-01t00:00:00Z"), None);
+        assert_eq!(parse_utc_datetime_nanos("2024-01-01T00:00:00z"), None);
+        assert_eq!(parse_utc_datetime_nanos("2024-01-01 00:00:00Z"), None);
+    }
+
+    #[test]
+    fn rejects_out_of_range_calendar_and_clock_fields() {
+        // Each of these previously *misparsed* by rolling over into the
+        // next valid instant (2023-02-29 became March 1st, month 13 became
+        // January of the following year, June 31st became July 1st, ...) —
+        // a silent wrong answer, not the documented miss.
+        for s in [
+            "2023-02-29T00:00:00Z", // 2023 is not a leap year
+            "2024-13-01T00:00:00Z",
+            "2024-00-10T00:00:00Z",
+            "2024-06-31T00:00:00Z", // June has 30 days
+            "2024-01-32T00:00:00Z",
+            "2024-01-00T00:00:00Z",
+            "2024-01-01T25:00:00Z",
+            "2024-01-01T00:60:00Z",
+            "2024-01-01T00:00:61Z",
+            "2024-01-01T24:00:01Z", // 24: only as exactly 24:00:00
+            "2024-01-01T24:00:00.500Z",
+        ] {
+            assert_eq!(parse_utc_datetime_nanos(s), None, "{s} must be rejected, not rolled over");
+        }
+        // ...while the genuine leap day stays accepted.
+        assert!(parse_utc_datetime_nanos("2024-02-29T00:00:00Z").is_some());
+    }
+
+    #[test]
+    fn rejects_signed_numeric_fields() {
+        // `str::parse::<i64>` accepts a leading sign; the field parser
+        // must not, or "+024" silently becomes year 24.
+        assert_eq!(parse_utc_datetime_nanos("2024--1-01T00:00:00Z"), None);
+        assert_eq!(parse_utc_datetime_nanos("+024-01-01T00:00:00Z"), None);
+    }
+
+    #[test]
+    fn agrees_with_known_unix_epoch_values() {
+        // Cross-checked against an independent implementation (Python's
+        // `datetime`), pinning the civil-calendar arithmetic: epoch
+        // itself, a leap day, both century rules (2000 divisible by 400
+        // is a leap year, 1900 divisible by 100 is not), and both ends of
+        // the four-digit-year range.
+        let secs = |s: &str| parse_utc_datetime_nanos(s).unwrap() / 1_000_000_000;
+        assert_eq!(secs("1970-01-01T00:00:00Z"), 0);
+        assert_eq!(secs("2024-02-29T00:00:00Z"), 1_709_164_800);
+        assert_eq!(secs("2000-02-29T00:00:00Z"), 951_782_400);
+        assert_eq!(secs("1900-03-01T00:00:00Z"), -2_203_891_200);
+        assert_eq!(secs("0001-01-01T00:00:00Z"), -62_135_596_800);
+        assert_eq!(secs("9999-12-31T23:59:59Z"), 253_402_300_799);
+    }
+
+    #[test]
+    fn hour_24_is_the_following_midnight_per_xsd() {
+        assert_eq!(
+            parse_utc_datetime_nanos("2024-01-01T24:00:00Z"),
+            parse_utc_datetime_nanos("2024-01-02T00:00:00Z")
+        );
+    }
+
+    #[test]
+    fn truncates_fractional_digits_beyond_nanoseconds() {
+        assert_eq!(
+            parse_utc_datetime_nanos("2024-01-01T00:00:00.1234567891Z"),
+            parse_utc_datetime_nanos("2024-01-01T00:00:00.123456789Z")
+        );
     }
 }
