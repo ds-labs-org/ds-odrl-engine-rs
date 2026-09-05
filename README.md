@@ -176,6 +176,26 @@ packed_ptr_len`, plus the toolchain's default `memory` export — see
 skips the ABI entirely and calls `engine::wire::evaluate_request`
 directly.
 
+## Producing `config` from a real ODRL Profile document
+
+`config` above has to come from somewhere — [`profile-interpreter`](profile-interpreter/)
+reads a real ODRL Profile document (Turtle or JSON-LD) and produces it,
+rather than requiring a host to hand-write the JSON:
+
+```sh
+cargo run -p profile-interpreter -- interpret my-profile.ttl --duty-mode advise
+cargo run -p profile-interpreter -- resolve default-profile.ttl gaia-x-profile.jsonld --duty-mode deny
+```
+
+`interpret` reads one document into its own `engine::Profile` record
+(Section 4.4's per-profile shape: `id`, `recognized_actions`,
+`duty_mode`); `resolve` reads several and merges them with
+`engine::resolve()` (union of `recognized_actions`, strictest
+`duty_mode`) into exactly the `config` object above. See its own
+[README](profile-interpreter/README.md) for precisely what is and isn't
+derived from the document — `duty_mode` in particular is never read from
+it (ODRL defines no property for that), always a caller-supplied flag.
+
 ## Building
 
 Native build and test:
