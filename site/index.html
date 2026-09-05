@@ -46,8 +46,22 @@
          change -- just re-copying this file and rebuilding. href is
          relative to this file's own directory (site/), one level up into
          the sibling compliance/ crate's generated report;
-         data-target-path lands it at dist/compliance/latest.json. -->
-    <link data-trunk rel="copy-file" href="../compliance/reports/latest.json" data-target-path="compliance" />
+         data-target-path lands it at dist/compliance-data/latest.json.
+
+         Deliberately NOT "compliance" (this app's own `/compliance`
+         route, see src/app_route.rs): Trunk's copy-file would then create
+         a *physical* dist/compliance/ directory holding only
+         latest.json, no index.html, and a real static file server (both
+         `trunk serve` and GitHub Pages) treats a bare request for
+         "/compliance" that happens to also be a directory name as a
+         redirect-to-"/compliance/" first -- which has no index.html to
+         fall back to, so the SPA route 404s instead of reaching
+         switch_app_route.rs. Confirmed empirically under `trunk serve`
+         (307 to /compliance/, then the client router silently re-resolved
+         to Home) while verifying this site end-to-end; renaming the
+         asset's own directory sidesteps the collision entirely rather
+         than fighting server-side rewrite rules. -->
+    <link data-trunk rel="copy-file" href="../compliance/reports/latest.json" data-target-path="compliance-data" />
 
     <!-- This product's own mark: same mesh/node visual language as the
          ds42.org dataspace study this engine implements (see the case

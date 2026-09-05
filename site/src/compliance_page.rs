@@ -1,4 +1,4 @@
-//! The real Compliance Results page: fetches `compliance/latest.json` at
+//! The real Compliance Results page: fetches `compliance-data/latest.json` at
 //! *runtime* -- via `fetch()`, exactly like `engine_module.rs` fetches
 //! `engine.wasm` -- rather than baking it into this crate at Rust compile
 //! time the way the Home page's own compliance summary does (`pages.rs`).
@@ -11,9 +11,12 @@
 //! site, with no Rust code change in between.
 //!
 //! `index.html`'s own `copy-file` directive lands that file at
-//! `dist/compliance/latest.json`; the relative fetch below resolves it
+//! `dist/compliance-data/latest.json`; the relative fetch below resolves it
 //! against this page's `<base href>` the same way `engine_module.rs`
-//! documents for `engine.wasm`.
+//! documents for `engine.wasm`. The asset's own directory is named
+//! `compliance-data`, not `compliance` -- see `index.html`'s copy-file
+//! comment for why reusing this page's own `/compliance` route name for
+//! the physical directory breaks direct loads of that route.
 
 use crate::pages::{STAT_ROW_CSS, case_study_credit, stat_row_html};
 use patternfly_yew::prelude::*;
@@ -61,14 +64,14 @@ struct ComplianceReport {
 async fn fetch_compliance_report() -> Result<ComplianceReport, String> {
   let window = web_sys::window().ok_or_else(|| "no `window` (not running in a browser)".to_string())?;
 
-  let response: Response = JsFuture::from(window.fetch_with_str("compliance/latest.json"))
+  let response: Response = JsFuture::from(window.fetch_with_str("compliance-data/latest.json"))
     .await
     .map_err(describe_js_error)?
     .dyn_into()
     .map_err(|_| "fetch() did not resolve to a Response".to_string())?;
 
   if !response.ok() {
-    return Err(format!("compliance/latest.json fetch returned HTTP {}", response.status()));
+    return Err(format!("compliance-data/latest.json fetch returned HTTP {}", response.status()));
   }
 
   let text = JsFuture::from(response.text().map_err(describe_js_error)?)
@@ -77,7 +80,7 @@ async fn fetch_compliance_report() -> Result<ComplianceReport, String> {
     .as_string()
     .ok_or_else(|| "response.text() did not resolve to a string".to_string())?;
 
-  serde_json::from_str(&text).map_err(|err| format!("compliance/latest.json did not match the expected shape: {err}"))
+  serde_json::from_str(&text).map_err(|err| format!("compliance-data/latest.json did not match the expected shape: {err}"))
 }
 
 fn describe_js_error(err: JsValue) -> String {
@@ -196,7 +199,7 @@ fn filter_onchange(filter: &UseStateHandle<StatusFilter>, value: StatusFilter) -
 
 /// The real Compliance Results page: a live-fetched summary stat row,
 /// then a search/status-filterable table over every case in
-/// `compliance/latest.json`.
+/// `compliance-data/latest.json`.
 #[component]
 pub fn CompliancePage() -> Html {
   let state = use_state(|| FetchState::Loading);
@@ -222,7 +225,7 @@ pub fn CompliancePage() -> Html {
 
   let body = match &*state {
     FetchState::Loading => html!(
-      <Alert inline=true r#type={AlertType::Info} title="Loading compliance/latest.json...">
+      <Alert inline=true r#type={AlertType::Info} title="Loading compliance-data/latest.json...">
         { "Fetching the compliance-runner's latest results." }
       </Alert>
     ),
@@ -320,7 +323,7 @@ pub fn CompliancePage() -> Html {
           <a href="https://github.com/SolidLabResearch/ODRL-Test-Suite" target="_blank" rel="noopener noreferrer">{ "SolidLabResearch/ODRL-Test-Suite" }</a>
           { ", run by " }<code>{ "compliance-runner" }</code>{ " against " }<code>{ "engine.wasm" }</code>
           { "'s Section 5.2 contract. This table is fetched at runtime from " }
-          <code>{ "compliance/latest.json" }</code>{ " (a served copy of " }
+          <code>{ "compliance-data/latest.json" }</code>{ " (a served copy of " }
           <code>{ "compliance/reports/latest.json" }</code>
           { "), so it reflects whatever the compliance-runner last wrote without needing a rebuild of this \
              site -- unlike the Home page's own summary tally, which is embedded at this site's own compile \
