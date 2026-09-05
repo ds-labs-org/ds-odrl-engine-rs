@@ -29,12 +29,18 @@ version = "7.1.0"
 # finished before the `cargo build` it was supposed to follow completed a
 # rebuild, on a source change slow enough for the race to matter -- so the
 # ordering has to be enforced inside a single hook's own shell command.
+# Paths are relative to this file's own directory (site/, which is where
+# Trunk runs hooks from) rather than hardcoded to one absolute checkout
+# path -- this same Trunk.toml has to build unmodified both in a
+# developer's own clone and in CI (GitHub Actions checks the repo out
+# under a runner-chosen path, not this sandbox's), so an absolute
+# `--manifest-path` here would work on exactly one machine.
 [[hooks]]
 stage = "pre_build"
 command = "sh"
 command_arguments = [
   "-c",
-  "cargo build -p engine --target wasm32-unknown-unknown --release --manifest-path /home/coder/deepthought-solutions/ds-odrl-engine-rs-work/Cargo.toml && cp /home/coder/deepthought-solutions/ds-odrl-engine-rs-work/target/wasm32-unknown-unknown/release/engine.wasm assets/engine.wasm",
+  "cargo build -p engine --target wasm32-unknown-unknown --release --manifest-path ../Cargo.toml && cp ../target/wasm32-unknown-unknown/release/engine.wasm assets/engine.wasm",
 ]
 
 # Bug found and fixed while verifying the Demonstrator page under `trunk

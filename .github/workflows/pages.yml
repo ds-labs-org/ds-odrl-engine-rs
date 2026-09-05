@@ -1,0 +1,70 @@
+name: Deploy site to GitHub Pages
+
+# Redeploy whenever something the published site actually reads changes:
+# the site crate itself, the engine crate it compiles to wasm and embeds
+# via Trunk.toml's pre_build hook (see site/Trunk.toml), the compliance
+# report the Compliance Results page fetches at runtime (see
+# site/index.html's copy-file of ../compliance/reports/latest.json), or
+# this workflow file. Deliberately NOT compliance-runner/** or
+# compliance/vendor/** -- those produce the report but aren't the report,
+# so a compliance-runner-source-only commit that hasn't been run yet
+# doesn't trigger a redeploy with stale numbers.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - "engine/**"
+      - "compliance/reports/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      # Prebuilt binary from trunk-rs/trunk's own GitHub Releases rather
+      # than `cargo install trunk` -- avoids a from-source compile on
+      # every run. Pinned to the same 0.22.0-beta.2 this repo's site is
+      # developed and verified against (site/Trunk.toml's pre_build hook
+      # relies on beta-2-era hook-ordering behavior).
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: trunk@0.22.0-beta.2
+
+      - name: trunk build --release
+        working-directory: site
+        run: trunk build --release --public-url /ds-odrl-engine-rs/
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
