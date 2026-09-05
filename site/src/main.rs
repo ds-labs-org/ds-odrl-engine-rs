@@ -1,6 +1,8 @@
 #[cfg(target_arch = "wasm32")]
 mod app_route;
 #[cfg(target_arch = "wasm32")]
+mod compliance_page;
+#[cfg(target_arch = "wasm32")]
 mod demo_form;
 #[cfg(target_arch = "wasm32")]
 mod demo_page;

@@ -38,6 +38,17 @@
          path relative to this page's own <base href> above. -->
     <link data-trunk rel="copy-file" href="assets/engine.wasm" />
 
+    <!-- The Compliance Results page (src/compliance_page.rs) fetches this
+         at runtime rather than reading it at this site's own Rust compile
+         time (unlike the Home page's compile-time-embedded summary, see
+         src/pages.rs), so redeploying this site after a future
+         compliance-runner run picks up new numbers with no Rust code
+         change -- just re-copying this file and rebuilding. href is
+         relative to this file's own directory (site/), one level up into
+         the sibling compliance/ crate's generated report;
+         data-target-path lands it at dist/compliance/latest.json. -->
+    <link data-trunk rel="copy-file" href="../compliance/reports/latest.json" data-target-path="compliance" />
+
     <!-- This product's own mark: same mesh/node visual language as the
          ds42.org dataspace study this engine implements (see the case
          study link on every page), re-drawn with this product's own

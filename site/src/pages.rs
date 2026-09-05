@@ -119,6 +119,13 @@ const HOME_CSS: &str = r#"
 }
 .ds-oe-not ul { margin: 0.5rem 0 0; padding-left: 1.2rem; }
 .ds-oe-not li { margin: 0.35rem 0; line-height: 1.5; }
+"#;
+
+/// The compliance stat-row markup and its CSS, factored out of the Home
+/// page so the real Compliance Results page (`compliance_page.rs`) can
+/// render the identical stat row over its own runtime-fetched counts
+/// instead of duplicating this markup. `pub(crate)` for that reuse.
+pub(crate) const STAT_ROW_CSS: &str = r#"
 .ds-oe-stats { display: flex; flex-wrap: wrap; gap: 1.5rem; margin: 0.75rem 0 1rem; }
 .ds-oe-stat { text-align: center; }
 .ds-oe-stat-value {
@@ -141,6 +148,32 @@ const HOME_CSS: &str = r#"
   color: var(--pf-t--global--text--color--subtle, #6a6e73);
 }
 "#;
+
+/// Renders the `total`/`passed`/`failed`/`skipped` stat row shared by the
+/// Home page (compile-time counts) and the Compliance Results page
+/// (runtime-fetched counts) -- see [`STAT_ROW_CSS`] for its styling.
+pub(crate) fn stat_row_html(total: u64, passed: u64, failed: u64, skipped: u64) -> Html {
+  html!(
+    <div class="ds-oe-stats">
+      <div class="ds-oe-stat">
+        <span class="ds-oe-stat-value is-total">{ total }</span>
+        <span class="ds-oe-stat-label">{ "total" }</span>
+      </div>
+      <div class="ds-oe-stat">
+        <span class="ds-oe-stat-value is-passed">{ passed }</span>
+        <span class="ds-oe-stat-label">{ "passed" }</span>
+      </div>
+      <div class="ds-oe-stat">
+        <span class="ds-oe-stat-value is-failed">{ failed }</span>
+        <span class="ds-oe-stat-label">{ "failed" }</span>
+      </div>
+      <div class="ds-oe-stat">
+        <span class="ds-oe-stat-value is-skipped">{ skipped }</span>
+        <span class="ds-oe-stat-label">{ "skipped" }</span>
+      </div>
+    </div>
+  )
+}
 
 /// Case-study credit, shown on every page (see this crate's own top-level
 /// task note): links back to the ds42.org dataspace study's case study by
@@ -216,6 +249,7 @@ pub fn HomePage() -> Html {
   html!(
     <>
       <style>{ HOME_CSS }</style>
+      <style>{ STAT_ROW_CSS }</style>
 
       <section class="ds-oe-hero">
         <svg class="ds-oe-hero-mesh" viewBox="0 0 200 200" aria-hidden="true" focusable="false">
@@ -362,45 +396,11 @@ pub fn HomePage() -> Html {
 /// on the page rather than silently showing stale or fabricated numbers.
 fn compliance_summary_view() -> Html {
   match compliance_summary() {
-    Ok(summary) => html!(
-      <div class="ds-oe-stats">
-        <div class="ds-oe-stat">
-          <span class="ds-oe-stat-value is-total">{ summary.total }</span>
-          <span class="ds-oe-stat-label">{ "total" }</span>
-        </div>
-        <div class="ds-oe-stat">
-          <span class="ds-oe-stat-value is-passed">{ summary.passed }</span>
-          <span class="ds-oe-stat-label">{ "passed" }</span>
-        </div>
-        <div class="ds-oe-stat">
-          <span class="ds-oe-stat-value is-failed">{ summary.failed }</span>
-          <span class="ds-oe-stat-label">{ "failed" }</span>
-        </div>
-        <div class="ds-oe-stat">
-          <span class="ds-oe-stat-value is-skipped">{ summary.skipped }</span>
-          <span class="ds-oe-stat-label">{ "skipped" }</span>
-        </div>
-      </div>
-    ),
+    Ok(summary) => stat_row_html(summary.total, summary.passed, summary.failed, summary.skipped),
     Err(message) => html!(
       <Alert inline=true r#type={AlertType::Danger} title="Could not read compliance/reports/latest.json">
         <p>{ message }</p>
       </Alert>
     ),
   }
-}
-
-/// Placeholder Compliance Results page: a later stage renders
-/// `compliance/reports/latest.md`'s per-case pass/fail/skip breakdown here.
-#[component]
-pub fn CompliancePage() -> Html {
-  html!(
-    <>
-      <Content>
-        <Title level={Level::H1}>{ "Compliance Results" }</Title>
-        <p>{ "This page will render the compliance-runner's results against the vendored ODRL Test Suite. Not wired up yet." }</p>
-      </Content>
-      { case_study_credit() }
-    </>
-  )
 }
