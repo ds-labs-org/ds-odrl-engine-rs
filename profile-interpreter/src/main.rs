@@ -32,11 +32,8 @@ struct ResolvedConfigOutput {
 }
 
 fn parse_duty_mode(s: &str) -> Result<DutyMode, String> {
-    match s {
-        "advise" => Ok(DutyMode::Advise),
-        "deny" => Ok(DutyMode::Deny),
-        other => Err(format!("--duty-mode must be \"advise\" or \"deny\", got {other:?}")),
-    }
+    profile_interpreter::interpret::duty_mode_from_str(s)
+        .map_err(|_| format!("--duty-mode must be \"advise\" or \"deny\", got {s:?}"))
 }
 
 fn load(path: &PathBuf, format: Option<&str>) -> Result<Graph, String> {

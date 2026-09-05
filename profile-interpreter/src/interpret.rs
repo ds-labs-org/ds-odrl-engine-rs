@@ -42,6 +42,20 @@ use engine::{DutyMode, Profile};
 
 use crate::graph::{local_name, odrl, Graph};
 
+/// Parses a caller-supplied duty-mode flag into `engine::DutyMode` --
+/// exposed here, not just inlined in the CLI, so a consumer with no
+/// Rust-level dependency on the `engine` crate itself (site/'s Demonstrator
+/// page deliberately has none, see site/Cargo.toml's header comment) can
+/// still produce a `DutyMode` value to pass to [`interpret`] without ever
+/// needing to spell that type's name.
+pub fn duty_mode_from_str(s: &str) -> Result<DutyMode, String> {
+    match s {
+        "advise" => Ok(DutyMode::Advise),
+        "deny" => Ok(DutyMode::Deny),
+        other => Err(format!("duty mode must be \"advise\" or \"deny\", got {other:?}")),
+    }
+}
+
 pub struct Interpreted {
     pub profile: Profile,
     pub warnings: Vec<String>,
@@ -225,5 +239,12 @@ ex:riskScore a odrl:LeftOperand ."#,
     fn declared_left_operands_is_empty_when_none_are_declared() {
         let g = graph("@prefix odrl: <http://www.w3.org/ns/odrl/2/>.\n@prefix ex: <http://example.org/>.\nex:a a odrl:Action .");
         assert!(interpret(&g, None, DutyMode::Advise).declared_left_operands.is_empty());
+    }
+
+    #[test]
+    fn duty_mode_from_str_accepts_advise_and_deny_and_rejects_anything_else() {
+        assert_eq!(duty_mode_from_str("advise"), Ok(DutyMode::Advise));
+        assert_eq!(duty_mode_from_str("deny"), Ok(DutyMode::Deny));
+        assert!(duty_mode_from_str("bogus").is_err());
     }
 }
