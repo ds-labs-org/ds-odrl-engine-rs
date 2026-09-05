@@ -109,7 +109,8 @@ Request:
       {"@id": "distribute", "odrl:includedIn": {"@id": "use"}},
       {"@id": "notify"}
     ],
-    "dutyMode": "advise"
+    "dutyMode": "advise",
+    "behaviour": "open"
   },
   "policies": [
     {
@@ -147,13 +148,24 @@ Request:
   rules to one action or rewrites `Rule.action` before calling this engine.
 - `config` is the host's already-resolved union of every ODRL Profile it
   has loaded, expressed as real ODRL/JSON-LD vocabulary — every declared
-  action plus any `odrl:includedIn` parent it names, and the strictest
-  loaded `dutyMode` — resolved once at host startup, travelling in the
-  request so the engine itself stays stateless. `dutyMode` (not
-  `odrl:dutyMode`) deliberately stays outside the `odrl:` namespace: ODRL
-  defines no property for a profile's own enforcement behavior, and
-  namespacing this engine's own invention as if it were real ODRL
-  vocabulary would misrepresent it.
+  action plus any `odrl:includedIn` parent it names, the strictest loaded
+  `dutyMode`, and the strictest loaded `behaviour` — resolved once at host
+  startup, travelling in the request so the engine itself stays stateless.
+  `dutyMode` (not `odrl:dutyMode`) deliberately stays outside the `odrl:`
+  namespace: ODRL defines no property for a profile's own enforcement
+  behavior, and namespacing this engine's own invention as if it were real
+  ODRL vocabulary would misrepresent it. `behaviour` is different — it
+  *is* the ODRL Community Group's own named concept (its Formal Semantics
+  draft, Section 3.6: `"open"`/`"closed"`, with `"closed"` also accepting
+  the draft's own `"default"` spelling on input) — but it stays outside
+  the `odrl:` namespace too, since the draft describes it as an input to
+  the evaluation *process*, not a property a Profile document declares
+  about itself. `"open"` (the default if omitted) is Section 4.3's own
+  original, unconditional choice: an empty `permissions` list is
+  vacuously met. `"closed"` requires an actual covering, matching
+  permission instead — what a host wanting XACML's `deny-unless-permit`
+  posture, or matching an external ODRL evaluator's closed-world ground
+  truth (as this engine's own compliance suite does), should choose.
 - `policies` mirrors the host's own `Policy`/`Rule`/`Constraint` shape
   field for field — each rule keeps its **own** declared `action`, not
   the request's. `constraints` supports exactly `eq`, `neq`, and
@@ -208,19 +220,20 @@ reads a real ODRL Profile document (Turtle or JSON-LD) and produces it,
 rather than requiring a host to hand-write the JSON:
 
 ```sh
-cargo run -p profile-interpreter -- interpret my-profile.ttl --duty-mode advise
-cargo run -p profile-interpreter -- resolve default-profile.ttl gaia-x-profile.jsonld --duty-mode deny
+cargo run -p profile-interpreter -- interpret my-profile.ttl --duty-mode advise --behaviour open
+cargo run -p profile-interpreter -- resolve default-profile.ttl gaia-x-profile.jsonld --duty-mode deny --behaviour closed
 ```
 
 `interpret` reads one document into its own `engine::Profile` record
 (Section 4.4's per-profile shape: `id`, `actions: Vec<ActionDecl>` — each
-optionally naming an `odrl:includedIn` parent — and `duty_mode`); `resolve`
-reads several and merges them (union of declared actions and their
-`includedIn` edges, strictest `duty_mode`) into exactly the wire-shaped
-`config` object above. See its own
-[README](profile-interpreter/README.md) for precisely what is and isn't
-derived from the document — `duty_mode` in particular is never read from
-it (ODRL defines no property for that), always a caller-supplied flag.
+optionally naming an `odrl:includedIn` parent — `duty_mode`, and
+`behaviour`); `resolve` reads several and merges them (union of declared
+actions and their `includedIn` edges, strictest `duty_mode`, strictest
+`behaviour`) into exactly the wire-shaped `config` object above. See its
+own [README](profile-interpreter/README.md) for precisely what is and
+isn't derived from the document — `duty_mode` and `behaviour` are both
+never read from it, always caller-supplied flags (`--behaviour` defaults
+to `open`).
 `profile-interpreter` is also a library (`pub mod graph; pub mod
 interpret;`), not just this CLI binary — `site/`'s Demonstrator page
 calls it directly to load a pasted profile document in-browser (see
@@ -330,12 +343,8 @@ The repository's GitHub Actions workflow
 (`.github/workflows/pages.yml`) builds this site with `trunk build
 --release --public-url /ds-odrl-engine-rs/` and deploys it to GitHub
 Pages on every push to `main` that touches `site/`, `engine/`, or
-`compliance/reports/`. Its eventual URL will be
-<https://ds-labs-org.github.io/ds-odrl-engine-rs/> — **enabling GitHub
-Pages itself (repo Settings -> Pages -> Source: GitHub Actions) is a
-manual, one-time step that has not been done yet as of this writing**;
-until it is, the workflow's deploy job will fail even though the build
-succeeds.
+`compliance/reports/`. Live at
+<https://ds-labs-org.github.io/ds-odrl-engine-rs/>.
 
 ## Current compliance summary
 
@@ -343,7 +352,7 @@ As of the fixtures currently vendored (68 cases):
 
 | total | passed | failed | skipped |
 |---|---|---|---|
-| 68 | 66 | 2 | 0 |
+| 68 | 68 | 0 | 0 |
 
 The largest fixture in the corpus — `policy-20.ttl`'s "business hours on
 every weekday of 2024," an `odrl:or` of 262 `odrl:and`-of-two-`dateTime`-
@@ -361,22 +370,31 @@ membership, and per-permission duty state are each resolved (new
 `lt`/`lteq`/`gt`/`gteq` operators in `engine`, or SOTW-graph lookups in the
 adapter) without weakening the mapping or silently forcing a pass.
 
-**Two known, honestly-failing cases** (`testcase-014-alice-sell`,
-`testcase-020-bob-sell`): each fixture's policy has exactly one rule, a
-prohibition on `use`, and no permissions at all. Requested against a
-`sell` action (which `use` does not cover), that prohibition never
-applies — leaving the policy's `permissions` list empty, which
-`engine::decide`'s own Section 4.3 "empty permissions is open" departure
-treats as Allow regardless of an unrelated, non-covering prohibition
-being present. This vendored suite's own closed-world ground truth
-expects Deny. Earlier revisions of this adapter never surfaced this: a
-translate-time action pre-filter used to discard that sole rule outright
-whenever its action didn't (loosely) match the request, which routed the
-request through Section 5.2's *different*, closed empty-`policies`-array
-default instead — masking the divergence rather than resolving it. This
-is a property of the engine's own decision algorithm interacting with
-real fixtures for the first time, not a translation bug, and it is not
-silently worked around here; see `compliance-runner/src/report.rs` and
+**A real regression was found here, and fixed with a real parameter, not
+a workaround.** Between the previous compliance-suite baseline (68/68)
+and the action-coverage revision above, two fixtures
+(`testcase-014-alice-sell`, `testcase-020-bob-sell`) briefly failed: each
+fixture's policy has exactly one rule, a prohibition on `use`, and no
+permissions at all. Requested against a `sell` action (which `use` does
+not cover), that prohibition never applies — leaving the policy's
+`permissions` list empty, which `engine::decide`'s own Section 4.3 "empty
+permissions is open" departure treats as Allow regardless of an
+unrelated, non-covering prohibition being present. This vendored suite's
+own closed-world ground truth expects Deny. Earlier revisions of this
+adapter never surfaced this: a translate-time action pre-filter used to
+discard that sole rule outright whenever its action didn't (loosely)
+match the request, which routed the request through Section 5.2's
+*different*, closed empty-`policies`-array default instead — masking the
+divergence rather than resolving it. **Fixed properly, not patched
+around:** the ODRL Community Group's own `Behaviour` axis (Section 3.6:
+`open`/`closed`) is now a real, host-configurable `engine` parameter
+(`profile.rs`'s `Behaviour`, resolved strictest-wins exactly like
+`duty_mode`) rather than a fixed choice baked into `decide`. This
+compliance runner sets `Behaviour::Closed` in its base config, matching
+what `ground_truth.rs`'s own doc comment already established this suite
+assumes — restoring 68/68 for a principled reason, with Section 4.3's
+`Open` default fully intact and unchanged for any other host. See
+`compliance-runner/src/translate.rs`'s `base_request_config` and
 [`compliance/reports/latest.md`](compliance/reports/latest.md) for the
 full account.
 

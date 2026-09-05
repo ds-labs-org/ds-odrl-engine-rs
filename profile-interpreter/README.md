@@ -38,6 +38,10 @@ than assumed — see `src/interpret.rs`'s module doc for the full reasoning:
   this engine's own invention, Section 4.5), so it's always a
   caller-supplied flag, the same way it would be a real host's own
   deployment choice.
+- `behaviour` (open/closed, the empty-permissions-list evaluator setting
+  from the ODRL Formal Semantics draft, engine Section 4.3) is likewise
+  never read from the document — same reasoning as `duty_mode` — so it's
+  a caller-supplied flag too, defaulting to `open` when omitted.
 - `odrl:LeftOperand`/`odrl:Operator` extension declarations are noted
   (the former needs no action — this engine's leftOperand is already a
   free-form claims-map key; the latter genuinely can't be honored, since
@@ -47,17 +51,21 @@ than assumed — see `src/interpret.rs`'s module doc for the full reasoning:
 
 ```sh
 # One profile document -> its own engine::Profile JSON (internal shape:
-# id, actions: [{id, included_in}], duty_mode — not wire-shaped, since one
-# profile alone is not a request config)
-profile-interpreter interpret my-profile.ttl --duty-mode advise
+# id, actions: [{id, included_in}], duty_mode, behaviour — not
+# wire-shaped, since one profile alone is not a request config)
+profile-interpreter interpret my-profile.ttl --duty-mode advise --behaviour closed
 
 # Multiple profile documents -> the merged Section 5.2 `config` field,
 # printed as a wire-shaped engine::wire::RequestConfig
-# (@type/@id/odrl:action/odrl:includedIn/dutyMode) — union of declared
-# actions (and their includedIn edges), strictest duty_mode, the same
-# merge rule engine::profile::resolve()'s own tests cover.
-profile-interpreter resolve default-profile.ttl gaia-x-profile.jsonld --duty-mode deny
+# (@type/@id/odrl:action/odrl:includedIn/dutyMode/behaviour) — union of
+# declared actions (and their includedIn edges), strictest duty_mode and
+# behaviour, the same merge rule engine::profile::resolve()'s own tests
+# cover.
+profile-interpreter resolve default-profile.ttl gaia-x-profile.jsonld --duty-mode deny --behaviour open
 ```
+
+Both `--duty-mode` and `--behaviour` default to their engine-side
+defaults (`advise`, `open`) when omitted.
 
 Format is inferred from each file's extension (`.ttl`/`.turtle`,
 `.jsonld`/`.json`); override with `--format ttl|jsonld` if a file's
@@ -81,3 +89,11 @@ is the motivating example — can populate a suggestion list without
 re-parsing prose. `interpret::duty_mode_from_str` exists for the same
 reason: a caller with no Rust-level dependency on the `engine` crate
 itself can still produce a `DutyMode` value to pass to `interpret()`.
+`interpret::behaviour_from_str` (accepting `"open"`/`"closed"`/the ODRL
+Formal Semantics draft's own `"default"` alias for `"closed"`) and
+`interpret::default_behaviour` exist for the same reason on the
+`Behaviour` side — the latter is what `ds-odrl-engine-rs-site`'s
+"Load ODRL Profile" panel passes, since a profile document never
+declares its own `behaviour` (see above) and that panel has no form
+field for one; the Demonstrator's own `behaviour` selection reaches the
+engine through a separate path, not through this crate.
