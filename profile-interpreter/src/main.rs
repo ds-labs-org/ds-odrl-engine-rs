@@ -16,17 +16,14 @@
 //! to "advise" and is never read from the document itself (see
 //! interpret.rs's doc comment for why).
 
-mod graph;
-mod interpret;
-
 use std::path::PathBuf;
 use std::process::ExitCode;
 
 use engine::DutyMode;
 use serde::Serialize;
 
-use graph::{parse_by_extension, Graph};
-use interpret::interpret;
+use profile_interpreter::graph::{parse_by_extension, Graph};
+use profile_interpreter::interpret::interpret;
 
 #[derive(Serialize)]
 struct ResolvedConfigOutput {

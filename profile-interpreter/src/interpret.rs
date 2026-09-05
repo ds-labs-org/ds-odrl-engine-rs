@@ -45,6 +45,13 @@ use crate::graph::{local_name, odrl, Graph};
 pub struct Interpreted {
     pub profile: Profile,
     pub warnings: Vec<String>,
+    /// Local names of every `odrl:LeftOperand`-typed subject, as data --
+    /// distinct from the human-readable warning text above, because a UI
+    /// (site's Demonstrator page) needs this list to build an autocomplete/
+    /// suggestion widget, and re-parsing a warning string for it would be
+    /// fragile and wrong. Sorted and deduped, same convention as
+    /// `recognized_actions`.
+    pub declared_left_operands: Vec<String>,
 }
 
 /// `id_override` wins when given (a CLI `--id`, or a caller who already
@@ -82,12 +89,18 @@ pub fn interpret(graph: &Graph, id_override: Option<String>, duty_mode: DutyMode
     recognized_actions.sort();
     recognized_actions.dedup();
 
-    for left_operand in graph.subjects_with_type(&odrl("LeftOperand")) {
+    let declared_left_operand_iris = graph.subjects_with_type(&odrl("LeftOperand"));
+    for left_operand in &declared_left_operand_iris {
         warnings.push(format!(
             "profile declares odrl:LeftOperand {} — no action needed, this engine's leftOperand is already a free-form claims-map key (Section 4.2)",
-            local_name(&left_operand)
+            local_name(left_operand)
         ));
     }
+    let mut declared_left_operands: Vec<String> =
+        declared_left_operand_iris.iter().map(|iri| local_name(iri).to_string()).collect();
+    declared_left_operands.sort();
+    declared_left_operands.dedup();
+
     for operator in graph.subjects_with_type(&odrl("Operator")) {
         warnings.push(format!(
             "profile declares odrl:Operator {} — this engine's Operator enum is fixed (eq/neq/isAnyOf/lt/lteq/gt/gteq); a profile-declared operator cannot be honored without an engine change",
@@ -95,7 +108,7 @@ pub fn interpret(graph: &Graph, id_override: Option<String>, duty_mode: DutyMode
         ));
     }
 
-    Interpreted { profile: Profile { id, recognized_actions, duty_mode }, warnings }
+    Interpreted { profile: Profile { id, recognized_actions, duty_mode }, warnings, declared_left_operands }
 }
 
 #[cfg(test)]
@@ -192,5 +205,25 @@ ex:riskScore a odrl:LeftOperand ."#,
         );
         let interpreted = interpret(&g, None, DutyMode::Advise);
         assert!(interpreted.warnings.iter().any(|w| w.contains("odrl:LeftOperand riskScore") && w.contains("no action needed")));
+        assert_eq!(interpreted.declared_left_operands, vec!["riskScore"]);
+    }
+
+    #[test]
+    fn declared_left_operands_are_sorted_and_deduped_independent_of_the_warning_text() {
+        let g = graph(
+            r#"@prefix odrl: <http://www.w3.org/ns/odrl/2/>.
+@prefix ex: <http://example.org/>.
+ex:riskScore a odrl:LeftOperand .
+ex:tenure a odrl:LeftOperand .
+ex:riskScore a odrl:LeftOperand ."#,
+        );
+        let interpreted = interpret(&g, None, DutyMode::Advise);
+        assert_eq!(interpreted.declared_left_operands, vec!["riskScore", "tenure"]);
+    }
+
+    #[test]
+    fn declared_left_operands_is_empty_when_none_are_declared() {
+        let g = graph("@prefix odrl: <http://www.w3.org/ns/odrl/2/>.\n@prefix ex: <http://example.org/>.\nex:a a odrl:Action .");
+        assert!(interpret(&g, None, DutyMode::Advise).declared_left_operands.is_empty());
     }
 }
