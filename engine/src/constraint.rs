@@ -118,19 +118,30 @@ pub enum Operator {
 /// `true` if `left` and `right` both parse as a recognized temporal value
 /// (`temporal::parse_xsd_temporal_nanos`) and, ordered, satisfy
 /// `satisfies` — or, only when that pairing fails (either side is not
-/// itself a recognized temporal value), both parse as a plain `f64` and
-/// satisfy it that way instead. See `Operator`'s own doc comment above for
-/// why temporal is tried first. `f64::partial_cmp` returning `None` (a
-/// `NaN` on either side — Rust's plain `str::parse::<f64>` does accept the
-/// literal string `"NaN"`) is treated as a miss too: `NaN` has no
-/// ordering relative to anything, itself included.
+/// itself a recognized temporal value), both parse as a plain, *finite*
+/// `f64` and satisfy it that way instead. See `Operator`'s own doc comment
+/// above for why temporal is tried first. Two lexical forms Rust's plain
+/// `str::parse::<f64>` accepts are deliberately rejected here rather than
+/// silently compared, both via the `is_finite()` guard: `NaN` (no
+/// ordering relative to anything, itself included — `partial_cmp`
+/// returning `None` already covered this case, `is_finite()` makes the
+/// rejection explicit and covers the next case too) and `inf`/`-inf`/
+/// `infinity` (every one of Rust's case-insensitive spellings) — without
+/// this guard, a claim or right_operand of literally `"inf"` would make
+/// `gt`/`gteq` vacuously match *every* finite number and `lt`/`lteq`
+/// vacuously match none, in either direction, silently. This engine's
+/// posture elsewhere is strict rejection of an edge-case lexical form
+/// (a stray `+`/`-` in a fixed-width year field, an out-of-range UTC
+/// offset) rather than tolerating it, and this fallback now matches that.
 fn ordering_matches(left: &str, right: &str, satisfies: impl Fn(std::cmp::Ordering) -> bool) -> bool {
     if let (Some(l), Some(r)) = (parse_xsd_temporal_nanos(left), parse_xsd_temporal_nanos(right)) {
         return satisfies(l.cmp(&r));
     }
     if let (Ok(l), Ok(r)) = (left.parse::<f64>(), right.parse::<f64>()) {
-        if let Some(ordering) = l.partial_cmp(&r) {
-            return satisfies(ordering);
+        if l.is_finite() && r.is_finite() {
+            if let Some(ordering) = l.partial_cmp(&r) {
+                return satisfies(ordering);
+            }
         }
     }
     false
@@ -237,33 +248,49 @@ pub const MAX_CONSTRAINT_DEPTH: usize = 64;
 ///   flat object (old JSON, or `Constraint::new`) never gains those keys
 ///   on the wire and a purely-logical object never needs to supply
 ///   `left_operand`/`operator`/`right_operand` at all. That last part is
-///   the one genuine wrinkle this design has to pay for: `left_operand`
-///   and `right_operand` gain `#[serde(default)]` (defaulting to `""`,
-///   `String`'s own `Default`), and `Operator` gains a `Default` impl
-///   (`Eq`, arbitrarily — see `Operator`'s own doc comment) purely so a
-///   `{"odrl:and": [...]}` object with none of the three atomic fields
-///   present still deserializes. Those defaulted atomic fields are never
-///   read when a logical field is `Some` (the fixed precedence above), so
-///   the arbitrary default is inert in practice, not a silent correctness
-///   gap — see `a_logical_constraints_defaulted_atomic_fields_are_never_consulted`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+///   the one genuine wrinkle this design has to pay for: `Operator` gains
+///   a `Default` impl (`Eq`, arbitrarily — see `Operator`'s own doc
+///   comment) purely so a `{"odrl:and": [...]}` object with none of the
+///   three atomic fields present can still build a `Constraint` value.
+///   Those defaulted atomic fields are never read when a logical field is
+///   `Some` (the fixed precedence above), so the arbitrary default is
+///   inert in practice, not a silent correctness gap — see
+///   `a_logical_constraints_defaulted_atomic_fields_are_never_consulted`.
+///
+/// **`Deserialize` is hand-written, not derived — this is load-bearing,
+/// not style.** An earlier version of this type derived `Deserialize`
+/// with `#[serde(default)]` on all three atomic fields, so *any* object
+/// with none of `left_operand`/`operator`/`right_operand`/`odrl:and`/
+/// `odrl:or`/`odrl:xone` present — a typo'd key, a missing `odrl:`
+/// prefix, `{}` — silently deserialized into an inert, always-`false`
+/// atomic constraint instead of failing to parse. Before this type's
+/// nested fields existed at all, that same malformed input was a hard
+/// parse error (`left_operand`/`operator`/`right_operand` were all
+/// required). That silent widening is a real regression in the wire
+/// contract's error posture: a malformed prohibition constraint stopped
+/// producing an `Error` response and started silently never matching
+/// instead — fail-*open* for a prohibition specifically, the worst
+/// direction for a mistake to fail in. The hand-written impl below
+/// restores the original strictness for the atomic case (all three
+/// fields genuinely required unless a logical field is present) while
+/// still letting a purely logical object omit them — see
+/// `a_constraint_object_missing_every_known_field_is_a_parse_error_not_an_inert_false`
+/// and `an_atomic_field_present_alongside_operator_missing_is_still_a_parse_error`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Constraint {
-    #[serde(default)]
     pub left_operand: String,
-    #[serde(default)]
     pub operator: Operator,
-    #[serde(default)]
     pub right_operand: String,
     /// `odrl:and`: satisfied when *every* nested child constraint
     /// evaluates to `true` — an empty list is vacuously satisfied, the
     /// same convention `Rule::matches`'s own empty-`constraints` case
     /// already uses.
-    #[serde(rename = "odrl:and", default, skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "odrl:and", skip_serializing_if = "Option::is_none")]
     pub and: Option<Vec<Constraint>>,
     /// `odrl:or`: satisfied when *at least one* nested child evaluates to
     /// `true` — an empty list is never satisfied (there is nothing to
     /// witness the "at least one").
-    #[serde(rename = "odrl:or", default, skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "odrl:or", skip_serializing_if = "Option::is_none")]
     pub or: Option<Vec<Constraint>>,
     /// `odrl:xone`: satisfied when *exactly one* nested child evaluates to
     /// `true` — the genuinely new capability this phase exists to add.
@@ -276,8 +303,67 @@ pub struct Constraint {
     /// matching children is not satisfied (same as `Or`), but *two or
     /// more* matching children is **also** not satisfied, unlike `Or`.
     /// See `xone_is_satisfied_by_exactly_one_matching_child_not_zero_and_not_two_or_more`.
-    #[serde(rename = "odrl:xone", default, skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "odrl:xone", skip_serializing_if = "Option::is_none")]
     pub xone: Option<Vec<Constraint>>,
+}
+
+/// The wire shape `Constraint::deserialize` actually parses into first —
+/// every field optional, so serde can tell us what was and wasn't present
+/// — before `Constraint`'s own `Deserialize` impl decides, from *which*
+/// fields showed up, whether this was meant to be atomic (all three of
+/// `left_operand`/`operator`/`right_operand` required) or logical (none
+/// of them required). Kept private: nothing outside this module should
+/// construct a `Constraint` from partially-known fields.
+#[derive(Deserialize)]
+struct RawConstraint {
+    left_operand: Option<String>,
+    operator: Option<Operator>,
+    right_operand: Option<String>,
+    #[serde(rename = "odrl:and", default)]
+    and: Option<Vec<Constraint>>,
+    #[serde(rename = "odrl:or", default)]
+    or: Option<Vec<Constraint>>,
+    #[serde(rename = "odrl:xone", default)]
+    xone: Option<Vec<Constraint>>,
+}
+
+impl<'de> Deserialize<'de> for Constraint {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let raw = RawConstraint::deserialize(deserializer)?;
+        let is_logical = raw.and.is_some() || raw.or.is_some() || raw.xone.is_some();
+        if is_logical {
+            // Atomic fields are never consulted once a logical field is
+            // `Some` (the fixed xone > or > and precedence) — default
+            // them rather than requiring a caller to write out
+            // `"left_operand": ""` on every logical object.
+            return Ok(Constraint {
+                left_operand: raw.left_operand.unwrap_or_default(),
+                operator: raw.operator.unwrap_or_default(),
+                right_operand: raw.right_operand.unwrap_or_default(),
+                and: raw.and,
+                or: raw.or,
+                xone: raw.xone,
+            });
+        }
+        // No logical field present: this must be a complete atomic
+        // constraint, exactly as strictly as before this type had any
+        // logical fields to be confused with at all.
+        Ok(Constraint {
+            left_operand: raw
+                .left_operand
+                .ok_or_else(|| serde::de::Error::missing_field("left_operand"))?,
+            operator: raw.operator.ok_or_else(|| serde::de::Error::missing_field("operator"))?,
+            right_operand: raw
+                .right_operand
+                .ok_or_else(|| serde::de::Error::missing_field("right_operand"))?,
+            and: None,
+            or: None,
+            xone: None,
+        })
+    }
 }
 
 impl Constraint {
@@ -830,6 +916,104 @@ mod tests {
             constraint.evaluate(&claims),
             "evaluate must follow the `and` field, never fall through to an atomic eq(\"\", \"\") test"
         );
+    }
+
+    #[test]
+    fn a_constraint_object_missing_every_known_field_is_a_parse_error_not_an_inert_false() {
+        // The exact regression an adversarial review caught: before this
+        // type had logical fields at all, `left_operand`/`operator`/
+        // `right_operand` were plain required fields, so `{}` was a hard
+        // parse error. A derived `Deserialize` with `#[serde(default)]`
+        // on those three fields (this type's first cut at supporting
+        // logical constraints) silently turned `{}` into an inert,
+        // always-`false` atomic constraint instead — fail-*open* for a
+        // prohibition specifically, since a malformed prohibition
+        // constraint would then simply never match rather than surface as
+        // an error. The hand-written `Deserialize` impl restores the
+        // original strictness.
+        assert!(serde_json::from_str::<Constraint>("{}").is_err());
+        // A typo'd/mis-prefixed logical key must not be silently accepted
+        // as "no logical field present, therefore atomic" either -- it's
+        // simply an unknown key, and with no atomic fields present the
+        // object still has none of the six known fields.
+        let typo = r#"{"and": [{"left_operand": "sub", "operator": "eq", "right_operand": "alice"}]}"#;
+        assert!(serde_json::from_str::<Constraint>(typo).is_err());
+    }
+
+    #[test]
+    fn an_atomic_field_present_alongside_operator_missing_is_still_a_parse_error() {
+        // Partial atomic input (some but not all of the three fields, and
+        // no logical field to justify treating it as logical-with-unused-
+        // defaults) must still fail, not silently default the missing
+        // field.
+        let json = r#"{"left_operand": "sub", "right_operand": "alice"}"#;
+        assert!(serde_json::from_str::<Constraint>(json).is_err());
+    }
+
+    #[test]
+    fn a_logical_object_may_omit_every_atomic_field_and_still_parse() {
+        // The one case the hand-written Deserialize impl must keep
+        // working exactly as the derived one did: a purely logical object
+        // supplies none of `left_operand`/`operator`/`right_operand`.
+        let json = r#"{"odrl:and": [{"left_operand": "sub", "operator": "eq", "right_operand": "alice"}]}"#;
+        let constraint: Constraint = serde_json::from_str(json).unwrap();
+        assert!(constraint.is_logical());
+    }
+
+    #[test]
+    fn setting_more_than_one_logical_field_at_once_resolves_by_the_documented_xone_or_and_precedence() {
+        // This type's own doc comment names hand-written JSON setting more
+        // than one of `and`/`or`/`xone` simultaneously as the one
+        // reachable way to have more than one shape at once, and says the
+        // fixed `xone > or > and` precedence is what makes that
+        // deterministic. An adversarial review found this claim untested
+        // — this proves it against all three pairings, each rigged so the
+        // two candidate branches would disagree if the wrong one won.
+        let and_true_or_false = r#"{
+            "odrl:and": [{"left_operand": "sub", "operator": "eq", "right_operand": "alice"}],
+            "odrl:or": [{"left_operand": "sub", "operator": "eq", "right_operand": "nobody"}]
+        }"#;
+        let constraint: Constraint = serde_json::from_str(and_true_or_false).unwrap();
+        let claims = claims_with(&[("sub", ClaimValue::Single("alice".into()))]);
+        assert!(
+            !constraint.evaluate(&claims),
+            "or must win over and: the rigged `or` branch (matching nobody) does not match, so \
+             a true result here would mean `and` (which does match) was consulted instead"
+        );
+
+        let or_true_xone_false = r#"{
+            "odrl:or": [{"left_operand": "sub", "operator": "eq", "right_operand": "alice"}],
+            "odrl:xone": [
+                {"left_operand": "sub", "operator": "eq", "right_operand": "alice"},
+                {"left_operand": "sub", "operator": "eq", "right_operand": "alice"}
+            ]
+        }"#;
+        let constraint: Constraint = serde_json::from_str(or_true_xone_false).unwrap();
+        assert!(
+            !constraint.evaluate(&claims),
+            "xone must win over or: the rigged `xone` branch has two matching children (not \
+             exactly one), so a true result here would mean `or` was consulted instead"
+        );
+    }
+
+    #[test]
+    fn ordering_operators_reject_infinity_on_either_side_rather_than_matching_vacuously() {
+        // An adversarial review found that Rust's plain `str::parse::<f64>`
+        // accepts "inf"/"-inf"/"infinity" (case-insensitively), which
+        // would otherwise make `gt`/`gteq` match literally every finite
+        // number and `lt`/`lteq` match none, in either direction, for a
+        // claim or right_operand of exactly that lexical form -- silently,
+        // with no diagnostic. This engine's posture elsewhere is strict
+        // rejection of such edge-case lexical forms.
+        let inf_claim = claims_with(&[("count", ClaimValue::Single("inf".into()))]);
+        assert!(!Constraint::new("count", Operator::Gt, "1000000").evaluate(&inf_claim));
+        assert!(!Constraint::new("count", Operator::Gteq, "1000000").evaluate(&inf_claim));
+        assert!(!Constraint::new("count", Operator::Lt, "1000000").evaluate(&inf_claim));
+        assert!(!Constraint::new("count", Operator::Lteq, "1000000").evaluate(&inf_claim));
+
+        let finite_claim = claims_with(&[("count", ClaimValue::Single("42".into()))]);
+        assert!(!Constraint::new("count", Operator::Lteq, "-infinity").evaluate(&finite_claim));
+        assert!(!Constraint::new("count", Operator::Gteq, "Infinity").evaluate(&finite_claim));
     }
 
     #[test]

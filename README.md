@@ -20,11 +20,18 @@ a `dateTime` with a numeric UTC offset (`+02:00`/`-05:30`, converted to
 the equivalent UTC instant), or a bare `xsd:date` (`YYYY-MM-DD`, treated
 as midnight UTC of that date for comparison purposes) — and only if
 either side isn't one of those falls back to comparing both sides as a
-plain `f64` number, closing Section 7's "no age predicate is expressible"
-gap for a numeric claim without adding an operator. Either dispatch
-still misses (not errors) when neither reading applies to both sides; see
-`engine/src/constraint.rs`'s `ordering_matches` and `engine/src/
-temporal.rs`'s `parse_xsd_temporal_nanos` for the exact rules. The three
+plain, *finite* `f64` number, closing Section 7's "no age predicate is
+expressible" gap for a numeric claim without adding an operator. Either
+dispatch still misses (not errors) when neither reading applies to both
+sides — this now includes `NaN` and `inf`/`-inf`/`infinity` (every case
+spelling Rust's `str::parse::<f64>` itself accepts) on either side,
+rejected deliberately rather than left to silently compare: an
+unrejected `"inf"` would make `gt`/`gteq` match every finite number and
+`lt`/`lteq` match none, in either direction, for a claim or
+right_operand of exactly that lexical form (found by an adversarial
+review before release). See `engine/src/constraint.rs`'s
+`ordering_matches` and `engine/src/temporal.rs`'s
+`parse_xsd_temporal_nanos` for the exact rules. The three
 set-based operators `isAllOf`, `isNoneOf`, `isPartOf` all reuse `isAnyOf`'s own
 established adaptation of treating `right_operand` as a comma-delimited
 list rather than a JSON-LD array (`Constraint::right_operand` is a single
@@ -265,6 +272,22 @@ of them and round-trips exactly as before; see
 `engine/src/constraint.rs`'s own doc comment on `Constraint` for the
 full design rationale, including the alternatives tried and rejected
 before this one.
+
+**`Deserialize` is hand-written, not derived**, specifically to keep this
+addition honestly additive rather than accidentally lenient: an object
+supplying none of the three atomic fields *and* no logical field (`{}`,
+or a typo'd/mis-prefixed key like `"and"` instead of `"odrl:and"`) is
+still a hard parse error, exactly as it always was before this type had
+any logical fields to be confused with — an earlier version of this
+change (caught by an adversarial review before release, not shipped)
+let `#[serde(default)]` on the atomic fields silently turn such a
+malformed prohibition constraint into an inert, always-`false` atomic
+constraint instead, which is a fail-*open* regression for exactly the
+rule kind where that direction of mistake matters most. Only a genuinely
+logical object (at least one of `and`/`or`/`xone` present) may omit the
+atomic fields. See `engine/src/constraint.rs`'s
+`a_constraint_object_missing_every_known_field_is_a_parse_error_not_an_inert_false`
+test.
 
 A worked example — a permission whose one constraint is an `odrl:and` of
 two flat conditions:
