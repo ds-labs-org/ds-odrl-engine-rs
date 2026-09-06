@@ -275,10 +275,10 @@ mod tests {
   fn the_committed_artifact_parses_and_covers_the_whole_tag_range() {
     let file = committed();
     assert_eq!(file.schema, HISTORY_SCHEMA);
-    assert!(file.releases.len() >= 19, "expected every tag, found {}", file.releases.len());
+    assert!(file.releases.len() >= 25, "expected every tag, found {}", file.releases.len());
     assert_eq!(file.releases.first().map(|r| r.tag.as_str()), Some("v0.1.0"));
     assert_eq!(file.catalog.rows, 52);
-    assert_eq!(file.catalog.probes, 125);
+    assert_eq!(file.catalog.probes, 136);
   }
 
   /// The one release whose numbers are independently checkable: the

@@ -2,10 +2,10 @@
   "catalog": {
     "generated_by": "coverage-probes (cargo run -p coverage-probes --release)",
     "implemented": 11,
-    "not_implemented": 16,
+    "not_implemented": 11,
     "out_of_scope": 7,
-    "partial": 18,
-    "probes": 125,
+    "partial": 23,
+    "probes": 136,
     "rows": 52,
     "source_analysis": "docs/spikes/2026-09-05-odrl-2.2-vocabulary-gap-analysis.md (Deepthought-Solutions/dataspace)",
     "spec": "W3C ODRL 2.2 Vocabulary & Expression, https://www.w3.org/TR/odrl-vocab/"
@@ -24,7 +24,7 @@
       },
       "contradicted_rows": [],
       "coverage": null,
-      "coverage_error": "this release's own deserializer refused all 125 of the current catalog's requests before any policy logic ran, so the catalog cannot address it: request did not parse as the documented Section 5.2 JSON shape: missing field `recognized_actions` at line 14 column 9",
+      "coverage_error": "this release's own deserializer refused all 136 of the current catalog's requests before any policy logic ran, so the catalog cannot address it: request did not parse as the documented Section 5.2 JSON shape: missing field `recognized_actions` at line 14 column 9",
       "date": "2026-09-05T09:56:59+02:00",
       "engine_wasm_bytes": 198862,
       "engine_wasm_sha256": "fe03b1350620f9c4bb822230900257a053ca04d5039b0e740d6a8f90ab59e0c2",
@@ -41,7 +41,7 @@
       },
       "contradicted_rows": [],
       "coverage": null,
-      "coverage_error": "this release's own deserializer refused all 125 of the current catalog's requests before any policy logic ran, so the catalog cannot address it: request did not parse as the documented Section 5.2 JSON shape: missing field `recognized_actions` at line 14 column 9",
+      "coverage_error": "this release's own deserializer refused all 136 of the current catalog's requests before any policy logic ran, so the catalog cannot address it: request did not parse as the documented Section 5.2 JSON shape: missing field `recognized_actions` at line 14 column 9",
       "date": "2026-09-05T10:08:54+02:00",
       "engine_wasm_bytes": 198862,
       "engine_wasm_sha256": "fe03b1350620f9c4bb822230900257a053ca04d5039b0e740d6a8f90ab59e0c2",
@@ -58,7 +58,7 @@
       },
       "contradicted_rows": [],
       "coverage": null,
-      "coverage_error": "this release's own deserializer refused all 125 of the current catalog's requests before any policy logic ran, so the catalog cannot address it: request did not parse as the documented Section 5.2 JSON shape: missing field `recognized_actions` at line 14 column 9",
+      "coverage_error": "this release's own deserializer refused all 136 of the current catalog's requests before any policy logic ran, so the catalog cannot address it: request did not parse as the documented Section 5.2 JSON shape: missing field `recognized_actions` at line 14 column 9",
       "date": "2026-09-05T10:09:35+02:00",
       "engine_wasm_bytes": 198862,
       "engine_wasm_sha256": "fe03b1350620f9c4bb822230900257a053ca04d5039b0e740d6a8f90ab59e0c2",
@@ -75,7 +75,7 @@
       },
       "contradicted_rows": [],
       "coverage": null,
-      "coverage_error": "this release's own deserializer refused all 125 of the current catalog's requests before any policy logic ran, so the catalog cannot address it: request did not parse as the documented Section 5.2 JSON shape: missing field `recognized_actions` at line 14 column 9",
+      "coverage_error": "this release's own deserializer refused all 136 of the current catalog's requests before any policy logic ran, so the catalog cannot address it: request did not parse as the documented Section 5.2 JSON shape: missing field `recognized_actions` at line 14 column 9",
       "date": "2026-09-05T10:34:36+02:00",
       "engine_wasm_bytes": 202996,
       "engine_wasm_sha256": "15fd175d37bc2c6b8ef432a91a8200f89ad9e128318554cacd9806e9d4aefe4d",
@@ -92,7 +92,7 @@
       },
       "contradicted_rows": [],
       "coverage": null,
-      "coverage_error": "this release's own deserializer refused all 125 of the current catalog's requests before any policy logic ran, so the catalog cannot address it: request did not parse as the documented Section 5.2 JSON shape: missing field `recognized_actions` at line 14 column 9",
+      "coverage_error": "this release's own deserializer refused all 136 of the current catalog's requests before any policy logic ran, so the catalog cannot address it: request did not parse as the documented Section 5.2 JSON shape: missing field `recognized_actions` at line 14 column 9",
       "date": "2026-09-05T10:42:54+02:00",
       "engine_wasm_bytes": 203598,
       "engine_wasm_sha256": "43b947101d9c12a0c77036a4f42bfea6e45e861c4b4fd2309cb0c12795d09638",
@@ -109,7 +109,7 @@
       },
       "contradicted_rows": [],
       "coverage": null,
-      "coverage_error": "this release's own deserializer refused all 125 of the current catalog's requests before any policy logic ran, so the catalog cannot address it: request did not parse as the documented Section 5.2 JSON shape: missing field `recognized_actions` at line 14 column 9",
+      "coverage_error": "this release's own deserializer refused all 136 of the current catalog's requests before any policy logic ran, so the catalog cannot address it: request did not parse as the documented Section 5.2 JSON shape: missing field `recognized_actions` at line 14 column 9",
       "date": "2026-09-05T10:45:44+02:00",
       "engine_wasm_bytes": 203598,
       "engine_wasm_sha256": "43b947101d9c12a0c77036a4f42bfea6e45e861c4b4fd2309cb0c12795d09638",
@@ -126,7 +126,7 @@
       },
       "contradicted_rows": [],
       "coverage": null,
-      "coverage_error": "this release's own deserializer refused all 125 of the current catalog's requests before any policy logic ran, so the catalog cannot address it: request did not parse as the documented Section 5.2 JSON shape: missing field `recognized_actions` at line 14 column 9",
+      "coverage_error": "this release's own deserializer refused all 136 of the current catalog's requests before any policy logic ran, so the catalog cannot address it: request did not parse as the documented Section 5.2 JSON shape: missing field `recognized_actions` at line 14 column 9",
       "date": "2026-09-05T12:34:49+02:00",
       "engine_wasm_bytes": 203598,
       "engine_wasm_sha256": "43b947101d9c12a0c77036a4f42bfea6e45e861c4b4fd2309cb0c12795d09638",
@@ -143,7 +143,7 @@
       },
       "contradicted_rows": [],
       "coverage": null,
-      "coverage_error": "this release's own deserializer refused all 125 of the current catalog's requests before any policy logic ran, so the catalog cannot address it: request did not parse as the documented Section 5.2 JSON shape: missing field `recognized_actions` at line 14 column 9",
+      "coverage_error": "this release's own deserializer refused all 136 of the current catalog's requests before any policy logic ran, so the catalog cannot address it: request did not parse as the documented Section 5.2 JSON shape: missing field `recognized_actions` at line 14 column 9",
       "date": "2026-09-05T14:45:44+02:00",
       "engine_wasm_bytes": 203598,
       "engine_wasm_sha256": "43b947101d9c12a0c77036a4f42bfea6e45e861c4b4fd2309cb0c12795d09638",
@@ -160,7 +160,7 @@
       },
       "contradicted_rows": [],
       "coverage": null,
-      "coverage_error": "this release's own deserializer refused all 125 of the current catalog's requests before any policy logic ran, so the catalog cannot address it: request did not parse as the documented Section 5.2 JSON shape: missing field `recognized_actions` at line 14 column 9",
+      "coverage_error": "this release's own deserializer refused all 136 of the current catalog's requests before any policy logic ran, so the catalog cannot address it: request did not parse as the documented Section 5.2 JSON shape: missing field `recognized_actions` at line 14 column 9",
       "date": "2026-09-05T15:17:37+02:00",
       "engine_wasm_bytes": 203598,
       "engine_wasm_sha256": "43b947101d9c12a0c77036a4f42bfea6e45e861c4b4fd2309cb0c12795d09638",
@@ -187,11 +187,11 @@
         },
         {
           "category": "left-operands",
-          "documented_status": "NotImplemented",
+          "documented_status": "Partial",
           "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
           "id": "left-operands.durations",
           "mismatch": "expected Allow, observed Deny",
-          "probe_id": "lo-duration-control-numeric",
+          "probe_id": "lo-duration-metering-example",
           "term": "elapsedTime, meteredTime, delayPeriod, timeInterval"
         },
         {
@@ -259,12 +259,21 @@
         },
         {
           "category": "logical",
-          "documented_status": "NotImplemented",
+          "documented_status": "Partial",
           "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
           "id": "logical.and-sequence",
           "mismatch": "expected Allow, observed Deny",
-          "probe_id": "lc-and-control-honored",
+          "probe_id": "lc-andsequence-honored",
           "term": "odrl:andSequence"
+        },
+        {
+          "category": "policy-classes",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "policy-classes.discrimination",
+          "mismatch": "expected Deny, observed Allow",
+          "probe_id": "pc-kind-agreement-assignee-claim-excludes-a-mismatch",
+          "term": "Policy class discrimination (Set, Offer, Agreement, Assertion, Privacy, Request, Ticket)"
         },
         {
           "category": "party",
@@ -305,6 +314,15 @@
         {
           "category": "assets",
           "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "assets.collections",
+          "mismatch": "reason missing `permission[0] of policy 'probe' matched: action 'use' on target 'urn:asset:collection', unconstrained`",
+          "probe_id": "asset-collection-membership-hit",
+          "term": "AssetCollection, odrl:partOf, odrl:source"
+        },
+        {
+          "category": "assets",
+          "documented_status": "Partial",
           "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use', unconstrained",
           "id": "assets.target",
           "mismatch": "expected Allow, observed Deny",
@@ -340,6 +358,15 @@
         },
         {
           "category": "other",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'child' covered and matched requested action 'use' (closed default)",
+          "id": "other.inherit-from",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "inheritfrom-safe-direction-hit",
+          "term": "odrl:inheritFrom (Policy inheritance)"
+        },
+        {
+          "category": "other",
           "documented_status": "Implemented",
           "engine_reason": "policy 'probe' has no permissions (open default)",
           "id": "other.behaviour",
@@ -349,15 +376,15 @@
         }
       ],
       "coverage": {
-        "agreed": 84,
-        "contradicted": 19,
-        "disagreed": 41,
-        "documented": 3,
+        "agreed": 85,
+        "contradicted": 22,
+        "disagreed": 51,
+        "documented": 2,
         "envelope_rejected": 11,
         "errored": 0,
         "inconclusive": 0,
-        "probes_total": 125,
-        "verified": 30
+        "probes_total": 136,
+        "verified": 28
       },
       "coverage_error": null,
       "date": "2026-09-05T16:58:21+02:00",
@@ -386,11 +413,11 @@
         },
         {
           "category": "left-operands",
-          "documented_status": "NotImplemented",
+          "documented_status": "Partial",
           "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
           "id": "left-operands.durations",
           "mismatch": "expected Allow, observed Deny",
-          "probe_id": "lo-duration-control-numeric",
+          "probe_id": "lo-duration-metering-example",
           "term": "elapsedTime, meteredTime, delayPeriod, timeInterval"
         },
         {
@@ -458,12 +485,21 @@
         },
         {
           "category": "logical",
-          "documented_status": "NotImplemented",
+          "documented_status": "Partial",
           "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
           "id": "logical.and-sequence",
           "mismatch": "expected Allow, observed Deny",
-          "probe_id": "lc-and-control-honored",
+          "probe_id": "lc-andsequence-honored",
           "term": "odrl:andSequence"
+        },
+        {
+          "category": "policy-classes",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "policy-classes.discrimination",
+          "mismatch": "expected Deny, observed Allow",
+          "probe_id": "pc-kind-agreement-assignee-claim-excludes-a-mismatch",
+          "term": "Policy class discrimination (Set, Offer, Agreement, Assertion, Privacy, Request, Ticket)"
         },
         {
           "category": "party",
@@ -504,6 +540,15 @@
         {
           "category": "assets",
           "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "assets.collections",
+          "mismatch": "reason missing `permission[0] of policy 'probe' matched: action 'use' on target 'urn:asset:collection', unconstrained`",
+          "probe_id": "asset-collection-membership-hit",
+          "term": "AssetCollection, odrl:partOf, odrl:source"
+        },
+        {
+          "category": "assets",
+          "documented_status": "Partial",
           "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use', unconstrained",
           "id": "assets.target",
           "mismatch": "expected Allow, observed Deny",
@@ -539,6 +584,15 @@
         },
         {
           "category": "other",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'child' covered and matched requested action 'use' (closed default)",
+          "id": "other.inherit-from",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "inheritfrom-safe-direction-hit",
+          "term": "odrl:inheritFrom (Policy inheritance)"
+        },
+        {
+          "category": "other",
           "documented_status": "Implemented",
           "engine_reason": "policy 'probe' denied for a reason this trace could not reconstruct",
           "id": "other.behaviour",
@@ -548,15 +602,15 @@
         }
       ],
       "coverage": {
-        "agreed": 84,
-        "contradicted": 19,
-        "disagreed": 41,
-        "documented": 3,
+        "agreed": 85,
+        "contradicted": 22,
+        "disagreed": 51,
+        "documented": 2,
         "envelope_rejected": 11,
         "errored": 0,
         "inconclusive": 0,
-        "probes_total": 125,
-        "verified": 30
+        "probes_total": 136,
+        "verified": 28
       },
       "coverage_error": null,
       "date": "2026-09-05T18:06:56+02:00",
@@ -584,6 +638,33 @@
           "term": "count, percentage, payAmount, absoluteSize, relativeSize, resolution"
         },
         {
+          "category": "left-operands",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "left-operands.durations",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lo-duration-metering-example",
+          "term": "elapsedTime, meteredTime, delayPeriod, timeInterval"
+        },
+        {
+          "category": "logical",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "logical.and-sequence",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lc-andsequence-honored",
+          "term": "odrl:andSequence"
+        },
+        {
+          "category": "policy-classes",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "policy-classes.discrimination",
+          "mismatch": "expected Deny, observed Allow",
+          "probe_id": "pc-kind-agreement-assignee-claim-excludes-a-mismatch",
+          "term": "Policy class discrimination (Set, Offer, Agreement, Assertion, Privacy, Request, Ticket)"
+        },
+        {
           "category": "party",
           "documented_status": "Partial",
           "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
@@ -618,6 +699,15 @@
           "mismatch": "reason missing `prohibition[0] of policy 'probe' matched: action 'use': nationality eq US; its odrl:remedy[0] 'anonymize' is unresolved and does not lift the prohibition; odrl:conflict 'prohibit' resolves the conflict with permission[0] in the prohibition's favour`",
           "probe_id": "duty-remedy-unresolved-does-not-drop-the-prohibition",
           "term": "odrl:remedy"
+        },
+        {
+          "category": "assets",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "assets.collections",
+          "mismatch": "reason missing `permission[0] of policy 'probe' matched: action 'use' on target 'urn:asset:collection', unconstrained`",
+          "probe_id": "asset-collection-membership-hit",
+          "term": "AssetCollection, odrl:partOf, odrl:source"
         },
         {
           "category": "assets",
@@ -657,6 +747,15 @@
         },
         {
           "category": "other",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'child' covered and matched requested action 'use' (closed default)",
+          "id": "other.inherit-from",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "inheritfrom-safe-direction-hit",
+          "term": "odrl:inheritFrom (Policy inheritance)"
+        },
+        {
+          "category": "other",
           "documented_status": "Implemented",
           "engine_reason": "policy 'probe' denied for a reason this trace could not reconstruct",
           "id": "other.behaviour",
@@ -667,14 +766,14 @@
       ],
       "coverage": {
         "agreed": 105,
-        "contradicted": 10,
-        "disagreed": 20,
-        "documented": 3,
+        "contradicted": 15,
+        "disagreed": 31,
+        "documented": 2,
         "envelope_rejected": 3,
         "errored": 0,
         "inconclusive": 0,
-        "probes_total": 125,
-        "verified": 39
+        "probes_total": 136,
+        "verified": 35
       },
       "coverage_error": null,
       "date": "2026-09-05T19:41:35+02:00",
@@ -693,6 +792,33 @@
       },
       "contradicted_rows": [
         {
+          "category": "left-operands",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "left-operands.durations",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lo-duration-metering-example",
+          "term": "elapsedTime, meteredTime, delayPeriod, timeInterval"
+        },
+        {
+          "category": "logical",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "logical.and-sequence",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lc-andsequence-honored",
+          "term": "odrl:andSequence"
+        },
+        {
+          "category": "policy-classes",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "policy-classes.discrimination",
+          "mismatch": "expected Deny, observed Allow",
+          "probe_id": "pc-kind-agreement-assignee-claim-excludes-a-mismatch",
+          "term": "Policy class discrimination (Set, Offer, Agreement, Assertion, Privacy, Request, Ticket)"
+        },
+        {
           "category": "party",
           "documented_status": "Partial",
           "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
@@ -727,6 +853,15 @@
           "mismatch": "reason missing `prohibition[0] of policy 'probe' matched: action 'use': nationality eq US; its odrl:remedy[0] 'anonymize' is unresolved and does not lift the prohibition; odrl:conflict 'prohibit' resolves the conflict with permission[0] in the prohibition's favour`",
           "probe_id": "duty-remedy-unresolved-does-not-drop-the-prohibition",
           "term": "odrl:remedy"
+        },
+        {
+          "category": "assets",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "assets.collections",
+          "mismatch": "reason missing `permission[0] of policy 'probe' matched: action 'use' on target 'urn:asset:collection', unconstrained`",
+          "probe_id": "asset-collection-membership-hit",
+          "term": "AssetCollection, odrl:partOf, odrl:source"
         },
         {
           "category": "assets",
@@ -766,6 +901,15 @@
         },
         {
           "category": "other",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'child' covered and matched requested action 'use' (closed default)",
+          "id": "other.inherit-from",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "inheritfrom-safe-direction-hit",
+          "term": "odrl:inheritFrom (Policy inheritance)"
+        },
+        {
+          "category": "other",
           "documented_status": "Implemented",
           "engine_reason": "policy 'probe' denied for a reason this trace could not reconstruct",
           "id": "other.behaviour",
@@ -776,14 +920,14 @@
       ],
       "coverage": {
         "agreed": 106,
-        "contradicted": 9,
-        "disagreed": 19,
-        "documented": 3,
+        "contradicted": 14,
+        "disagreed": 30,
+        "documented": 2,
         "envelope_rejected": 3,
         "errored": 0,
         "inconclusive": 0,
-        "probes_total": 125,
-        "verified": 40
+        "probes_total": 136,
+        "verified": 36
       },
       "coverage_error": null,
       "date": "2026-09-05T19:54:14+02:00",
@@ -802,6 +946,33 @@
       },
       "contradicted_rows": [
         {
+          "category": "left-operands",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "left-operands.durations",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lo-duration-metering-example",
+          "term": "elapsedTime, meteredTime, delayPeriod, timeInterval"
+        },
+        {
+          "category": "logical",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "logical.and-sequence",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lc-andsequence-honored",
+          "term": "odrl:andSequence"
+        },
+        {
+          "category": "policy-classes",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "policy-classes.discrimination",
+          "mismatch": "expected Deny, observed Allow",
+          "probe_id": "pc-kind-agreement-assignee-claim-excludes-a-mismatch",
+          "term": "Policy class discrimination (Set, Offer, Agreement, Assertion, Privacy, Request, Ticket)"
+        },
+        {
           "category": "party",
           "documented_status": "Partial",
           "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
@@ -836,6 +1007,15 @@
           "mismatch": "reason missing `prohibition[0] of policy 'probe' matched: action 'use': nationality eq US; its odrl:remedy[0] 'anonymize' is unresolved and does not lift the prohibition; odrl:conflict 'prohibit' resolves the conflict with permission[0] in the prohibition's favour`",
           "probe_id": "duty-remedy-unresolved-does-not-drop-the-prohibition",
           "term": "odrl:remedy"
+        },
+        {
+          "category": "assets",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "assets.collections",
+          "mismatch": "reason missing `permission[0] of policy 'probe' matched: action 'use' on target 'urn:asset:collection', unconstrained`",
+          "probe_id": "asset-collection-membership-hit",
+          "term": "AssetCollection, odrl:partOf, odrl:source"
         },
         {
           "category": "assets",
@@ -875,6 +1055,15 @@
         },
         {
           "category": "other",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'child' covered and matched requested action 'use' (closed default)",
+          "id": "other.inherit-from",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "inheritfrom-safe-direction-hit",
+          "term": "odrl:inheritFrom (Policy inheritance)"
+        },
+        {
+          "category": "other",
           "documented_status": "Implemented",
           "engine_reason": "policy 'probe' denied for a reason this trace could not reconstruct",
           "id": "other.behaviour",
@@ -885,14 +1074,14 @@
       ],
       "coverage": {
         "agreed": 106,
-        "contradicted": 9,
-        "disagreed": 19,
-        "documented": 3,
+        "contradicted": 14,
+        "disagreed": 30,
+        "documented": 2,
         "envelope_rejected": 3,
         "errored": 0,
         "inconclusive": 0,
-        "probes_total": 125,
-        "verified": 40
+        "probes_total": 136,
+        "verified": 36
       },
       "coverage_error": null,
       "date": "2026-09-05T21:07:49+02:00",
@@ -911,6 +1100,33 @@
       },
       "contradicted_rows": [
         {
+          "category": "left-operands",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "left-operands.durations",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lo-duration-metering-example",
+          "term": "elapsedTime, meteredTime, delayPeriod, timeInterval"
+        },
+        {
+          "category": "logical",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "logical.and-sequence",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lc-andsequence-honored",
+          "term": "odrl:andSequence"
+        },
+        {
+          "category": "policy-classes",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "policy-classes.discrimination",
+          "mismatch": "expected Deny, observed Allow",
+          "probe_id": "pc-kind-agreement-assignee-claim-excludes-a-mismatch",
+          "term": "Policy class discrimination (Set, Offer, Agreement, Assertion, Privacy, Request, Ticket)"
+        },
+        {
           "category": "party",
           "documented_status": "Partial",
           "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
@@ -949,6 +1165,15 @@
         {
           "category": "assets",
           "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "assets.collections",
+          "mismatch": "reason missing `permission[0] of policy 'probe' matched: action 'use' on target 'urn:asset:collection', unconstrained`",
+          "probe_id": "asset-collection-membership-hit",
+          "term": "AssetCollection, odrl:partOf, odrl:source"
+        },
+        {
+          "category": "assets",
+          "documented_status": "Partial",
           "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use', unconstrained",
           "id": "assets.target",
           "mismatch": "expected Allow, observed Deny",
@@ -981,18 +1206,27 @@
           "mismatch": "expected Error, observed Deny",
           "probe_id": "conflict-profile-strategy-unparseable",
           "term": "Profile-declared conflict strategies"
+        },
+        {
+          "category": "other",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'child' covered and matched requested action 'use' (closed default)",
+          "id": "other.inherit-from",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "inheritfrom-safe-direction-hit",
+          "term": "odrl:inheritFrom (Policy inheritance)"
         }
       ],
       "coverage": {
         "agreed": 108,
-        "contradicted": 8,
-        "disagreed": 17,
-        "documented": 3,
+        "contradicted": 13,
+        "disagreed": 28,
+        "documented": 2,
         "envelope_rejected": 3,
         "errored": 0,
         "inconclusive": 0,
-        "probes_total": 125,
-        "verified": 41
+        "probes_total": 136,
+        "verified": 37
       },
       "coverage_error": null,
       "date": "2026-09-05T22:32:27+02:00",
@@ -1011,6 +1245,33 @@
       },
       "contradicted_rows": [
         {
+          "category": "left-operands",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "left-operands.durations",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lo-duration-metering-example",
+          "term": "elapsedTime, meteredTime, delayPeriod, timeInterval"
+        },
+        {
+          "category": "logical",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "logical.and-sequence",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lc-andsequence-honored",
+          "term": "odrl:andSequence"
+        },
+        {
+          "category": "policy-classes",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "policy-classes.discrimination",
+          "mismatch": "expected Deny, observed Allow",
+          "probe_id": "pc-kind-agreement-assignee-claim-excludes-a-mismatch",
+          "term": "Policy class discrimination (Set, Offer, Agreement, Assertion, Privacy, Request, Ticket)"
+        },
+        {
           "category": "party",
           "documented_status": "Partial",
           "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
@@ -1049,6 +1310,15 @@
         {
           "category": "assets",
           "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "assets.collections",
+          "mismatch": "reason missing `permission[0] of policy 'probe' matched: action 'use' on target 'urn:asset:collection', unconstrained`",
+          "probe_id": "asset-collection-membership-hit",
+          "term": "AssetCollection, odrl:partOf, odrl:source"
+        },
+        {
+          "category": "assets",
+          "documented_status": "Partial",
           "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use', unconstrained",
           "id": "assets.target",
           "mismatch": "expected Allow, observed Deny",
@@ -1081,18 +1351,27 @@
           "mismatch": "expected Error, observed Deny",
           "probe_id": "conflict-profile-strategy-unparseable",
           "term": "Profile-declared conflict strategies"
+        },
+        {
+          "category": "other",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'child' covered and matched requested action 'use' (closed default)",
+          "id": "other.inherit-from",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "inheritfrom-safe-direction-hit",
+          "term": "odrl:inheritFrom (Policy inheritance)"
         }
       ],
       "coverage": {
         "agreed": 108,
-        "contradicted": 8,
-        "disagreed": 17,
-        "documented": 3,
+        "contradicted": 13,
+        "disagreed": 28,
+        "documented": 2,
         "envelope_rejected": 3,
         "errored": 0,
         "inconclusive": 0,
-        "probes_total": 125,
-        "verified": 41
+        "probes_total": 136,
+        "verified": 37
       },
       "coverage_error": null,
       "date": "2026-09-05T22:43:02+02:00",
@@ -1110,6 +1389,33 @@
         "total": 68
       },
       "contradicted_rows": [
+        {
+          "category": "left-operands",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "left-operands.durations",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lo-duration-metering-example",
+          "term": "elapsedTime, meteredTime, delayPeriod, timeInterval"
+        },
+        {
+          "category": "logical",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "logical.and-sequence",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lc-andsequence-honored",
+          "term": "odrl:andSequence"
+        },
+        {
+          "category": "policy-classes",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "policy-classes.discrimination",
+          "mismatch": "expected Deny, observed Allow",
+          "probe_id": "pc-kind-agreement-assignee-claim-excludes-a-mismatch",
+          "term": "Policy class discrimination (Set, Offer, Agreement, Assertion, Privacy, Request, Ticket)"
+        },
         {
           "category": "party",
           "documented_status": "Partial",
@@ -1147,6 +1453,15 @@
           "term": "odrl:remedy"
         },
         {
+          "category": "assets",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' covers requested action 'use' but targets 'urn:asset:collection', not the requested 'urn:asset:A'",
+          "id": "assets.collections",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "asset-collection-membership-hit",
+          "term": "AssetCollection, odrl:partOf, odrl:source"
+        },
+        {
           "category": "conflict",
           "documented_status": "Implemented",
           "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use', unconstrained",
@@ -1172,18 +1487,27 @@
           "mismatch": "expected Error, observed Deny",
           "probe_id": "conflict-profile-strategy-unparseable",
           "term": "Profile-declared conflict strategies"
+        },
+        {
+          "category": "other",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'child' covered and matched requested action 'use' (closed default)",
+          "id": "other.inherit-from",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "inheritfrom-safe-direction-hit",
+          "term": "odrl:inheritFrom (Policy inheritance)"
         }
       ],
       "coverage": {
-        "agreed": 111,
-        "contradicted": 7,
-        "disagreed": 14,
-        "documented": 3,
+        "agreed": 112,
+        "contradicted": 12,
+        "disagreed": 24,
+        "documented": 2,
         "envelope_rejected": 3,
         "errored": 0,
         "inconclusive": 0,
-        "probes_total": 125,
-        "verified": 42
+        "probes_total": 136,
+        "verified": 38
       },
       "coverage_error": null,
       "date": "2026-09-06T01:00:06+02:00",
@@ -1200,17 +1524,63 @@
         "skipped": 0,
         "total": 68
       },
-      "contradicted_rows": [],
+      "contradicted_rows": [
+        {
+          "category": "left-operands",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "left-operands.durations",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lo-duration-metering-example",
+          "term": "elapsedTime, meteredTime, delayPeriod, timeInterval"
+        },
+        {
+          "category": "logical",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "logical.and-sequence",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lc-andsequence-honored",
+          "term": "odrl:andSequence"
+        },
+        {
+          "category": "policy-classes",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "policy-classes.discrimination",
+          "mismatch": "expected Deny, observed Allow",
+          "probe_id": "pc-kind-agreement-assignee-claim-excludes-a-mismatch",
+          "term": "Policy class discrimination (Set, Offer, Agreement, Assertion, Privacy, Request, Ticket)"
+        },
+        {
+          "category": "assets",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' covers requested action 'use' but targets 'urn:asset:collection', not the requested 'urn:asset:A'",
+          "id": "assets.collections",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "asset-collection-membership-hit",
+          "term": "AssetCollection, odrl:partOf, odrl:source"
+        },
+        {
+          "category": "other",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'child' covered and matched requested action 'use' (closed default)",
+          "id": "other.inherit-from",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "inheritfrom-safe-direction-hit",
+          "term": "odrl:inheritFrom (Policy inheritance)"
+        }
+      ],
       "coverage": {
-        "agreed": 125,
-        "contradicted": 0,
-        "disagreed": 0,
-        "documented": 3,
+        "agreed": 126,
+        "contradicted": 5,
+        "disagreed": 10,
+        "documented": 2,
         "envelope_rejected": 4,
         "errored": 0,
         "inconclusive": 0,
-        "probes_total": 125,
-        "verified": 49
+        "probes_total": 136,
+        "verified": 45
       },
       "coverage_error": null,
       "date": "2026-09-06T02:35:23+02:00",
@@ -1227,17 +1597,63 @@
         "skipped": 0,
         "total": 68
       },
-      "contradicted_rows": [],
+      "contradicted_rows": [
+        {
+          "category": "left-operands",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "left-operands.durations",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lo-duration-metering-example",
+          "term": "elapsedTime, meteredTime, delayPeriod, timeInterval"
+        },
+        {
+          "category": "logical",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "logical.and-sequence",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lc-andsequence-honored",
+          "term": "odrl:andSequence"
+        },
+        {
+          "category": "policy-classes",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "policy-classes.discrimination",
+          "mismatch": "expected Deny, observed Allow",
+          "probe_id": "pc-kind-agreement-assignee-claim-excludes-a-mismatch",
+          "term": "Policy class discrimination (Set, Offer, Agreement, Assertion, Privacy, Request, Ticket)"
+        },
+        {
+          "category": "assets",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' covers requested action 'use' but targets 'urn:asset:collection', not the requested 'urn:asset:A'",
+          "id": "assets.collections",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "asset-collection-membership-hit",
+          "term": "AssetCollection, odrl:partOf, odrl:source"
+        },
+        {
+          "category": "other",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'child' covered and matched requested action 'use' (closed default)",
+          "id": "other.inherit-from",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "inheritfrom-safe-direction-hit",
+          "term": "odrl:inheritFrom (Policy inheritance)"
+        }
+      ],
       "coverage": {
-        "agreed": 125,
-        "contradicted": 0,
-        "disagreed": 0,
-        "documented": 3,
+        "agreed": 126,
+        "contradicted": 5,
+        "disagreed": 10,
+        "documented": 2,
         "envelope_rejected": 4,
         "errored": 0,
         "inconclusive": 0,
-        "probes_total": 125,
-        "verified": 49
+        "probes_total": 136,
+        "verified": 45
       },
       "coverage_error": null,
       "date": "2026-09-06T05:15:31+02:00",
@@ -1245,6 +1661,362 @@
       "engine_wasm_sha256": "9e25f395d30215d150107a030fa2679456082b0c65d2da44960596c2b0648eed",
       "summary": "site: note dsp-odrl-adapter on the Coverage page, as prose not a fake row",
       "tag": "v0.12.1"
+    },
+    {
+      "commit": "eeb9c334444dd9524baeb876e0bce1e3816aca3f",
+      "compliance": {
+        "failed": 0,
+        "passed": 68,
+        "skipped": 0,
+        "total": 68
+      },
+      "contradicted_rows": [
+        {
+          "category": "left-operands",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "left-operands.durations",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lo-duration-metering-example",
+          "term": "elapsedTime, meteredTime, delayPeriod, timeInterval"
+        },
+        {
+          "category": "logical",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "logical.and-sequence",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lc-andsequence-honored",
+          "term": "odrl:andSequence"
+        },
+        {
+          "category": "policy-classes",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "policy-classes.discrimination",
+          "mismatch": "expected Deny, observed Allow",
+          "probe_id": "pc-kind-agreement-assignee-claim-excludes-a-mismatch",
+          "term": "Policy class discrimination (Set, Offer, Agreement, Assertion, Privacy, Request, Ticket)"
+        },
+        {
+          "category": "assets",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' covers requested action 'use' but targets 'urn:asset:collection', not the requested 'urn:asset:A'",
+          "id": "assets.collections",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "asset-collection-membership-hit",
+          "term": "AssetCollection, odrl:partOf, odrl:source"
+        },
+        {
+          "category": "other",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'child' covered and matched requested action 'use' (closed default)",
+          "id": "other.inherit-from",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "inheritfrom-safe-direction-hit",
+          "term": "odrl:inheritFrom (Policy inheritance)"
+        }
+      ],
+      "coverage": {
+        "agreed": 126,
+        "contradicted": 5,
+        "disagreed": 10,
+        "documented": 2,
+        "envelope_rejected": 4,
+        "errored": 0,
+        "inconclusive": 0,
+        "probes_total": 136,
+        "verified": 45
+      },
+      "coverage_error": null,
+      "date": "2026-09-06T06:05:53+02:00",
+      "engine_wasm_bytes": 278660,
+      "engine_wasm_sha256": "9e25f395d30215d150107a030fa2679456082b0c65d2da44960596c2b0648eed",
+      "summary": "Add a real, historically-executed Release History dashboard",
+      "tag": "v0.13.0"
+    },
+    {
+      "commit": "f18e258f7ea423964ad9b92b9eefffa441a9c309",
+      "compliance": {
+        "failed": 0,
+        "passed": 68,
+        "skipped": 0,
+        "total": 68
+      },
+      "contradicted_rows": [
+        {
+          "category": "left-operands",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "left-operands.durations",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lo-duration-metering-example",
+          "term": "elapsedTime, meteredTime, delayPeriod, timeInterval"
+        },
+        {
+          "category": "logical",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "logical.and-sequence",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lc-andsequence-honored",
+          "term": "odrl:andSequence"
+        },
+        {
+          "category": "policy-classes",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "policy-classes.discrimination",
+          "mismatch": "expected Deny, observed Allow",
+          "probe_id": "pc-kind-agreement-assignee-claim-excludes-a-mismatch",
+          "term": "Policy class discrimination (Set, Offer, Agreement, Assertion, Privacy, Request, Ticket)"
+        },
+        {
+          "category": "assets",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' covers requested action 'use' but targets 'urn:asset:collection', not the requested 'urn:asset:A'",
+          "id": "assets.collections",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "asset-collection-membership-hit",
+          "term": "AssetCollection, odrl:partOf, odrl:source"
+        },
+        {
+          "category": "other",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'child' covered and matched requested action 'use' (closed default)",
+          "id": "other.inherit-from",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "inheritfrom-safe-direction-hit",
+          "term": "odrl:inheritFrom (Policy inheritance)"
+        }
+      ],
+      "coverage": {
+        "agreed": 126,
+        "contradicted": 5,
+        "disagreed": 10,
+        "documented": 2,
+        "envelope_rejected": 4,
+        "errored": 0,
+        "inconclusive": 0,
+        "probes_total": 136,
+        "verified": 45
+      },
+      "coverage_error": null,
+      "date": "2026-09-06T06:09:56+02:00",
+      "engine_wasm_bytes": 278660,
+      "engine_wasm_sha256": "9e25f395d30215d150107a030fa2679456082b0c65d2da44960596c2b0648eed",
+      "summary": "compliance-runner: fix stale narrative in latest.md's own commentary",
+      "tag": "v0.13.1"
+    },
+    {
+      "commit": "7068ebae83557a2cfda4d55fc1f2d585f5fc724b",
+      "compliance": {
+        "failed": 0,
+        "passed": 68,
+        "skipped": 0,
+        "total": 68
+      },
+      "contradicted_rows": [
+        {
+          "category": "left-operands",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "left-operands.durations",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lo-duration-metering-example",
+          "term": "elapsedTime, meteredTime, delayPeriod, timeInterval"
+        },
+        {
+          "category": "logical",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "logical.and-sequence",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lc-andsequence-honored",
+          "term": "odrl:andSequence"
+        },
+        {
+          "category": "policy-classes",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "policy-classes.discrimination",
+          "mismatch": "expected Deny, observed Allow",
+          "probe_id": "pc-kind-agreement-assignee-claim-excludes-a-mismatch",
+          "term": "Policy class discrimination (Set, Offer, Agreement, Assertion, Privacy, Request, Ticket)"
+        },
+        {
+          "category": "assets",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' covers requested action 'use' but targets 'urn:asset:collection', not the requested 'urn:asset:A'",
+          "id": "assets.collections",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "asset-collection-membership-hit",
+          "term": "AssetCollection, odrl:partOf, odrl:source"
+        },
+        {
+          "category": "other",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'child' covered and matched requested action 'use' (closed default)",
+          "id": "other.inherit-from",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "inheritfrom-safe-direction-hit",
+          "term": "odrl:inheritFrom (Policy inheritance)"
+        }
+      ],
+      "coverage": {
+        "agreed": 126,
+        "contradicted": 5,
+        "disagreed": 10,
+        "documented": 2,
+        "envelope_rejected": 4,
+        "errored": 0,
+        "inconclusive": 0,
+        "probes_total": 136,
+        "verified": 45
+      },
+      "coverage_error": null,
+      "date": "2026-09-06T07:53:40+02:00",
+      "engine_wasm_bytes": 278660,
+      "engine_wasm_sha256": "9e25f395d30215d150107a030fa2679456082b0c65d2da44960596c2b0648eed",
+      "summary": "bench: rescue conformance bench harnesses for 4 ODRL engine comparators",
+      "tag": "v0.14.0"
+    },
+    {
+      "commit": "0638d5e81d80740d70ee823d4d70df7806148747",
+      "compliance": {
+        "failed": 0,
+        "passed": 68,
+        "skipped": 0,
+        "total": 68
+      },
+      "contradicted_rows": [
+        {
+          "category": "left-operands",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "left-operands.durations",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lo-duration-metering-example",
+          "term": "elapsedTime, meteredTime, delayPeriod, timeInterval"
+        },
+        {
+          "category": "logical",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "logical.and-sequence",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lc-andsequence-honored",
+          "term": "odrl:andSequence"
+        },
+        {
+          "category": "policy-classes",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "policy-classes.discrimination",
+          "mismatch": "expected Deny, observed Allow",
+          "probe_id": "pc-kind-agreement-assignee-claim-excludes-a-mismatch",
+          "term": "Policy class discrimination (Set, Offer, Agreement, Assertion, Privacy, Request, Ticket)"
+        },
+        {
+          "category": "assets",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' covers requested action 'use' but targets 'urn:asset:collection', not the requested 'urn:asset:A'",
+          "id": "assets.collections",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "asset-collection-membership-hit",
+          "term": "AssetCollection, odrl:partOf, odrl:source"
+        },
+        {
+          "category": "other",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'child' covered and matched requested action 'use' (closed default)",
+          "id": "other.inherit-from",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "inheritfrom-safe-direction-hit",
+          "term": "odrl:inheritFrom (Policy inheritance)"
+        }
+      ],
+      "coverage": {
+        "agreed": 126,
+        "contradicted": 5,
+        "disagreed": 10,
+        "documented": 2,
+        "envelope_rejected": 4,
+        "errored": 0,
+        "inconclusive": 0,
+        "probes_total": 136,
+        "verified": 45
+      },
+      "coverage_error": null,
+      "date": "2026-09-06T13:35:24+02:00",
+      "engine_wasm_bytes": 278660,
+      "engine_wasm_sha256": "9e25f395d30215d150107a030fa2679456082b0c65d2da44960596c2b0648eed",
+      "summary": "bench: measure performance, resources and load for all five ODRL engines",
+      "tag": "v0.15.0"
+    },
+    {
+      "commit": "e605e55133b327fd979f2008096128a54959d5d2",
+      "compliance": {
+        "failed": 0,
+        "passed": 68,
+        "skipped": 0,
+        "total": 68
+      },
+      "contradicted_rows": [
+        {
+          "category": "policy-classes",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "policy-classes.discrimination",
+          "mismatch": "expected Deny, observed Allow",
+          "probe_id": "pc-kind-agreement-assignee-claim-excludes-a-mismatch",
+          "term": "Policy class discrimination (Set, Offer, Agreement, Assertion, Privacy, Request, Ticket)"
+        }
+      ],
+      "coverage": {
+        "agreed": 134,
+        "contradicted": 1,
+        "disagreed": 2,
+        "documented": 2,
+        "envelope_rejected": 4,
+        "errored": 0,
+        "inconclusive": 0,
+        "probes_total": 136,
+        "verified": 49
+      },
+      "coverage_error": null,
+      "date": "2026-09-06T18:26:07+02:00",
+      "engine_wasm_bytes": 313968,
+      "engine_wasm_sha256": "9c9ad769bd5a797155f6a5b8248b9d8a1dd8f76b98d31b215413c3eae650f261",
+      "summary": "README: fix stale dsp-odrl-adapter dsp-ingest test count (24 -> 32)",
+      "tag": "v0.16.0"
+    },
+    {
+      "commit": "2b9004107d1b08c2aae08a8670c83981c7addeea",
+      "compliance": {
+        "failed": 0,
+        "passed": 68,
+        "skipped": 0,
+        "total": 68
+      },
+      "contradicted_rows": [],
+      "coverage": {
+        "agreed": 136,
+        "contradicted": 0,
+        "disagreed": 0,
+        "documented": 2,
+        "envelope_rejected": 4,
+        "errored": 0,
+        "inconclusive": 0,
+        "probes_total": 136,
+        "verified": 50
+      },
+      "coverage_error": null,
+      "date": "2026-09-06T21:38:43+02:00",
+      "engine_wasm_bytes": 315509,
+      "engine_wasm_sha256": "cd6dee62f4d69dc755a0cb1442bacfea9c595c0760a193602b278ea34f7d0b21",
+      "summary": "site/history_page: render the Release History intro from real data, not a hardcoded probe count",
+      "tag": "v0.17.0"
     }
   ],
   "schema": "ds-odrl-engine-rs/release-history@1"
