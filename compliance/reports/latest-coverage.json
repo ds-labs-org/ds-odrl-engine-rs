@@ -5127,19 +5127,19 @@
       "title": "the same two matching children under odrl:or do Allow"
     },
     {
-      "asserts": "The engine's Constraint type has and/or/xone and nothing else. Read against lc-and-control-honored, whose request differs from this one by the single key name `odrl:and` vs `odrl:andSequence`: that one is honoured (Allow), this one is dropped and the false atomic fields decide (Deny).",
+      "asserts": "The exact distinguishing example this construct's backlog item names: a constraint carries both a complete atomic left/operator/right triple (nationality eq US) and an odrl:andSequence naming a different pair of children (DE nationality, read scope). Claims satisfy the sequence, not the atomic fallback, and the reason renders the sequence's own children. Read against lc-andsequence-miss, whose claims satisfy neither and Denies, and against lc-and-control-honored, the byte-identical request with the key renamed odrl:and, which this probe now matches exactly -- odrl:andSequence reuses odrl:and's own evaluation code path verbatim.",
       "expect": {
         "dataset_id": null,
-        "decision": "Deny",
+        "decision": "Allow",
         "duties": null,
         "reason_contains": [
-          "no permission of policy 'probe' covered and matched requested action 'use' (closed default)"
+          "permission[0] of policy 'probe' matched: action 'use': (nationality eq DE && scope eq read)"
         ],
         "reason_excludes": []
       },
-      "falsified_by": "Allow -- which would mean odrl:andSequence is being evaluated",
-      "id": "lc-andsequence-ignored",
-      "kind": "negative",
+      "falsified_by": "Deny -- which would mean the atomic fields (or nothing) decided instead of odrl:andSequence",
+      "id": "lc-andsequence-honored",
+      "kind": "positive",
       "request": {
         "action": "use",
         "claims": {
@@ -5193,10 +5193,78 @@
           }
         ]
       },
-      "title": "odrl:andSequence is dropped; the constraint's own atomic fields decide"
+      "title": "odrl:andSequence is honoured; a co-occurring atomic field is ignored"
     },
     {
-      "asserts": "One key name apart from lc-andsequence-ignored. The nested children are evaluated, the atomic fields beside them are ignored, and the reason renders the group.",
+      "asserts": "The same request shape as lc-andsequence-honored, claims changed so they satisfy the co-occurring atomic fallback (nationality eq US) but neither child of the sequence (nationality is not DE, scope is absent). If the atomic fields were being consulted instead of -- or as a fallback from -- odrl:andSequence, this would wrongly Allow.",
+      "expect": {
+        "dataset_id": null,
+        "decision": "Deny",
+        "duties": null,
+        "reason_contains": [
+          "no permission of policy 'probe' covered and matched requested action 'use' (closed default)"
+        ],
+        "reason_excludes": []
+      },
+      "falsified_by": "Allow -- which would mean the atomic fields are being consulted instead of odrl:andSequence",
+      "id": "lc-andsequence-miss",
+      "kind": "negative",
+      "request": {
+        "action": "use",
+        "claims": {
+          "nationality": "US"
+        },
+        "config": {
+          "@id": "https://ds42.org/profiles/coverage-probe",
+          "@type": "odrl:Profile",
+          "behaviour": "closed",
+          "dutyMode": "advise",
+          "odrl:action": [
+            {
+              "@id": "use"
+            }
+          ]
+        },
+        "dataset_id": "urn:uuid:coverage-probe",
+        "policies": [
+          {
+            "assignee": null,
+            "assigner": "did:web:provider.example",
+            "id": "probe",
+            "kind": "Set",
+            "obligations": [],
+            "permissions": [
+              {
+                "action": "use",
+                "constraints": [
+                  {
+                    "left_operand": "nationality",
+                    "odrl:andSequence": [
+                      {
+                        "left_operand": "nationality",
+                        "operator": "eq",
+                        "right_operand": "DE"
+                      },
+                      {
+                        "left_operand": "scope",
+                        "operator": "eq",
+                        "right_operand": "read"
+                      }
+                    ],
+                    "operator": "eq",
+                    "right_operand": "US"
+                  }
+                ]
+              }
+            ],
+            "prohibitions": []
+          }
+        ]
+      },
+      "title": "odrl:andSequence's own children decide even when the co-occurring atomic field alone would grant"
+    },
+    {
+      "asserts": "Same request as lc-andsequence-honored, one key name apart (`odrl:and` instead of `odrl:andSequence`). The two now match exactly -- see and_sequence_evaluates_identically_to_the_and_control below.",
       "expect": {
         "dataset_id": null,
         "decision": "Allow",
@@ -5206,7 +5274,7 @@
         ],
         "reason_excludes": []
       },
-      "falsified_by": "Deny -- which would mean the pair isolates nothing",
+      "falsified_by": "A different decision or reason from lc-andsequence-honored's",
       "id": "lc-and-control-honored",
       "kind": "positive",
       "request": {
@@ -5262,10 +5330,10 @@
           }
         ]
       },
-      "title": "the byte-identical request with the key renamed odrl:and IS honoured"
+      "title": "the byte-identical request with the key renamed odrl:and is honoured identically"
     },
     {
-      "asserts": "The config declares `ex:majorityOf` and the constraint uses it; the engine's three logical fields are fixed, so the declaration changes nothing and the false atomic fields decide. Controlled by lc-and-control-honored, which is the same shape under a key the engine does know.",
+      "asserts": "The config declares `ex:majorityOf` and the constraint uses it; the engine's four logical fields are fixed, so the declaration changes nothing and the false atomic fields decide. Controlled by lc-and-control-honored, which is the same shape under a key the engine does know.",
       "expect": {
         "dataset_id": null,
         "decision": "Deny",
@@ -8951,19 +9019,20 @@
       "why": "Exactly-one semantics, both boundaries -- the thing a disjunctive-normal-form expansion provably cannot express."
     },
     {
-      "asserts": "Two requests one key name apart: odrl:and is honoured, odrl:andSequence is dropped and the constraint's own false atomic fields decide.",
+      "asserts": "The backlog item's own distinguishing example: a constraint carries both an atomic fallback and an odrl:andSequence naming different children; the sequence's own children decide either way (hit/miss), and match odrl:and's own control on the identical shape exactly.",
       "category": "logical",
-      "caveat": null,
+      "caveat": "Evaluated with the same conjunction semantics as odrl:and; the spec's own 'in the order specified' clause is not separately tracked or enforced -- see Constraint's own `and_sequence` field doc comment.",
       "documented_because": null,
-      "evidence": "engine/src/constraint.rs::RawConstraint",
+      "evidence": "engine/src/constraint.rs::Constraint::and_sequence",
       "id": "logical.and-sequence",
       "probe_ids": [
-        "lc-andsequence-ignored",
+        "lc-andsequence-honored",
+        "lc-andsequence-miss",
         "lc-and-control-honored"
       ],
-      "status": "NotImplemented",
+      "status": "Partial",
       "term": "odrl:andSequence",
-      "why": "The Constraint type has and/or/xone and nothing else; andSequence is an unknown key and is discarded."
+      "why": "A real nested field now, reusing odrl:and's own `.all()` evaluation code path verbatim -- but the Vocabulary's own 'in the order specified' clause has no separate effect: this engine evaluates one instantaneous claims snapshot, with no execution-order state to check an ordering claim against."
     },
     {
       "asserts": "A declared ex:majorityOf operand, used on a constraint, is dropped like any other unknown key.",

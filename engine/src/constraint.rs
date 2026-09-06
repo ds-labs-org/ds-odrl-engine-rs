@@ -176,9 +176,9 @@ fn temporal_matches(claim: &ClaimValue, right_operand: &str, satisfies: impl Fn(
 }
 
 /// The maximum nesting depth `Constraint::evaluate` will descend into a
-/// logical (`odrl:and`/`odrl:or`/`odrl:xone`) tree before treating every
-/// node past that bound as a deterministic non-match instead of recursing
-/// further.
+/// logical (`odrl:and`/`odrl:or`/`odrl:xone`/`odrl:andSequence`) tree before
+/// treating every node past that bound as a deterministic non-match instead
+/// of recursing further.
 ///
 /// Unlike `ResolvedConfig::covers`'s `includedIn`-chain walk (`profile.rs`),
 /// which guards against a genuine graph *cycle* using a `visited`
@@ -190,7 +190,7 @@ fn temporal_matches(claim: &ClaimValue, right_operand: &str, satisfies: impl Fn(
 /// be through shared/interior-mutable references. What *is* representable,
 /// and what this bound actually guards against, is pathological **depth**:
 /// a JSON payload (or a directly-constructed `Constraint`, bypassing JSON
-/// entirely) nesting `odrl:and`/`odrl:or`/`odrl:xone` far deeper than any
+/// entirely) nesting `odrl:and`/`odrl:or`/`odrl:xone`/`odrl:andSequence` far deeper than any
 /// real policy would, which would otherwise grow `evaluate`'s call stack
 /// unboundedly and could exhaust it — a concern sharpened by
 /// `wasm32-unknown-unknown` guests, which often run with a far smaller
@@ -209,14 +209,14 @@ pub const MAX_CONSTRAINT_DEPTH: usize = 64;
 
 /// One ODRL constraint: either the original flat `left_operand`/
 /// `operator`/`right_operand` test, or a logical grouping of nested
-/// `Constraint`s under JSON-LD's own `odrl:and`/`odrl:or`/`odrl:xone` keys
-/// (W3C ODRL 2.2, `odrl:LogicalConstraint`). This is an **additive**
-/// wire-format change: `left_operand`, `operator` and `right_operand` are
-/// exactly the fields this struct always had, at the same JSON keys —
-/// `and`/`or`/`xone` are three new, optional fields, each renamed on the
-/// wire to its own `odrl:`-namespaced key so a flat constraint (which
-/// carries none of them) is indistinguishable on the wire from before
-/// this phase. See
+/// `Constraint`s under JSON-LD's own `odrl:and`/`odrl:or`/`odrl:xone`/
+/// `odrl:andSequence` keys (W3C ODRL 2.2, `odrl:LogicalConstraint`). This is
+/// an **additive** wire-format change: `left_operand`, `operator` and
+/// `right_operand` are exactly the fields this struct always had, at the
+/// same JSON keys — `and`/`or`/`xone`/`and_sequence` are four new, optional
+/// fields, each renamed on the wire to its own `odrl:`-namespaced key so a
+/// flat constraint (which carries none of them) is indistinguishable on the
+/// wire from before this phase. See
 /// `flat_json_still_deserializes_identically_with_no_logical_fields_set`
 /// and `serializing_an_atomic_constraint_round_trips_to_the_original_flat_shape`
 /// below for the round-trip proof this design leans on rather than
@@ -224,13 +224,28 @@ pub const MAX_CONSTRAINT_DEPTH: usize = 64;
 ///
 /// **Which case a given `Constraint` value is** is decided by
 /// `evaluate`/`logical_children` at a fixed precedence — `xone`, then
-/// `or`, then `and`, then (if none of the three is `Some`) the atomic
-/// `left_operand`/`operator`/`right_operand` fields — never by more than
-/// one at once in practice, since every constructor here (`new`, `and`,
-/// `or`, `xone`) only ever sets one shape. A hand-written JSON object is
-/// the one way to populate more than one simultaneously (see the design
-/// notes below); this precedence order is what makes that case
-/// deterministic rather than an error.
+/// `or`, then `and`, then `and_sequence`, then (if none of the four is
+/// `Some`) the atomic `left_operand`/`operator`/`right_operand` fields —
+/// never by more than one at once in practice, since every constructor here
+/// (`new`, `and`, `or`, `xone`, `and_sequence`) only ever sets one shape. A
+/// hand-written JSON object is the one way to populate more than one
+/// simultaneously (see the design notes below); this precedence order is
+/// what makes that case deterministic rather than an error.
+///
+/// `odrl:andSequence` (added after the original three) is semantically
+/// `odrl:and` with one extra clause per the W3C ODRL 2.2 Vocabulary:
+/// "satisfied when each of the Constraints are satisfied **in the order
+/// specified**." This engine evaluates a `Constraint` tree against one
+/// instantaneous snapshot of `claims` — there is no notion of "when" a
+/// child became satisfied, no execution trace, nothing ordered to check —
+/// so the order clause has no observable effect here beyond ordinary
+/// conjunction, and `and_sequence` reuses `and`'s own `.all()` evaluation
+/// verbatim (`evaluate_bounded`) rather than a separate, necessarily
+/// no-op "ordering" implementation. This is a narrowing, stated plainly:
+/// a host that genuinely needs to enforce *temporal* ordering between
+/// constraint satisfactions (e.g. "DE nationality was established before
+/// scope was granted") gets no such enforcement from this engine, only
+/// from that snapshot's own logical conjunction.
 ///
 /// Design alternatives tried and rejected before this one, for the record
 /// (per this phase's own instructions to show the work rather than assert
@@ -256,9 +271,9 @@ pub const MAX_CONSTRAINT_DEPTH: usize = 64;
 ///   would itself be exactly the breaking rename this phase must avoid.
 /// - **The chosen design**: keep this struct's original three fields
 ///   exactly as they were (same names, same JSON keys, same non-`Option`
-///   types), and add three new `Option<Vec<Constraint>>` fields —
-///   `and`/`or`/`xone` — each `#[serde(rename = "odrl:...")]` and
-///   `#[serde(default, skip_serializing_if = "Option::is_none")]` so a
+///   types), and add new `Option<Vec<Constraint>>` fields — `and`/`or`/
+///   `xone`, and later `and_sequence` — each `#[serde(rename = "odrl:...")]`
+///   and `#[serde(default, skip_serializing_if = "Option::is_none")]` so a
 ///   flat object (old JSON, or `Constraint::new`) never gains those keys
 ///   on the wire and a purely-logical object never needs to supply
 ///   `left_operand`/`operator`/`right_operand` at all. That last part is
@@ -275,8 +290,8 @@ pub const MAX_CONSTRAINT_DEPTH: usize = 64;
 /// not style.** An earlier version of this type derived `Deserialize`
 /// with `#[serde(default)]` on all three atomic fields, so *any* object
 /// with none of `left_operand`/`operator`/`right_operand`/`odrl:and`/
-/// `odrl:or`/`odrl:xone` present — a typo'd key, a missing `odrl:`
-/// prefix, `{}` — silently deserialized into an inert, always-`false`
+/// `odrl:or`/`odrl:xone`/`odrl:andSequence` present — a typo'd key, a
+/// missing `odrl:` prefix, `{}` — silently deserialized into an inert, always-`false`
 /// atomic constraint instead of failing to parse. Before this type's
 /// nested fields existed at all, that same malformed input was a hard
 /// parse error (`left_operand`/`operator`/`right_operand` were all
@@ -319,6 +334,19 @@ pub struct Constraint {
     /// See `xone_is_satisfied_by_exactly_one_matching_child_not_zero_and_not_two_or_more`.
     #[serde(rename = "odrl:xone", skip_serializing_if = "Option::is_none")]
     pub xone: Option<Vec<Constraint>>,
+    /// `odrl:andSequence`: per the W3C ODRL 2.2 Vocabulary, "satisfied when
+    /// each of the Constraints are satisfied in the order specified." This
+    /// engine has no notion of "order" to check — `evaluate` reads one
+    /// instantaneous snapshot of `claims`, with no execution trace of when
+    /// any child became satisfied — so the order clause is unobservable
+    /// here and this field evaluates with the exact same *every child must
+    /// be satisfied* `.all()` semantics as `and` above, reusing its code
+    /// path rather than reimplementing it. See this struct's own doc
+    /// comment above for why that narrowing is honest rather than silently
+    /// assumed, and `Constraint::evaluate`'s own doc comment for the
+    /// precedence this field takes relative to `xone`/`or`/`and`.
+    #[serde(rename = "odrl:andSequence", skip_serializing_if = "Option::is_none")]
+    pub and_sequence: Option<Vec<Constraint>>,
 }
 
 /// The wire shape `Constraint::deserialize` actually parses into first —
@@ -339,6 +367,8 @@ struct RawConstraint {
     or: Option<Vec<Constraint>>,
     #[serde(rename = "odrl:xone", default)]
     xone: Option<Vec<Constraint>>,
+    #[serde(rename = "odrl:andSequence", default)]
+    and_sequence: Option<Vec<Constraint>>,
 }
 
 impl<'de> Deserialize<'de> for Constraint {
@@ -347,11 +377,12 @@ impl<'de> Deserialize<'de> for Constraint {
         D: serde::Deserializer<'de>,
     {
         let raw = RawConstraint::deserialize(deserializer)?;
-        let is_logical = raw.and.is_some() || raw.or.is_some() || raw.xone.is_some();
+        let is_logical =
+            raw.and.is_some() || raw.or.is_some() || raw.xone.is_some() || raw.and_sequence.is_some();
         if is_logical {
             // Atomic fields are never consulted once a logical field is
-            // `Some` (the fixed xone > or > and precedence) — default
-            // them rather than requiring a caller to write out
+            // `Some` (the fixed xone > or > and > andSequence precedence) —
+            // default them rather than requiring a caller to write out
             // `"left_operand": ""` on every logical object.
             return Ok(Constraint {
                 left_operand: raw.left_operand.unwrap_or_default(),
@@ -360,6 +391,7 @@ impl<'de> Deserialize<'de> for Constraint {
                 and: raw.and,
                 or: raw.or,
                 xone: raw.xone,
+                and_sequence: raw.and_sequence,
             });
         }
         // No logical field present: this must be a complete atomic
@@ -376,6 +408,7 @@ impl<'de> Deserialize<'de> for Constraint {
             and: None,
             or: None,
             xone: None,
+            and_sequence: None,
         })
     }
 }
@@ -397,6 +430,7 @@ impl Constraint {
             and: None,
             or: None,
             xone: None,
+            and_sequence: None,
         }
     }
 
@@ -417,15 +451,23 @@ impl Constraint {
         Self { xone: Some(children), ..Self::new("", Operator::default(), "") }
     }
 
-    /// `true` when this is one of the three logical variants (`and`/`or`/
-    /// `xone` is `Some`) rather than the flat atomic case.
+    /// Builds an `odrl:andSequence` logical constraint over `children` —
+    /// evaluated with `and`'s own `.all()` semantics; see this struct's
+    /// `and_sequence` field doc comment for why the spec's "in the order
+    /// specified" clause is a no-op in this engine.
+    pub fn and_sequence(children: Vec<Constraint>) -> Self {
+        Self { and_sequence: Some(children), ..Self::new("", Operator::default(), "") }
+    }
+
+    /// `true` when this is one of the four logical variants (`and`/`or`/
+    /// `xone`/`and_sequence` is `Some`) rather than the flat atomic case.
     pub fn is_logical(&self) -> bool {
-        self.and.is_some() || self.or.is_some() || self.xone.is_some()
+        self.and.is_some() || self.or.is_some() || self.xone.is_some() || self.and_sequence.is_some()
     }
 
     /// Every claim-map key (`left_operand`) this constraint could actually
     /// test, sorted and deduplicated — recursing into `odrl:and`/`odrl:or`/
-    /// `odrl:xone` children at any depth. See
+    /// `odrl:xone`/`odrl:andSequence` children at any depth. See
     /// `crate::decision::referenced_left_operands` for what this answers
     /// and why, at the level a host actually asks it.
     ///
@@ -433,8 +475,8 @@ impl Constraint {
     /// test in this module:
     ///
     /// - **A logical node contributes nothing of its own.** A
-    ///   `Constraint::and`/`or`/`xone` value (or a `{"odrl:and": [...]}`
-    ///   object) carries a *defaulted* `left_operand` of `""` that
+    ///   `Constraint::and`/`or`/`xone`/`and_sequence` value (or a
+    ///   `{"odrl:and": [...]}` object) carries a *defaulted* `left_operand` of `""` that
     ///   `evaluate` never reads — this type's own doc comment calls that
     ///   default inert, and it has to stay inert here too. Collecting it
     ///   would report an empty-string claim key that no claims map can
@@ -479,7 +521,7 @@ impl Constraint {
             return;
         }
         if self.is_logical() {
-            for children in [&self.xone, &self.or, &self.and].into_iter().flatten() {
+            for children in [&self.xone, &self.or, &self.and, &self.and_sequence].into_iter().flatten() {
                 for child in children {
                     child.collect_left_operands(depth + 1, out);
                 }
@@ -491,22 +533,23 @@ impl Constraint {
 
     /// Evaluates this constraint against `claims`.
     ///
-    /// For the atomic case (`and`/`or`/`xone` all `None`): a `left_operand`
-    /// absent from `claims` is a **miss, not an error** (Section 4.2) —
-    /// this holds uniformly across every operator here, `neq` included: an
-    /// absent claim does not satisfy `neq` merely because it fails to
-    /// satisfy `eq`. The claims-map lookup, not the operator's own logic,
-    /// decides the absent-key case for all of them *except* `IsNoneOf`,
-    /// whose own doc comment explains why an absent key satisfies it
-    /// instead — see the early return below.
+    /// For the atomic case (`and`/`or`/`xone`/`and_sequence` all `None`): a
+    /// `left_operand` absent from `claims` is a **miss, not an error**
+    /// (Section 4.2) — this holds uniformly across every operator here,
+    /// `neq` included: an absent claim does not satisfy `neq` merely
+    /// because it fails to satisfy `eq`. The claims-map lookup, not the
+    /// operator's own logic, decides the absent-key case for all of them
+    /// *except* `IsNoneOf`, whose own doc comment explains why an absent
+    /// key satisfies it instead — see the early return below.
     ///
-    /// For a logical constraint, recurses into `and`/`or`/`xone`'s own
-    /// children (see each field's own doc comment above for its exact
-    /// semantics), at the fixed `xone` > `or` > `and` precedence this
-    /// type's own doc comment names, and treats a node nested deeper than
-    /// `MAX_CONSTRAINT_DEPTH` as a non-match rather than recursing past
-    /// it — see that constant's own doc comment for why, and its exact
-    /// boundary behavior.
+    /// For a logical constraint, recurses into `and`/`or`/`xone`/
+    /// `and_sequence`'s own children (see each field's own doc comment
+    /// above for its exact semantics — `and_sequence` runs `and`'s own
+    /// `.all()` test), at the fixed `xone` > `or` > `and` > `and_sequence`
+    /// precedence this type's own doc comment names, and treats a node
+    /// nested deeper than `MAX_CONSTRAINT_DEPTH` as a non-match rather than
+    /// recursing past it — see that constant's own doc comment for why,
+    /// and its exact boundary behavior.
     pub fn evaluate(&self, claims: &Claims) -> bool {
         self.evaluate_bounded(claims, 0)
     }
@@ -522,6 +565,12 @@ impl Constraint {
             return children.iter().any(|c| c.evaluate_bounded(claims, depth + 1));
         }
         if let Some(children) = &self.and {
+            return children.iter().all(|c| c.evaluate_bounded(claims, depth + 1));
+        }
+        if let Some(children) = &self.and_sequence {
+            // Same `.all()` test as `odrl:and` above -- see the
+            // `and_sequence` field's own doc comment for why the spec's
+            // "in the order specified" clause has no separate effect here.
             return children.iter().all(|c| c.evaluate_bounded(claims, depth + 1));
         }
 
@@ -1057,7 +1106,7 @@ mod tests {
         // A typo'd/mis-prefixed logical key must not be silently accepted
         // as "no logical field present, therefore atomic" either -- it's
         // simply an unknown key, and with no atomic fields present the
-        // object still has none of the six known fields.
+        // object still has none of the seven known fields.
         let typo = r#"{"and": [{"left_operand": "sub", "operator": "eq", "right_operand": "alice"}]}"#;
         assert!(serde_json::from_str::<Constraint>(typo).is_err());
     }
@@ -1083,14 +1132,15 @@ mod tests {
     }
 
     #[test]
-    fn setting_more_than_one_logical_field_at_once_resolves_by_the_documented_xone_or_and_precedence() {
+    fn setting_more_than_one_logical_field_at_once_resolves_by_the_documented_precedence() {
         // This type's own doc comment names hand-written JSON setting more
-        // than one of `and`/`or`/`xone` simultaneously as the one
-        // reachable way to have more than one shape at once, and says the
-        // fixed `xone > or > and` precedence is what makes that
-        // deterministic. An adversarial review found this claim untested
-        // — this proves it against all three pairings, each rigged so the
-        // two candidate branches would disagree if the wrong one won.
+        // than one of `and`/`or`/`xone`/`and_sequence` simultaneously as the
+        // one reachable way to have more than one shape at once, and says
+        // the fixed `xone > or > and > and_sequence` precedence is what
+        // makes that deterministic. An adversarial review found this claim
+        // untested for the original three — this proves it against every
+        // adjacent pairing, each rigged so the two candidate branches would
+        // disagree if the wrong one won.
         let and_true_or_false = r#"{
             "odrl:and": [{"left_operand": "sub", "operator": "eq", "right_operand": "alice"}],
             "odrl:or": [{"left_operand": "sub", "operator": "eq", "right_operand": "nobody"}]
@@ -1115,6 +1165,18 @@ mod tests {
             !constraint.evaluate(&claims),
             "xone must win over or: the rigged `xone` branch has two matching children (not \
              exactly one), so a true result here would mean `or` was consulted instead"
+        );
+
+        let and_true_and_sequence_false = r#"{
+            "odrl:and": [{"left_operand": "sub", "operator": "eq", "right_operand": "alice"}],
+            "odrl:andSequence": [{"left_operand": "sub", "operator": "eq", "right_operand": "nobody"}]
+        }"#;
+        let constraint: Constraint = serde_json::from_str(and_true_and_sequence_false).unwrap();
+        assert!(
+            constraint.evaluate(&claims),
+            "and must win over and_sequence: the rigged `odrl:andSequence` branch (matching \
+             nobody) does not match, so a false result here would mean `and_sequence` was \
+             consulted instead of `and`"
         );
     }
 
@@ -1158,6 +1220,79 @@ mod tests {
         assert!(
             !constraint.evaluate(&only_one_matches),
             "only one of two children matches -> odrl:and is not satisfied"
+        );
+    }
+
+    #[test]
+    fn nested_json_andsequence_deserializes_and_evaluates_with_ands_all_semantics() {
+        // odrl:andSequence's spec text adds "in the order specified" on top
+        // of odrl:and's own "every child satisfied" -- this engine reads
+        // one instantaneous claims snapshot with no notion of "order", so
+        // the only observable behavior is the same `.all()` test `and`
+        // already has. This is the exact failing case this item exists to
+        // fix: before it, `odrl:andSequence` was an unrecognized key and
+        // this whole object would parse as atomic-with-no-fields, a hard
+        // parse error -- not a silent no-op like the co-occurring case
+        // below.
+        let json = r#"{"odrl:andSequence": [
+            {"left_operand": "sub", "operator": "eq", "right_operand": "alice"},
+            {"left_operand": "scope", "operator": "isAnyOf", "right_operand": "read,write"}
+        ]}"#;
+        let constraint: Constraint = serde_json::from_str(json).unwrap();
+        assert!(constraint.is_logical());
+        assert_eq!(constraint.and_sequence.as_ref().map(Vec::len), Some(2));
+
+        let matching = claims_with(&[
+            ("sub", ClaimValue::Single("alice".into())),
+            ("scope", ClaimValue::Single("write".into())),
+        ]);
+        assert!(constraint.evaluate(&matching), "both children match -> odrl:andSequence is satisfied");
+
+        let only_one_matches = claims_with(&[("sub", ClaimValue::Single("alice".into()))]);
+        assert!(
+            !constraint.evaluate(&only_one_matches),
+            "only one of two children matches -> odrl:andSequence is not satisfied, exactly as \
+             odrl:and would not be"
+        );
+    }
+
+    #[test]
+    fn an_odrl_andsequence_present_alongside_a_full_atomic_constraint_is_honoured_not_dropped() {
+        // The exact distinguishing example this backlog item names: before
+        // the fix, a constraint object carrying `odrl:andSequence` *and* a
+        // complete atomic `left_operand`/`operator`/`right_operand` triple
+        // silently let the atomic fields decide, with no diagnostic that
+        // the nested sequence was ever seen -- because `odrl:andSequence`
+        // was not a recognized key at all, so `is_logical` never saw it.
+        let json = r#"{
+            "left_operand": "nationality",
+            "operator": "eq",
+            "right_operand": "US",
+            "odrl:andSequence": [
+                {"left_operand": "nationality", "operator": "eq", "right_operand": "DE"},
+                {"left_operand": "scope", "operator": "eq", "right_operand": "read"}
+            ]
+        }"#;
+        let constraint: Constraint = serde_json::from_str(json).unwrap();
+        assert!(constraint.is_logical(), "a co-occurring odrl:andSequence must win over the atomic fields");
+
+        // Claims satisfy the nested odrl:andSequence (DE nationality, read
+        // scope) but not the atomic fallback (US nationality) -- so a
+        // `true` result here can only come from the sequence actually
+        // being consulted.
+        let claims = claims_with(&[
+            ("nationality", ClaimValue::Single("DE".into())),
+            ("scope", ClaimValue::Single("read".into())),
+        ]);
+        assert!(
+            constraint.evaluate(&claims),
+            "odrl:andSequence's own children must decide, not the atomic fields beside them"
+        );
+
+        let matches_only_the_dropped_atomic_fields = claims_with(&[("nationality", ClaimValue::Single("US".into()))]);
+        assert!(
+            !constraint.evaluate(&matches_only_the_dropped_atomic_fields),
+            "the atomic fields must never be consulted once odrl:andSequence is present"
         );
     }
 
@@ -1357,21 +1492,27 @@ mod tests {
     #[test]
     fn a_constraint_setting_several_logical_fields_at_once_reports_all_of_their_operands() {
         // `evaluate` resolves the one hand-written-JSON shape that sets
-        // more than one logical field by a fixed xone > or > and
-        // precedence (see
-        // setting_more_than_one_logical_field_at_once_resolves_by_the_documented_xone_or_and_precedence).
+        // more than one logical field by a fixed xone > or > and >
+        // and_sequence precedence (see
+        // setting_more_than_one_logical_field_at_once_resolves_by_the_documented_precedence).
         // This walk deliberately does NOT mirror that precedence: it
         // reports the superset, because gathering an unused claim is free
         // and missing a used one silently changes a decision.
         let json = r#"{
             "odrl:and": [{"left_operand": "from-and", "operator": "eq", "right_operand": "x"}],
             "odrl:or": [{"left_operand": "from-or", "operator": "eq", "right_operand": "x"}],
-            "odrl:xone": [{"left_operand": "from-xone", "operator": "eq", "right_operand": "x"}]
+            "odrl:xone": [{"left_operand": "from-xone", "operator": "eq", "right_operand": "x"}],
+            "odrl:andSequence": [{"left_operand": "from-and-sequence", "operator": "eq", "right_operand": "x"}]
         }"#;
         let constraint: Constraint = serde_json::from_str(json).unwrap();
         assert_eq!(
             constraint.referenced_left_operands(),
-            vec!["from-and".to_string(), "from-or".to_string(), "from-xone".to_string()],
+            vec![
+                "from-and".to_string(),
+                "from-and-sequence".to_string(),
+                "from-or".to_string(),
+                "from-xone".to_string()
+            ],
             "every logical field that is Some is walked, not just the one evaluate's precedence \
              would pick"
         );
@@ -1441,5 +1582,40 @@ mod tests {
             "a structure nested exactly at MAX_CONSTRAINT_DEPTH (not past it) must still \
              evaluate normally"
         );
+    }
+
+    #[test]
+    fn and_sequence_chains_are_bounded_by_max_constraint_depth_exactly_like_and() {
+        // The newest logical variant takes the same recursive path through
+        // `evaluate_bounded` and `collect_left_operands` as `and`, `or` and
+        // `xone` already do -- proven directly here, on its own chain,
+        // rather than only inferred from the shared `and`/`xone` tests
+        // above, since `and_sequence` is a genuinely separate branch that
+        // could in principle have skipped incrementing `depth`.
+        let leaf = Constraint::new("absent-claim", Operator::IsNoneOf, "anything");
+        let mut too_deep = leaf.clone();
+        for _ in 0..(MAX_CONSTRAINT_DEPTH + 10) {
+            too_deep = Constraint::and_sequence(vec![too_deep]);
+        }
+        let claims = claims_with(&[]);
+        assert!(
+            !too_deep.evaluate(&claims),
+            "an odrl:andSequence chain nested past MAX_CONSTRAINT_DEPTH must be a deterministic \
+             non-match too, not merely odrl:and's own chain"
+        );
+        assert!(
+            too_deep.referenced_left_operands().is_empty(),
+            "a leaf nested past the bound through odrl:andSequence must not be reported either"
+        );
+
+        let mut at_bound = leaf;
+        for _ in 0..MAX_CONSTRAINT_DEPTH {
+            at_bound = Constraint::and_sequence(vec![at_bound]);
+        }
+        assert!(
+            at_bound.evaluate(&claims),
+            "an odrl:andSequence chain nested exactly at the bound must still evaluate normally"
+        );
+        assert_eq!(at_bound.referenced_left_operands(), vec!["absent-claim".to_string()]);
     }
 }

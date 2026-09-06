@@ -63,9 +63,13 @@ as someone else's `includedIn` target. This closes the general
 action-implication gap earlier revisions of this README described as
 unsupported; what remains is honestly narrower than full RDFS-style
 subsumption reasoning. `engine::Constraint` now natively evaluates nested
-`odrl:and`/`odrl:or`/`odrl:xone` logical groupings, `odrl:xone` (exactly
-one child, not "one or more") included — see "Native logical constraints"
-below for the JSON shape and semantics. `odrl:refinement` — a Constraint
+`odrl:and`/`odrl:or`/`odrl:xone`/`odrl:andSequence` logical groupings,
+`odrl:xone` (exactly one child, not "one or more") included —
+`odrl:andSequence` reuses `odrl:and`'s own `.all()` evaluation verbatim,
+since this engine reads one instantaneous claims snapshot with no
+execution-order state to check the Vocabulary's own "in the order
+specified" clause against — see "Native logical constraints" below for
+the JSON shape and semantics. `odrl:refinement` — a Constraint
 narrowing the *Action* itself rather than the Rule ("print, at most 2
 copies") — is likewise now evaluated natively, but **only on an Action**:
 the Information Model's Party and Asset refinements are not implemented,
@@ -395,18 +399,18 @@ packed_ptr_len`, plus the toolchain's default `memory` export — see
 skips the ABI entirely and calls `engine::wire::evaluate_request`
 directly.
 
-## Native logical constraints (`odrl:and`/`odrl:or`/`odrl:xone`)
+## Native logical constraints (`odrl:and`/`odrl:or`/`odrl:xone`/`odrl:andSequence`)
 
 `engine::Constraint` — the element type of a `Rule`'s `constraints` list
 above — can now, on top of its original flat `left_operand`/`operator`/
-`right_operand` shape, itself be a nested `odrl:and`/`odrl:or`/`odrl:xone`
-grouping of further `Constraint`s (W3C ODRL 2.2's `odrl:LogicalConstraint`).
-This is purely additive: `Constraint` keeps its original three fields at
-their original JSON keys, and gains three new, optional fields —
-`and`/`or`/`xone` — each serialized under its own `odrl:`-namespaced key.
-A flat constraint (every existing fixture in this workspace) carries none
-of them and round-trips exactly as before; see
-`engine/src/constraint.rs`'s own doc comment on `Constraint` for the
+`right_operand` shape, itself be a nested `odrl:and`/`odrl:or`/`odrl:xone`/
+`odrl:andSequence` grouping of further `Constraint`s (W3C ODRL 2.2's
+`odrl:LogicalConstraint`). This is purely additive: `Constraint` keeps its
+original three fields at their original JSON keys, and gains four new,
+optional fields — `and`/`or`/`xone`/`and_sequence` — each serialized under
+its own `odrl:`-namespaced key. A flat constraint (every existing fixture
+in this workspace) carries none of them and round-trips exactly as before;
+see `engine/src/constraint.rs`'s own doc comment on `Constraint` for the
 full design rationale, including the alternatives tried and rejected
 before this one.
 
@@ -421,10 +425,20 @@ let `#[serde(default)]` on the atomic fields silently turn such a
 malformed prohibition constraint into an inert, always-`false` atomic
 constraint instead, which is a fail-*open* regression for exactly the
 rule kind where that direction of mistake matters most. Only a genuinely
-logical object (at least one of `and`/`or`/`xone` present) may omit the
-atomic fields. See `engine/src/constraint.rs`'s
+logical object (at least one of `and`/`or`/`xone`/`and_sequence` present)
+may omit the atomic fields. See `engine/src/constraint.rs`'s
 `a_constraint_object_missing_every_known_field_is_a_parse_error_not_an_inert_false`
-test.
+test. `odrl:andSequence` was added after the original three, closing a
+gap the vocabulary gap analysis and `coverage-probes`' own
+`lc-andsequence-ignored` probe both named: before it, `odrl:andSequence`
+was simply an unrecognized key — indistinguishable, wire-side, from a
+typo — so a constraint carrying it *alongside* a complete atomic
+`left_operand`/`operator`/`right_operand` triple silently let the atomic
+fields decide instead, with no diagnostic that the sequence was ever seen.
+See `an_odrl_andsequence_present_alongside_a_full_atomic_constraint_is_honoured_not_dropped`
+and the wire-level
+`a_permission_whose_constraint_carries_odrl_and_sequence_alongside_its_atomic_fields_is_honoured_at_the_wire_level`
+test for that exact regression case, now fixed.
 
 A worked example — a permission whose one constraint is an `odrl:and` of
 two flat conditions:
@@ -443,8 +457,11 @@ two flat conditions:
 }
 ```
 
-`odrl:and`/`odrl:or`/`odrl:xone` each take an array of nested `Constraint`
-values (flat or themselves logical, nested arbitrarily) and combine them:
+`odrl:and`/`odrl:or`/`odrl:xone`/`odrl:andSequence` each take an array of
+nested `Constraint` values (flat or themselves logical, nested arbitrarily)
+and combine them, at a fixed `xone` > `or` > `and` > `and_sequence`
+precedence for the one case a hand-written object can set more than one of
+them at once:
 
 - **`odrl:and`** — satisfied when *every* child is satisfied (an empty
   list is vacuously satisfied, same as `Rule`'s own empty `constraints`).
@@ -459,6 +476,21 @@ values (flat or themselves logical, nested arbitrarily) and combine them:
   `odrl:and` combinations can express "one or more of these", never "this
   one, and not also that other one." `Constraint::evaluate`'s `Xone`
   handling checks the actual count, not a disjunction over combinations.
+- **`odrl:andSequence`** — per the W3C ODRL 2.2 Vocabulary, "satisfied when
+  each of the Constraints are satisfied in the order specified." This
+  engine evaluates a `Constraint` tree against one instantaneous snapshot
+  of `claims` — there is no execution trace of *when* any child became
+  satisfied, so "in the order specified" has no separate effect to check
+  here, and `and_sequence` reuses `and`'s own `.all()` test verbatim
+  (`Constraint::evaluate_bounded`'s `and_sequence` branch, and
+  `describe_constraint`'s `reason`-trace rendering, both literally repeat
+  the `and` branch's own logic). **This is a narrowing, not silently
+  assumed away**:
+  a host that genuinely needs to enforce *temporal* ordering between
+  constraint satisfactions gets no such enforcement from this engine, only
+  ordinary conjunction over one snapshot. See `Constraint`'s own
+  `and_sequence` field doc comment, and `coverage-probes`' `logical.and-sequence`
+  row (status `Partial`, for exactly this caveat).
 
 Evaluation recurses into nested children up to `engine::MAX_CONSTRAINT_DEPTH`
 (64) levels deep; a constraint nested past that bound is treated as a
@@ -487,7 +519,17 @@ suite's 68 passing cases is translated; it still declines `odrl:xone`
 fixtures with a cited, honest reason rather than silently mistranslating
 them, since DNF cannot express "exactly one." Migrating that adapter onto
 this native support instead is a deliberate, separate later decision, not
-made by this change.
+made by this change. `odrl:andSequence` is likewise not mapped by either
+host-side adapter in this workspace: no vendored `ODRL-Test-Suite` fixture
+uses it (`to_dnf` has nothing to translate), and `dsp-odrl-adapter`'s own
+`ingest.rs::constraint_from` — a separate, JSON-LD-shaped mapping from a
+real DSP contract offer, not this wire contract — still recognizes only
+`xone`/`or`/`and` and would reject a real document's `odrl:andSequence`
+constraint as `ConstraintWithoutLeftOperand` (fail-closed, not silently
+wrong, but still a real ingestion gap for that one adapter). Engine-level
+support and adapter-level ingestion are separate decisions, the same
+posture `odrl:inheritFrom` and `odrl:duty`/`odrl:consequence`/`odrl:remedy`
+already have in this README.
 
 ## Action refinement (`odrl:refinement`)
 
@@ -529,8 +571,8 @@ gap rather than a missing nicety.
   the whole action requirement; `covers_action` remains only the bare
   action-string half of it.
 - **It reuses `Constraint` verbatim**, so a refinement can itself be a
-  nested `odrl:and`/`odrl:or`/`odrl:xone` group ("Native logical
-  constraints" above) — the ODRL shape for an action narrowed on several
+  nested `odrl:and`/`odrl:or`/`odrl:xone`/`odrl:andSequence` group ("Native
+  logical constraints" above) — the ODRL shape for an action narrowed on several
   axes at once — and `Constraint`'s hand-written, strict `Deserialize`
   applies here too: `"odrl:refinement": {}`, or one missing a
   `right_operand`, is a hard parse error rather than something inert.
@@ -1401,7 +1443,7 @@ and deduplicated** (the same stable ordering convention
 claim keys has no meaningful intrinsic order, and a stable one is
 diffable and safe to print). The walk covers permissions, prohibitions
 and obligations alike, and recurses into nested `odrl:and`/`odrl:or`/
-`odrl:xone` groupings at any depth — a walk reading only each rule's
+`odrl:xone`/`odrl:andSequence` groupings at any depth — a walk reading only each rule's
 top-level constraints would report *nothing at all* for a policy whose
 conditions live inside a logical grouping, which is precisely the richest
 constraint shape this engine supports. The `Request` form reads only
@@ -1424,10 +1466,10 @@ Three specifics worth knowing, each with its own test in
   claim key would send a host to gather a claim that provably cannot
   change any decision.
 - Where evaluation resolves an object setting several of
-  `odrl:and`/`odrl:or`/`odrl:xone` at once by a fixed `xone > or > and`
-  precedence, this walk reports the **superset** of all of them:
-  gathering a claim that turns out unused costs nothing, missing a used
-  one silently changes a decision.
+  `odrl:and`/`odrl:or`/`odrl:xone`/`odrl:andSequence` at once by a fixed
+  `xone > or > and > andSequence` precedence, this walk reports the
+  **superset** of all of them: gathering a claim that turns out unused
+  costs nothing, missing a used one silently changes a decision.
 
 This is a **reachability** answer, not a requirement. It says which keys
 could be consulted, not which must be present for any particular outcome:
@@ -1655,11 +1697,12 @@ property-key spelling — and both ingest to one identical `WirePolicy`.
 **Scope boundary of this first cut**, stated in full in
 [`dsp-odrl-adapter/README.md`](dsp-odrl-adapter/README.md): it produces a
 `WirePolicy` (rules, per-rule and pushed-down policy-level `odrl:target`,
-constraints including nested `odrl:and`/`odrl:or`/`odrl:xone`, and an
-action's `odrl:refinement`), and nothing else — no per-rule `odrl:duty`,
-`odrl:consequence` or `odrl:remedy` (all three modelled by `engine` now,
-none of them ingested here; a rule carrying a duty is translated without
-it and the run says so in a warning), no negotiation, no
+constraints including nested `odrl:and`/`odrl:or`/`odrl:xone` (but **not**
+`odrl:andSequence`, added to `engine` after this adapter's own
+`constraint_from` was written — a real document's `odrl:andSequence`
+constraint is rejected rather than silently mistranslated), a permission's
+`odrl:duty`, a prohibition's `odrl:remedy` and a duty's `odrl:consequence`,
+and an action's `odrl:refinement`), and nothing else — no negotiation, no
 signature or credential verification, no collection-membership resolution,
 no evaluation. `@base`/relative-IRI resolution, property-scoped contexts,
 `@container`/`@list`, language maps, `@reverse`, `@nest`, `@graph` and RDF
@@ -1790,7 +1833,7 @@ explicit about the boundary: the Turtle→request translation and the
 `report:*` ground truth were computed natively and travel in the
 artifact; what runs in the browser is the engine and its ABI. A fourth
 page, **ODRL 2.2 Coverage**, does the same thing for this study's
-vocabulary claims: it executes all 131 probes of
+vocabulary claims: it executes all 132 probes of
 `compliance/reports/latest-coverage.json` against that same
 `engine.wasm`, live, and derives a per-row verdict that can come back
 *Contradicted*. The fifth, **Release History**, is the one page here that

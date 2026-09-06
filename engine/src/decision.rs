@@ -119,9 +119,10 @@ pub struct Rule {
     /// Information Model (§2.5, `odrl:refinement`): a `Constraint` that
     /// narrows the action itself, so the rule is about the refined action
     /// and no other. Reuses `Constraint` verbatim — including its nested
-    /// `odrl:and`/`odrl:or`/`odrl:xone` groupings — so an action narrowed
-    /// on several axes at once is one logical refinement, exactly as
-    /// ODRL's own `odrl:LogicalConstraint` allows in this position.
+    /// `odrl:and`/`odrl:or`/`odrl:xone`/`odrl:andSequence` groupings — so
+    /// an action narrowed on several axes at once is one logical
+    /// refinement, exactly as ODRL's own `odrl:LogicalConstraint` allows in
+    /// this position.
     ///
     /// **Scope: Action only, deliberately.** The ODRL Information Model
     /// also permits `odrl:refinement` on a Party and on an Asset (a
@@ -155,9 +156,9 @@ pub struct Rule {
     /// Wire-additive: `#[serde(default)]` plus
     /// `skip_serializing_if = "Option::is_none"`, at the `odrl:`-namespaced
     /// key `odrl:refinement` (the same convention `Constraint`'s own
-    /// `odrl:and`/`odrl:or`/`odrl:xone` fields already set for ODRL
-    /// vocabulary added after this wire contract's original bare-named
-    /// `action`/`constraints`). A rule that carries no refinement — every
+    /// `odrl:and`/`odrl:or`/`odrl:xone`/`odrl:andSequence` fields already
+    /// set for ODRL vocabulary added after this wire contract's original
+    /// bare-named `action`/`constraints`). A rule that carries no refinement — every
     /// fixture in the vendored compliance corpus, and everything
     /// `Rule::new` builds — is byte-for-byte what it was before this
     /// field existed.
@@ -620,7 +621,7 @@ impl Policy {
     /// Every claim-map key (`Constraint::left_operand`) this policy's
     /// rules could actually test — across permissions, prohibitions **and**
     /// obligations alike, recursing into nested `odrl:and`/`odrl:or`/
-    /// `odrl:xone` groupings at any depth. Sorted and deduplicated; see
+    /// `odrl:xone`/`odrl:andSequence` groupings at any depth. Sorted and deduplicated; see
     /// `Constraint::referenced_left_operands` for the walk's exact rules
     /// (logical nodes contribute nothing of their own, the
     /// `MAX_CONSTRAINT_DEPTH` bound applies here too) and for why sorted.

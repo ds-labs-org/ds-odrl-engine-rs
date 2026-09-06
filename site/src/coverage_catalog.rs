@@ -788,11 +788,13 @@ mod tests {
     assert_eq!(file.categories.len(), 10);
     assert_eq!(
       file.probes.len(),
-      131,
-      "grew by 2 more (129 -> 131) for odrl:conflict cross-policy voiding when a parent and child \
-       joined by odrl:inheritFrom declare differing conflict values over a genuine collision \
-       (inheritfrom-conflict-divergence-*), on top of the 127 -> 129 growth when odrl:inheritFrom \
-       itself moved from documented-only to two real hit/control pairs \
+      132,
+      "grew by 1 more (131 -> 132) when odrl:andSequence moved from a single dropped-key negative \
+       probe to a real hit/miss pair (lc-andsequence-honored, lc-andsequence-miss) alongside the \
+       pre-existing odrl:and control, on top of the 129 -> 131 growth for odrl:conflict cross-policy \
+       voiding when a parent and child joined by odrl:inheritFrom declare differing conflict values \
+       over a genuine collision (inheritfrom-conflict-divergence-*), the 127 -> 129 growth when \
+       odrl:inheritFrom itself moved from documented-only to two real hit/control pairs \
        (inheritfrom-safe-direction-*, inheritfrom-fail-open-*), and the 125 -> 127 growth \
        odrl:AssetCollection membership (odrl:partOf) already added"
     );
@@ -921,7 +923,7 @@ mod tests {
     let sample = [
       "act-base-exact",                    // Implemented, positive
       "act-includedin-undeclared-gap",     // Partial, negative
-      "lc-andsequence-ignored",            // NotImplemented, negative
+      "lc-andsequence-miss",               // Partial, negative
       "op-profile-operator-unparseable",   // OutOfScope, negative
       "duty-per-permission-advisory",      // Partial, duties asserted with a source
       "asset-per-rule-target-hit",         // Partial, positive, per-rule odrl:target
@@ -977,7 +979,7 @@ mod tests {
     };
 
     for (probe_id, key) in [
-      ("lc-andsequence-ignored", "odrl:andSequence"),
+      ("lc-andsequence-miss", "odrl:andSequence"),
       ("conflict-perm-allows", "odrl:conflict"),
       ("duty-per-permission-advisory", "odrl:duty"),
       ("asset-per-rule-target-hit", "odrl:target"),

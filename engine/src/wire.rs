@@ -338,19 +338,26 @@ fn operator_wire_name(operator: Operator) -> &'static str {
 }
 
 /// Renders one `Constraint` — atomic or a nested `odrl:and`/`odrl:or`/
-/// `odrl:xone` group — into the same short human-readable form
-/// `describe_rule`'s `reason` trace already used for the flat case, now
-/// recursing into nested children. Not exhaustive (a deep tree reads as
-/// deeply parenthesized, not specially summarized), but never garbled or
-/// panicking: recursion is bounded by the same `MAX_CONSTRAINT_DEPTH`
-/// `Constraint::evaluate` itself is bounded by, past which this prints a
-/// fixed placeholder instead of continuing to recurse — see that
-/// constant's own doc comment in `constraint.rs`.
+/// `odrl:xone`/`odrl:andSequence` group — into the same short
+/// human-readable form `describe_rule`'s `reason` trace already used for
+/// the flat case, now recursing into nested children. Not exhaustive (a
+/// deep tree reads as deeply parenthesized, not specially summarized), but
+/// never garbled or panicking: recursion is bounded by the same
+/// `MAX_CONSTRAINT_DEPTH` `Constraint::evaluate` itself is bounded by, past
+/// which this prints a fixed placeholder instead of continuing to recurse
+/// — see that constant's own doc comment in `constraint.rs`.
+///
+/// `odrl:andSequence` renders with the same `" && "` infix as `odrl:and` —
+/// deliberately, not an oversight: this engine's `and_sequence` evaluation
+/// really is `and`'s own `.all()` test verbatim (see `Constraint`'s
+/// `and_sequence` field doc comment), so a trace that told them apart would
+/// claim a distinction this engine does not actually make.
 fn describe_constraint(constraint: &Constraint, depth: usize) -> String {
     if depth > MAX_CONSTRAINT_DEPTH {
         return "<constraint nested past MAX_CONSTRAINT_DEPTH>".to_string();
     }
-    // Same xone > or > and > atomic precedence `Constraint::evaluate` uses.
+    // Same xone > or > and > and_sequence > atomic precedence
+    // `Constraint::evaluate` uses.
     if let Some(xone) = &constraint.xone {
         let joined = xone.iter().map(|c| describe_constraint(c, depth + 1)).collect::<Vec<_>>().join(", ");
         return format!("xone({joined})");
@@ -360,6 +367,9 @@ fn describe_constraint(constraint: &Constraint, depth: usize) -> String {
     }
     if let Some(and) = &constraint.and {
         return join_children(and, " && ", depth);
+    }
+    if let Some(and_sequence) = &constraint.and_sequence {
+        return join_children(and_sequence, " && ", depth);
     }
     format!("{} {} {}", constraint.left_operand, operator_wire_name(constraint.operator), constraint.right_operand)
 }
@@ -1678,6 +1688,75 @@ mod tests {
             response.reason,
             "prohibition[0] of policy 'policy-nested' matched: action 'use': \
              (nationality eq US && scope isAnyOf embargoed)"
+        );
+    }
+
+    #[test]
+    fn a_permission_whose_constraint_carries_odrl_and_sequence_alongside_its_atomic_fields_is_honoured_at_the_wire_level() {
+        // The exact distinguishing example this backlog item names, run
+        // through real JSON deserialization (not `Constraint`'s Rust
+        // constructors) end to end through `evaluate_request`: a permission
+        // on "use" whose one constraint carries a complete atomic
+        // left/operator/right triple (nationality eq US) *and* an
+        // `odrl:andSequence` naming a different pair of children (DE
+        // nationality, read scope). Before this item, `odrl:andSequence`
+        // was an unrecognized key and the atomic fields silently decided —
+        // exactly what coverage-probes' `lc-andsequence-ignored` probe
+        // already asserted as the documented gap. Claims satisfy the
+        // sequence, not the atomic fallback, so only a fix that actually
+        // consults `odrl:andSequence` produces Allow here.
+        let json = r#"{
+          "dataset_id": "urn:uuid:andsequence-example",
+          "action": "use",
+          "config": {
+            "@type": "odrl:Profile",
+            "@id": "https://example.org/profiles/default",
+            "odrl:action": [{"@id": "use"}],
+            "dutyMode": "advise"
+          },
+          "policies": [
+            {
+              "id": "policy-andsequence",
+              "kind": "Offer",
+              "assigner": "did:web:provider.example",
+              "assignee": null,
+              "permissions": [
+                {
+                  "action": "use",
+                  "constraints": [
+                    {
+                      "left_operand": "nationality",
+                      "operator": "eq",
+                      "right_operand": "US",
+                      "odrl:andSequence": [
+                        {"left_operand": "nationality", "operator": "eq", "right_operand": "DE"},
+                        {"left_operand": "scope", "operator": "eq", "right_operand": "read"}
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "prohibitions": [],
+              "obligations": []
+            }
+          ],
+          "claims": {
+            "nationality": "DE",
+            "scope": "read"
+          }
+        }"#;
+        let req: Request = serde_json::from_str(json).unwrap();
+        let response = evaluate_request(&req);
+        assert_eq!(
+            response.decision,
+            WireDecision::Allow,
+            "odrl:andSequence's own children (satisfied by these claims) must decide, not the \
+             co-occurring atomic fields (nationality eq US, which these claims do not satisfy)"
+        );
+        assert_eq!(
+            response.reason,
+            "permission[0] of policy 'policy-andsequence' matched: action 'use': \
+             (nationality eq DE && scope eq read)"
         );
     }
 

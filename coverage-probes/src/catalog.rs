@@ -1313,23 +1313,52 @@ fn logical_probes() -> Vec<Probe> {
         expect: allow_constrained("(nationality eq DE || scope eq admin)"),
     }));
 
-    // The strongest negative pair in the catalog: two requests one key
-    // name apart.
+    // Formerly the strongest negative pair in the catalog (odrl:andSequence
+    // was an unrecognized key and the atomic fields silently decided) --
+    // now that odrl:andSequence is recognized, honoured with the same
+    // `.all()` semantics as odrl:and, this exact shape is a positive/
+    // negative pair instead: the sequence's own children decide, one way
+    // when claims satisfy them and the other when they don't, with the
+    // co-occurring atomic fields never consulted either way.
     let andsequence_children = json!([
         {"left_operand": "nationality", "operator": "eq", "right_operand": "DE"},
         {"left_operand": "scope", "operator": "eq", "right_operand": "read"}
     ]);
 
     probes.push(build(Spec {
-        id: "lc-andsequence-ignored",
-        kind: NEGATIVE,
-        title: "odrl:andSequence is dropped; the constraint's own atomic fields decide",
-        asserts: "The engine's Constraint type has and/or/xone and nothing else. Read against \
-                  lc-and-control-honored, whose request differs from this one by the single key name \
-                  `odrl:and` vs `odrl:andSequence`: that one is honoured (Allow), this one is dropped and \
-                  the false atomic fields decide (Deny).",
-        falsified_by: "Allow -- which would mean odrl:andSequence is being evaluated",
+        id: "lc-andsequence-honored",
+        kind: POSITIVE,
+        title: "odrl:andSequence is honoured; a co-occurring atomic field is ignored",
+        asserts: "The exact distinguishing example this construct's backlog item names: a constraint \
+                  carries both a complete atomic left/operator/right triple (nationality eq US) and an \
+                  odrl:andSequence naming a different pair of children (DE nationality, read scope). \
+                  Claims satisfy the sequence, not the atomic fallback, and the reason renders the \
+                  sequence's own children. Read against lc-andsequence-miss, whose claims satisfy \
+                  neither and Denies, and against lc-and-control-honored, the byte-identical request \
+                  with the key renamed odrl:and, which this probe now matches exactly -- \
+                  odrl:andSequence reuses odrl:and's own evaluation code path verbatim.",
+        falsified_by: "Deny -- which would mean the atomic fields (or nothing) decided instead of \
+                       odrl:andSequence",
         request: one(c("nationality", Operator::Eq, "US"), de_read()),
+        patches: vec![Patch::set(
+            "/policies/0/permissions/0/constraints/0",
+            "odrl:andSequence",
+            andsequence_children.clone(),
+        )],
+        expect: allow_constrained("(nationality eq DE && scope eq read)"),
+    }));
+
+    probes.push(build(Spec {
+        id: "lc-andsequence-miss",
+        kind: NEGATIVE,
+        title: "odrl:andSequence's own children decide even when the co-occurring atomic field alone would grant",
+        asserts: "The same request shape as lc-andsequence-honored, claims changed so they satisfy the \
+                  co-occurring atomic fallback (nationality eq US) but neither child of the sequence \
+                  (nationality is not DE, scope is absent). If the atomic fields were being consulted \
+                  instead of -- or as a fallback from -- odrl:andSequence, this would wrongly Allow.",
+        falsified_by: "Allow -- which would mean the atomic fields are being consulted instead of \
+                       odrl:andSequence",
+        request: one(c("nationality", Operator::Eq, "US"), claims(&[("nationality", s("US"))])),
         patches: vec![Patch::set(
             "/policies/0/permissions/0/constraints/0",
             "odrl:andSequence",
@@ -1341,10 +1370,11 @@ fn logical_probes() -> Vec<Probe> {
     probes.push(build(Spec {
         id: "lc-and-control-honored",
         kind: POSITIVE,
-        title: "the byte-identical request with the key renamed odrl:and IS honoured",
-        asserts: "One key name apart from lc-andsequence-ignored. The nested children are evaluated, the \
-                  atomic fields beside them are ignored, and the reason renders the group.",
-        falsified_by: "Deny -- which would mean the pair isolates nothing",
+        title: "the byte-identical request with the key renamed odrl:and is honoured identically",
+        asserts: "Same request as lc-andsequence-honored, one key name apart (`odrl:and` instead of \
+                  `odrl:andSequence`). The two now match exactly -- see \
+                  and_sequence_evaluates_identically_to_the_and_control below.",
+        falsified_by: "A different decision or reason from lc-andsequence-honored's",
         request: one(c("nationality", Operator::Eq, "US"), de_read()),
         patches: vec![Patch::set("/policies/0/permissions/0/constraints/0", "odrl:and", andsequence_children)],
         expect: allow_constrained("(nationality eq DE && scope eq read)"),
@@ -1354,7 +1384,7 @@ fn logical_probes() -> Vec<Probe> {
         id: "lc-custom-logical-ignored",
         kind: NEGATIVE,
         title: "a profile-declared logical operand is dropped like any other unknown key",
-        asserts: "The config declares `ex:majorityOf` and the constraint uses it; the engine's three \
+        asserts: "The config declares `ex:majorityOf` and the constraint uses it; the engine's four \
                   logical fields are fixed, so the declaration changes nothing and the false atomic fields \
                   decide. Controlled by lc-and-control-honored, which is the same shape under a key the \
                   engine does know.",
@@ -3046,15 +3076,23 @@ pub fn rows() -> Vec<Row> {
             id: "logical.and-sequence",
             category: "logical",
             term: "odrl:andSequence",
-            status: NOT_IMPLEMENTED,
-            why: "The Constraint type has and/or/xone and nothing else; andSequence is an unknown key and \
-                  is discarded.",
-            evidence: "engine/src/constraint.rs::RawConstraint",
-            asserts: "Two requests one key name apart: odrl:and is honoured, odrl:andSequence is dropped \
-                      and the constraint's own false atomic fields decide.",
-            probe_ids: &["lc-andsequence-ignored", "lc-and-control-honored"],
+            status: PARTIAL,
+            why: "A real nested field now, reusing odrl:and's own `.all()` evaluation code path verbatim \
+                  -- but the Vocabulary's own 'in the order specified' clause has no separate effect: this \
+                  engine evaluates one instantaneous claims snapshot, with no execution-order state to \
+                  check an ordering claim against.",
+            evidence: "engine/src/constraint.rs::Constraint::and_sequence",
+            asserts: "The backlog item's own distinguishing example: a constraint carries both an atomic \
+                      fallback and an odrl:andSequence naming different children; the sequence's own \
+                      children decide either way (hit/miss), and match odrl:and's own control on the \
+                      identical shape exactly.",
+            probe_ids: &["lc-andsequence-honored", "lc-andsequence-miss", "lc-and-control-honored"],
             documented_because: None,
-            caveat: None,
+            caveat: Some(
+                "Evaluated with the same conjunction semantics as odrl:and; the spec's own 'in the order \
+                 specified' clause is not separately tracked or enforced -- see Constraint's own \
+                 `and_sequence` field doc comment.",
+            ),
         }),
         row(RowSpec {
             id: "logical.profile-extension",
@@ -3771,7 +3809,7 @@ mod tests {
             ("lc-or-second", "lc-or-none"),
             ("lc-xone-exactly-one", "lc-xone-zero"),
             ("lc-or-two-allows-control", "lc-xone-two-denies"),
-            ("lc-and-control-honored", "lc-andsequence-ignored"),
+            ("lc-andsequence-honored", "lc-andsequence-miss"),
             ("act-includedin-1hop", "act-implies-ignored"),
             ("act-includedin-2hop", "act-includedin-undeclared-gap"),
             ("beh-open-empty", "beh-closed-empty"),
@@ -3824,6 +3862,28 @@ mod tests {
                  nothing about the injected property"
             );
         }
+    }
+
+    /// `odrl:andSequence` is documented (`Constraint`'s own doc comment,
+    /// and this catalog's `lc-andsequence-honored` probe) as reusing
+    /// `odrl:and`'s own `.all()` evaluation code path verbatim, with no
+    /// separate "order" behavior observable in this engine. Asserted here
+    /// directly rather than left to a reader comparing two probes by eye:
+    /// two requests identical except for that one key name must expect the
+    /// exact same decision and reason.
+    #[test]
+    fn and_sequence_evaluates_identically_to_the_and_control() {
+        let all = probes();
+        let expect_of = |id: &str| {
+            let probe = all.iter().find(|p| p.id == id).unwrap_or_else(|| panic!("no probe {id}"));
+            (probe.expect.decision, probe.expect.reason_contains.clone())
+        };
+        assert_eq!(
+            expect_of("lc-andsequence-honored"),
+            expect_of("lc-and-control-honored"),
+            "odrl:andSequence and odrl:and must expect exactly the same thing on this shape, or the \
+             claimed 'same semantics as and' is not actually what the engine does"
+        );
     }
 
     /// The determinism guard asserted at the point that actually provides

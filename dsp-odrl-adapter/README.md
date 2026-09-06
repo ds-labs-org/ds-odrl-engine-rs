@@ -151,7 +151,8 @@ job with its own "which offer applies" question.
 | `odrl:target` on a rule | `Rule.target` (`odrl:target`) | |
 | `odrl:target` on the **policy** | pushed down onto every rule that names none | ODRL scopes a policy-level target to its rules; `engine::Rule` has no policy-level target to hold it |
 | `odrl:constraint[]` | `Rule.constraints` | |
-| `odrl:and` / `odrl:or` / `odrl:xone` | `Constraint::and`/`or`/`xone` | nested to `engine::MAX_CONSTRAINT_DEPTH`, the same bound evaluation stops at; an object setting more than one resolves by the engine's own `xone > or > and` precedence, so an ingested policy decides identically to the same policy hand-written into Section 5.2 JSON |
+| `odrl:and` / `odrl:or` / `odrl:xone` | `Constraint::and`/`or`/`xone` | nested to `engine::MAX_CONSTRAINT_DEPTH`, the same bound evaluation stops at; an object setting more than one resolves by the engine's own `xone > or > and > and_sequence` precedence, so an ingested policy decides identically to the same policy hand-written into Section 5.2 JSON |
+| `odrl:andSequence` | **not mapped** | `engine::Constraint` gained `and_sequence` (same `.all()` semantics as `odrl:and`) after this table's other rows; `constraint_from` here still recognizes only `xone`/`or`/`and`, so a real document's `odrl:andSequence` constraint falls through to the atomic path below and is rejected as `ConstraintWithoutLeftOperand` — fail-closed, not silently wrong, but a real ingestion gap for a construct the engine itself now supports |
 | `odrl:leftOperand` | `Constraint.left_operand` | compacted (see below) |
 | `odrl:operator` | `Constraint.operator` | the ten this engine has; anything else is a named error |
 | `odrl:rightOperand` | `Constraint.right_operand` | **never** compacted; several values join with `,`, this engine's own convention for `isAnyOf` and friends |
