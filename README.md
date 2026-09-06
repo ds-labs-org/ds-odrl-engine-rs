@@ -1696,7 +1696,10 @@ property-key spelling — and both ingest to one identical `WirePolicy`.
 
 **Scope boundary of this first cut**, stated in full in
 [`dsp-odrl-adapter/README.md`](dsp-odrl-adapter/README.md): it produces a
-`WirePolicy` (rules, per-rule and pushed-down policy-level `odrl:target`,
+`WirePolicy` (rules, per-rule and pushed-down policy-level `odrl:target`
+and `odrl:action` alike — Information Model §2.7.1's "Compact Policy"
+shorthand, the spec's own Example 28 — with a rule's own action still
+winning when it names one,
 constraints including nested `odrl:and`/`odrl:or`/`odrl:xone` (but **not**
 `odrl:andSequence`, added to `engine` after this adapter's own
 `constraint_from` was written — a real document's `odrl:andSequence`

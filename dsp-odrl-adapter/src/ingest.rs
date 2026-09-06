@@ -286,6 +286,18 @@ fn policy_from(node: &Node, warnings: &mut Vec<String>) -> Result<WirePolicy, In
     // does not name its own.
     let policy_target = first_string(node, "target");
 
+    // Information Model §2.7.1 "Compact Policy": shared properties MAY
+    // include "One or many `action` properties" declared once at the
+    // Policy level, with the normative processing step "Replicate these
+    // properties in the Rule" for every Rule lacking its own -- the exact
+    // same shorthand `policy_target` above already implements for
+    // `odrl:target`. Read with the same compaction convention `action_from`
+    // applies to a rule's own `odrl:action` (an IRI or literal is stripped
+    // of the ODRL namespace; an Action node's `rdf:value` is used, ignoring
+    // any policy-level `odrl:refinement`, which a rule pushdown target
+    // never carried either).
+    let policy_action = policy_action_from(node, warnings);
+
     if !odrl(node, "profile").is_empty() {
         warnings.push(
             "the policy declares an odrl:profile; this adapter does not load it, so any term it \
@@ -323,9 +335,9 @@ fn policy_from(node: &Node, warnings: &mut Vec<String>) -> Result<WirePolicy, In
         kind,
         assigner,
         assignee: first_string(node, "assignee"),
-        permissions: rules_from(node, "permission", policy_target.as_deref(), warnings)?,
-        prohibitions: rules_from(node, "prohibition", policy_target.as_deref(), warnings)?,
-        obligations: rules_from(node, "obligation", policy_target.as_deref(), warnings)?,
+        permissions: rules_from(node, "permission", policy_target.as_deref(), policy_action.as_deref(), warnings)?,
+        prohibitions: rules_from(node, "prohibition", policy_target.as_deref(), policy_action.as_deref(), warnings)?,
+        obligations: rules_from(node, "obligation", policy_target.as_deref(), policy_action.as_deref(), warnings)?,
         // Never ingested from the document -- see the warning above.
         conflict: ConflictStrategy::default(),
         // Never ingested from the document either -- see the odrl:inheritFrom warning above.
@@ -337,6 +349,7 @@ fn rules_from(
     policy: &Node,
     local: &str,
     policy_target: Option<&str>,
+    policy_action: Option<&str>,
     warnings: &mut Vec<String>,
 ) -> Result<Vec<Rule>, IngestError> {
     let mut rules = Vec::new();
@@ -347,7 +360,7 @@ fn rules_from(
                 as_string(&value).unwrap_or_default(),
             ));
         };
-        rules.push(rule_from(&node, local, policy_target, warnings)?);
+        rules.push(rule_from(&node, local, policy_target, policy_action, warnings)?);
     }
     Ok(rules)
 }
@@ -356,9 +369,10 @@ fn rule_from(
     node: &Node,
     local: &str,
     policy_target: Option<&str>,
+    policy_action: Option<&str>,
     warnings: &mut Vec<String>,
 ) -> Result<Rule, IngestError> {
-    let (action, action_refinement) = action_from(node, local, warnings)?;
+    let (action, action_refinement) = action_from(node, local, policy_action, warnings)?;
 
     let mut constraints = Vec::new();
     for value in odrl(node, "constraint") {
@@ -436,7 +450,13 @@ fn duties_from(node: &Node, property: &str, warnings: &mut Vec<String>) -> Resul
 /// deliverable, not the asset the permission/prohibition it hangs off is
 /// about), and its own `odrl:consequence`, if any.
 fn duty_from(node: &Node, local: &str, warnings: &mut Vec<String>) -> Result<Rule, IngestError> {
-    let (action, action_refinement) = action_from(node, local, warnings)?;
+    // A Duty node never inherits the enclosing Policy's `odrl:action` --
+    // exactly like a Duty's own `target` above, which is never inherited
+    // from the policy either (see this function's own doc comment): the
+    // §2.7.1 Compact Policy pushdown replicates onto "the Rule" the Policy
+    // itself carries (permission/prohibition/obligation), not onto a nested
+    // duty/remedy/consequence reached through one of those.
+    let (action, action_refinement) = action_from(node, local, None, warnings)?;
 
     let mut constraints = Vec::new();
     for value in odrl(node, "constraint") {
@@ -507,14 +527,44 @@ fn warn_wrong_domain(node: &Node, property: &str, local: &str, expected_domain: 
     }
 }
 
+/// Reads the Policy-level `odrl:action` a Compact Policy (Information Model
+/// §2.7.1) may declare once for the whole policy, for `policy_from` to offer
+/// to [`action_from`] as the fallback a Rule naming none of its own falls
+/// back to -- the same role `policy_target` plays for `odrl:target` above.
+/// Applies this adapter's ordinary vocabulary-term compaction to whichever
+/// of the two `odrl:action` shapes is present (a plain term, or an Action
+/// node's `rdf:value`); a policy-level `odrl:refinement` is not read here,
+/// matching the target pushdown, which likewise carries no per-rule detail
+/// of its own.
+fn policy_action_from(node: &Node, warnings: &mut Vec<String>) -> Option<String> {
+    let values = odrl(node, "action");
+    if values.len() > 1 {
+        warnings.push(format!(
+            "the policy names {} actions at its own level; this adapter's odrl:action pushdown \
+             offers one default to a rule naming none of its own, so only the first is offered",
+            values.len()
+        ));
+    }
+    match values.first()? {
+        Expanded::Iri(iri) => Some(compact(iri)),
+        Expanded::Literal(lit) => Some(compact(lit)),
+        Expanded::Node(action) => {
+            action.get(RDF_VALUE).first().and_then(as_string).or_else(|| action.id.clone()).map(|s| compact(&s))
+        }
+    }
+}
+
 /// Reads a rule's `odrl:action`, in either of the two shapes ODRL 2.2
 /// allows: the plain action term, or an Action node carrying `rdf:value`
 /// plus one or more `odrl:refinement`s (the Information Model's own "print,
 /// at most 2 copies" shape, which `engine::Rule::action_refinement` models
-/// directly).
+/// directly). When the rule names none of its own, falls back to
+/// `policy_action` -- the Information Model §2.7.1 Compact Policy pushdown,
+/// mirroring `policy_target`'s existing fallback for `odrl:target`.
 fn action_from(
     node: &Node,
     local: &str,
+    policy_action: Option<&str>,
     warnings: &mut Vec<String>,
 ) -> Result<(String, Option<Constraint>), IngestError> {
     let values = odrl(node, "action");
@@ -525,7 +575,11 @@ fn action_from(
             values.len()
         ));
     }
-    let value = values.first().ok_or_else(|| IngestError::RuleWithoutAction(local.to_string()))?;
+    let Some(value) = values.first() else {
+        return policy_action
+            .map(|action| (action.to_string(), None))
+            .ok_or_else(|| IngestError::RuleWithoutAction(local.to_string()));
+    };
 
     match value {
         Expanded::Iri(iri) => Ok((compact(iri), None)),
@@ -1239,5 +1293,57 @@ mod tests {
             "a wrong-domain odrl:duty must be named in a warning, not silently dropped: {:?}",
             ingested.warnings
         );
+    }
+
+    #[test]
+    fn a_policy_level_odrl_action_is_pushed_down_onto_a_rule_naming_none_of_its_own() {
+        // Information Model §2.7.1 "Compact Policy": shared properties MAY
+        // include "One or many `action` properties" declared once at the
+        // Policy level, with the normative processing step "Replicate these
+        // properties in the Rule" for every Rule lacking its own -- the same
+        // pushdown `policy_target` above already gets, now given to
+        // `odrl:action` too.
+        //
+        // This is the spec's own Example 28, verbatim (`target`, `assigner`
+        // and `action` stated once at the Policy level; each `permission`
+        // entry carries only its own `assignee`). Before this fix,
+        // `ingest_policy` failed this exact document outright with
+        // `IngestError::RuleWithoutAction("permission")`.
+        let doc = r#"{
+          "@context": "http://www.w3.org/ns/odrl.jsonld",
+          "@type": "Policy",
+          "uid": "http://example.com/policy:8888",
+          "target": "http://example.com/music/1999.mp3",
+          "assigner": "http://example.com/org/sony-music",
+          "action": "play",
+          "permission": [
+            { "assignee": "http://example.com/people/billie" },
+            { "assignee": "http://example.com/people/murphy" }
+          ]
+        }"#;
+        let ingested = ingest_policy(doc).expect("Example 28 must ingest, not fail with RuleWithoutAction");
+        assert_eq!(ingested.policy.permissions.len(), 2);
+        for permission in &ingested.policy.permissions {
+            assert_eq!(permission.action, "play");
+            assert_eq!(permission.target.as_deref(), Some("http://example.com/music/1999.mp3"));
+        }
+    }
+
+    #[test]
+    fn a_rules_own_odrl_action_wins_over_a_differing_policy_level_default() {
+        // The pushdown only fills in for a Rule naming none of its own --
+        // exactly `policy_target`'s existing precedence, mirrored for
+        // `odrl:action`.
+        let doc = r#"{
+          "@context": "http://www.w3.org/ns/odrl.jsonld",
+          "@type": "Offer",
+          "@id": "urn:uuid:action-precedence",
+          "assigner": "did:web:provider.example",
+          "target": "urn:asset:A",
+          "action": "play",
+          "permission": [{ "action": "use" }]
+        }"#;
+        let ingested = ingest_policy(doc).expect("must ingest");
+        assert_eq!(ingested.policy.permissions[0].action, "use");
     }
 }
