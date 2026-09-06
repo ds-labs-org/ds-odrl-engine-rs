@@ -117,7 +117,15 @@ from the request — but that is **opt-in and off by default**, is
 `assignee` only (an `odrl:assigner` names who granted a policy, not who is
 asking, and is deliberately never evaluated), and resolves no
 `odrl:PartyCollection`: see "Party-role evaluation (`odrl:assignee`),
-opt-in" below. Deny-overrides is no longer hardcoded either: a policy
+opt-in" below. A class-specific gap in that same mechanism is now closed
+too. An `odrl:Agreement`'s own MUST (Vocabulary & Expression §3.2.1: grant
+the Policy's terms from the Assigner to the Assignee) now has a second,
+dedicated, and fully independent opt-in — `config.agreementAssigneeClaim`,
+checked only where `kind == "Agreement"` and off by default exactly like
+`partyIdentityClaim` — so a host that has configured nothing can still
+enforce this one MUST without switching on party-role scoping for every
+other `kind`. See "Party-role evaluation (`odrl:assignee`), opt-in" below
+for both. Deny-overrides is no longer hardcoded either: a policy
 carries its own `odrl:conflict` term (`perm`/`prohibit`/`invalid`), read
 only where a permission that grants and a prohibition that denies really do
 both hold for the same request. **This is the one change in this engine's
@@ -306,8 +314,12 @@ Request:
   is absent from the example above because absent is its default: naming a
   claim key there switches on party-role scoping of each policy's
   `odrl:assignee` against that key. Omitted, no policy's `assignee` is
-  consulted at all. See "Party-role evaluation (`odrl:assignee`), opt-in"
-  below.
+  consulted at all. `agreementAssigneeClaim` is a fifth, independent
+  setting of the same shape — off by default, and checked only against a
+  policy whose `kind` is exactly `"Agreement"` — so a host can enforce that
+  one class's own MUST without switching on `partyIdentityClaim`'s
+  every-`kind` scoping. See "Party-role evaluation (`odrl:assignee`),
+  opt-in" below.
 - `policies` mirrors the host's own `Policy`/`Rule`/`Constraint` shape
   field for field — each rule keeps its **own** declared `action`, not
   the request's. `constraints` supports ten operators: `eq`, `neq`, the
@@ -1102,35 +1114,108 @@ inverse properties `assignerOf`/`assigneeOf`, ODRL's twelve common party
 functions, and Party refinement — all of which remain exactly what the
 coverage report already says they are.
 
-### Where the setting lives, and where it does not
+### `kind == "Agreement"`: `agreementAssigneeClaim`, a second and independent opt-in
 
-`partyIdentityClaim` is a field of the wire `config` and of
-`engine::ResolvedConfig` (`with_party_identity_claim`), beside `dutyMode`
-and `behaviour`. Unlike those two it is **not** a `Profile` field, and
-`engine::resolve` can never set it: `dutyMode` and `behaviour` are
-statements about how policies should be evaluated, which is what a profile
-document is for, whereas this is a statement about the shape of the host's
-own claims map — deployment configuration, not something a published,
-shareable ODRL profile can assert about somebody else's identity provider.
-`profile-interpreter` therefore never emits the key.
+`partyIdentityClaim` above is opt-in for every `kind` alike, which is
+correct only once a host has asked for party-role scoping generally. ODRL
+2.2 Vocabulary & Expression §3.2.1 states the Agreement's own MUST
+unconditionally: "The Agreement Policy will grant the terms of the Policy
+from the Assigner to the Assignee." A host that has configured nothing at
+all still leaves that MUST unenforced — `partyIdentityClaim` closes it,
+but only as a side effect of turning on scoping for every other `kind`
+too, which nothing in the spec asks for.
 
-Only the wire layer reads it, because only `wire::WirePolicy` carries a
-party: `decision::decide` takes a `decision::Policy`, which has no party
-and is unaffected by this setting.
+`config.agreementAssigneeClaim` closes exactly the Agreement gap and
+nothing wider. It names its own claims key, entirely independent of
+`partyIdentityClaim`'s, and is consulted only for a policy whose `kind` is
+exactly `"Agreement"`:
+
+```json
+{
+  "config": {
+    "@type": "odrl:Profile",
+    "@id": "https://example.org/profiles/default",
+    "odrl:action": [{"@id": "use"}],
+    "dutyMode": "advise",
+    "behaviour": "closed",
+    "agreementAssigneeClaim": "sub"
+  },
+  "policies": [
+    {
+      "id": "agreement-7",
+      "kind": "Agreement",
+      "assigner": "did:web:provider.example",
+      "assignee": "did:web:alice.example",
+      "permissions": [{"action": "use", "constraints": []}],
+      "prohibitions": [],
+      "obligations": []
+    }
+  ],
+  "claims": { "sub": "did:web:mallory.example" }
+}
+```
+
+This request denies — mallory is excluded from `agreement-7` exactly as
+`partyIdentityClaim` would exclude her, even though `partyIdentityClaim`
+itself is unset here.
+
+- **Off unless the key is present**, `#[serde(default)]` and skipped on
+  serialization when unset, on the identical footing `partyIdentityClaim`
+  is — a config that never names it is byte-for-byte the object it always
+  was.
+- **`kind`-scoped, unlike `partyIdentityClaim`.** A `Set`, `Ticket`, or any
+  other `kind` naming the identical mismatched `assignee` is completely
+  unaffected by this setting, at any value — only `kind == "Agreement"` is
+  ever read.
+- **An Agreement with no `assignee` at all is unaffected either way** —
+  structurally invalid per the Agreement's own MUST, but validating
+  document structure is out of this engine's scope (the same treatment
+  `partyIdentityClaim` already gives a missing assignee).
+- **The comparison and the exclusion mechanism are both reused, not
+  reinvented**: the identical `ClaimValue::matches` semantics, and the
+  identical "a non-matching policy is absent from the request" outcome
+  described below.
+- **The two switches do not fight each other.** A host may configure
+  either, both, or neither. When both are configured and both apply to the
+  same mismatched Agreement, the policy is excluded either way — there is
+  no merged reason to construct, because either check alone is already
+  sufficient.
+
+See `engine/src/wire.rs::party_role_mismatch` for the exact comparison and
+`engine/src/profile.rs::ResolvedConfig::agreement_assignee_claim` for the
+full rationale.
+
+### Where the settings live, and where they do not
+
+`partyIdentityClaim` and `agreementAssigneeClaim` are both fields of the
+wire `config` and of `engine::ResolvedConfig`
+(`with_party_identity_claim`, `with_agreement_assignee_claim`), beside
+`dutyMode` and `behaviour`. Unlike those two, neither is a `Profile`
+field, and `engine::resolve` can never set either: `dutyMode` and
+`behaviour` are statements about how policies should be evaluated, which
+is what a profile document is for, whereas both of these are statements
+about the shape of the host's own claims map — deployment configuration,
+not something a published, shareable ODRL profile can assert about
+somebody else's identity provider. `profile-interpreter` therefore never
+emits either key.
+
+Only the wire layer reads either one, because only `wire::WirePolicy`
+carries a party: `decision::decide` takes a `decision::Policy`, which has
+no party and is unaffected by either setting.
 `wire::performable_actions_for_request` inherits the scoping (it goes
 through `evaluate_request`); `wire::left_operands_for_request`
-deliberately does *not* report the configured identity claim among the
-keys a host should gather, since that call answers "which claims do these
+deliberately does *not* report either configured claim among the keys a
+host should gather, since that call answers "which claims do these
 policies read" off the policies alone, and the host is by construction the
-party that named this key.
+party that named these keys.
 
-`compliance-runner` leaves it unset and the vendored corpus's 68/68 result
-is unchanged: that adapter already resolves `odrl:assignee` itself, per
-*rule*, against the suite's state-of-the-world graph (`odrl:partOf`
+`compliance-runner` leaves both unset and the vendored corpus's 68/68
+result is unchanged: that adapter already resolves `odrl:assignee` itself,
+per *rule*, against the suite's state-of-the-world graph (`odrl:partOf`
 collection membership included) and mirrors it into a `sub` constraint.
 Switching the engine's policy-level scoping on there as well would layer a
 second, coarser check on top of the one the ground truth is actually
-stated in terms of. `dsp-odrl-adapter` leaves it unset too, for the same
+stated in terms of. `dsp-odrl-adapter` leaves both unset too, for the same
 reason it cannot guess any other host-identity detail.
 
 ## Conflict strategy (`odrl:conflict`)

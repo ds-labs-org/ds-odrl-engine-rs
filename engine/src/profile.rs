@@ -151,11 +151,43 @@ pub struct ResolvedConfig {
     /// it here (`with_party_identity_claim`) or on the wire
     /// (`wire::RequestConfig::party_identity_claim`), and nowhere else.
     pub party_identity_claim: Option<String>,
+    /// **Which key of the caller's claims map must match an
+    /// `odrl:Agreement` policy's own `odrl:assignee`** — a second, fully
+    /// independent on/off switch from `party_identity_claim` above, scoped
+    /// to `kind == "Agreement"` only.
+    ///
+    /// `party_identity_claim` is opt-in for every `kind` alike, which is
+    /// correct only once a host has asked for it generally. ODRL 2.2
+    /// Vocabulary & Expression §3.2.1 states the Agreement's own MUST
+    /// unconditionally ("The Agreement Policy will grant the terms of the
+    /// Policy from the Assigner to the Assignee") — a host that has
+    /// configured nothing still leaves that MUST unenforced today, and
+    /// turning on `party_identity_claim` to close it would also start
+    /// scoping every other `kind`, which nothing in the spec asks for. This
+    /// field closes exactly the Agreement gap and nothing wider: `None` (the
+    /// default from every construction path here) means unaffected, exactly
+    /// as `party_identity_claim` unset does; `Some(key)` means a policy with
+    /// `kind == "Agreement"` naming an `odrl:assignee` applies only to a
+    /// caller whose `claims[key]` matches it, using the identical
+    /// `ClaimValue::matches` comparison `party_identity_claim` already uses
+    /// — see `wire::party_role_mismatch`.
+    ///
+    /// Independent of `party_identity_claim` deliberately: a host may
+    /// configure either, both, or neither. Both configured and both
+    /// applying to the same mismatched Agreement simply both exclude it —
+    /// there is no merged reason to construct, and no precedence to define,
+    /// because either check alone is already sufficient to exclude the
+    /// policy.
+    ///
+    /// Same non-`Profile` scoping as `party_identity_claim`, for the same
+    /// reason: this names a shape of the host's own claims map, not
+    /// something a published ODRL profile can assert.
+    pub agreement_assignee_claim: Option<String>,
 }
 
 impl ResolvedConfig {
     pub fn new(actions: Vec<ActionDecl>, duty_mode: DutyMode, behaviour: Behaviour) -> Self {
-        Self { actions, duty_mode, behaviour, party_identity_claim: None }
+        Self { actions, duty_mode, behaviour, party_identity_claim: None, agreement_assignee_claim: None }
     }
 
     /// Turns party-role evaluation on, naming the claim key that carries
@@ -168,6 +200,17 @@ impl ResolvedConfig {
     /// recompiled against a wider signature to keep it.
     pub fn with_party_identity_claim(mut self, claim: impl Into<String>) -> Self {
         self.party_identity_claim = Some(claim.into());
+        self
+    }
+
+    /// Turns Agreement-assignee enforcement on, naming the claim key an
+    /// `odrl:Agreement`'s `odrl:assignee` must match (see
+    /// `agreement_assignee_claim`). Independent of, and composable with,
+    /// `with_party_identity_claim` — a consuming builder for the same
+    /// reason that one is: opt-in, and not a wider constructor signature
+    /// every existing caller of `new` would have to grow to keep.
+    pub fn with_agreement_assignee_claim(mut self, claim: impl Into<String>) -> Self {
+        self.agreement_assignee_claim = Some(claim.into());
         self
     }
 
@@ -300,13 +343,15 @@ pub fn resolve(profiles: &[Profile]) -> ResolvedConfig {
         }
     }
 
-    // `party_identity_claim` is deliberately absent from this merge: no
-    // ODRL Profile document declares which claim key carries the caller's
-    // identity (see that field's own doc comment), so resolving profiles
-    // can never switch party-role evaluation on by itself. A host that
-    // wants it chains `ResolvedConfig::with_party_identity_claim` onto this
-    // call, or sets `partyIdentityClaim` on the wire.
-    ResolvedConfig { actions, duty_mode, behaviour, party_identity_claim: None }
+    // `party_identity_claim` and `agreement_assignee_claim` are both
+    // deliberately absent from this merge: no ODRL Profile document
+    // declares which claim key carries the caller's identity (see each
+    // field's own doc comment), so resolving profiles can never switch
+    // either check on by itself. A host that wants one or both chains
+    // `ResolvedConfig::with_party_identity_claim` and/or
+    // `with_agreement_assignee_claim` onto this call, or sets
+    // `partyIdentityClaim`/`agreementAssigneeClaim` on the wire.
+    ResolvedConfig { actions, duty_mode, behaviour, party_identity_claim: None, agreement_assignee_claim: None }
 }
 
 #[cfg(test)]

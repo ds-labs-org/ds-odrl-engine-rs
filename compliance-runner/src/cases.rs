@@ -156,6 +156,7 @@ mod tests {
                 // claim), not by the engine's own party-role scoping, which
                 // stays off here.
                 party_identity_claim: None,
+                agreement_assignee_claim: None,
             },
             policies: vec![WirePolicy {
                 id: "policy-1".to_string(),

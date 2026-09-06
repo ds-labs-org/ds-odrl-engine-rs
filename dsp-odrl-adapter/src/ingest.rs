@@ -154,6 +154,11 @@ pub fn minimal_config(policy: &WirePolicy, duty_mode: DutyMode, behaviour: Behav
         // change the host never asked for. A host that wants it sets
         // `partyIdentityClaim` on the config this returns.
         party_identity_claim: None,
+        // Same reasoning, same always-off default, for the newer and
+        // equally host-deployment-shaped `agreementAssigneeClaim`. A host
+        // that wants Agreement-assignee enforcement sets it on the config
+        // this returns.
+        agreement_assignee_claim: None,
     }
 }
 

@@ -167,6 +167,13 @@ fn run() -> Result<(), String> {
                 // wanting party-role scoping adds `partyIdentityClaim` to
                 // the config this prints.
                 party_identity_claim: resolved.party_identity_claim.clone(),
+                // Same reasoning, same always-`None` result, for the newer
+                // and equally host-deployment-shaped
+                // `agreement_assignee_claim` — see
+                // `engine::ResolvedConfig::agreement_assignee_claim`; a host
+                // wanting Agreement-assignee enforcement adds
+                // `agreementAssigneeClaim` to the config this prints.
+                agreement_assignee_claim: resolved.agreement_assignee_claim.clone(),
             };
             println!("{}", serde_json::to_string_pretty(&config).map_err(|e| e.to_string())?);
             Ok(())

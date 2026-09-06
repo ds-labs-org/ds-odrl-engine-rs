@@ -121,6 +121,21 @@ impl From<&WireActionDecl> for ActionDecl {
 /// defines no property by which a policy or a profile declares the shape of
 /// somebody else's claims map. Skipped on serialization when unset, so a
 /// config that never names one is byte-for-byte the object it always was.
+///
+/// `agreementAssigneeClaim` (new this revision) is a second, **independent**
+/// on/off switch, scoped to `kind == "Agreement"` only. `partyIdentityClaim`
+/// above is opt-in for every `kind` alike, which is correct once a host asks
+/// for it — but ODRL 2.2 Vocabulary & Expression §3.2.1 states the
+/// Agreement's own MUST unconditionally ("The Agreement Policy will grant
+/// the terms of the Policy from the Assigner to the Assignee"), so a host
+/// that has configured nothing still needs a way to enforce it without also
+/// switching on party-role scoping for every other `kind`. It names its own
+/// claims key, separate from `partyIdentityClaim`'s, and is checked only
+/// against a policy whose `kind` is exactly `"Agreement"`; see
+/// `wire::party_role_mismatch` for the exact comparison, and `ResolvedConfig::agreement_assignee_claim`
+/// for why it lives beside `party_identity_claim` rather than folded into
+/// it. `#[serde(default)]` and skipped on serialization when unset, same as
+/// `partyIdentityClaim`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RequestConfig {
     #[serde(rename = "@type")]
@@ -135,19 +150,24 @@ pub struct RequestConfig {
     pub behaviour: Behaviour,
     #[serde(rename = "partyIdentityClaim", default, skip_serializing_if = "Option::is_none")]
     pub party_identity_claim: Option<String>,
+    #[serde(rename = "agreementAssigneeClaim", default, skip_serializing_if = "Option::is_none")]
+    pub agreement_assignee_claim: Option<String>,
 }
 
 impl From<&RequestConfig> for ResolvedConfig {
     fn from(config: &RequestConfig) -> Self {
-        let resolved = ResolvedConfig::new(
+        let mut resolved = ResolvedConfig::new(
             config.actions.iter().map(ActionDecl::from).collect(),
             config.duty_mode,
             config.behaviour,
         );
-        match &config.party_identity_claim {
-            Some(claim) => resolved.with_party_identity_claim(claim.clone()),
-            None => resolved,
+        if let Some(claim) = &config.party_identity_claim {
+            resolved = resolved.with_party_identity_claim(claim.clone());
         }
+        if let Some(claim) = &config.agreement_assignee_claim {
+            resolved = resolved.with_agreement_assignee_claim(claim.clone());
+        }
+        resolved
     }
 }
 
@@ -816,13 +836,18 @@ fn describe_reason(
 }
 
 /// Why one policy is not being applied to this caller at all: it names an
-/// `odrl:assignee`, party-role evaluation is switched on, and the caller
-/// identified by `config.party_identity_claim` is somebody else.
+/// `odrl:assignee`, some party-role check is switched on for its `kind`, and
+/// the caller identified by the relevant claim key is somebody else.
 ///
-/// Carries what the trace needs and nothing more. `observed` is the
-/// caller's own value at that claim key, rendered as JSON — `None` when
-/// the key is absent from the claims map entirely, which is a mismatch in
-/// its own right (see `party_role_mismatch`).
+/// Carries what the trace needs and nothing more, and is deliberately
+/// generic over *which* check produced it — `config.party_identity_claim`
+/// (any `kind`) and `config.agreement_assignee_claim` (`kind == "Agreement"`
+/// only) report the identical shape, because both are ultimately the same
+/// question: does the caller's value at `claim_key` match this policy's
+/// `odrl:assignee`? `observed` is the caller's own value at that claim key,
+/// rendered as JSON — `None` when the key is absent from the claims map
+/// entirely, which is a mismatch in its own right (see
+/// `party_role_mismatch`).
 struct PartyRoleMismatch<'a> {
     policy_id: &'a str,
     assignee: &'a str,
@@ -848,14 +873,25 @@ impl PartyRoleMismatch<'_> {
 /// `None` means the policy applies and is evaluated exactly as it always
 /// has been.
 ///
-/// **Three ways to get `None`, and only one to get `Some`.** The capability
-/// is off unless `config.party_identity_claim` names a claim key (decision
-/// 1: an existing host sees no change); a policy carrying no
-/// `odrl:assignee` has no party role to check and is unaffected whether or
-/// not the capability is on (decision 5, and the common case in the
-/// vendored corpus); and a policy whose assignee the caller's identity
-/// claim matches applies normally. Only a named assignee that the caller's
-/// own identity does not match yields `Some`.
+/// **Two independent checks, either of which can yield `Some`.**
+///
+/// 1. `config.agreement_assignee_claim`, only when `policy.kind ==
+///    "Agreement"`: ODRL 2.2 Vocabulary & Expression §3.2.1's own MUST
+///    ("The Agreement Policy will grant the terms of the Policy from the
+///    Assigner to the Assignee"), enforced regardless of whether
+///    `party_identity_claim` is configured at all. `None`
+///    (`ResolvedConfig::agreement_assignee_claim`'s default) means this
+///    check contributes nothing, for any `kind` including Agreement.
+/// 2. `config.party_identity_claim`, for every `kind` alike — the
+///    pre-existing check, unchanged: off unless the config names a claim
+///    key (decision 1: an existing host sees no change), and a no-op for a
+///    policy carrying no `odrl:assignee` (decision 5, and the common case
+///    in the vendored corpus).
+///
+/// Both configured and both applying to the same mismatched Agreement both
+/// independently yield `Some` — whichever this function evaluates first
+/// wins, and there is no merged reason to construct, since either check
+/// alone is already sufficient to exclude the policy.
 ///
 /// **The comparison is `ClaimValue::matches` — the engine's own `eq`
 /// semantics**, not a bespoke string compare: opaque string equality for a
@@ -886,19 +922,32 @@ fn party_role_mismatch<'a>(
     claims: &Claims,
     config: &'a ResolvedConfig,
 ) -> Option<PartyRoleMismatch<'a>> {
-    let claim_key = config.party_identity_claim.as_deref()?;
     let assignee = policy.assignee.as_deref()?;
-    match claims.get(claim_key) {
-        Some(value) if value.matches(assignee) => None,
-        observed => Some(PartyRoleMismatch {
-            policy_id: &policy.id,
-            assignee,
-            claim_key,
-            observed: observed.map(|value| {
-                serde_json::to_string(value).unwrap_or_else(|_| "unrenderable".to_string())
+
+    let mismatch = |claim_key: &'a str| -> Option<PartyRoleMismatch<'a>> {
+        match claims.get(claim_key) {
+            Some(value) if value.matches(assignee) => None,
+            observed => Some(PartyRoleMismatch {
+                policy_id: &policy.id,
+                assignee,
+                claim_key,
+                observed: observed.map(|value| {
+                    serde_json::to_string(value).unwrap_or_else(|_| "unrenderable".to_string())
+                }),
             }),
-        }),
+        }
+    };
+
+    if policy.kind == "Agreement" {
+        if let Some(claim_key) = config.agreement_assignee_claim.as_deref() {
+            if let Some(found) = mismatch(claim_key) {
+                return Some(found);
+            }
+        }
     }
+
+    let claim_key = config.party_identity_claim.as_deref()?;
+    mismatch(claim_key)
 }
 
 /// `odrl:inheritFrom` resolution (Information Model §2.9), run once per
@@ -1541,6 +1590,7 @@ mod tests {
             duty_mode: DutyMode::Advise,
             behaviour: Behaviour::Closed,
             party_identity_claim: None,
+            agreement_assignee_claim: None,
         };
         let value = serde_json::to_value(&config).unwrap();
         assert_eq!(value["@type"], "odrl:Profile");
@@ -1584,6 +1634,7 @@ mod tests {
             duty_mode: DutyMode::Advise,
             behaviour: Behaviour::Open,
             party_identity_claim: None,
+            agreement_assignee_claim: None,
         }
     }
 
@@ -1775,6 +1826,7 @@ mod tests {
                 duty_mode: DutyMode::Advise,
                 behaviour: Behaviour::Open,
                 party_identity_claim: None,
+                agreement_assignee_claim: None,
             },
             policies: vec![WirePolicy {
                 id: "policy-transfer".to_string(),
@@ -3846,6 +3898,131 @@ mod tests {
         .unwrap();
         assert!(left_operands_for_request(&req).is_empty());
         assert_eq!(left_operands_for_request(&with_constraint), vec!["nationality".to_string()]);
+    }
+
+    // -- odrl:Agreement (`agreementAssigneeClaim`) and odrl:Offer inertness -
+
+    /// `party_request` with the policy `kind` also a variable, so these
+    /// tests can prove `agreementAssigneeClaim` and Offer inertness are
+    /// scoped to the exact `kind` they claim to be and no other.
+    fn kind_request(kind: &str, config_extra: &str, assignee_json: &str, claims_json: &str) -> String {
+        format!(
+            r#"{{
+              "dataset_id": "urn:uuid:ds",
+              "action": "use",
+              "config": {{
+                "@type": "odrl:Profile",
+                "@id": "https://example.org/profiles/party",
+                "odrl:action": [{{"@id": "use"}}],
+                "dutyMode": "advise",
+                "behaviour": "closed"{config_extra}
+              }},
+              "policies": [
+                {{
+                  "id": "policy-1",
+                  "kind": "{kind}",
+                  "assigner": "did:web:provider.example",
+                  "assignee": {assignee_json},
+                  "permissions": [{{"action": "use", "constraints": []}}],
+                  "prohibitions": [],
+                  "obligations": []
+                }}
+              ],
+              "claims": {claims_json}
+            }}"#
+        )
+    }
+
+    const SUB_IS_THE_AGREEMENT_ASSIGNEE: &str = ",\n                \"agreementAssigneeClaim\": \"sub\"";
+
+    #[test]
+    fn an_agreement_assignee_claim_excludes_an_agreement_whose_assignee_does_not_match_the_caller() {
+        // Item 1's exact case: `agreementAssigneeClaim` names `sub`, the
+        // Agreement is addressed to alice, and mallory is asking. §3.2.1's
+        // own MUST ("grant ... from the Assigner to the Assignee") is
+        // enforced independently of `partyIdentityClaim`, which is unset
+        // here.
+        let response = evaluate_text(&kind_request(
+            "Agreement",
+            SUB_IS_THE_AGREEMENT_ASSIGNEE,
+            ALICE,
+            MALLORY_CLAIMS,
+        ));
+        assert_eq!(response.decision, WireDecision::Deny);
+        assert_eq!(
+            response.reason,
+            "no policy in the request applies to this caller: policy 'policy-1' names \
+             odrl:assignee 'did:web:alice.example', which does not match the caller's 'sub' \
+             claim (\"did:web:mallory.example\")"
+        );
+    }
+
+    #[test]
+    fn an_unset_agreement_assignee_claim_changes_nothing_for_an_agreement() {
+        // Decision: the field is `#[serde(default)]` and off unless named,
+        // exactly like `partyIdentityClaim` — a mismatched assignee still
+        // grants when nobody asked for this check.
+        let response = evaluate_text(&kind_request("Agreement", "", ALICE, MALLORY_CLAIMS));
+        assert_eq!(response.decision, WireDecision::Allow);
+        assert_eq!(
+            response.reason,
+            "permission[0] of policy 'policy-1' matched: action 'use', unconstrained"
+        );
+    }
+
+    #[test]
+    fn agreement_assignee_claim_has_no_effect_on_a_set_naming_the_same_mismatched_assignee() {
+        // Kind-scoping, proven: the identical assignee/claims mismatch that
+        // excludes an Agreement above leaves a Set completely unaffected —
+        // `agreementAssigneeClaim` only ever reads `kind == "Agreement"`.
+        let response = evaluate_text(&kind_request(
+            "Set",
+            SUB_IS_THE_AGREEMENT_ASSIGNEE,
+            ALICE,
+            MALLORY_CLAIMS,
+        ));
+        assert_eq!(response.decision, WireDecision::Allow);
+        assert_eq!(
+            response.reason,
+            "permission[0] of policy 'policy-1' matched: action 'use', unconstrained"
+        );
+    }
+
+    #[test]
+    fn an_agreement_with_no_assignee_is_unaffected_by_agreement_assignee_claim() {
+        // Structurally invalid per the Agreement's own MUST, but validating
+        // document structure is out of this engine's scope (see
+        // `party_role_mismatch`'s identical treatment of a missing
+        // assignee) — so this applies normally, exactly as it always has.
+        let response = evaluate_text(&kind_request(
+            "Agreement",
+            SUB_IS_THE_AGREEMENT_ASSIGNEE,
+            "null",
+            MALLORY_CLAIMS,
+        ));
+        assert_eq!(response.decision, WireDecision::Allow);
+    }
+
+    #[test]
+    fn party_identity_claim_alone_already_excludes_a_mismatched_agreement_without_agreement_assignee_claim() {
+        // The two mechanisms do not need to be reconciled because either one
+        // alone is sufficient: with only `partyIdentityClaim` configured (no
+        // `agreementAssigneeClaim` at all), a mismatched Agreement is
+        // already excluded, exactly as it was before this field existed.
+        let response = evaluate_text(&kind_request("Agreement", SUB_IS_THE_IDENTITY, ALICE, MALLORY_CLAIMS));
+        assert_eq!(response.decision, WireDecision::Deny);
+        assert!(response.reason.contains("no policy in the request applies to this caller"));
+    }
+
+    #[test]
+    fn both_party_identity_claim_and_agreement_assignee_claim_configured_still_exclude_a_mismatched_agreement() {
+        // Decision: the two switches do not fight each other. Both
+        // configured and both applying to the same mismatched Agreement
+        // still excludes it, under whichever reason fires.
+        let both_config = format!("{SUB_IS_THE_IDENTITY}{SUB_IS_THE_AGREEMENT_ASSIGNEE}");
+        let response = evaluate_text(&kind_request("Agreement", &both_config, ALICE, MALLORY_CLAIMS));
+        assert_eq!(response.decision, WireDecision::Deny);
+        assert!(response.reason.contains("no policy in the request applies to this caller"));
     }
 
     // -- odrl:conflict -----------------------------------------------------

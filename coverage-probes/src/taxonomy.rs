@@ -73,6 +73,7 @@ pub fn taxonomy_config() -> RequestConfig {
         duty_mode: DutyMode::Advise,
         behaviour: Behaviour::Closed,
         party_identity_claim: None,
+        agreement_assignee_claim: None,
     }
 }
 

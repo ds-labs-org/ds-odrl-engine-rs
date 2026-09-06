@@ -198,6 +198,7 @@ fn base_request_config() -> RequestConfig {
         // coarser, policy-level assignee check on top of the one this
         // corpus's ground truth is actually stated in terms of.
         party_identity_claim: None,
+        agreement_assignee_claim: None,
     }
 }
 

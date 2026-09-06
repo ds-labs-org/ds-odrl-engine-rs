@@ -61,6 +61,7 @@ pub fn config(actions: Vec<WireActionDecl>) -> RequestConfig {
         duty_mode: DutyMode::Advise,
         behaviour: Behaviour::Closed,
         party_identity_claim: None,
+        agreement_assignee_claim: None,
     }
 }
 
@@ -1415,9 +1416,10 @@ fn policy_class_probes() -> Vec<Probe> {
     // Capacity is this category's own probe count, asserted by
     // `the_catalog_has_fifty_two_rows_across_ten_categories`'s sibling
     // checks rather than left as a guess.
-    let mut probes = Vec::with_capacity(5);
+    let mut probes = Vec::with_capacity(7);
 
     let stranger = || claims(&[("sub", s("did:web:mallory.example"))]);
+    let alice_claims = || claims(&[("sub", s("did:web:alice.example"))]);
     let named_to_alice = |kind: &str| {
         let mut request = base_request();
         request.policies[0].kind = kind.to_string();
@@ -1441,17 +1443,67 @@ fn policy_class_probes() -> Vec<Probe> {
     probes.push(build(Spec {
         id: "pc-kind-agreement-ignores-assignee",
         kind: NEGATIVE,
-        title: "kind: Agreement grants to a stranger, exactly as Set does",
-        asserts: "An ODRL Agreement MUST grant only to its own named assignee. This request names \
-                  did:web:alice.example and the caller presents did:web:mallory.example -- and the \
-                  decision AND the reason are byte-identical to pc-kind-set's. No class-level MUST is \
-                  validated anywhere: `kind` never selects a semantics. Assignee scoping is available \
-                  (pf-assignee-scoped-miss) but is switched on by the config's partyIdentityClaim, not \
-                  by a policy calling itself an Agreement, and this request does not switch it on.",
-        falsified_by: "Deny -- which would mean assignee scoping is enforced for Agreements",
+        title: "kind: Agreement grants to a stranger, unless a host asks otherwise",
+        asserts: "An ODRL Agreement MUST grant only to its own named assignee (odrl-vocab 3.2.1). This \
+                  request names did:web:alice.example and the caller presents did:web:mallory.example \
+                  -- and, with neither partyIdentityClaim nor agreementAssigneeClaim configured, the \
+                  decision AND the reason are byte-identical to pc-kind-set's. `kind` alone never \
+                  selects a semantics; it takes a config naming one of the two claim keys to make an \
+                  Agreement behave differently from a Set -- see \
+                  pc-kind-agreement-assignee-claim-excludes-a-mismatch for that config turned on, on \
+                  this identical request.",
+        falsified_by: "Deny -- which would mean assignee scoping is enforced for every Agreement \
+                       unconditionally, with no config to switch it on",
         request: named_to_alice("Agreement"),
         patches: vec![],
         expect: allow(&base_allow_reason()),
+    }));
+
+    probes.push(build(Spec {
+        id: "pc-kind-agreement-assignee-claim-hit",
+        kind: POSITIVE,
+        title: "kind: Agreement, with agreementAssigneeClaim configured, still grants to the assignee it names",
+        asserts: "The opt-in mechanism this study added for the Agreement's own MUST (odrl-vocab \
+                  3.2.1, 'grant ... from the Assigner to the Assignee'): the config names `sub` as the \
+                  claim `agreementAssigneeClaim` reads, the policy names did:web:alice.example, and the \
+                  caller presents exactly that. Switching enforcement on must change nothing for the \
+                  party the Agreement is genuinely addressed to -- the same discipline \
+                  party.assigner-assignee's own pf-assignee-scoped-hit already established for \
+                  partyIdentityClaim.",
+        falsified_by: "Deny -- which would mean the check rejects even the correct assignee",
+        request: {
+            let mut request = named_to_alice("Agreement");
+            request.claims = alice_claims();
+            request.config.agreement_assignee_claim = Some("sub".to_string());
+            request
+        },
+        patches: vec![],
+        expect: allow(&base_allow_reason()),
+    }));
+
+    probes.push(build(Spec {
+        id: "pc-kind-agreement-assignee-claim-excludes-a-mismatch",
+        kind: POSITIVE,
+        title: "kind: Agreement, with agreementAssigneeClaim configured, excludes a stranger",
+        asserts: "The identical request as pc-kind-agreement-ignores-assignee, differing only in the \
+                  config: once a host names agreementAssigneeClaim, the Agreement's own MUST is \
+                  enforced independently of partyIdentityClaim, which stays unset here. The policy is \
+                  absent from the request, exactly as party.assigner-assignee's own \
+                  pf-assignee-scoped-miss already reports for partyIdentityClaim.",
+        falsified_by: "Allow -- which would mean agreementAssigneeClaim was accepted on the wire and \
+                       silently ignored",
+        request: {
+            let mut request = named_to_alice("Agreement");
+            request.config.agreement_assignee_claim = Some("sub".to_string());
+            request
+        },
+        patches: vec![],
+        expect: deny(
+            "no policy in the request applies to this caller: policy 'probe' names odrl:assignee \
+             'did:web:alice.example', which does not match the caller's 'sub' claim \
+             (\"did:web:mallory.example\")",
+        )
+        .excluding(&["no permission of policy"]),
     }));
 
     probes.push(build(Spec {
@@ -3112,19 +3164,35 @@ pub fn rows() -> Vec<Row> {
             id: "policy-classes.discrimination",
             category: "policy-classes",
             term: "Policy class discrimination (Set, Offer, Agreement, Assertion, Privacy, Request, Ticket)",
-            status: NOT_IMPLEMENTED,
-            why: "The wire carries `kind` as a string and nothing ever reads it; none of the \
-                  class-specific MUSTs is checked.",
-            evidence: "engine/src/wire.rs::WirePolicy::as_decision_policy (kind is dropped)",
-            asserts: "An Agreement grants to a stranger, a Ticket carrying a forbidden assignee is \
-                      accepted, and a kind that is not an ODRL class at all evaluates identically.",
+            status: PARTIAL,
+            why: "The wire still carries `kind` as a bare string for six of the seven classes -- Set, \
+                  Offer, Assertion, Privacy, Request and Ticket all evaluate identically regardless of \
+                  what they call themselves, and none of their own class-specific MUSTs is checked. One \
+                  class now differs. An Agreement's own MUST (odrl-vocab 3.2.1, 'grant ... from the \
+                  Assigner to the Assignee') is enforced when a host names `agreementAssigneeClaim` -- \
+                  opt-in, the same way `partyIdentityClaim` is, and independent of it.",
+            evidence: "engine/src/wire.rs::party_role_mismatch, engine/src/profile.rs::ResolvedConfig::\
+                       agreement_assignee_claim",
+            asserts: "Unconfigured, an Agreement still grants to a stranger exactly as Set does \
+                      (pc-kind-agreement-ignores-assignee); configured, it excludes that same stranger \
+                      (pc-kind-agreement-assignee-claim-excludes-a-mismatch) while still granting to its \
+                      real assignee (pc-kind-agreement-assignee-claim-hit). A Ticket carrying a forbidden \
+                      assignee, and a kind that is not an ODRL class at all, both still evaluate \
+                      identically to Set.",
             probe_ids: &[
                 "pc-kind-agreement-ignores-assignee",
+                "pc-kind-agreement-assignee-claim-hit",
+                "pc-kind-agreement-assignee-claim-excludes-a-mismatch",
                 "pc-kind-ticket-with-assignee",
                 "pc-kind-nonsense",
             ],
             documented_because: None,
-            caveat: None,
+            caveat: Some(
+                "Narrow, on purpose: one class out of seven, and only the assignee half of what its \
+                 own MUST actually says. Nothing here resolves any other class-specific structural \
+                 rule -- checking document structure stays outside this engine's own \
+                 enforcement-vs-conformance scope.",
+            ),
         }),
         row(RowSpec {
             id: "policy-classes.set-default",
@@ -3184,7 +3252,9 @@ pub fn rows() -> Vec<Row> {
                 "Opt-in and assignee-only. Nothing here validates an assigner, resolves an \
                  odrl:PartyCollection, or normalizes an IRI: the comparison is the engine's own `eq` \
                  semantics against one claim key -- string equality, or membership for a multi-valued \
-                 claim.",
+                 claim. A second, independent opt-in switch, `agreementAssigneeClaim`, exists \
+                 alongside this one, scoped to kind == Agreement only -- see \
+                 policy-classes.discrimination.",
             ),
         }),
         row(RowSpec {
