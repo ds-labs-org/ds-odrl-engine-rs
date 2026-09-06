@@ -2088,7 +2088,7 @@ probes are agreed/disagreed/errored out of 136.
 | `v0.14.0` | 07:53 | 68/68 | 45 / 5 / 0 | 126 / 10 / 0 | reproducible cross-engine conformance bench harnesses |
 | `v0.15.0` | 13:35 | 68/68 | 45 / 5 / 0 | 126 / 10 / 0 | performance, resource and load comparison across all five ODRL engines |
 | `v0.16.0` | 18:26 | 68/68 | 49 / 1 / 0 | 134 / 2 / 0 | native `inheritFrom`/conflict-voiding, `AssetCollection` membership, `xsd:duration` comparison, `odrl:andSequence`, `dsp-odrl-adapter` duty/consequence/remedy ingestion + IRI expansion + action pushdown |
-| `v0.17.0` | 21:38 | 68/68 | 50 / 0 / 0 | 136 / 0 / 0 | `agreementAssigneeClaim` opt-in, `odrl:Offer` assignee inertness, Release History dashboard repair |
+| `v0.17.0` | 21:51 | 68/68 | 50 / 0 / 0 | 136 / 0 / 0 | `agreementAssigneeClaim` opt-in, `odrl:Offer` assignee inertness, Release History dashboard repair |
 
 Four things in that table are worth reading twice, because none of them
 came from a changelog:
@@ -2237,7 +2237,7 @@ rather than asserted:
 for i in $(seq 8); do
   cargo run -q -p release-history --release -- STAGE_DIR --check-determinism
 done
-# 8 × sha256 b76480fbcc6041cb6f727d34d24b15ee5d50b6216e7d446b3d7f27898696c25e
+# 8 × sha256 99a15987cc2f11431e5f18ee6913e8c68dd3881cf8301a23883c476d98ae77fd
 # ... identical to sha256sum compliance/reports/release-history.json
 ```
 

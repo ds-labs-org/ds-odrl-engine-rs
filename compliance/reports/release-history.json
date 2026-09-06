@@ -1992,7 +1992,7 @@
       "tag": "v0.16.0"
     },
     {
-      "commit": "2b9004107d1b08c2aae08a8670c83981c7addeea",
+      "commit": "891adacc402db1158d7f6f66bba7ee4f58b49e25",
       "compliance": {
         "failed": 0,
         "passed": 68,
@@ -2012,10 +2012,10 @@
         "verified": 50
       },
       "coverage_error": null,
-      "date": "2026-09-06T21:38:43+02:00",
+      "date": "2026-09-06T21:51:02+02:00",
       "engine_wasm_bytes": 315509,
       "engine_wasm_sha256": "cd6dee62f4d69dc755a0cb1442bacfea9c595c0760a193602b278ea34f7d0b21",
-      "summary": "site/history_page: render the Release History intro from real data, not a hardcoded probe count",
+      "summary": "release-history: regenerate the dashboard and automate it in CI so this cannot go stale again",
       "tag": "v0.17.0"
     }
   ],
