@@ -136,8 +136,15 @@ request, is rejected as `Decision::Error` rather than looped or silently
 ignored; `odrl:conflict` is deliberately not among what is replicated
 (no wire representation for "unset" distinct from its own default), and
 this contract has no policy-level Asset or `odrl:profile` field to
-replicate in the first place. See "Policy inheritance (`odrl:inheritFrom`)"
-below. See
+replicate in the first place. Not replicating the term does not exempt a
+merge from Information Model §2.10's own validation rule 4, though:
+when a parent and a child it merged rules into declared *differing*
+`odrl:conflict` values and those rules produce a genuine collision, the
+entire (child) policy is now void — reusing the same `ConflictStrategy::
+Invalid` machinery a single policy's own undeclared strategy already
+triggers — rather than silently resolved by whichever value happened to
+be the child's own. See "Policy inheritance (`odrl:inheritFrom`)" and
+"Conflict strategy (`odrl:conflict`)" below. See
 "Per-permission duties, consequences and remedies" below for the full
 duty semantics and for the reasoning behind that remedy choice, the design
 rationale below for what's load-bearing versus what's
@@ -1281,6 +1288,79 @@ replicate in the first place. `kind` is the child's own declared class and
 is never touched either; it is not in §2.9's replicated list, and nothing
 here selects a semantics from it regardless.
 
+### Differing `odrl:conflict` values across a merge void the policy
+
+Not replicating the term (above) does not exempt a merge from Information
+Model §2.10's own validation rule 4: **"Multiple conflict values with
+conflicts: the entire Policy MUST be void."** §2.10 states `conflict` of
+*both* a single policy's own permission/prohibition clash (the section
+above) *and* "conflicts that arise from the merging of Policies" — and
+once `odrl:inheritFrom` actually produces a merge, the second reading
+applies. `resolve_inherit_from` therefore also tracks, per policy,
+**every distinct `odrl:conflict` value declared anywhere in its own
+inheritance chain** (itself and every ancestor it merged rules from,
+folded transitively across a multi-level chain the same way rules and
+party fields already are) — structural information, independent of any
+one request. Whether that divergence actually **voids** the policy still
+depends on this exact request producing a genuine collision
+(`conflicting_rules`), exactly as a single policy's own `odrl:conflict`
+already does: a merge that never triggers a real permission/prohibition
+clash is unaffected by carrying more than one declared value.
+
+```json
+{
+  "policies": [
+    {
+      "id": "parent", "kind": "Set", "odrl:conflict": "perm",
+      "permissions": [{ "action": "use", "constraints": [] }],
+      "prohibitions": [{ "action": "use", "constraints": [] }]
+    },
+    {
+      "id": "child", "kind": "Set", "odrl:conflict": "prohibit",
+      "inheritFrom": ["parent"], "permissions": [], "prohibitions": []
+    }
+  ]
+}
+```
+
+`child` inherits both of `parent`'s rules and now carries a genuine
+collision (a permission and a prohibition both matching the same
+requested action). `parent`'s own `perm` and `child`'s own `prohibit`
+are two distinct values over that one merged collision, so `child` is
+**void** — not resolved by `child`'s own `prohibit` (which would
+coincidentally also deny, for the wrong reason) and not by `parent`'s
+`perm`:
+
+```
+policy 'child' is void: permission[0] and prohibition[0] both matched
+requested action 'use', and odrl:inheritFrom merged more than one
+distinct odrl:conflict value into this policy (its own declared value is
+'prohibit') — Information Model §2.10's validation rule 4 requires the
+entire policy be void when a merge carries differing conflict values
+over a genuine collision, rather than resolved by any one of them
+```
+
+This reuses the exact `ConflictStrategy::Invalid` decision path a single
+policy's own undeclared strategy already takes — `engine::wire`
+constructs the `decision::Policy` handed to `decide` with `conflict`
+forced to `Invalid` whenever the divergence flag is set, so the void
+branch `decide` already has is what actually fires — rather than adding a
+second conflict-resolution mechanism. The *reason* text is kept distinct
+from the single-policy `invalid` wording, though: it names the policy's
+own **actually declared** value (`'prohibit'` above, never `'invalid'`
+unless that really is what the policy declared or defaulted to), because
+`describe_reason` is told about the divergence separately from
+`policy.conflict` itself and checks for it first. A child and every
+ancestor it merged rules from declaring the *same* `odrl:conflict` value
+— including every fixture and coverage probe that predates this
+addition, none of which uses `odrl:inheritFrom` alongside a differing
+`odrl:conflict` — is entirely unaffected: see `coverage-probes`'
+`inheritfrom-conflict-divergence-hit`/`-control` pair (`other.inherit-
+from` coverage row) and `engine/src/wire.rs`'s
+`an_inherited_and_inheriting_policy_declaring_differing_conflict_values_voids_the_policy`
+and `the_same_declared_conflict_value_across_inheritance_is_not_a_divergence`
+tests.
+
 Neither `compliance-runner` nor `dsp-odrl-adapter` resolves
 `odrl:inheritFrom` through this new field: no Turtle document in the
 vendored 68-fixture suite declares one, so `compliance-runner`'s own
@@ -1707,7 +1787,7 @@ explicit about the boundary: the Turtle→request translation and the
 `report:*` ground truth were computed natively and travel in the
 artifact; what runs in the browser is the engine and its ABI. A fourth
 page, **ODRL 2.2 Coverage**, does the same thing for this study's
-vocabulary claims: it executes all 129 probes of
+vocabulary claims: it executes all 131 probes of
 `compliance/reports/latest-coverage.json` against that same
 `engine.wasm`, live, and derives a per-row verdict that can come back
 *Contradicted*. The fifth, **Release History**, is the one page here that

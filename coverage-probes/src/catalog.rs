@@ -2458,6 +2458,84 @@ fn other_probes() -> Vec<Probe> {
         expect: allow("policy 'child' has no permissions (open default)"),
     }));
 
+    // Information Model §2.10, validation rule 4: once inheritance itself
+    // produces a merge, a parent and child that declared *differing*
+    // `odrl:conflict` values over a genuine collision must void the whole
+    // policy, not resolve it by either value alone. `parent` is isolated
+    // exactly as the two pairs above -- reachable only through
+    // `inheritFrom` -- so what `evaluate_request` decides on is `child`
+    // alone, and the reason names it.
+    probes.push(build(Spec {
+        id: "inheritfrom-conflict-divergence-hit",
+        kind: POSITIVE,
+        title: "a parent and child declaring differing odrl:conflict values void the merged policy",
+        asserts: "`parent` (reachable only through inheritFrom) declares `odrl:conflict: perm` \
+                  alongside a permission and a prohibition that both cover `use`; `child` inherits \
+                  both rules, declaring no rules of its own and its own `odrl:conflict: prohibit`. \
+                  The merge now carries two distinct values over a genuine collision, which \
+                  validation rule 4 requires be void -- not resolved by `child`'s own `prohibit` \
+                  (which would coincidentally also deny, for the wrong reason) or `parent`'s `perm`.",
+        falsified_by: "any Deny whose reason names a resolved strategy rather than voiding the \
+                       policy, or an Allow",
+        request: Request {
+            config: isolated_config(&["use"], Behaviour::Open),
+            policies: vec![
+                WirePolicy {
+                    conflict: ConflictStrategy::Perm,
+                    ..isolated_parent(vec![rule("use", vec![])], vec![rule("use", vec![])])
+                },
+                WirePolicy {
+                    conflict: ConflictStrategy::Prohibit,
+                    ..child_addressed_to_caller(true, vec![], vec![])
+                },
+            ],
+            claims: caller_is_alice(),
+            ..base_request()
+        },
+        patches: vec![],
+        expect: deny(
+            "policy 'child' is void: permission[0] and prohibition[0] both matched requested \
+             action 'use', and odrl:inheritFrom merged more than one distinct odrl:conflict \
+             value into this policy (its own declared value is 'prohibit') — Information Model \
+             §2.10's validation rule 4 requires the entire policy be void when a merge carries \
+             differing conflict values over a genuine collision, rather than resolved by any \
+             one of them",
+        ),
+    }));
+
+    probes.push(build(Spec {
+        id: "inheritfrom-conflict-divergence-control",
+        kind: NEGATIVE,
+        title: "the same shape with matching odrl:conflict on both ends is not a divergence",
+        asserts: "The control for inheritfrom-conflict-divergence-hit: identical policies except \
+                  `parent` also declares `odrl:conflict: prohibit`, matching `child`'s own. With \
+                  nothing to disagree about, the merge resolves as an ordinary single-value \
+                  `prohibit` collision always has -- proving the void reason above comes from the \
+                  actual divergence, not from inheritance carrying a collision at all.",
+        falsified_by: "the void reason above",
+        request: Request {
+            config: isolated_config(&["use"], Behaviour::Open),
+            policies: vec![
+                WirePolicy {
+                    conflict: ConflictStrategy::Prohibit,
+                    ..isolated_parent(vec![rule("use", vec![])], vec![rule("use", vec![])])
+                },
+                WirePolicy {
+                    conflict: ConflictStrategy::Prohibit,
+                    ..child_addressed_to_caller(true, vec![], vec![])
+                },
+            ],
+            claims: caller_is_alice(),
+            ..base_request()
+        },
+        patches: vec![],
+        expect: deny(
+            "prohibition[0] of policy 'child' matched: action 'use', unconstrained; \
+             odrl:conflict 'prohibit' resolves the conflict with permission[0] in the \
+             prohibition's favour",
+        ),
+    }));
+
     probes.push(build(Spec {
         id: "ror-literal-eq",
         kind: POSITIVE,
@@ -3393,23 +3471,33 @@ pub fn rows() -> Vec<Row> {
                   and its own unset assigner/assignee, resolved by id within the same request's \
                   policies list (WirePolicy::inherit_from), with circular chains and an absent \
                   parent id rejected as Decision::Error rather than looped or silently fail-open. \
-                  Partial, not full Section 2.9: odrl:conflict is deliberately not replicated (no \
-                  wire representation for 'unset' distinct from its own default), and this contract \
-                  has no policy-level Asset or odrl:profile field to replicate in the first place.",
-            evidence: "engine/src/wire.rs::resolve_inherit_from, WirePolicy::inherit_from",
-            asserts: "Two hit/control pairs. Under a closed default, a child with only an unrelated \
+                  The one thing odrl:conflict IS read for across the chain: whether a parent's and \
+                  a child's own declared value actually disagree over a genuine merged collision \
+                  (Information Model 2.10 validation rule 4) -- when they do, the entire policy is \
+                  void, reusing the same ConflictStrategy::Invalid machinery a single policy's own \
+                  undeclared strategy already uses, rather than resolved by either value alone. \
+                  Still partial, not full Section 2.9: the term itself is not replicated onto the \
+                  child (no wire representation for 'unset' distinct from its own default), and \
+                  this contract has no policy-level Asset or odrl:profile field to replicate in the \
+                  first place.",
+            evidence: "engine/src/wire.rs::resolve_inherit_from, resolve_one, WirePolicy::inherit_from",
+            asserts: "Three hit/control pairs. Under a closed default, a child with only an unrelated \
                       permission of its own still grants the action its inheritFrom parent permits \
                       (inheritfrom-safe-direction-hit/-control). Under the open default, a child \
                       declaring no rule of its own at all -- the single most natural real-world \
                       inheritFrom shape -- still denies an action its parent prohibits, rather than \
                       the vacuous Allow an empty permissions list would otherwise grant \
                       (inheritfrom-fail-open-hit/-control, the direction this addition actually \
-                      closes).",
+                      closes). And a parent/child pair declaring differing odrl:conflict values \
+                      over a genuine collision voids the policy rather than resolving it by either \
+                      value (inheritfrom-conflict-divergence-hit/-control).",
             probe_ids: &[
                 "inheritfrom-safe-direction-hit",
                 "inheritfrom-safe-direction-control",
                 "inheritfrom-fail-open-hit",
                 "inheritfrom-fail-open-control",
+                "inheritfrom-conflict-divergence-hit",
+                "inheritfrom-conflict-divergence-control",
             ],
             documented_because: None,
             caveat: None,

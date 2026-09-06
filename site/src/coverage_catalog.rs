@@ -788,10 +788,13 @@ mod tests {
     assert_eq!(file.categories.len(), 10);
     assert_eq!(
       file.probes.len(),
-      129,
-      "grew by 2 more (127 -> 129) when odrl:inheritFrom moved from documented-only to two real \
-       hit/control pairs (inheritfrom-safe-direction-*, inheritfrom-fail-open-*), on top of the \
-       125 -> 127 growth odrl:AssetCollection membership (odrl:partOf) already added"
+      131,
+      "grew by 2 more (129 -> 131) for odrl:conflict cross-policy voiding when a parent and child \
+       joined by odrl:inheritFrom declare differing conflict values over a genuine collision \
+       (inheritfrom-conflict-divergence-*), on top of the 127 -> 129 growth when odrl:inheritFrom \
+       itself moved from documented-only to two real hit/control pairs \
+       (inheritfrom-safe-direction-*, inheritfrom-fail-open-*), and the 125 -> 127 growth \
+       odrl:AssetCollection membership (odrl:partOf) already added"
     );
     assert!(file.spec.contains("odrl-vocab"));
   }

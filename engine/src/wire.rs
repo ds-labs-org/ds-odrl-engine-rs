@@ -477,6 +477,29 @@ fn describe_rule(rule: &Rule, requested_action: &str) -> String {
     format!("{action_clause}: {constraints}")
 }
 
+/// `ConflictStrategy`'s own wire spelling, for a reason string that needs
+/// to name a *specific* policy's declared value (as opposed to `decide`
+/// and the rest of this module, which only ever compare it, never print
+/// it) — the cross-policy void reason below is the one place that does.
+fn conflict_strategy_wire_name(strategy: ConflictStrategy) -> &'static str {
+    match strategy {
+        ConflictStrategy::Perm => "perm",
+        ConflictStrategy::Prohibit => "prohibit",
+        ConflictStrategy::Invalid => "invalid",
+    }
+}
+
+/// The asset half of a `decide`/`conflicting_rules` call — `requested_
+/// target` and `asset_collections` always travel together everywhere else
+/// in this module too — bundled here purely to keep `describe_reason`'s
+/// own parameter list under clippy's `too_many_arguments` threshold now
+/// that it also takes `conflict_values_differ` below; not a type any other
+/// function in this module needs to know about.
+struct RequestedTarget<'a> {
+    target: &'a str,
+    asset_collections: &'a [String],
+}
+
 /// Reconstructs a human-readable trace of *which* rule/constraint drove
 /// one policy's outcome (Section 5.2's `reason` field), by re-running the
 /// same match tests `decide` used internally — now including the same
@@ -494,10 +517,21 @@ fn describe_reason(
     outcome: &DecisionOutcome,
     claims: &Claims,
     requested_action: &str,
-    requested_target: &str,
-    asset_collections: &[String],
+    target: RequestedTarget<'_>,
     config: &ResolvedConfig,
+    // Information Model §2.10, validation rule 4's structural half: this
+    // policy's own `odrl:conflict` and at least one ancestor's it merged
+    // rules from (`resolve_inherit_from`) actually disagree. Distinct from
+    // `policy.conflict == ConflictStrategy::Invalid` below — a policy can
+    // reach this `true` while its own declared value is `perm` or
+    // `prohibit`, which is exactly why the two produce different reason
+    // text: one names the value the policy itself chose and failed to
+    // apply because a merge overrode it, the other names ODRL's own
+    // default for a policy that never chose anything at all.
+    conflict_values_differ: bool,
 ) -> String {
+    let requested_target = target.target;
+    let asset_collections = target.asset_collections;
     // `Rule::applies`, not `covers_action` alone: applicability is the
     // rule's target *and* its action requirement (coverage plus the
     // action's own `odrl:refinement`). Getting this wrong is not merely a
@@ -551,13 +585,39 @@ fn describe_reason(
     match &outcome.decision {
         Decision::Error(unrecognized) => format!("policy '{}': {unrecognized}", policy.id),
         Decision::Deny => {
-            // A void policy first, ahead of the prohibition branch: under
-            // `odrl:conflict: invalid` the prohibition did not win, it
-            // simply failed to be reconciled with a permission that holds
-            // just as strongly, and reporting it as the deciding rule would
-            // claim a resolution the policy explicitly refuses. This is the
-            // only observable difference between `invalid` and `prohibit`
-            // — both `Deny` — so it is load-bearing rather than cosmetic.
+            // A cross-policy void first, ahead of even the intra-policy
+            // `invalid` check below: rule 4's own text is "multiple
+            // conflict values with conflicts" — the policy's own declared
+            // strategy is not consulted at all once inheritance itself
+            // produced the disagreement, so a policy that declared `perm`
+            // or `prohibit` explicitly (and would otherwise have named
+            // that strategy in its reason, below) is still void, and the
+            // trace must say why rather than claim a resolution the merge
+            // never actually reached.
+            if let Some(found) = conflict {
+                if conflict_values_differ {
+                    return format!(
+                        "policy '{}' is void: permission[{}] and prohibition[{}] both matched requested \
+                         action '{requested_action}', and odrl:inheritFrom merged more than one distinct \
+                         odrl:conflict value into this policy (its own declared value is '{}') — Information \
+                         Model \u{a7}2.10's validation rule 4 requires the entire policy be void when a merge \
+                         carries differing conflict values over a genuine collision, rather than resolved by \
+                         any one of them",
+                        policy.id,
+                        found.permission_index,
+                        found.prohibition_index,
+                        conflict_strategy_wire_name(policy.conflict)
+                    );
+                }
+            }
+
+            // A void policy next: under `odrl:conflict: invalid` the
+            // prohibition did not win, it simply failed to be reconciled
+            // with a permission that holds just as strongly, and reporting
+            // it as the deciding rule would claim a resolution the policy
+            // explicitly refuses. This is the only observable difference
+            // between `invalid` and `prohibit` — both `Deny` — so it is
+            // load-bearing rather than cosmetic.
             if let Some(found) = conflict {
                 if policy.conflict == ConflictStrategy::Invalid {
                     return format!(
@@ -870,6 +930,26 @@ fn party_role_mismatch<'a>(
 /// is not replicated either: it is the child's own declared class, and
 /// nothing here selects a semantics from it regardless.
 ///
+/// **What *is* derived from `odrl:conflict` across the chain: whether the
+/// merge carries more than one distinct value at all** (Information Model
+/// §2.10, validation rule 4 — "Multiple conflict values with conflicts:
+/// the entire Policy MUST be void"). Not replicating the term does not
+/// exempt this from that rule: once a child's own rules and a parent's
+/// have been merged into one rule set, that set can carry a genuine
+/// permission/prohibition collision the parent's own `odrl:conflict` was
+/// never asked to arbitrate together with the child's. This function
+/// therefore also returns, per resolved policy `id`, whether its own
+/// declared `conflict` and every ancestor's it merged rules from actually
+/// disagree (`resolve_one`'s second return value, folded transitively
+/// across a multi-level chain the same way rules and party fields already
+/// are) — a *structural* fact, independent of any one request. Whether
+/// that divergence actually **voids** the policy still depends on whether
+/// this exact request's claims produce a real collision
+/// (`conflicting_rules`), exactly as it does for a single policy's own
+/// `odrl:conflict`; that per-request half of rule 4 is applied where the
+/// rest of the collision logic already lives — `evaluate_request_for_action`
+/// (the decision) and `describe_reason` (the trace) — not here.
+///
 /// **Multi-level and multi-parent, by construction.** A parent is itself
 /// resolved (recursively, through this same function) before its rules are
 /// copied into a child, so a grandparent's rules reach a grandchild
@@ -889,35 +969,60 @@ fn party_role_mismatch<'a>(
 /// caller's own policy set is the thing that does not parse into a tree —
 /// which is exactly the "configuration gap" distinction `Decision::Error`
 /// exists to preserve elsewhere in this module.
-fn resolve_inherit_from(policies: &[WirePolicy]) -> Result<Vec<WirePolicy>, String> {
+fn resolve_inherit_from(policies: &[WirePolicy]) -> Result<(Vec<WirePolicy>, HashMap<String, bool>), String> {
     let by_id: HashMap<&str, &WirePolicy> = policies.iter().map(|p| (p.id.as_str(), p)).collect();
-    let mut resolved: HashMap<String, WirePolicy> = HashMap::with_capacity(policies.len());
+    let mut resolved: HashMap<String, (WirePolicy, Vec<ConflictStrategy>)> = HashMap::with_capacity(policies.len());
     let mut stack: Vec<String> = Vec::new();
 
     for policy in policies {
         resolve_one(&policy.id, &by_id, &mut resolved, &mut stack)?;
     }
 
-    Ok(policies
+    let merged_policies = policies
         .iter()
-        .map(|p| resolved.get(&p.id).expect("resolved above").clone())
-        .collect())
+        .map(|p| resolved.get(&p.id).expect("resolved above").0.clone())
+        .collect();
+    // More than one distinct `odrl:conflict` value reached this policy
+    // through its own declaration plus every ancestor whose rules it
+    // merged — the structural half of validation rule 4. See
+    // `resolve_one`'s own doc comment for why this is folded transitively
+    // rather than compared only against the immediate parent.
+    let conflict_values_differ = policies
+        .iter()
+        .map(|p| {
+            let values = &resolved.get(&p.id).expect("resolved above").1;
+            (p.id.clone(), values.len() > 1)
+        })
+        .collect();
+
+    Ok((merged_policies, conflict_values_differ))
 }
 
 /// One policy's effective, post-inheritance form — see `resolve_inherit_from`
-/// for what "effective" replicates. `resolved` is both the memo table (a
-/// policy already fully resolved is cloned out, never recomputed, which is
-/// what keeps a diamond of shared ancestors linear rather than exponential)
-/// and, for a policy with no parents at all, exactly itself. `stack` is the
-/// `id`s on the current recursion path, checked before `by_id` is even
-/// consulted: an `id` already on it is a cycle, reported with the path that
-/// found it rather than left to recurse until the real call stack overflows.
+/// for what "effective" replicates — paired with every distinct
+/// `odrl:conflict` value declared anywhere in its own inheritance chain
+/// (itself included). `resolved` is both the memo table (a policy already
+/// fully resolved is cloned out, never recomputed, which is what keeps a
+/// diamond of shared ancestors linear rather than exponential) and, for a
+/// policy with no parents at all, exactly itself paired with its own single
+/// declared value. `stack` is the `id`s on the current recursion path,
+/// checked before `by_id` is even consulted: an `id` already on it is a
+/// cycle, reported with the path that found it rather than left to recurse
+/// until the real call stack overflows.
+///
+/// The conflict-value list is deliberately folded **transitively**, not
+/// just against the immediate parent: a grandparent's `odrl:conflict`
+/// reaches a grandchild's merged rule set exactly as its rules do (both
+/// travel through the same `parent` returned by the same recursive call),
+/// so a value that disagrees only two levels up still marks the merge as
+/// carrying more than one — matching rules and party fields, the two
+/// things §2.9 already replicates the same way.
 fn resolve_one(
     id: &str,
     by_id: &HashMap<&str, &WirePolicy>,
-    resolved: &mut HashMap<String, WirePolicy>,
+    resolved: &mut HashMap<String, (WirePolicy, Vec<ConflictStrategy>)>,
     stack: &mut Vec<String>,
-) -> Result<WirePolicy, String> {
+) -> Result<(WirePolicy, Vec<ConflictStrategy>), String> {
     if let Some(done) = resolved.get(id) {
         return Ok(done.clone());
     }
@@ -941,15 +1046,17 @@ fn resolve_one(
     let parent_ids: &[String] = match &policy.inherit_from {
         Some(ids) if !ids.is_empty() => ids,
         _ => {
-            resolved.insert(id.to_string(), policy.clone());
-            return Ok(policy.clone());
+            let result = (policy.clone(), vec![policy.conflict]);
+            resolved.insert(id.to_string(), result.clone());
+            return Ok(result);
         }
     };
 
     stack.push(id.to_string());
     let mut merged = policy.clone();
+    let mut conflict_values = vec![policy.conflict];
     for parent_id in parent_ids {
-        let parent = resolve_one(parent_id, by_id, resolved, stack)?;
+        let (parent, parent_conflict_values) = resolve_one(parent_id, by_id, resolved, stack)?;
         merged.permissions.extend(parent.permissions.iter().cloned());
         merged.prohibitions.extend(parent.prohibitions.iter().cloned());
         merged.obligations.extend(parent.obligations.iter().cloned());
@@ -959,11 +1066,17 @@ fn resolve_one(
         if merged.assignee.is_none() {
             merged.assignee = parent.assignee.clone();
         }
+        for value in parent_conflict_values {
+            if !conflict_values.contains(&value) {
+                conflict_values.push(value);
+            }
+        }
     }
     stack.pop();
 
-    resolved.insert(id.to_string(), merged.clone());
-    Ok(merged)
+    let result = (merged, conflict_values);
+    resolved.insert(id.to_string(), result.clone());
+    Ok(result)
 }
 
 struct Evaluation<'a> {
@@ -1044,17 +1157,18 @@ fn evaluate_request_for_action(req: &Request, requested_action: &str) -> Respons
     // from this same request, is a caller configuration gap rather than a
     // decidable request, so it fails the whole request here rather than
     // being reported as any one policy's own outcome.
-    let policies: Vec<WirePolicy> = match resolve_inherit_from(&req.policies) {
-        Ok(policies) => policies,
-        Err(reason) => {
-            return Response {
-                dataset_id: req.dataset_id.clone(),
-                decision: WireDecision::Error,
-                reason,
-                duties: Vec::new(),
-            };
-        }
-    };
+    let (policies, conflict_values_differ): (Vec<WirePolicy>, HashMap<String, bool>) =
+        match resolve_inherit_from(&req.policies) {
+            Ok(result) => result,
+            Err(reason) => {
+                return Response {
+                    dataset_id: req.dataset_id.clone(),
+                    decision: WireDecision::Error,
+                    reason,
+                    duties: Vec::new(),
+                };
+            }
+        };
 
     // Party-role scoping, ahead of everything past inheritance: a policy
     // this caller is not the `odrl:assignee` of is **absent from the
@@ -1101,22 +1215,41 @@ fn evaluate_request_for_action(req: &Request, requested_action: &str) -> Respons
 
     let evaluations: Vec<Evaluation> = applicable
         .into_iter()
-        .map(|policy| Evaluation {
-            policy,
-            // `req.dataset_id` is this request's `odrl:target` (see
-            // `Request`'s own doc comment) — the asset each rule's own
-            // `odrl:target`, if it has one, is compared against.
-            // `req.asset_collections` names every `odrl:AssetCollection`
-            // the host asserts `dataset_id` is `odrl:partOf`, so a rule
-            // scoped to a collection IRI is in play for a member too.
-            outcome: decide(
-                &policy.as_decision_policy(),
-                &req.claims,
-                &config,
-                requested_action,
-                &req.dataset_id,
-                &req.asset_collections,
-            ),
+        .map(|policy| {
+            // Information Model §2.10, validation rule 4's structural half
+            // (`resolve_inherit_from`): this policy's own `odrl:conflict`
+            // and at least one ancestor's it merged rules from actually
+            // disagree. `ConflictStrategy::Invalid` already has exactly the
+            // right shape for the per-request half — void *only* when
+            // `decide` finds a genuine permission/prohibition collision for
+            // this exact request, and otherwise a complete no-op — so
+            // forcing it here reuses that existing machinery outright
+            // rather than adding a second conflict-resolution path. The
+            // policy's own *declared* value is left untouched on `policy`
+            // itself for `describe_reason` below, which needs the honest
+            // one (e.g. `prohibit`) rather than the forced one to report
+            // why the policy is actually void.
+            let mut decision_policy = policy.as_decision_policy();
+            if conflict_values_differ.get(&policy.id).copied().unwrap_or(false) {
+                decision_policy.conflict = ConflictStrategy::Invalid;
+            }
+            Evaluation {
+                policy,
+                // `req.dataset_id` is this request's `odrl:target` (see
+                // `Request`'s own doc comment) — the asset each rule's own
+                // `odrl:target`, if it has one, is compared against.
+                // `req.asset_collections` names every `odrl:AssetCollection`
+                // the host asserts `dataset_id` is `odrl:partOf`, so a rule
+                // scoped to a collection IRI is in play for a member too.
+                outcome: decide(
+                    &decision_policy,
+                    &req.claims,
+                    &config,
+                    requested_action,
+                    &req.dataset_id,
+                    &req.asset_collections,
+                ),
+            }
         })
         .collect();
 
@@ -1137,9 +1270,9 @@ fn evaluate_request_for_action(req: &Request, requested_action: &str) -> Respons
         &deciding.outcome,
         &req.claims,
         requested_action,
-        &req.dataset_id,
-        &req.asset_collections,
+        RequestedTarget { target: &req.dataset_id, asset_collections: &req.asset_collections },
         &config,
+        conflict_values_differ.get(&deciding.policy.id).copied().unwrap_or(false),
     );
 
     // Under `duty_mode: deny`, a policy-level obligation's unresolved state
@@ -2326,7 +2459,7 @@ mod tests {
         child.assigner = String::new(); // unset -- helper's own default is non-empty
         child.permissions = vec![Rule::new("print", vec![])];
 
-        let resolved = resolve_inherit_from(&[parent, child]).unwrap();
+        let (resolved, conflict_values_differ) = resolve_inherit_from(&[parent, child]).unwrap();
         let child = resolved.iter().find(|p| p.id == "child").unwrap();
 
         assert_eq!(
@@ -2355,6 +2488,13 @@ mod tests {
             "odrl:conflict is deliberately not replicated -- see resolve_inherit_from's own doc \
              comment for why a wire-level 'unset' is indistinguishable from an explicit default"
         );
+        assert_eq!(
+            conflict_values_differ.get("child"),
+            Some(&true),
+            "the parent's own 'perm' and the child's own (defaulted) 'invalid' are two distinct \
+             values, even though neither is replicated onto the other -- this is the structural \
+             half of validation rule 4 the void-cross-policy test below exercises end to end"
+        );
     }
 
     #[test]
@@ -2362,9 +2502,14 @@ mod tests {
         let parent = inheriting_policy("parent", Some("urn:parent-assignee"), None);
         let child = inheriting_policy("child", Some("urn:child-assignee"), Some(&["parent"]));
 
-        let resolved = resolve_inherit_from(&[parent, child]).unwrap();
+        let (resolved, conflict_values_differ) = resolve_inherit_from(&[parent, child]).unwrap();
         let child = resolved.iter().find(|p| p.id == "child").unwrap();
         assert_eq!(child.assignee, Some("urn:child-assignee".to_string()));
+        assert_eq!(
+            conflict_values_differ.get("child"),
+            Some(&false),
+            "both policies leave odrl:conflict at its default, so there is nothing to disagree about"
+        );
     }
 
     /// The exact distinguishing example this backlog item cites, adapted to
@@ -3778,6 +3923,144 @@ mod tests {
                 "{label}: the set-level rule decides, and says so without any conflict clause"
             );
         }
+    }
+
+    // -- odrl:conflict across odrl:inheritFrom (Information Model §2.10 --
+    // -- validation rule 4) -------------------------------------------------
+
+    /// The exact distinguishing example this backlog item cites: a parent
+    /// declares `odrl:conflict: perm` alongside a permission and a
+    /// prohibition on the same action; a child declares no rules of its own,
+    /// `odrl:inheritFrom: ["parent"]`, and its own `odrl:conflict: prohibit`.
+    ///
+    /// **Why no party-role isolation is needed here**, unlike the
+    /// `a_child_declaring_no_rules_of_its_own_inherits_its_parents_prohibition_and_denies`
+    /// test above. There the masking risk was `parent`'s own *prohibition*
+    /// independently denying the whole request regardless of whether
+    /// inheritance resolved anything. Here `parent`, evaluated standing
+    /// alone, is an ordinary intra-policy `perm` collision — its permission
+    /// wins over its own prohibition (`Decision::Allow`), so `parent`
+    /// contributes nothing the set-level deny-override rule would pick over
+    /// `child`. `child` is what must independently produce a `Deny`, and its
+    /// `Deny` is what the combining rule surfaces.
+    ///
+    /// **Confirmed empirically before writing the fix**, the same way the
+    /// previous item's own test was: with the differing-conflict-values
+    /// check removed, `child` replicates `parent`'s two rules, evaluates
+    /// the collision using only its own declared `prohibit`, and produces
+    /// an ordinary `Deny` under the *prohibition-wins* reason — a `Deny`
+    /// for the wrong reason, indistinguishable from a policy that resolved
+    /// its conflict rather than one that Information Model §2.10's own
+    /// validation rule 4 requires be void. This test's `assert_eq!` on the
+    /// full reason string is what actually catches that difference; the
+    /// bare decision alone would not, since a `prohibit` reading of this
+    /// specific example also denies.
+    fn differing_conflict_request() -> String {
+        r#"{
+              "dataset_id": "urn:uuid:ds",
+              "action": "use",
+              "config": {
+                "@type": "odrl:Profile",
+                "@id": "https://example.org/profiles/test",
+                "odrl:action": [{"@id": "use"}],
+                "dutyMode": "advise"
+              },
+              "policies": [
+                {
+                  "id": "parent",
+                  "kind": "Set",
+                  "assigner": "did:web:provider.example",
+                  "assignee": null,
+                  "odrl:conflict": "perm",
+                  "permissions": [{"action": "use", "constraints": []}],
+                  "prohibitions": [{"action": "use", "constraints": []}],
+                  "obligations": []
+                },
+                {
+                  "id": "child",
+                  "kind": "Set",
+                  "assigner": "did:web:provider.example",
+                  "assignee": null,
+                  "odrl:conflict": "prohibit",
+                  "inheritFrom": ["parent"],
+                  "permissions": [],
+                  "prohibitions": [],
+                  "obligations": []
+                }
+              ],
+              "claims": {}
+            }"#
+        .to_string()
+    }
+
+    #[test]
+    fn an_inherited_and_inheriting_policy_declaring_differing_conflict_values_voids_the_policy() {
+        let response = evaluate_text(&differing_conflict_request());
+        assert_eq!(response.decision, WireDecision::Deny, "{}", response.reason);
+        assert_eq!(
+            response.reason,
+            "policy 'child' is void: permission[0] and prohibition[0] both matched requested \
+             action 'use', and odrl:inheritFrom merged more than one distinct odrl:conflict \
+             value into this policy (its own declared value is 'prohibit') — Information Model \
+             §2.10's validation rule 4 requires the entire policy be void when a merge carries \
+             differing conflict values over a genuine collision, rather than resolved by any \
+             one of them",
+            "a plain conflict-strategy-applied Deny (prohibition wins) would read almost the \
+             same on the decision alone -- the reason string is what proves this is actually \
+             void, not merely denied"
+        );
+    }
+
+    #[test]
+    fn the_same_declared_conflict_value_across_inheritance_is_not_a_divergence() {
+        // The control: identical `odrl:conflict` on both ends of the same
+        // inheritance chain, over the same genuine collision, resolves
+        // exactly as an ordinary single-policy `prohibit` collision always
+        // has -- differing values are the trigger, not inheritance itself.
+        //
+        // The set-level combining rule (deny-override, first `Deny` in
+        // array order) reports `parent` here, not `child`: with no
+        // divergence, both policies now independently deny via the
+        // ordinary `prohibit` reading (`parent` on its own two rules,
+        // `child` on the copies it inherited), and `parent` comes first.
+        // That is exactly the point -- neither is void, so there is
+        // nothing here for §2.10's rule 4 to say about either one.
+        let same_value =
+            differing_conflict_request().replace(r#""odrl:conflict": "perm","#, r#""odrl:conflict": "prohibit","#);
+        let response = evaluate_text(&same_value);
+        assert_eq!(response.decision, WireDecision::Deny);
+        assert_eq!(
+            response.reason,
+            "prohibition[0] of policy 'parent' matched: action 'use', unconstrained; \
+             odrl:conflict 'prohibit' resolves the conflict with permission[0] in the \
+             prohibition's favour"
+        );
+    }
+
+    #[test]
+    fn a_child_naming_no_odrl_conflict_of_its_own_still_diverges_from_a_differing_parent() {
+        // `odrl:conflict` absent from the child is ODRL's own default,
+        // `invalid` -- itself a third distinct value from the parent's
+        // declared `perm`, so this must void exactly as an explicitly
+        // declared `prohibit` does above, and say so honestly (the child
+        // never declared `invalid` on its own account; it is only the
+        // default it fell back to).
+        let child_undeclared = differing_conflict_request().replace(
+            r#""odrl:conflict": "prohibit",
+                  "inheritFrom": ["parent"],"#,
+            r#""inheritFrom": ["parent"],"#,
+        );
+        let response = evaluate_text(&child_undeclared);
+        assert_eq!(response.decision, WireDecision::Deny, "{}", response.reason);
+        assert_eq!(
+            response.reason,
+            "policy 'child' is void: permission[0] and prohibition[0] both matched requested \
+             action 'use', and odrl:inheritFrom merged more than one distinct odrl:conflict \
+             value into this policy (its own declared value is 'invalid') — Information Model \
+             §2.10's validation rule 4 requires the entire policy be void when a merge carries \
+             differing conflict values over a genuine collision, rather than resolved by any \
+             one of them"
+        );
     }
 
     #[test]
