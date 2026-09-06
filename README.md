@@ -1878,6 +1878,21 @@ this is not" above for the real, remaining gap between this engine and a
 general ODRL implementation, which is wider than these numbers might
 suggest.
 
+## Comparing against other ODRL engines
+
+`bench/` holds reproducible harnesses for a five-engine comparison against
+the identical 68-fixture corpus above — `SolidLabResearch`'s own reference
+evaluator, `DIPS-Tools/odrl-Engine` (OVAL), `SEAMWARE/odrl-pap` (FIWARE's
+ODRL→Rego→OPA component), and `Prometheus-X-association/odrl-manager` — each
+with its own README stating the exact pinned commit/version and the exact
+setup a reproducer runs first, since none of them is vendored here. Full
+comparative analysis, including how fair (and unfair) that comparison
+actually is, is published as
+[a benchmark report](https://github.com/Deepthought-Solutions/dataspace/blob/main/docs/benchmarks/2026-09-06-odrl-engine-comparative-coverage.md)
+in the sibling `dataspace` repository. This covers conformance/coverage
+reproducibility only — performance, resource, and load-behavior comparison
+remain a separate, not-yet-attempted follow-up.
+
 ## Compliance suite attribution
 
 `compliance/vendor/odrl-test-suite` vendors
