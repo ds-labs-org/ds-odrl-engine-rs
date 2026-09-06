@@ -88,15 +88,20 @@ pub struct Rule {
     /// asset B does not deny asset A.
     ///
     /// **Compared as an opaque string, exactly as `dataset_id` always
-    /// was.** There is no IRI normalization, no relative-reference
-    /// resolution, no `odrl:partOf`/`odrl:AssetCollection` membership: this
-    /// engine models an asset as a bare identifier and nothing else, so
-    /// "the same asset" here means "the same characters". Collection
-    /// membership stays exactly where it already was — resolved by a host
-    /// against its own graph before the request is built
-    /// (`compliance-runner`'s `is_member_of`, see this crate's README) —
-    /// and calling this field support for `odrl:AssetCollection` would
-    /// overstate it.
+    /// was** — and, since `target_applies` below, also against every
+    /// string in the request's `asset_collections`, the host-supplied
+    /// `odrl:partOf` fact channel: this field can name an
+    /// `odrl:AssetCollection` IRI and be satisfied by a request for one of
+    /// its declared members, but there is still no IRI normalization, no
+    /// relative-reference resolution, and no transitive closure computed
+    /// by this engine itself — "the same asset" and "a member of this
+    /// collection" both mean "the same characters", the same honest limit
+    /// this field always had. A host resolves membership against its own
+    /// graph before the request is built, exactly as `compliance-runner`'s
+    /// own `is_member_of` already does (see this crate's README's
+    /// "Per-rule assets" section) — this field's own comparison is still
+    /// unaware that "asset" and "collection" are different kinds of thing;
+    /// it is `target_applies` that reads the fact the host hands it.
     ///
     /// Wire-additive on the same convention `action_refinement` below
     /// already set: `#[serde(default)]` plus
@@ -349,17 +354,34 @@ impl Rule {
     /// Is this rule about `requested_target` — the asset the decision is
     /// being taken about? A rule naming no `odrl:target` is about whatever
     /// is being asked about, so it always applies; a rule naming one
-    /// applies only to that exact asset identifier.
+    /// applies to that exact asset identifier, **or to any asset collection
+    /// `asset_collections` asserts `requested_target` is a member of**
+    /// (ODRL 2.2 Vocabulary §3.8.1's `odrl:partOf`, §3.4.2's
+    /// `odrl:AssetCollection`) — a rule's `target` matches when it equals
+    /// `requested_target` itself or appears anywhere in that list.
     ///
-    /// Deliberately a plain string comparison, and deliberately *not*
-    /// routed through anything like `ResolvedConfig::covers`: an action
-    /// taxonomy exists because a profile declares `odrl:includedIn` edges
-    /// between actions, and this engine has no asset vocabulary at all to
-    /// declare an analogous relation in. A host that means "asset A is part
-    /// of collection C" resolves that itself before building the request,
-    /// exactly as it already did.
-    pub(crate) fn target_applies(&self, requested_target: &str) -> bool {
-        self.target.as_deref().is_none_or(|t| t == requested_target)
+    /// **`asset_collections` is a host-supplied fact, not something this
+    /// engine derives.** It names, from the wire contract's own
+    /// `Request::asset_collections`, every collection the host already
+    /// knows `requested_target` belongs to — resolved against the host's
+    /// own catalog/graph before the request is built, exactly as
+    /// `compliance-runner`'s own `is_member_of` adapter already does for
+    /// the vendored compliance corpus (see this crate's README). This
+    /// engine performs no graph traversal and no transitive closure: a
+    /// two-level `odrl:partOf` chain (`member partOf sub-collection partOf
+    /// collection`) matches a rule scoped to `collection` only if the host
+    /// flattens that chain into `asset_collections` itself, one entry per
+    /// ancestor, before calling this engine.
+    ///
+    /// Deliberately a plain string comparison — no IRI normalization — on
+    /// both the direct-equality and the membership reading: "the same
+    /// asset" and "a member of this collection" both mean "the same
+    /// characters" here, the same honest limit `target` itself already
+    /// documents.
+    pub(crate) fn target_applies(&self, requested_target: &str, asset_collections: &[String]) -> bool {
+        self.target
+            .as_deref()
+            .is_none_or(|t| t == requested_target || asset_collections.iter().any(|c| c == t))
     }
 
     /// The whole applicability question for a permission or prohibition:
@@ -378,10 +400,11 @@ impl Rule {
         &self,
         requested_action: &str,
         requested_target: &str,
+        asset_collections: &[String],
         config: &ResolvedConfig,
         claims: &Claims,
     ) -> bool {
-        self.target_applies(requested_target) && self.action_applies(requested_action, config, claims)
+        self.target_applies(requested_target, asset_collections) && self.action_applies(requested_action, config, claims)
     }
 
     /// Section 4.5's duty-satisfaction check — deliberately *not* the same
@@ -427,10 +450,11 @@ impl Rule {
         &self,
         requested_action: &str,
         requested_target: &str,
+        asset_collections: &[String],
         config: &ResolvedConfig,
         claims: &Claims,
     ) -> bool {
-        self.applies(requested_action, requested_target, config, claims)
+        self.applies(requested_action, requested_target, asset_collections, config, claims)
             && self.matches(claims)
             && (config.duty_mode != DutyMode::Deny || self.duties_resolved(claims))
     }
@@ -1043,10 +1067,12 @@ fn unresolved_permission_duties(
     config: &ResolvedConfig,
     requested_action: &str,
     requested_target: &str,
+    asset_collections: &[String],
 ) -> Vec<UnresolvedDuty> {
     let mut outstanding = Vec::new();
     for (rule_index, rule) in policy.permissions.iter().enumerate() {
-        if !(rule.applies(requested_action, requested_target, config, claims) && rule.matches(claims)) {
+        if !(rule.applies(requested_action, requested_target, asset_collections, config, claims) && rule.matches(claims))
+        {
             continue;
         }
         for (duty_index, duty) in rule.duty.iter().enumerate() {
@@ -1076,10 +1102,12 @@ fn unresolved_remedies(
     config: &ResolvedConfig,
     requested_action: &str,
     requested_target: &str,
+    asset_collections: &[String],
 ) -> Vec<UnresolvedDuty> {
     let mut outstanding = Vec::new();
     for (rule_index, rule) in policy.prohibitions.iter().enumerate() {
-        if !(rule.applies(requested_action, requested_target, config, claims) && rule.matches(claims)) {
+        if !(rule.applies(requested_action, requested_target, asset_collections, config, claims) && rule.matches(claims))
+        {
             continue;
         }
         for (duty_index, remedy) in rule.remedy.iter().enumerate() {
@@ -1141,15 +1169,15 @@ pub(crate) fn conflicting_rules(
     config: &ResolvedConfig,
     requested_action: &str,
     requested_target: &str,
+    asset_collections: &[String],
 ) -> Option<ConflictingRules> {
-    let prohibition_index = policy
-        .prohibitions
-        .iter()
-        .position(|rule| rule.applies(requested_action, requested_target, config, claims) && rule.matches(claims))?;
+    let prohibition_index = policy.prohibitions.iter().position(|rule| {
+        rule.applies(requested_action, requested_target, asset_collections, config, claims) && rule.matches(claims)
+    })?;
     let permission_index = policy
         .permissions
         .iter()
-        .position(|rule| rule.grants(requested_action, requested_target, config, claims))?;
+        .position(|rule| rule.grants(requested_action, requested_target, asset_collections, config, claims))?;
     Some(ConflictingRules { permission_index, prohibition_index })
 }
 
@@ -1209,6 +1237,19 @@ pub(crate) fn conflicting_rules(
 /// inapplicable, which for a prohibition is the fail-open direction. That
 /// is the reason this is a required parameter rather than an
 /// `Option<&str>` defaulting to "matches everything".
+///
+/// `asset_collections` is a later, purely additive widening of
+/// `requested_target` itself: the `odrl:AssetCollection`s (ODRL 2.2
+/// Vocabulary §3.4.2) that `requested_target` is asserted to be
+/// `odrl:partOf` (§3.8.1), so a rule scoped to a collection IRI is in
+/// play for a request naming any asset the host asserts is a member of
+/// it, not only the collection IRI itself (`Rule::target_applies`). An
+/// empty slice — every call site before this parameter existed — is
+/// exactly the prior behaviour: a targeted rule matches only the literal
+/// `requested_target` string. This engine resolves no membership itself
+/// (no graph, no transitive closure); the host supplies the list already
+/// flattened, the same division of labour `requested_target` itself
+/// already has with the profile-declared action taxonomy.
 ///
 /// **Targets are never a `Decision::Error`, unlike actions.** Section
 /// 4.4's unrecognized-action check exists because a profile declares the
@@ -1280,6 +1321,7 @@ pub fn decide(
     config: &ResolvedConfig,
     requested_action: &str,
     requested_target: &str,
+    asset_collections: &[String],
 ) -> DecisionOutcome {
     if let Some(unrecognized) = first_unrecognized_action(policy, config) {
         return DecisionOutcome {
@@ -1288,10 +1330,9 @@ pub fn decide(
         };
     }
 
-    let denied_by_prohibition = policy
-        .prohibitions
-        .iter()
-        .any(|rule| rule.applies(requested_action, requested_target, config, claims) && rule.matches(claims));
+    let denied_by_prohibition = policy.prohibitions.iter().any(|rule| {
+        rule.applies(requested_action, requested_target, asset_collections, config, claims) && rule.matches(claims)
+    });
 
     // `Rule::grants`, not `applies() && matches()`: under
     // `DutyMode::Deny` a permission whose own `odrl:duty` chain is
@@ -1302,7 +1343,7 @@ pub fn decide(
     let any_permission_grants = policy
         .permissions
         .iter()
-        .any(|rule| rule.grants(requested_action, requested_target, config, claims));
+        .any(|rule| rule.grants(requested_action, requested_target, asset_collections, config, claims));
     let permission_requirement_met = match config.behaviour {
         Behaviour::Open => policy.permissions.is_empty() || any_permission_grants,
         Behaviour::Closed => any_permission_grants,
@@ -1346,8 +1387,16 @@ pub fn decide(
         config,
         requested_action,
         requested_target,
+        asset_collections,
     ));
-    unresolved_duties.extend(unresolved_remedies(policy, claims, config, requested_action, requested_target));
+    unresolved_duties.extend(unresolved_remedies(
+        policy,
+        claims,
+        config,
+        requested_action,
+        requested_target,
+        asset_collections,
+    ));
 
     // Deliberately keyed off the *policy-level* obligations alone, not off
     // the whole list. An unresolved obligation is the policy's and denies
@@ -1428,10 +1477,11 @@ pub fn performable_actions(
     claims: &Claims,
     config: &ResolvedConfig,
     requested_target: &str,
+    asset_collections: &[String],
 ) -> Vec<String> {
     let mut allowed = BTreeSet::new();
     for action in config.declared_actions() {
-        if decide(policy, claims, config, action, requested_target).decision == Decision::Allow {
+        if decide(policy, claims, config, action, requested_target, asset_collections).decision == Decision::Allow {
             allowed.insert(action.to_string());
         }
     }
@@ -1491,7 +1541,7 @@ mod tests {
             conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[]);
-        assert_eq!(decide(&policy, &claims, &all_actions_config(), "read", ASSET).decision, Decision::Allow);
+        assert_eq!(decide(&policy, &claims, &all_actions_config(), "read", ASSET, &[]).decision, Decision::Allow);
     }
 
     #[test]
@@ -1506,7 +1556,7 @@ mod tests {
             conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[("sub", ClaimValue::Single("alice".into()))]);
-        assert_eq!(decide(&policy, &claims, &all_actions_config(), "read", ASSET).decision, Decision::Allow);
+        assert_eq!(decide(&policy, &claims, &all_actions_config(), "read", ASSET, &[]).decision, Decision::Allow);
     }
 
     #[test]
@@ -1522,7 +1572,7 @@ mod tests {
         };
         let claims = claims_with(&[("sub", ClaimValue::Single("alice".into()))]);
         assert_eq!(
-            decide(&policy, &claims, &all_actions_config(), "read", ASSET).decision,
+            decide(&policy, &claims, &all_actions_config(), "read", ASSET, &[]).decision,
             Decision::Deny,
             "deny-overrides: a matching prohibition wins even though a permission also matches"
         );
@@ -1540,7 +1590,7 @@ mod tests {
             conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[("sub", ClaimValue::Single("alice".into()))]);
-        assert_eq!(decide(&policy, &claims, &all_actions_config(), "read", ASSET).decision, Decision::Allow);
+        assert_eq!(decide(&policy, &claims, &all_actions_config(), "read", ASSET, &[]).decision, Decision::Allow);
     }
 
     #[test]
@@ -1556,7 +1606,7 @@ mod tests {
         };
         let claims = claims_with(&[("sub", ClaimValue::Single("alice".into()))]);
         assert_eq!(
-            decide(&policy, &claims, &all_actions_config(), "read", ASSET).decision,
+            decide(&policy, &claims, &all_actions_config(), "read", ASSET, &[]).decision,
             Decision::Deny,
             "closed default: a non-empty permissions list that never matches must deny"
         );
@@ -1572,7 +1622,7 @@ mod tests {
         };
         let claims = claims_with(&[]);
         assert_eq!(
-            decide(&policy, &claims, &all_actions_config(), "read", ASSET).decision,
+            decide(&policy, &claims, &all_actions_config(), "read", ASSET, &[]).decision,
             Decision::Allow,
             "Section 4.3's named departure: no permission rules at all is treated as open"
         );
@@ -1587,7 +1637,7 @@ mod tests {
             conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[]);
-        assert_eq!(decide(&policy, &claims, &all_actions_config(), "read", ASSET).decision, Decision::Deny);
+        assert_eq!(decide(&policy, &claims, &all_actions_config(), "read", ASSET, &[]).decision, Decision::Deny);
     }
 
     #[test]
@@ -1601,7 +1651,7 @@ mod tests {
         let claims = claims_with(&[]);
         let config = config_with(&["read"], DutyMode::Advise, Behaviour::Closed);
         assert_eq!(
-            decide(&policy, &claims, &config, "read", ASSET).decision,
+            decide(&policy, &claims, &config, "read", ASSET, &[]).decision,
             Decision::Deny,
             "Behaviour::Closed: no permission rules at all denies, the Formal Semantics draft's \
              own closed default, not Section 4.3's Open exception"
@@ -1619,7 +1669,7 @@ mod tests {
         let claims = claims_with(&[]);
         let config = config_with(&["read"], DutyMode::Advise, Behaviour::Closed);
         assert_eq!(
-            decide(&policy, &claims, &config, "read", ASSET).decision,
+            decide(&policy, &claims, &config, "read", ASSET, &[]).decision,
             Decision::Allow,
             "Behaviour only changes the EMPTY-list case; an actual covering, matching \
              permission still allows under Closed exactly as it does under Open"
@@ -1644,7 +1694,7 @@ mod tests {
         let claims = claims_with(&[]);
         let config_open = config_with(&["use", "sell"], DutyMode::Advise, Behaviour::Open);
         assert_eq!(
-            decide(&policy, &claims, &config_open, "sell", ASSET).decision,
+            decide(&policy, &claims, &config_open, "sell", ASSET, &[]).decision,
             Decision::Allow,
             "Open: the empty permissions list is still vacuously met even though the lone \
              prohibition (use) does not cover the request (sell)"
@@ -1652,7 +1702,7 @@ mod tests {
 
         let config_closed = config_with(&["use", "sell"], DutyMode::Advise, Behaviour::Closed);
         assert_eq!(
-            decide(&policy, &claims, &config_closed, "sell", ASSET).decision,
+            decide(&policy, &claims, &config_closed, "sell", ASSET, &[]).decision,
             Decision::Deny,
             "Closed: nothing actively permits sell, so it denies regardless of the unrelated \
              non-covering prohibition"
@@ -1672,7 +1722,7 @@ mod tests {
         };
         let claims = claims_with(&[("sub", ClaimValue::Single("alice".into()))]);
         assert_eq!(
-            decide(&policy, &claims, &all_actions_config(), "read", ASSET).decision,
+            decide(&policy, &claims, &all_actions_config(), "read", ASSET, &[]).decision,
             Decision::Allow,
             "multiple permission rules are alternative grants, not a conjunction"
         );
@@ -1690,7 +1740,7 @@ mod tests {
             conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[("sub", ClaimValue::Single("alice".into()))]);
-        assert_eq!(decide(&policy, &claims, &all_actions_config(), "read", ASSET).decision, Decision::Deny);
+        assert_eq!(decide(&policy, &claims, &all_actions_config(), "read", ASSET, &[]).decision, Decision::Deny);
     }
 
     #[test]
@@ -1726,7 +1776,7 @@ mod tests {
         let claims = claims_with(&[]);
         let config = config_recognizing(&["distribute"]);
         assert_eq!(
-            decide(&policy, &claims, &config, "distribute", ASSET).decision,
+            decide(&policy, &claims, &config, "distribute", ASSET, &[]).decision,
             Decision::Allow,
             "an action present in the resolved config's declared actions is evaluated by \
              Section 4.3's algorithm as usual"
@@ -1743,7 +1793,7 @@ mod tests {
         };
         let claims = claims_with(&[]);
         let config = config_recognizing(&["read", "write"]);
-        match decide(&policy, &claims, &config, "read", ASSET).decision {
+        match decide(&policy, &claims, &config, "read", ASSET, &[]).decision {
             Decision::Error(unrecognized) => {
                 assert_eq!(unrecognized.action, "anonymize");
                 assert_eq!(unrecognized.rule_kind, RuleKind::Permission);
@@ -1772,7 +1822,7 @@ mod tests {
         };
         let claims = claims_with(&[]);
         let config = config_recognizing(&["read", "write"]);
-        match decide(&policy, &claims, &config, "read", ASSET).decision {
+        match decide(&policy, &claims, &config, "read", ASSET, &[]).decision {
             Decision::Error(unrecognized) => {
                 assert_eq!(unrecognized.action, "anonymize");
                 assert_eq!(unrecognized.rule_kind, RuleKind::Prohibition);
@@ -1799,7 +1849,7 @@ mod tests {
         let claims = claims_with(&[("sub", ClaimValue::Single("alice".into()))]);
         let config = config_recognizing(&["read"]);
         assert!(
-            matches!(decide(&policy, &claims, &config, "read", ASSET).decision, Decision::Error(_)),
+            matches!(decide(&policy, &claims, &config, "read", ASSET, &[]).decision, Decision::Error(_)),
             "the action check must not be skipped just because the rule would have missed anyway"
         );
     }
@@ -1818,7 +1868,7 @@ mod tests {
         };
         let claims = claims_with(&[]);
         let config = config_recognizing(&["read"]);
-        assert!(matches!(decide(&policy, &claims, &config, "write", ASSET).decision, Decision::Error(_)));
+        assert!(matches!(decide(&policy, &claims, &config, "write", ASSET, &[]).decision, Decision::Error(_)));
     }
 
     #[test]
@@ -1845,7 +1895,7 @@ mod tests {
             },
         ]);
         assert_eq!(
-            decide(&policy, &claims, &config, "modify", ASSET).decision,
+            decide(&policy, &claims, &config, "modify", ASSET, &[]).decision,
             Decision::Allow,
             "an action recognized by only one of two loaded profiles is still recognized by \
              the union (Section 4.4's named fail-open choice, implemented as specified)"
@@ -1859,7 +1909,7 @@ mod tests {
 
     #[test]
     fn a_permission_for_a_broader_action_covers_a_request_for_an_includedin_specific_one() {
-        // The Section 3.5 worked example, end to end through decide():
+        // The Section 3.5 worked example, end to end through decide(, &[]):
         // a permission for the broad "transfer" action covers a request
         // for the specific "sell" action, with no host-side pre-filtering
         // or rewriting of Rule::action needed.
@@ -1876,7 +1926,7 @@ mod tests {
             duty_mode: DutyMode::Advise,
             behaviour: Behaviour::Open,
         }]);
-        assert_eq!(decide(&policy, &claims, &config, "sell", ASSET).decision, Decision::Allow);
+        assert_eq!(decide(&policy, &claims, &config, "sell", ASSET, &[]).decision, Decision::Allow);
     }
 
     #[test]
@@ -1902,7 +1952,7 @@ mod tests {
             duty_mode: DutyMode::Advise,
             behaviour: Behaviour::Open,
         }]);
-        assert_eq!(decide(&policy, &claims, &config, "give", ASSET).decision, Decision::Deny);
+        assert_eq!(decide(&policy, &claims, &config, "give", ASSET, &[]).decision, Decision::Deny);
     }
 
     #[test]
@@ -1918,7 +1968,7 @@ mod tests {
         };
         let claims = claims_with(&[("sub", ClaimValue::Single("alice".into()))]);
         let config = config_with_duty_mode(&["read", "notify"], DutyMode::Deny);
-        let outcome = decide(&policy, &claims, &config, "read", ASSET);
+        let outcome = decide(&policy, &claims, &config, "read", ASSET, &[]);
         assert_eq!(
             outcome.decision,
             Decision::Allow,
@@ -1941,7 +1991,7 @@ mod tests {
         };
         let claims = claims_with(&[]);
         let config = config_with_duty_mode(&["read", "notify"], DutyMode::Deny);
-        let outcome = decide(&policy, &claims, &config, "read", ASSET);
+        let outcome = decide(&policy, &claims, &config, "read", ASSET, &[]);
         assert_eq!(
             outcome.decision,
             Decision::Deny,
@@ -1968,7 +2018,7 @@ mod tests {
         };
         let claims = claims_with(&[]);
         let config = config_with_duty_mode(&["read", "delete-after-30-days"], DutyMode::Deny);
-        let outcome = decide(&policy, &claims, &config, "read", ASSET);
+        let outcome = decide(&policy, &claims, &config, "read", ASSET, &[]);
         assert_eq!(
             outcome.decision,
             Decision::Deny,
@@ -1988,7 +2038,7 @@ mod tests {
         };
         let claims = claims_with(&[]);
         let config = config_with_duty_mode(&["read", "notify"], DutyMode::Advise);
-        let outcome = decide(&policy, &claims, &config, "read", ASSET);
+        let outcome = decide(&policy, &claims, &config, "read", ASSET, &[]);
         assert_eq!(
             outcome.decision,
             Decision::Allow,
@@ -2016,7 +2066,7 @@ mod tests {
         };
         let claims = claims_with(&[]);
         let config = config_with_duty_mode(&["read", "notify"], DutyMode::Advise);
-        let outcome = decide(&policy, &claims, &config, "read", ASSET);
+        let outcome = decide(&policy, &claims, &config, "read", ASSET, &[]);
         assert_eq!(outcome.decision, Decision::Deny);
         assert_eq!(outcome.unresolved_duties.len(), 1);
     }
@@ -2037,7 +2087,7 @@ mod tests {
         };
         let claims = claims_with(&[("sub", ClaimValue::Single("alice".into()))]);
         let config = config_with_duty_mode(&["read", "notify", "delete-after-30-days"], DutyMode::Advise);
-        let outcome = decide(&policy, &claims, &config, "read", ASSET);
+        let outcome = decide(&policy, &claims, &config, "read", ASSET, &[]);
         assert_eq!(outcome.decision, Decision::Allow);
         assert_eq!(
             outcome.unresolved_duties,
@@ -2081,10 +2131,10 @@ mod tests {
         let config = all_actions_config();
 
         let alice = claims_with(&[("sub", ClaimValue::Single("alice".into()))]);
-        assert_eq!(decide(&policy, &alice, &config, "read", ASSET).decision, Decision::Allow);
+        assert_eq!(decide(&policy, &alice, &config, "read", ASSET, &[]).decision, Decision::Allow);
 
         let carol = claims_with(&[("sub", ClaimValue::Single("carol".into()))]);
-        assert_eq!(decide(&policy, &carol, &config, "read", ASSET).decision, Decision::Deny);
+        assert_eq!(decide(&policy, &carol, &config, "read", ASSET, &[]).decision, Decision::Deny);
     }
 
     #[test]
@@ -2110,14 +2160,14 @@ mod tests {
 
         let neither = claims_with(&[("scope", ClaimValue::Single("public".into()))]);
         assert_eq!(
-            decide(&policy, &neither, &config, "read", ASSET).decision,
+            decide(&policy, &neither, &config, "read", ASSET, &[]).decision,
             Decision::Allow,
             "0 of 2 xone branches matching must not trigger the prohibition"
         );
 
         let exactly_one = claims_with(&[("scope", ClaimValue::Single("embargoed".into()))]);
         assert_eq!(
-            decide(&policy, &exactly_one, &config, "read", ASSET).decision,
+            decide(&policy, &exactly_one, &config, "read", ASSET, &[]).decision,
             Decision::Deny,
             "exactly 1 of 2 xone branches matching must trigger the prohibition"
         );
@@ -2127,7 +2177,7 @@ mod tests {
             ClaimValue::Multi(vec!["internal-only".into(), "embargoed".into()]),
         )]);
         assert_eq!(
-            decide(&policy, &both, &config, "read", ASSET).decision,
+            decide(&policy, &both, &config, "read", ASSET, &[]).decision,
             Decision::Allow,
             "2 of 2 xone branches matching must not trigger the prohibition either -- exactly \
              one, not one-or-more"
@@ -2264,7 +2314,7 @@ mod tests {
         };
         let claims = claims_with(&[("copies", ClaimValue::Single("5".into()))]);
         assert_eq!(
-            decide(&policy, &claims, &config_recognizing(&["print"]), "print", ASSET).decision,
+            decide(&policy, &claims, &config_recognizing(&["print"]), "print", ASSET, &[]).decision,
             Decision::Deny,
             "an action refinement the claims do not satisfy must make the rule inapplicable, \
              not be silently ignored because the bare action string matched"
@@ -2285,7 +2335,7 @@ mod tests {
         };
         let claims = claims_with(&[("copies", ClaimValue::Single("2".into()))]);
         assert_eq!(
-            decide(&policy, &claims, &config_recognizing(&["print"]), "print", ASSET).decision,
+            decide(&policy, &claims, &config_recognizing(&["print"]), "print", ASSET, &[]).decision,
             Decision::Allow
         );
     }
@@ -2307,7 +2357,7 @@ mod tests {
         };
         let claims = claims_with(&[("sub", ClaimValue::Single("alice".into()))]);
         assert_eq!(
-            decide(&policy, &claims, &config_recognizing(&["print"]), "print", ASSET).decision,
+            decide(&policy, &claims, &config_recognizing(&["print"]), "print", ASSET, &[]).decision,
             Decision::Allow
         );
     }
@@ -2338,7 +2388,7 @@ mod tests {
             ("copies", ClaimValue::Single("5".into())),
         ]);
         assert_eq!(
-            decide(&policy, &constraints_only, &config, "print", ASSET).decision,
+            decide(&policy, &constraints_only, &config, "print", ASSET, &[]).decision,
             Decision::Deny,
             "rule constraints satisfied but the action refinement is not"
         );
@@ -2348,7 +2398,7 @@ mod tests {
             ("copies", ClaimValue::Single("1".into())),
         ]);
         assert_eq!(
-            decide(&policy, &refinement_only, &config, "print", ASSET).decision,
+            decide(&policy, &refinement_only, &config, "print", ASSET, &[]).decision,
             Decision::Deny,
             "action refinement satisfied but the rule's own constraints are not"
         );
@@ -2357,7 +2407,7 @@ mod tests {
             ("sub", ClaimValue::Single("alice".into())),
             ("copies", ClaimValue::Single("1".into())),
         ]);
-        assert_eq!(decide(&policy, &both, &config, "print", ASSET).decision, Decision::Allow);
+        assert_eq!(decide(&policy, &both, &config, "print", ASSET, &[]).decision, Decision::Allow);
     }
 
     #[test]
@@ -2380,14 +2430,14 @@ mod tests {
 
         let within = claims_with(&[("copies", ClaimValue::Single("1".into()))]);
         assert_eq!(
-            decide(&policy, &within, &config, "print", ASSET).decision,
+            decide(&policy, &within, &config, "print", ASSET, &[]).decision,
             Decision::Allow,
             "the prohibition is about a refined action this request is not performing"
         );
 
         let beyond = claims_with(&[("copies", ClaimValue::Single("3".into()))]);
         assert_eq!(
-            decide(&policy, &beyond, &config, "print", ASSET).decision,
+            decide(&policy, &beyond, &config, "print", ASSET, &[]).decision,
             Decision::Deny,
             "the same prohibition, now applicable to the refined action, denies"
         );
@@ -2417,14 +2467,14 @@ mod tests {
             ("copies", ClaimValue::Single("1".into())),
             ("resolution", ClaimValue::Single("draft".into())),
         ]);
-        assert_eq!(decide(&policy, &both, &config, "print", ASSET).decision, Decision::Allow);
+        assert_eq!(decide(&policy, &both, &config, "print", ASSET, &[]).decision, Decision::Allow);
 
         let one = claims_with(&[
             ("copies", ClaimValue::Single("1".into())),
             ("resolution", ClaimValue::Single("high".into())),
         ]);
         assert_eq!(
-            decide(&policy, &one, &config, "print", ASSET).decision,
+            decide(&policy, &one, &config, "print", ASSET, &[]).decision,
             Decision::Deny,
             "an `odrl:and` refinement narrows on every axis at once, not any one of them"
         );
@@ -2453,7 +2503,7 @@ mod tests {
             ("notified", ClaimValue::Single("true".into())),
             ("notify_channel", ClaimValue::Single("sms".into())),
         ]);
-        let outcome = decide(&policy, &wrong_channel, &config, "read", ASSET);
+        let outcome = decide(&policy, &wrong_channel, &config, "read", ASSET, &[]);
         assert_eq!(outcome.unresolved_duties.len(), 1);
         assert_eq!(outcome.unresolved_duties[0].action, "notify");
 
@@ -2462,7 +2512,7 @@ mod tests {
             ("notify_channel", ClaimValue::Single("email".into())),
         ]);
         assert!(
-            decide(&policy, &right_channel, &config, "read", ASSET).unresolved_duties.is_empty(),
+            decide(&policy, &right_channel, &config, "read", ASSET, &[]).unresolved_duties.is_empty(),
             "the duty's constraints and its action refinement both hold: resolved"
         );
     }
@@ -2505,7 +2555,7 @@ mod tests {
         };
         let claims = claims_with(&[]);
         let config = config_recognizing(&["read"]);
-        match decide(&policy, &claims, &config, "read", ASSET).decision {
+        match decide(&policy, &claims, &config, "read", ASSET, &[]).decision {
             Decision::Error(unrecognized) => {
                 assert_eq!(unrecognized.action, "anonymize");
                 assert_eq!(unrecognized.rule_kind, RuleKind::Duty);
@@ -2536,12 +2586,12 @@ mod tests {
         };
         let claims = claims_with(&[]);
         assert_eq!(
-            decide(&policy, &claims, &all_actions_config(), "read", ASSET_A).decision,
+            decide(&policy, &claims, &all_actions_config(), "read", ASSET_A, &[]).decision,
             Decision::Deny,
             "a permission on asset B must not permit a request for asset A"
         );
         assert_eq!(
-            decide(&policy, &claims, &all_actions_config(), "read", ASSET_B).decision,
+            decide(&policy, &claims, &all_actions_config(), "read", ASSET_B, &[]).decision,
             Decision::Allow,
             "the control: the same permission does permit the asset it is actually about"
         );
@@ -2561,12 +2611,12 @@ mod tests {
         };
         let claims = claims_with(&[]);
         assert_eq!(
-            decide(&policy, &claims, &all_actions_config(), "read", ASSET_A).decision,
+            decide(&policy, &claims, &all_actions_config(), "read", ASSET_A, &[]).decision,
             Decision::Allow,
             "the prohibition is about asset B and has nothing to say about a request for A"
         );
         assert_eq!(
-            decide(&policy, &claims, &all_actions_config(), "read", ASSET_B).decision,
+            decide(&policy, &claims, &all_actions_config(), "read", ASSET_B, &[]).decision,
             Decision::Deny,
             "the same policy denies asset B, where the prohibition applies and the permission \
              does not"
@@ -2587,7 +2637,7 @@ mod tests {
         let claims = claims_with(&[]);
         for target in [ASSET_A, ASSET_B, "", "anything at all"] {
             assert_eq!(
-                decide(&policy, &claims, &all_actions_config(), "read", target).decision,
+                decide(&policy, &claims, &all_actions_config(), "read", target, &[]).decision,
                 Decision::Allow,
                 "untargeted rule, target {target:?}"
             );
@@ -2607,17 +2657,17 @@ mod tests {
         let claims = claims_with(&[]);
         let config = all_actions_config();
         assert_eq!(
-            decide(&policy, &claims, &config, "read", ASSET_A).decision,
+            decide(&policy, &claims, &config, "read", ASSET_A, &[]).decision,
             Decision::Allow,
             "right action, right asset"
         );
         assert_eq!(
-            decide(&policy, &claims, &config, "write", ASSET_A).decision,
+            decide(&policy, &claims, &config, "write", ASSET_A, &[]).decision,
             Decision::Deny,
             "right asset, wrong action"
         );
         assert_eq!(
-            decide(&policy, &claims, &config, "read", ASSET_B).decision,
+            decide(&policy, &claims, &config, "read", ASSET_B, &[]).decision,
             Decision::Deny,
             "right action, wrong asset"
         );
@@ -2626,9 +2676,11 @@ mod tests {
     #[test]
     fn a_targeted_rule_is_matched_by_exact_string_not_by_any_asset_taxonomy() {
         // Asserted rather than merely documented, because this limitation
-        // is easy to mistake for a bug: there is no asset vocabulary in
-        // this engine, so no `odrl:partOf` collection membership and no IRI
-        // normalization — "the same asset" means "the same characters".
+        // is easy to mistake for a bug: there is no IRI normalization, and
+        // (with `asset_collections` empty, as every one of these calls
+        // leaves it) no collection membership either — "the same asset"
+        // means "the same characters". See the `odrl:partOf` tests below
+        // for the one case this is deliberately *not* true of anymore.
         let policy = Policy {
             permissions: vec![Rule::targeting("read", "urn:asset:A", vec![])],
             prohibitions: vec![],
@@ -2639,7 +2691,7 @@ mod tests {
         let config = all_actions_config();
         for near_miss in ["urn:asset:a", "urn:asset:A ", "asset:A", "urn:asset:A#frag"] {
             assert_eq!(
-                decide(&policy, &claims, &config, "read", near_miss).decision,
+                decide(&policy, &claims, &config, "read", near_miss, &[]).decision,
                 Decision::Deny,
                 "target {near_miss:?} is not the same string as the rule's own"
             );
@@ -2661,8 +2713,86 @@ mod tests {
         };
         let claims = claims_with(&[]);
         assert_eq!(
-            decide(&policy, &claims, &all_actions_config(), "read", ASSET_A).decision,
+            decide(&policy, &claims, &all_actions_config(), "read", ASSET_A, &[]).decision,
             Decision::Allow
+        );
+    }
+
+    // -- odrl:AssetCollection membership (odrl:partOf) ----------------------
+
+    const COLLECTION_X: &str = "urn:asset:collection-X";
+    const MEMBER_1: &str = "urn:asset:member-1";
+
+    #[test]
+    fn target_applies_is_satisfied_by_a_collection_the_requested_target_is_asserted_to_be_part_of() {
+        // `Rule::target_applies` directly, the narrowest unit here: a rule
+        // scoped to a collection IRI is about a request for one of that
+        // collection's declared members too, once the host asserts the
+        // membership via `asset_collections` — not only about a request
+        // naming the collection IRI itself.
+        let rule = Rule::targeting("use", COLLECTION_X, vec![]);
+        assert!(
+            rule.target_applies(MEMBER_1, &[COLLECTION_X.to_string()]),
+            "the host asserts member-1 is part of collection-X, so a rule targeting the \
+             collection is in play for member-1 too"
+        );
+        assert!(
+            !rule.target_applies(MEMBER_1, &[]),
+            "control: with no asserted membership, member-1 is just a different string from \
+             collection-X and the rule does not apply"
+        );
+        assert!(
+            !rule.target_applies(MEMBER_1, &["urn:asset:some-other-collection".to_string()]),
+            "membership in an unrelated collection does not make member-1 the same asset as \
+             collection-X"
+        );
+        assert!(
+            rule.target_applies(COLLECTION_X, &[]),
+            "the exact-match reading this field always had is unaffected by this addition"
+        );
+    }
+
+    #[test]
+    fn a_prohibition_on_a_collection_denies_a_request_for_an_asserted_member() {
+        // The exact backlog example: a prohibition scoped to a collection
+        // IRI, and a request for one of that collection's members, with the
+        // host asserting the membership out of band via `asset_collections`
+        // — the fail-open gap this addition closes. Before this field
+        // existed, `target_applies` did bare string equality and this
+        // request slipped past the prohibition entirely.
+        let policy = Policy {
+            permissions: vec![],
+            prohibitions: vec![Rule::targeting("use", COLLECTION_X, vec![])],
+            obligations: vec![],
+            conflict: ConflictStrategy::default(),
+        };
+        let claims = claims_with(&[]);
+        let config = config_recognizing(&["use"]);
+
+        // Request A: the collection IRI itself — already correctly denied
+        // before this addition, by plain string equality.
+        assert_eq!(
+            decide(&policy, &claims, &config, "use", COLLECTION_X, &[]).decision,
+            Decision::Deny,
+            "a request for the collection IRI itself was already denied by exact match"
+        );
+
+        // Request B: a member of the collection, with the membership
+        // asserted. This is the case that used to fail open.
+        assert_eq!(
+            decide(&policy, &claims, &config, "use", MEMBER_1, &[COLLECTION_X.to_string()]).decision,
+            Decision::Deny,
+            "a member of a prohibited collection must be denied once the host asserts the \
+             membership, not silently allowed to evade the prohibition"
+        );
+
+        // Control: the same member request, with no membership asserted —
+        // this is the prior (and still correct, absent the fact) behaviour.
+        assert_eq!(
+            decide(&policy, &claims, &config, "use", MEMBER_1, &[]).decision,
+            Decision::Allow,
+            "control: with no asserted collection membership, member-1 is simply not the asset \
+             the prohibition names"
         );
     }
 
@@ -2687,7 +2817,7 @@ mod tests {
         let config = config_with_duty_mode(&["read", "notify"], DutyMode::Deny);
 
         let unnotified = claims_with(&[]);
-        let outcome = decide(&policy, &unnotified, &config, "read", ASSET_A);
+        let outcome = decide(&policy, &unnotified, &config, "read", ASSET_A, &[]);
         assert_eq!(
             outcome.decision,
             Decision::Deny,
@@ -2698,7 +2828,7 @@ mod tests {
 
         let notified = claims_with(&[("notified", ClaimValue::Single("true".into()))]);
         assert!(
-            decide(&policy, &notified, &config, "read", ASSET_A).unresolved_duties.is_empty(),
+            decide(&policy, &notified, &config, "read", ASSET_A, &[]).unresolved_duties.is_empty(),
             "and it resolves from claims exactly as an untargeted duty would"
         );
     }
@@ -2719,9 +2849,9 @@ mod tests {
         };
         let claims = claims_with(&[]);
         let config = config_with(&["read", "write"], DutyMode::Advise, Behaviour::Closed);
-        assert_eq!(performable_actions(&policy, &claims, &config, ASSET_A), vec!["read".to_string()]);
-        assert_eq!(performable_actions(&policy, &claims, &config, ASSET_B), vec!["write".to_string()]);
-        assert!(performable_actions(&policy, &claims, &config, "urn:asset:C").is_empty());
+        assert_eq!(performable_actions(&policy, &claims, &config, ASSET_A, &[]), vec!["read".to_string()]);
+        assert_eq!(performable_actions(&policy, &claims, &config, ASSET_B, &[]), vec!["write".to_string()]);
+        assert!(performable_actions(&policy, &claims, &config, "urn:asset:C", &[]).is_empty());
     }
 
     #[test]
@@ -2787,7 +2917,7 @@ mod tests {
     fn performable_actions_returns_exactly_the_declared_actions_that_allow() {
         let config = taxonomy_config(Behaviour::Closed, DutyMode::Advise);
         assert_eq!(
-            performable_actions(&mixed_policy(), &de_alice(), &config, ASSET),
+            performable_actions(&mixed_policy(), &de_alice(), &config, ASSET, &[]),
             vec!["read".to_string(), "use".to_string()],
             "`use` matches outright; `read` inherits it through a declared includedIn edge; \
              `write` inherits it too but a prohibition carves it back out; `print`'s own \
@@ -2800,7 +2930,7 @@ mod tests {
         // The consistency property, not a hand-picked example: this is a
         // thin wrapper over `decide`, so for every action the resolved
         // config declares, membership in the returned list must be exactly
-        // `decide(..., action) == Allow` — on each of a handful of
+        // `decide(..., action, &[]) == Allow` — on each of a handful of
         // deliberately different fixtures.
         let fixtures: Vec<(&str, Policy, Claims, ResolvedConfig)> = vec![
             (
@@ -2873,9 +3003,9 @@ mod tests {
         ];
 
         for (label, policy, claims, config) in &fixtures {
-            let performable = performable_actions(policy, claims, config, ASSET);
+            let performable = performable_actions(policy, claims, config, ASSET, &[]);
             for action in config.declared_actions() {
-                let allowed = decide(policy, claims, config, action, ASSET).decision == Decision::Allow;
+                let allowed = decide(policy, claims, config, action, ASSET, &[]).decision == Decision::Allow;
                 assert_eq!(
                     performable.iter().any(|a| a == action),
                     allowed,
@@ -2900,7 +3030,7 @@ mod tests {
             obligations: vec![],
             conflict: ConflictStrategy::default(),
         };
-        assert!(performable_actions(&policy, &claims, &config, ASSET).is_empty());
+        assert!(performable_actions(&policy, &claims, &config, ASSET, &[]).is_empty());
 
         // The control this negative needs to mean anything: the same
         // policy with the offending rule dropped is performable for
@@ -2911,7 +3041,7 @@ mod tests {
             ..policy
         };
         assert_eq!(
-            performable_actions(&control, &claims, &config, ASSET),
+            performable_actions(&control, &claims, &config, ASSET, &[]),
             vec!["read".to_string(), "use".to_string(), "write".to_string()]
         );
     }
@@ -2921,7 +3051,7 @@ mod tests {
         let policy = Policy::default();
         let claims = claims_with(&[]);
         assert_eq!(
-            performable_actions(&policy, &claims, &taxonomy_config(Behaviour::Open, DutyMode::Advise), ASSET),
+            performable_actions(&policy, &claims, &taxonomy_config(Behaviour::Open, DutyMode::Advise), ASSET, &[]),
             vec![
                 "notify".to_string(),
                 "print".to_string(),
@@ -2933,7 +3063,7 @@ mod tests {
              declared action — the honest answer, and the reason this call takes a config"
         );
         assert!(
-            performable_actions(&policy, &claims, &taxonomy_config(Behaviour::Closed, DutyMode::Advise), ASSET).is_empty(),
+            performable_actions(&policy, &claims, &taxonomy_config(Behaviour::Closed, DutyMode::Advise), ASSET, &[]).is_empty(),
             "under closed the same policy permits nothing at all"
         );
     }
@@ -2946,7 +3076,7 @@ mod tests {
             Behaviour::Open,
         );
         assert_eq!(
-            performable_actions(&Policy::default(), &claims_with(&[]), &config, ASSET),
+            performable_actions(&Policy::default(), &claims_with(&[]), &config, ASSET, &[]),
             vec!["read".to_string(), "write".to_string()]
         );
     }
@@ -2984,7 +3114,7 @@ mod tests {
             conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[]);
-        match decide(&policy, &claims, &config_recognizing(&["read"]), "read", ASSET).decision {
+        match decide(&policy, &claims, &config_recognizing(&["read"]), "read", ASSET, &[]).decision {
             Decision::Error(unrecognized) => {
                 assert_eq!(unrecognized.action, "anonymize");
                 assert_eq!(unrecognized.rule_kind, RuleKind::Duty);
@@ -3011,7 +3141,7 @@ mod tests {
             )],
             conflict: ConflictStrategy::default(),
         };
-        match decide(&with_consequence, &claims, &config_recognizing(&["read", "notify"]), "read", ASSET).decision {
+        match decide(&with_consequence, &claims, &config_recognizing(&["read", "notify"]), "read", ASSET, &[]).decision {
             Decision::Error(u) => assert_eq!(u.duty_path.as_deref(), Some("duty[0].consequence")),
             other => panic!("expected Decision::Error for an unknown consequence action, got {other:?}"),
         }
@@ -3025,7 +3155,7 @@ mod tests {
             obligations: vec![],
             conflict: ConflictStrategy::default(),
         };
-        match decide(&with_remedy, &claims, &config_recognizing(&["read"]), "read", ASSET).decision {
+        match decide(&with_remedy, &claims, &config_recognizing(&["read"]), "read", ASSET, &[]).decision {
             Decision::Error(u) => assert_eq!(u.duty_path.as_deref(), Some("prohibition[0].remedy[0]")),
             other => panic!("expected Decision::Error for an unknown remedy action, got {other:?}"),
         }
@@ -3042,7 +3172,7 @@ mod tests {
             obligations: vec![],
             conflict: ConflictStrategy::default(),
         };
-        match decide(&policy, &claims_with(&[]), &config_recognizing(&["read"]), "read", ASSET).decision {
+        match decide(&policy, &claims_with(&[]), &config_recognizing(&["read"]), "read", ASSET, &[]).decision {
             Decision::Error(u) => {
                 assert_eq!(u.duty_path, None);
                 assert_eq!(
@@ -3139,7 +3269,7 @@ mod tests {
         };
         let config = config_with(&["read", "compensate"], DutyMode::Deny, Behaviour::Closed);
 
-        let outcome = decide(&policy, &claims_with(&[]), &config, "read", ASSET);
+        let outcome = decide(&policy, &claims_with(&[]), &config, "read", ASSET, &[]);
         assert_eq!(
             outcome.decision,
             Decision::Allow,
@@ -3154,9 +3284,9 @@ mod tests {
             permissions: vec![policy.permissions[0].clone()],
             ..policy
         };
-        assert_eq!(decide(&alone, &claims_with(&[]), &config, "read", ASSET).decision, Decision::Deny);
+        assert_eq!(decide(&alone, &claims_with(&[]), &config, "read", ASSET, &[]).decision, Decision::Deny);
         assert_eq!(
-            decide(&alone, &fulfilled(&["compensate"]), &config, "read", ASSET).decision,
+            decide(&alone, &fulfilled(&["compensate"]), &config, "read", ASSET, &[]).decision,
             Decision::Allow
         );
     }
@@ -3177,12 +3307,12 @@ mod tests {
         };
         let config = config_recognizing(&["read", "anonymize"]);
 
-        let violated = decide(&policy, &claims_with(&[]), &config, "read", ASSET);
+        let violated = decide(&policy, &claims_with(&[]), &config, "read", ASSET, &[]);
         assert_eq!(violated.decision, Decision::Deny);
         assert_eq!(violated.unresolved_duties.len(), 1);
         assert_eq!(violated.unresolved_duties[0].path(), "prohibition[0].remedy[0]");
 
-        let remedied = decide(&policy, &fulfilled(&["anonymize"]), &config, "read", ASSET);
+        let remedied = decide(&policy, &fulfilled(&["anonymize"]), &config, "read", ASSET, &[]);
         assert_eq!(
             remedied.decision,
             Decision::Deny,
@@ -3209,12 +3339,12 @@ mod tests {
         };
         let config = config_with(&["read", "write", "compensate"], DutyMode::Deny, Behaviour::Closed);
         assert_eq!(
-            performable_actions(&policy, &claims_with(&[]), &config, ASSET),
+            performable_actions(&policy, &claims_with(&[]), &config, ASSET, &[]),
             vec!["write".to_string()],
             "`read` is gated by its own permission's outstanding duty; `write` is not"
         );
         assert_eq!(
-            performable_actions(&policy, &fulfilled(&["compensate"]), &config, ASSET),
+            performable_actions(&policy, &fulfilled(&["compensate"]), &config, ASSET, &[]),
             vec!["read".to_string(), "write".to_string()]
         );
     }
@@ -3229,7 +3359,7 @@ mod tests {
         };
         let claims = claims_with(&[]);
         assert!(
-            performable_actions(&policy, &claims, &taxonomy_config(Behaviour::Open, DutyMode::Deny), ASSET).is_empty(),
+            performable_actions(&policy, &claims, &taxonomy_config(Behaviour::Open, DutyMode::Deny), ASSET, &[]).is_empty(),
             "an unconditional duty this engine cannot confirm denies every action under \
              duty_mode: deny, and this enumeration inherits that from `decide` rather than \
              re-deciding it"
@@ -3238,7 +3368,7 @@ mod tests {
         // for everything the `use` permission covers, unresolved duty and
         // all -- so the empty list above really is duty_mode's doing.
         assert_eq!(
-            performable_actions(&policy, &claims, &taxonomy_config(Behaviour::Open, DutyMode::Advise), ASSET),
+            performable_actions(&policy, &claims, &taxonomy_config(Behaviour::Open, DutyMode::Advise), ASSET, &[]),
             vec!["read".to_string(), "use".to_string(), "write".to_string()]
         );
     }
@@ -3302,7 +3432,7 @@ mod tests {
     fn conflict_perm_lets_a_matching_permission_beat_a_matching_prohibition() {
         // The one combining rule this engine has never had at all.
         assert_eq!(
-            decide(&colliding_policy(ConflictStrategy::Perm), &claims_with(&[]), &all_actions_config(), "read", ASSET)
+            decide(&colliding_policy(ConflictStrategy::Perm), &claims_with(&[]), &all_actions_config(), "read", ASSET, &[])
                 .decision,
             Decision::Allow
         );
@@ -3317,7 +3447,7 @@ mod tests {
         // `Decision` variant for a void policy.
         for conflict in [ConflictStrategy::Prohibit, ConflictStrategy::Invalid] {
             assert_eq!(
-                decide(&colliding_policy(conflict), &claims_with(&[]), &all_actions_config(), "read", ASSET).decision,
+                decide(&colliding_policy(conflict), &claims_with(&[]), &all_actions_config(), "read", ASSET, &[]).decision,
                 Decision::Deny,
                 "{conflict:?}"
             );
@@ -3423,11 +3553,11 @@ mod tests {
         ];
 
         for (label, policy, claims, config, target) in fixtures {
-            let baseline = decide(&policy, &claims, &config, "read", target);
+            let baseline = decide(&policy, &claims, &config, "read", target, &[]);
             for conflict in EVERY_STRATEGY {
                 let declared = Policy { conflict, ..policy.clone() };
                 assert_eq!(
-                    decide(&declared, &claims, &config, "read", target),
+                    decide(&declared, &claims, &config, "read", target, &[]),
                     baseline,
                     "{label}: declaring odrl:conflict {conflict:?} changed a decision with no \
                      genuine collision in it"
@@ -3448,7 +3578,7 @@ mod tests {
         let config = config_with(&["read"], DutyMode::Advise, Behaviour::Open);
         for conflict in EVERY_STRATEGY {
             assert_eq!(
-                decide(&Policy { conflict, ..policy.clone() }, &claims_with(&[]), &config, "read", ASSET).decision,
+                decide(&Policy { conflict, ..policy.clone() }, &claims_with(&[]), &config, "read", ASSET, &[]).decision,
                 Decision::Deny,
                 "{conflict:?}"
             );
@@ -3477,12 +3607,12 @@ mod tests {
         };
         let config = config_with(&["read", "compensate"], DutyMode::Deny, Behaviour::Open);
         assert_eq!(
-            decide(&policy, &claims_with(&[]), &config, "read", ASSET).decision,
+            decide(&policy, &claims_with(&[]), &config, "read", ASSET, &[]).decision,
             Decision::Deny,
             "an outstanding per-permission duty keeps the permission out of the conflict"
         );
         assert_eq!(
-            decide(&policy, &fulfilled(&["compensate"]), &config, "read", ASSET).decision,
+            decide(&policy, &fulfilled(&["compensate"]), &config, "read", ASSET, &[]).decision,
             Decision::Allow,
             "the control: with the duty resolved the permission grants, the conflict is genuine, \
              and `perm` resolves it"
@@ -3503,7 +3633,7 @@ mod tests {
         };
         let config = taxonomy_config(Behaviour::Open, DutyMode::Advise);
         assert_eq!(
-            performable_actions(&policy, &claims_with(&[]), &config, ASSET),
+            performable_actions(&policy, &claims_with(&[]), &config, ASSET, &[]),
             vec!["read".to_string(), "use".to_string(), "write".to_string()]
         );
         assert!(
@@ -3512,7 +3642,7 @@ mod tests {
                 &claims_with(&[]),
                 &config,
                 ASSET
-            )
+            , &[])
             .is_empty(),
             "a void policy performs nothing"
         );
@@ -3546,7 +3676,7 @@ mod tests {
         let claims = claims_with(&[("meteredTime", ClaimValue::Single("PT10H".into()))]);
 
         assert_eq!(
-            decide(&policy, &claims, &config, "use", ASSET).decision,
+            decide(&policy, &claims, &config, "use", ASSET, &[]).decision,
             Decision::Deny,
             "PT10H > PT8H: the prohibition must fire rather than silently missing"
         );
@@ -3569,7 +3699,7 @@ mod tests {
         let claims = claims_with(&[("meteredTime", ClaimValue::Single("PT8H".into()))]);
 
         assert_eq!(
-            decide(&policy, &claims, &config, "use", ASSET).decision,
+            decide(&policy, &claims, &config, "use", ASSET, &[]).decision,
             Decision::Allow,
             "PT8H is not > PT8H: the prohibition's own constraint correctly misses, \
              and the empty permissions list under Open allows"

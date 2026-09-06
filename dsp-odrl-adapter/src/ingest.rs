@@ -166,6 +166,11 @@ pub fn request_for(
         config: minimal_config(policy, duty_mode, behaviour),
         policies: vec![policy.clone()],
         claims,
+        // This adapter resolves no `odrl:AssetCollection` membership of
+        // its own — it has no state-of-the-world graph to resolve it
+        // against — so this stays empty exactly as every other field this
+        // ingestion path does not populate does.
+        asset_collections: Vec::new(),
     }
 }
 

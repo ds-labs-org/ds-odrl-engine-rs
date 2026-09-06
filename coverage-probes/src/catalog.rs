@@ -110,6 +110,7 @@ pub fn base_request() -> Request {
         config: flat_config(&["use"]),
         policies: vec![policy("probe", vec![rule("use", vec![])])],
         claims: Claims::new(),
+        asset_collections: Vec::new(),
     }
 }
 
@@ -1956,15 +1957,63 @@ fn asset_probes() -> Vec<Probe> {
         build(Spec {
             id: "asset-target-not-a-collection",
             kind: NEGATIVE,
-            title: "a per-rule odrl:target is matched as an opaque string, not through any asset taxonomy",
+            title: "a per-rule odrl:target is matched as an opaque string, absent an asserted odrl:partOf",
             asserts: "The permission targets urn:asset:collection and the request is for urn:asset:A, a \
-                      member of it in any real catalog. Deny: this engine has no asset vocabulary, so \
-                      odrl:partOf membership and IRI normalization are both a host's job, exactly as they \
-                      were before per-rule targets existed.",
-            falsified_by: "Allow -- which would mean collection membership is resolved here",
+                      member of it in any real catalog, but the request asserts no odrl:partOf membership \
+                      via asset_collections. Deny: with no host-supplied fact to read, IRI-level \
+                      inclusion is not inferred -- exactly as it was before asset_collections existed. \
+                      Paired with asset-collection-membership-hit, the same shape with the membership \
+                      asserted.",
+            falsified_by: "Allow -- which would mean collection membership is inferred from the IRIs alone, \
+                           with no host-supplied fact",
             request: Request {
                 dataset_id: "urn:asset:A".to_string(),
                 policies: vec![policy("probe", vec![targeted_rule("use", "urn:asset:collection")])],
+                ..base_request()
+            },
+            patches: vec![],
+            expect: deny(
+                "permission[0] of policy 'probe' covers requested action 'use' but targets \
+                 'urn:asset:collection', not the requested 'urn:asset:A'",
+            )
+            .with_dataset_id("urn:asset:A"),
+        }),
+        build(Spec {
+            id: "asset-collection-membership-hit",
+            kind: POSITIVE,
+            title: "odrl:AssetCollection membership (odrl:partOf) is evaluated when the host asserts it",
+            asserts: "Byte-identical to asset-target-not-a-collection except that the request's own \
+                      asset_collections names urn:asset:collection as one urn:asset:A is odrl:partOf. \
+                      Allow: a rule scoped to a collection IRI now covers a request for an asserted \
+                      member of it, not only the collection IRI itself.",
+            falsified_by: "Deny -- which would mean asset_collections is ignored and target_applies still \
+                           does bare string equality against dataset_id alone",
+            request: Request {
+                dataset_id: "urn:asset:A".to_string(),
+                policies: vec![policy("probe", vec![targeted_rule("use", "urn:asset:collection")])],
+                asset_collections: vec!["urn:asset:collection".to_string()],
+                ..base_request()
+            },
+            patches: vec![],
+            expect: allow(
+                "permission[0] of policy 'probe' matched: action 'use' on target 'urn:asset:collection', \
+                 unconstrained",
+            )
+            .with_dataset_id("urn:asset:A"),
+        }),
+        build(Spec {
+            id: "asset-collection-membership-wrong-collection-miss",
+            kind: NEGATIVE,
+            title: "membership in an unrelated collection does not satisfy a rule scoped to a different one",
+            asserts: "Same shape as asset-collection-membership-hit, but asset_collections names a \
+                      collection the rule is not scoped to. Deny: asserting *some* membership is not the \
+                      same as asserting membership in the collection this rule actually names.",
+            falsified_by: "Allow -- which would mean any non-empty asset_collections list satisfies any \
+                           targeted rule, regardless of which collection it names",
+            request: Request {
+                dataset_id: "urn:asset:A".to_string(),
+                policies: vec![policy("probe", vec![targeted_rule("use", "urn:asset:collection")])],
+                asset_collections: vec!["urn:asset:some-other-collection".to_string()],
                 ..base_request()
             },
             patches: vec![],
@@ -3077,16 +3126,26 @@ pub fn rows() -> Vec<Row> {
             id: "assets.collections",
             category: "assets",
             term: "AssetCollection, odrl:partOf, odrl:source",
-            status: NOT_IMPLEMENTED,
-            why: "Resolved natively by compliance-runner against the vendored suite's state-of-the-world \
-                  graph, with a documented local-name-matching fragility.",
-            evidence: "compliance-runner/src/translate.rs",
-            asserts: "",
-            probe_ids: &[],
-            documented_because: Some(
-                "Same mechanism, same reason as Party collections: there is no collection concept on the \
-                 wire for evaluate() to observe. A native-tooling claim, not a wire-contract one.",
-            ),
+            status: PARTIAL,
+            why: "odrl:partOf/AssetCollection membership is now a real, opt-in wire fact: the request \
+                  carries its own asset_collections, naming every collection dataset_id is asserted to be \
+                  odrl:partOf, and a rule's odrl:target matches a collection it names or any collection \
+                  in that list (Rule::target_applies). Partial, not Implemented: this engine resolves no \
+                  membership itself -- no graph, no transitive closure, no IRI normalization -- the host \
+                  supplies the (already-flattened) fact, exactly as compliance-runner's own is_member_of \
+                  adapter already does natively. odrl:source (an asset's own derivation provenance) is \
+                  untouched by this and remains unaddressed.",
+            evidence: "engine/src/wire.rs::Request::asset_collections, engine/src/decision.rs::Rule::target_applies",
+            asserts: "A prohibition scoped to a collection IRI denies a request for an asserted member of \
+                      it (asset-collection-membership-hit), but not a request whose asset_collections \
+                      names a different collection (asset-collection-membership-wrong-collection-miss) or \
+                      names none at all (asset-target-not-a-collection).",
+            probe_ids: &[
+                "asset-collection-membership-hit",
+                "asset-collection-membership-wrong-collection-miss",
+                "asset-target-not-a-collection",
+            ],
+            documented_because: None,
             caveat: None,
         }),
         row(RowSpec {
@@ -3096,14 +3155,15 @@ pub fn rows() -> Vec<Row> {
             status: PARTIAL,
             why: "Each rule may carry its own odrl:target, matched against the request's own asset \
                   (Request.dataset_id); a rule naming none is about whatever is requested. Partial, not \
-                  Implemented: the match is opaque string equality, with no odrl:partOf collection \
-                  membership and no IRI normalization.",
+                  Implemented: the match is opaque string equality against dataset_id, with no IRI \
+                  normalization -- and, absent an asserted odrl:partOf fact, a rule scoped to a collection \
+                  IRI does not cover a member of it either (see AssetCollection, odrl:partOf above for the \
+                  opt-in case where the host does assert one).",
             evidence: "engine/src/decision.rs::Rule::target, Rule::target_applies",
             asserts: "One policy, permission on urn:asset:A and prohibition on urn:asset:B: the same \
                       policy allows a request for A and denies one for B, each reason naming the target \
-                      that decided it. A permission scoped to a collection IRI does not cover a member of \
-                      that collection.",
-            probe_ids: &["asset-per-rule-target-hit", "asset-per-rule-target-miss", "asset-target-not-a-collection"],
+                      that decided it.",
+            probe_ids: &["asset-per-rule-target-hit", "asset-per-rule-target-miss"],
             documented_because: None,
             caveat: None,
         }),
@@ -3358,7 +3418,11 @@ mod tests {
                 _ => panic!("row {} must be exactly one of probed or documented-only", row.id),
             }
         }
-        assert_eq!(documented, 3, "exactly three rows are documented-only: party, asset collections, hasPolicy");
+        assert_eq!(
+            documented, 2,
+            "exactly two rows are documented-only: party collections, hasPolicy -- asset collections \
+             moved to probed once Request::asset_collections gave it a real wire fact to evaluate()"
+        );
     }
 
     #[test]
@@ -3505,6 +3569,8 @@ mod tests {
             ("inheritfrom-control", "inheritfrom-ignored"),
             ("ror-literal-eq", "ror-not-dereferenced"),
             ("asset-per-rule-target-hit", "asset-per-rule-target-miss"),
+            ("asset-collection-membership-hit", "asset-target-not-a-collection"),
+            ("asset-collection-membership-hit", "asset-collection-membership-wrong-collection-miss"),
             ("pf-assignee-scoped-hit", "pf-assignee-scoped-miss"),
             ("conflict-perm-allows", "conflict-default-invalid-voids"),
             ("conflict-perm-allows", "conflict-prohibit-denies"),

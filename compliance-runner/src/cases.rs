@@ -168,6 +168,7 @@ mod tests {
                 conflict: engine::ConflictStrategy::default(),
             }],
             claims: Default::default(),
+            asset_collections: Vec::new(),
         }
     }
 

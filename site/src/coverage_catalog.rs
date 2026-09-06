@@ -786,7 +786,12 @@ mod tests {
     assert_eq!(file.schema, COVERAGE_SCHEMA);
     assert_eq!(file.rows.len(), 52, "the source gap analysis enumerates 52 vocabulary rows");
     assert_eq!(file.categories.len(), 10);
-    assert_eq!(file.probes.len(), 125);
+    assert_eq!(
+      file.probes.len(),
+      127,
+      "grew by 2 when odrl:AssetCollection membership (odrl:partOf) gained real probes \
+       (asset-collection-membership-hit/-wrong-collection-miss) instead of staying documented-only"
+    );
     assert!(file.spec.contains("odrl-vocab"));
   }
 
@@ -825,11 +830,14 @@ mod tests {
   }
 
   #[test]
-  fn exactly_three_committed_rows_are_documented_only_and_each_says_why() {
+  fn exactly_two_committed_rows_are_documented_only_and_each_says_why() {
     let file = parse_coverage_catalog(LATEST_COVERAGE_JSON).expect("the committed artifact parses");
     let documented: Vec<&CatalogRow> = file.rows.iter().filter(|row| row.is_documented_only()).collect();
 
-    assert_eq!(documented.len(), 3);
+    // Party collections and hasPolicy remain documented-only; asset
+    // collections moved to probed once Request::asset_collections gave
+    // evaluate() a real wire fact to test odrl:partOf membership against.
+    assert_eq!(documented.len(), 2);
     for row in documented {
       assert!(row.documented_because.as_ref().is_some_and(|why| !why.is_empty()), "row {} has an empty why", row.id);
     }

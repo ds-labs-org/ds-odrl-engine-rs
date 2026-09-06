@@ -212,6 +212,23 @@ impl WirePolicy {
 /// host should do when they disagree. A rule naming no `odrl:target` is
 /// about whatever this field names, which is exactly how every rule of
 /// every policy behaved before per-rule targets existed.
+///
+/// `asset_collections` (new this revision) is a host-supplied fact
+/// channel about `dataset_id` itself — the exact counterpart of `claims`
+/// for the asset side of the request rather than the party side: every
+/// `odrl:AssetCollection` (ODRL 2.2 Vocabulary §3.4.2) `dataset_id` is
+/// asserted to be `odrl:partOf` (§3.8.1), so a rule's `odrl:target`
+/// naming one of those collection IRIs applies to this request too, not
+/// only to a request naming the collection itself. This engine resolves
+/// no membership on its own — no graph, no transitive closure, no IRI
+/// normalization — the same honest limit `Rule::target` already states;
+/// the host resolves membership against its own catalog before building
+/// the request, exactly as `compliance-runner`'s own `is_member_of`
+/// adapter already does for the vendored compliance corpus (see this
+/// crate's README's "Per-rule assets" section). `#[serde(default)]` and
+/// skipped when empty, so a request built before this field existed — or
+/// one naming an asset with no collection membership at all — parses and
+/// re-serializes byte for byte as before.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Request {
     pub dataset_id: String,
@@ -221,6 +238,8 @@ pub struct Request {
     pub policies: Vec<WirePolicy>,
     #[serde(default)]
     pub claims: Claims,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub asset_collections: Vec<String>,
 }
 
 /// The wire form of `decision::Decision`: the three bare strings Section
@@ -445,6 +464,7 @@ fn describe_reason(
     claims: &Claims,
     requested_action: &str,
     requested_target: &str,
+    asset_collections: &[String],
     config: &ResolvedConfig,
 ) -> String {
     // `Rule::applies`, not `covers_action` alone: applicability is the
@@ -457,15 +477,16 @@ fn describe_reason(
     // reconstruct" (the same failure shape the `beh-closed-empty` probe
     // found for `behaviour: "closed"`). A per-rule target left out here
     // would reproduce exactly that bug for exactly that input shape.
-    let covers_and_matches =
-        |rule: &Rule| rule.applies(requested_action, requested_target, config, claims) && rule.matches(claims);
+    let covers_and_matches = |rule: &Rule| {
+        rule.applies(requested_action, requested_target, asset_collections, config, claims) && rule.matches(claims)
+    };
     // A rule that would have applied in every other respect and is
     // inapplicable *purely* because it is about a different asset — the
     // one case where the target is the whole reason and deserves naming,
     // kept distinct from an action mismatch so a denied request's trace
     // says which of the two actually failed.
     let blocked_only_by_target = |rule: &Rule| {
-        !rule.target_applies(requested_target)
+        !rule.target_applies(requested_target, asset_collections)
             && rule.action_applies(requested_action, config, claims)
             && rule.matches(claims)
     };
@@ -474,7 +495,7 @@ fn describe_reason(
     // refinement — the one case where the refinement is the whole reason
     // and deserves to be named as such.
     let blocked_only_by_refinement = |rule: &Rule| {
-        rule.target_applies(requested_target)
+        rule.target_applies(requested_target, asset_collections)
             && rule.covers_action(requested_action, config)
             && rule.matches(claims)
             && !rule.refinement_satisfied(claims)
@@ -487,7 +508,14 @@ fn describe_reason(
     // holds, which is every policy any fixture in this workspace has, so
     // none of the three clauses below can change a trace that existed
     // before this field did.
-    let conflict = conflicting_rules(&policy.as_decision_policy(), claims, config, requested_action, requested_target);
+    let conflict = conflicting_rules(
+        &policy.as_decision_policy(),
+        claims,
+        config,
+        requested_action,
+        requested_target,
+        asset_collections,
+    );
 
     match &outcome.decision {
         Decision::Error(unrecognized) => format!("policy '{}': {unrecognized}", policy.id),
@@ -554,7 +582,7 @@ fn describe_reason(
             // gating would once again conclude the requirement was met for
             // a rule `decide` had correctly found not to grant.
             let any_permission_grants =
-                policy.permissions.iter().any(|rule| rule.grants(requested_action, requested_target, config, claims));
+                policy.permissions.iter().any(|rule| rule.grants(requested_action, requested_target, asset_collections, config, claims));
             let permission_requirement_met = match config.behaviour {
                 Behaviour::Open => policy.permissions.is_empty() || any_permission_grants,
                 Behaviour::Closed => any_permission_grants,
@@ -653,7 +681,7 @@ fn describe_reason(
                 .permissions
                 .iter()
                 .enumerate()
-                .find(|(_, rule)| rule.grants(requested_action, requested_target, config, claims))
+                .find(|(_, rule)| rule.grants(requested_action, requested_target, asset_collections, config, claims))
             {
                 Some((index, rule)) => {
                     // `perm` is the only strategy that can reach an Allow
@@ -881,12 +909,16 @@ fn evaluate_request_for_action(req: &Request, requested_action: &str) -> Respons
             // `req.dataset_id` is this request's `odrl:target` (see
             // `Request`'s own doc comment) — the asset each rule's own
             // `odrl:target`, if it has one, is compared against.
+            // `req.asset_collections` names every `odrl:AssetCollection`
+            // the host asserts `dataset_id` is `odrl:partOf`, so a rule
+            // scoped to a collection IRI is in play for a member too.
             outcome: decide(
                 &policy.as_decision_policy(),
                 &req.claims,
                 &config,
                 requested_action,
                 &req.dataset_id,
+                &req.asset_collections,
             ),
         })
         .collect();
@@ -909,6 +941,7 @@ fn evaluate_request_for_action(req: &Request, requested_action: &str) -> Respons
         &req.claims,
         requested_action,
         &req.dataset_id,
+        &req.asset_collections,
         &config,
     );
 
@@ -1251,6 +1284,7 @@ mod tests {
             claims: [("nationality".to_string(), ClaimValue::Single("US".to_string()))]
                 .into_iter()
                 .collect(),
+            asset_collections: Vec::new(),
         };
 
         let response = evaluate_request(&req);
@@ -1303,6 +1337,7 @@ mod tests {
             ]
             .into_iter()
             .collect(),
+            asset_collections: Vec::new(),
         };
 
         let response = evaluate_request(&req);
@@ -1341,6 +1376,7 @@ mod tests {
                 conflict: ConflictStrategy::default(),
             }],
             claims: Claims::new(),
+            asset_collections: Vec::new(),
         };
 
         let response = evaluate_request(&req);
@@ -1380,6 +1416,7 @@ mod tests {
                 },
             ],
             claims: Claims::new(),
+            asset_collections: Vec::new(),
         };
 
         let response = evaluate_request(&req);
@@ -1402,6 +1439,7 @@ mod tests {
             config: deny_config(&["use", "notify"]),
             policies: vec![],
             claims: Claims::new(),
+            asset_collections: Vec::new(),
         };
         let response = evaluate_request(&req);
         assert_eq!(response.decision, WireDecision::Deny);
@@ -1427,6 +1465,7 @@ mod tests {
                 conflict: ConflictStrategy::default(),
             }],
             claims: Claims::new(),
+            asset_collections: Vec::new(),
         };
 
         let response = evaluate_request(&req);
@@ -1465,6 +1504,7 @@ mod tests {
                 conflict: ConflictStrategy::default(),
             }],
             claims: Claims::new(),
+            asset_collections: Vec::new(),
         };
 
         let response = evaluate_request(&req);
@@ -1494,6 +1534,7 @@ mod tests {
                 conflict: ConflictStrategy::default(),
             }],
             claims: Claims::new(),
+            asset_collections: Vec::new(),
         };
 
         let response = evaluate_request(&req);
@@ -1546,6 +1587,7 @@ mod tests {
                 },
             ],
             claims: Claims::new(),
+            asset_collections: Vec::new(),
         };
 
         assert_eq!(
@@ -1564,6 +1606,7 @@ mod tests {
             config: deny_config(&["use"]),
             policies: vec![],
             claims: Claims::new(),
+            asset_collections: Vec::new(),
         };
         assert!(left_operands_for_request(&req).is_empty());
     }
@@ -1766,6 +1809,7 @@ mod tests {
             ]
             .into_iter()
             .collect(),
+            asset_collections: Vec::new(),
         };
         let response = evaluate_request(&req);
         assert_eq!(response.decision, WireDecision::Deny);
@@ -1938,6 +1982,108 @@ mod tests {
         );
     }
 
+    // -- odrl:AssetCollection membership (odrl:partOf) -----------------------
+
+    /// A prohibition scoped to `urn:asset:collection-X`, and a request for
+    /// `dataset_id`, optionally asserting the collection membership the
+    /// host's own catalog resolved out of band. The exact distinguishing
+    /// example from the backlog item this closes.
+    fn collection_prohibition_request(dataset_id: &str, asset_collections: &[&str]) -> String {
+        let collections = asset_collections
+            .iter()
+            .map(|c| format!("\"{c}\""))
+            .collect::<Vec<_>>()
+            .join(", ");
+        format!(
+            r#"{{
+              "dataset_id": "{dataset_id}",
+              "action": "use",
+              "config": {{
+                "@type": "odrl:Profile",
+                "@id": "https://example.org/profiles/default",
+                "odrl:action": [{{"@id": "use"}}],
+                "dutyMode": "advise"
+              }},
+              "policies": [
+                {{
+                  "id": "policy-collection",
+                  "kind": "Set",
+                  "assigner": "did:web:provider.example",
+                  "assignee": null,
+                  "permissions": [],
+                  "prohibitions": [
+                    {{ "action": "use", "odrl:target": "urn:asset:collection-X", "constraints": [] }}
+                  ],
+                  "obligations": []
+                }}
+              ],
+              "claims": {{}},
+              "asset_collections": [{collections}]
+            }}"#
+        )
+    }
+
+    #[test]
+    fn a_prohibition_on_a_collection_denies_a_request_for_an_asserted_member_at_the_wire_level() {
+        // Request A: the collection IRI itself — already correctly denied
+        // today by plain string equality, unaffected by this addition.
+        let for_collection: Request =
+            serde_json::from_str(&collection_prohibition_request("urn:asset:collection-X", &[])).unwrap();
+        assert_eq!(evaluate_request(&for_collection).decision, WireDecision::Deny);
+
+        // Request B: a member of the collection, with the host asserting the
+        // membership via `asset_collections` — the fail-open gap this field
+        // closes. Before it existed, `target_applies` did bare string
+        // equality against `dataset_id` alone and this request evaded the
+        // prohibition entirely.
+        let for_member: Request = serde_json::from_str(&collection_prohibition_request(
+            "urn:asset:member-1",
+            &["urn:asset:collection-X"],
+        ))
+        .unwrap();
+        let response = evaluate_request(&for_member);
+        assert_eq!(
+            response.decision,
+            WireDecision::Deny,
+            "a member of a prohibited collection must be denied once the host asserts the \
+             membership through `asset_collections`"
+        );
+        assert_eq!(
+            response.reason,
+            "prohibition[0] of policy 'policy-collection' matched: action 'use' on target \
+             'urn:asset:collection-X', unconstrained"
+        );
+    }
+
+    #[test]
+    fn a_request_for_a_collection_member_with_no_asserted_membership_evades_the_prohibition() {
+        // The control this addition is measured against: with no
+        // `asset_collections` entry naming the collection, a request for
+        // the member is simply about a different asset from the one the
+        // prohibition names — the same behaviour this contract always had,
+        // and still correct absent the host's own fact.
+        let req: Request =
+            serde_json::from_str(&collection_prohibition_request("urn:asset:member-1", &[])).unwrap();
+        assert_eq!(evaluate_request(&req).decision, WireDecision::Allow);
+    }
+
+    #[test]
+    fn a_request_with_no_asset_collections_key_round_trips_unchanged() {
+        // Wire-additive: a request built before this field existed — every
+        // fixture in the vendored compliance corpus, and the documented
+        // Section 5.2 example — carries no `asset_collections` key at all,
+        // must still deserialize, and must not gain the key on the way
+        // back out.
+        let req: Request = serde_json::from_str(ALLOW_EXAMPLE).unwrap();
+        assert!(req.asset_collections.is_empty());
+        let value = serde_json::to_value(&req).unwrap();
+        assert!(
+            value.get("asset_collections").is_none(),
+            "a request with no asserted collection membership must not gain an \
+             `asset_collections` key on the way out"
+        );
+    }
+
     // -- performable_actions_for_request -----------------------------------
 
     fn wire_policy(id: &str, permissions: Vec<Rule>, prohibitions: Vec<Rule>) -> WirePolicy {
@@ -2003,6 +2149,7 @@ mod tests {
                 wire_policy("policy-b", vec![Rule::new("read", vec![]), Rule::new("write", vec![])], vec![Rule::new("read", vec![])]),
             ],
             claims: Claims::new(),
+            asset_collections: Vec::new(),
         };
         assert_eq!(
             performable_actions_for_request(&req),
@@ -2019,6 +2166,7 @@ mod tests {
             config: deny_config(&["use", "notify"]),
             policies: vec![],
             claims: Claims::new(),
+            asset_collections: Vec::new(),
         };
         assert!(
             performable_actions_for_request(&req).is_empty(),
@@ -2041,6 +2189,7 @@ mod tests {
                 wire_policy("policy-b", vec![], vec![Rule::new("read", vec![])]),
             ],
             claims: Claims::new(),
+            asset_collections: Vec::new(),
         };
         let unrecognized = Request {
             dataset_id: "urn:uuid:ds".to_string(),
@@ -2048,6 +2197,7 @@ mod tests {
             config: deny_config(&["read"]),
             policies: vec![wire_policy("policy-bad", vec![Rule::new("anonymize", vec![])], vec![])],
             claims: Claims::new(),
+            asset_collections: Vec::new(),
         };
         let no_policies = Request {
             dataset_id: "urn:uuid:ds".to_string(),
@@ -2055,6 +2205,7 @@ mod tests {
             config: deny_config(&["read", "write"]),
             policies: vec![],
             claims: Claims::new(),
+            asset_collections: Vec::new(),
         };
         let allow_example: Request = serde_json::from_str(ALLOW_EXAMPLE).unwrap();
 

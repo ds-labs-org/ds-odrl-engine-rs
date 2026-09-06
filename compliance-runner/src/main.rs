@@ -66,7 +66,7 @@ fn main() {
                         }
                     };
 
-                    Ok((result, FixtureData::Ready { request: Box::new(wire_request), expected }))
+                    Ok((result, FixtureData::Ready { request: wire_request, expected }))
                 }
             }
         })();

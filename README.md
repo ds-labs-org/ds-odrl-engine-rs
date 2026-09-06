@@ -84,14 +84,20 @@ of ever calling `engine`) remains the pattern the vendored compliance
 suite is actually translated through today — untouched by this addition
 and still how every one of its 68 passing cases gets there; native support
 is a new option a host can adopt instead, not a replacement
-`compliance-runner` has migrated onto. `odrl:PartyCollection`/
-`odrl:AssetCollection` membership is still resolved only by
-`compliance-runner`'s own adapter (SOTW-graph `odrl:partOf` lookups)
-rather than by any change to `engine`'s wire contract — a real host
-wanting that would still need the equivalent adapter logic, not just this
-engine, and a per-rule `odrl:target` naming a collection IRI matches
-only a request for that exact IRI, never a member of it. `engine` no
-longer evaluates policy-level obligations only: a permission's own
+`compliance-runner` has migrated onto. `odrl:PartyCollection` membership
+is still resolved only by `compliance-runner`'s own adapter (SOTW-graph
+`odrl:partOf` lookups) — nothing in this addition touches party matching.
+`odrl:AssetCollection` membership (`odrl:partOf` on the asset side) is
+different: `Request` now carries its own `asset_collections`, a
+host-supplied fact naming every collection `dataset_id` is asserted to
+belong to, and a rule's `odrl:target` naming a collection IRI matches a
+request for any asset in that list, not only the collection IRI itself
+(`Rule::target_applies`). This is still opt-in and still host-resolved —
+this engine computes no membership itself, no graph, no transitive
+closure, no IRI normalization — but it is now a real wire fact `evaluate`
+reads, not solely an adapter-side rewrite; see "Per-rule assets
+(`odrl:target`)" below for the exact shape and the distinguishing example.
+`engine` no longer evaluates policy-level obligations only: a permission's own
 `odrl:duty`, a duty's `odrl:consequence` and a prohibition's
 `odrl:remedy` are all evaluated natively now — but strictly as
 **claims-asserted facts**, the same precondition reading Section 4.5
@@ -622,13 +628,16 @@ test.
   carried, not a new field beside it — see the wire-contract section above
   for why one handle rather than two. At the `decision` layer this is an
   explicit parameter: `decide(policy, claims, config, requested_action,
-  requested_target)`, and `performable_actions(policy, claims, config,
-  requested_target)`, both one argument wider than before. That mirrors how
-  `requested_action` itself arrived, and it is deliberately a required
-  `&str` rather than an `Option`: a caller that does not name the asset it
-  is deciding about would silently make every targeted rule inapplicable,
-  which for a prohibition is fail-open. `evaluate_request` is unchanged in
-  signature and passes `req.dataset_id` itself.
+  requested_target, asset_collections)`, and `performable_actions(policy,
+  claims, config, requested_target, asset_collections)` — `asset_collections`
+  is `requested_target`'s own later, purely additive widening (see below),
+  each one argument wider than before it existed. That mirrors how
+  `requested_action` itself arrived, and `requested_target` is deliberately
+  a required `&str` rather than an `Option`: a caller that does not name the
+  asset it is deciding about would silently make every targeted rule
+  inapplicable, which for a prohibition is fail-open. `evaluate_request` is
+  unchanged in signature and passes `req.dataset_id`/`req.asset_collections`
+  itself.
 - **No target means "whatever is being requested", not "no asset".** A rule
   that names none applies to whatever the request is about, which is
   precisely the implicit behaviour every fixture in this workspace already
@@ -640,16 +649,35 @@ test.
   `an_existing_fixture_rule_without_a_target_key_round_trips_unchanged`,
   against a rule copied verbatim out of
   `compliance/reports/latest-cases.json`).
-- **Matched as an opaque string, and that is the honest limit.** There is
-  no IRI normalization, no relative-reference resolution, and no
-  `odrl:partOf`/`odrl:AssetCollection` membership: "the same asset" means
-  "the same characters", so a permission targeting a collection IRI does
-  not cover a request for a member of that collection. Collection
-  membership stays exactly where it already was — resolved by a host
-  against its own graph before the request is built (`compliance-runner`'s
-  `is_member_of`). Calling this support for `odrl:AssetCollection` would
-  overstate it, which is why the coverage catalog records this term as
-  `Partial`, not `Implemented`.
+- **Matched as an opaque string, and that is the honest limit — but the
+  string can now be a collection's, too.** There is still no IRI
+  normalization and no relative-reference resolution, but `Request` now
+  carries `asset_collections: Vec<String>` alongside `dataset_id`: every
+  `odrl:AssetCollection` (ODRL 2.2 Vocabulary §3.4.2) the host asserts
+  `dataset_id` is `odrl:partOf` (§3.8.1). `Rule::target_applies` matches
+  when a rule's target equals `dataset_id` **or** appears in
+  `asset_collections`, so a permission or prohibition scoped to a
+  collection IRI now covers a request for an asserted member of it, not
+  only a request naming the collection IRI itself. This closes a real
+  fail-open gap: before this field existed, a prohibition on
+  `urn:asset:collection-X` did nothing for a request naming
+  `urn:asset:member-1`, even when a host's own catalog knew perfectly well
+  that member-1 is part of collection-X — the exact construct the vendored
+  compliance corpus's own testcase-053 through -058 fixtures exercise,
+  passing today only because `compliance-runner`'s adapter resolves
+  membership before ever calling `evaluate_request`. Membership is still
+  entirely host-resolved: this engine computes no graph traversal and no
+  transitive closure of its own — a two-level `odrl:partOf` chain
+  matches only if the host flattens it into `asset_collections` itself,
+  one entry per ancestor — "the same asset" and "an asserted member of
+  this collection" both still mean "the same characters". `#[serde(default)]`
+  and skipped when empty, so a request naming no collection membership at
+  all — every existing fixture — parses and re-serializes byte for byte as
+  before (`engine/src/wire.rs`'s
+  `a_request_with_no_asset_collections_key_round_trips_unchanged`). See
+  `engine/src/decision.rs`'s `Rule::target_applies` for the exact
+  semantics, and the coverage catalog's `assets.collections` row (now
+  `Partial`, was `NotImplemented`) for what "partial" precisely excludes.
 - **A target is never an `Error`, unlike an action.** Section 4.4's
   unrecognized-action check exists because a profile declares the action
   vocabulary, so an action outside it is a demonstrable configuration gap.
@@ -675,17 +703,22 @@ test.
   own constraints is an ordinary non-match and keeps the ordinary trace.
 
 **`compliance-runner`'s adapter is untouched, and its own target scoping
-is not redundant.** That adapter resolves `odrl:target` at translate time
-(`translate.rs`, `is_member_of`) and continues to: its two target shapes
-are an individual asset *and* an `odrl:AssetCollection`, and the second
-needs the fixture's state-of-the-world graph, which the engine never sees.
-Moving only the individual case into the engine would leave the
-collection case in the adapter regardless, split one rule across two
-layers, and rewrite every exported request in
-`compliance/reports/latest-cases.json` — the corpus an independent host
-re-runs. So the suite's 68/68 result is unchanged by this addition,
-byte for byte, and migrating that adapter is a separate deliberate
-decision, exactly as it is for the native logical constraints above.
+is not redundant even now that `engine` can express collection
+membership natively.** That adapter still resolves `odrl:target`,
+individual and `odrl:AssetCollection` alike, at translate time
+(`translate.rs`, `is_member_of`) against the fixture's own
+state-of-the-world graph — the resolution step itself, not merely a
+wire-contract limitation, since `engine` still performs no such
+resolution and never will. Migrating the adapter onto
+`Request::asset_collections` (asserting a `sub eq`-style fact instead of
+rewriting the rule) is a real option now, but it would rewrite every
+exported request in `compliance/reports/latest-cases.json` — the corpus
+an independent host re-runs — for zero behavioural change, so it is left
+as a separate deliberate decision, exactly as it is for the native
+logical constraints above. `compliance-runner` therefore leaves
+`Request::asset_collections` empty on every request it builds
+(`translate.rs`), and the suite's 68/68 result is unchanged by this
+addition, byte for byte.
 
 ## Per-permission duties, consequences and remedies
 
@@ -1578,7 +1611,7 @@ explicit about the boundary: the Turtle→request translation and the
 `report:*` ground truth were computed natively and travel in the
 artifact; what runs in the browser is the engine and its ABI. A fourth
 page, **ODRL 2.2 Coverage**, does the same thing for this study's
-vocabulary claims: it executes all 125 probes of
+vocabulary claims: it executes all 127 probes of
 `compliance/reports/latest-coverage.json` against that same
 `engine.wasm`, live, and derives a per-row verdict that can come back
 *Contradicted*. The fifth, **Release History**, is the one page here that

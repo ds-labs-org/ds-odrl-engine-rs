@@ -138,7 +138,11 @@ use crate::graph::{dct, local_name, odrl, report_ns, Graph};
 use crate::odrl::{ConstraintForm, PartyRef, PolicyInfo, RequestInfo, RuleKind, TargetRef};
 
 pub enum Translation {
-    Ready(Request),
+    /// Boxed for the same reason `cases.rs`'s `FixtureData::Ready` already
+    /// boxes its own `Request`: `Request` grew past clippy's
+    /// `large_enum_variant` threshold once it gained `asset_collections`,
+    /// and `Skip`'s lone `String` is by far the smaller of the two shapes.
+    Ready(Box<Request>),
     Skip(String),
 }
 
@@ -378,13 +382,21 @@ pub fn translate(policy: &PolicyInfo, req: &RequestInfo, sotw: &Graph, dataset_i
         claims.insert("dateTime".to_string(), ClaimValue::from(now));
     }
 
-    Translation::Ready(Request {
+    Translation::Ready(Box::new(Request {
         dataset_id: dataset_id.to_string(),
         action: req.action.clone(),
         config: base_request_config(),
         policies,
         claims,
-    })
+        // This adapter resolves `odrl:AssetCollection` membership itself,
+        // ahead of ever building this request (`is_member_of` below), by
+        // rewriting a targeted rule's own scope rather than by asserting a
+        // fact for `engine` to read — so this stays empty rather than
+        // duplicating that resolution through the new wire channel. See
+        // this crate's own README and `ds-odrl-engine-rs`'s "Per-rule
+        // assets" section for why the two are not redundant.
+        asset_collections: Vec::new(),
+    }))
 }
 
 #[cfg(test)]
