@@ -873,7 +873,18 @@ impl PartyRoleMismatch<'_> {
 /// `None` means the policy applies and is evaluated exactly as it always
 /// has been.
 ///
-/// **Two independent checks, either of which can yield `Some`.**
+/// **`odrl:Offer` is inert to this check, unconditionally, checked first.**
+/// ODRL 2.2 Vocabulary & Expression §3.2.2: "the Offer Policy MAY contain a
+/// Party with Assignee function, but MUST not grant any privileges to that
+/// Party." An Offer's `odrl:assignee` therefore never singles anyone in or
+/// out, in either direction — not a matching one (which must not narrow the
+/// grant to that party) and not a mismatching one (which must not exclude
+/// the policy either, unlike every other `kind`). This short-circuits ahead
+/// of both checks below, so neither `party_identity_claim` nor
+/// `agreement_assignee_claim` ever sees an Offer's assignee at all; an
+/// Offer evaluates exactly as if it had none.
+///
+/// **Past that, two independent checks, either of which can yield `Some`.**
 ///
 /// 1. `config.agreement_assignee_claim`, only when `policy.kind ==
 ///    "Agreement"`: ODRL 2.2 Vocabulary & Expression §3.2.1's own MUST
@@ -882,11 +893,11 @@ impl PartyRoleMismatch<'_> {
 ///    `party_identity_claim` is configured at all. `None`
 ///    (`ResolvedConfig::agreement_assignee_claim`'s default) means this
 ///    check contributes nothing, for any `kind` including Agreement.
-/// 2. `config.party_identity_claim`, for every `kind` alike — the
-///    pre-existing check, unchanged: off unless the config names a claim
-///    key (decision 1: an existing host sees no change), and a no-op for a
-///    policy carrying no `odrl:assignee` (decision 5, and the common case
-///    in the vendored corpus).
+/// 2. `config.party_identity_claim`, for every `kind` alike (Offer already
+///    excluded above) — the pre-existing check, unchanged: off unless the
+///    config names a claim key (decision 1: an existing host sees no
+///    change), and a no-op for a policy carrying no `odrl:assignee` (decision
+///    5, and the common case in the vendored corpus).
 ///
 /// Both configured and both applying to the same mismatched Agreement both
 /// independently yield `Some` — whichever this function evaluates first
@@ -922,6 +933,13 @@ fn party_role_mismatch<'a>(
     claims: &Claims,
     config: &'a ResolvedConfig,
 ) -> Option<PartyRoleMismatch<'a>> {
+    // odrl:Offer, unconditional and first: see this function's own doc
+    // comment. No config, no assignee value, ever makes an Offer's own
+    // assignee relevant.
+    if policy.kind == "Offer" {
+        return None;
+    }
+
     let assignee = policy.assignee.as_deref()?;
 
     let mismatch = |claim_key: &'a str| -> Option<PartyRoleMismatch<'a>> {
@@ -4023,6 +4041,55 @@ mod tests {
         let response = evaluate_text(&kind_request("Agreement", &both_config, ALICE, MALLORY_CLAIMS));
         assert_eq!(response.decision, WireDecision::Deny);
         assert!(response.reason.contains("no policy in the request applies to this caller"));
+    }
+
+    #[test]
+    fn an_offers_assignee_is_inert_even_when_it_matches_the_caller_under_party_identity_claim() {
+        // The over-grant case this fixes: today, a *matching* Offer.assignee
+        // wrongly lets the policy apply "normally" as if the match meant
+        // something. §3.2.2's own MUST ("MUST not grant any privileges to
+        // that Party") means the assignee must never be consulted at all —
+        // so this must be behaviourally identical to the same Offer with no
+        // assignee whatsoever, not merely "still allowed".
+        let with_assignee = evaluate_text(&kind_request("Offer", SUB_IS_THE_IDENTITY, ALICE, ALICE_CLAIMS));
+        let no_assignee = evaluate_text(&kind_request("Offer", SUB_IS_THE_IDENTITY, "null", ALICE_CLAIMS));
+        assert_eq!(with_assignee.decision, WireDecision::Allow);
+        assert_eq!(with_assignee.decision, no_assignee.decision);
+        assert_eq!(with_assignee.reason, no_assignee.reason);
+    }
+
+    #[test]
+    fn an_offers_mismatched_assignee_no_longer_excludes_the_offer() {
+        // The actual regression fix: before this change, a mismatching
+        // Offer.assignee was excluded by the same "addressed to someone
+        // else" logic that is correct for an Agreement but wrong for an
+        // Offer, whose assignee was never supposed to single anyone in or
+        // out. It must now apply exactly as if it carried no assignee.
+        let with_assignee = evaluate_text(&kind_request("Offer", SUB_IS_THE_IDENTITY, ALICE, MALLORY_CLAIMS));
+        let no_assignee = evaluate_text(&kind_request("Offer", SUB_IS_THE_IDENTITY, "null", MALLORY_CLAIMS));
+        assert_eq!(with_assignee.decision, WireDecision::Allow);
+        assert_eq!(with_assignee.decision, no_assignee.decision);
+        assert_eq!(with_assignee.reason, no_assignee.reason);
+    }
+
+    #[test]
+    fn an_offer_is_inert_to_agreement_assignee_claim_too() {
+        // The short-circuit runs before either config-driven check, so an
+        // Offer is unaffected by `agreementAssigneeClaim` even though that
+        // field only claims to scope itself to `kind == "Agreement"` --
+        // proving the Offer bypass is unconditional, not merely
+        // `partyIdentityClaim`-specific.
+        let response = evaluate_text(&kind_request(
+            "Offer",
+            SUB_IS_THE_AGREEMENT_ASSIGNEE,
+            ALICE,
+            MALLORY_CLAIMS,
+        ));
+        assert_eq!(response.decision, WireDecision::Allow);
+        assert_eq!(
+            response.reason,
+            "permission[0] of policy 'policy-1' matched: action 'use', unconstrained"
+        );
     }
 
     // -- odrl:conflict -----------------------------------------------------

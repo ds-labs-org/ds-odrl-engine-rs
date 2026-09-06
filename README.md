@@ -117,15 +117,21 @@ from the request — but that is **opt-in and off by default**, is
 `assignee` only (an `odrl:assigner` names who granted a policy, not who is
 asking, and is deliberately never evaluated), and resolves no
 `odrl:PartyCollection`: see "Party-role evaluation (`odrl:assignee`),
-opt-in" below. A class-specific gap in that same mechanism is now closed
-too. An `odrl:Agreement`'s own MUST (Vocabulary & Expression §3.2.1: grant
-the Policy's terms from the Assigner to the Assignee) now has a second,
-dedicated, and fully independent opt-in — `config.agreementAssigneeClaim`,
-checked only where `kind == "Agreement"` and off by default exactly like
-`partyIdentityClaim` — so a host that has configured nothing can still
-enforce this one MUST without switching on party-role scoping for every
-other `kind`. See "Party-role evaluation (`odrl:assignee`), opt-in" below
-for both. Deny-overrides is no longer hardcoded either: a policy
+opt-in" below. Two class-specific gaps in that same mechanism are now
+closed as well. An `odrl:Agreement`'s own MUST (Vocabulary & Expression
+§3.2.1: grant the Policy's terms from the Assigner to the Assignee) now
+has a second, dedicated, and fully independent opt-in —
+`config.agreementAssigneeClaim`, checked only where `kind == "Agreement"`
+and off by default exactly like `partyIdentityClaim` — so a host that has
+configured nothing can still enforce this one MUST without switching on
+party-role scoping for every other `kind`. And an `odrl:Offer`'s own MUST
+NOT (§3.2.2: "MUST not grant any privileges to that Party") is now
+enforced unconditionally: an Offer's own `odrl:assignee` is inert to
+`partyIdentityClaim` and `agreementAssigneeClaim` alike, in both
+directions, regardless of any config — a matching assignee no longer
+narrows the grant to that party, and a mismatching one no longer excludes
+the policy either. See "Party-role evaluation (`odrl:assignee`), opt-in"
+below for all three. Deny-overrides is no longer hardcoded either: a policy
 carries its own `odrl:conflict` term (`perm`/`prohibit`/`invalid`), read
 only where a permission that grants and a prohibition that denies really do
 both hold for the same request. **This is the one change in this engine's
@@ -318,7 +324,9 @@ Request:
   setting of the same shape — off by default, and checked only against a
   policy whose `kind` is exactly `"Agreement"` — so a host can enforce that
   one class's own MUST without switching on `partyIdentityClaim`'s
-  every-`kind` scoping. See "Party-role evaluation (`odrl:assignee`),
+  every-`kind` scoping. Neither setting is ever consulted for a policy
+  whose `kind` is `"Offer"`: that `kind`'s own `odrl:assignee` is
+  unconditionally inert. See "Party-role evaluation (`odrl:assignee`),
   opt-in" below.
 - `policies` mirrors the host's own `Policy`/`Rule`/`Constraint` shape
   field for field — each rule keeps its **own** declared `action`, not
@@ -1184,6 +1192,27 @@ itself is unset here.
 See `engine/src/wire.rs::party_role_mismatch` for the exact comparison and
 `engine/src/profile.rs::ResolvedConfig::agreement_assignee_claim` for the
 full rationale.
+
+### `kind == "Offer"`: unconditional assignee inertness
+
+ODRL 2.2 Vocabulary & Expression §3.2.2 is explicit that an Offer's own
+assignee carries no privilege in either direction: "the Offer Policy MAY
+contain a Party with Assignee function, but MUST not grant any privileges
+to that Party." Before this engine enforced that, turning on
+`partyIdentityClaim` had it backwards for an Offer: a *matching*
+`assignee` wrongly let the policy apply as if the match meant something
+(over-granting to a party the spec says gets nothing special), and a
+*mismatching* one wrongly excluded the policy under the same "addressed to
+someone else" logic that is correct for an Agreement but was never meant
+for an Offer.
+
+Both are fixed by making an Offer's own `assignee` **inert,
+unconditionally** — regardless of `partyIdentityClaim`, regardless of
+`agreementAssigneeClaim`, and regardless of what the assignee's value is
+or what the caller presents. A policy with `kind == "Offer"` evaluates
+exactly as if it carried no `assignee` at all, in every request, with no
+config able to change that. This is checked first, ahead of both claim
+comparisons, inside `party_role_mismatch` itself.
 
 ### Where the settings live, and where they do not
 

@@ -1416,7 +1416,7 @@ fn policy_class_probes() -> Vec<Probe> {
     // Capacity is this category's own probe count, asserted by
     // `the_catalog_has_fifty_two_rows_across_ten_categories`'s sibling
     // checks rather than left as a guess.
-    let mut probes = Vec::with_capacity(7);
+    let mut probes = Vec::with_capacity(9);
 
     let stranger = || claims(&[("sub", s("did:web:mallory.example"))]);
     let alice_claims = || claims(&[("sub", s("did:web:alice.example"))]);
@@ -1504,6 +1504,47 @@ fn policy_class_probes() -> Vec<Probe> {
              (\"did:web:mallory.example\")",
         )
         .excluding(&["no permission of policy"]),
+    }));
+
+    probes.push(build(Spec {
+        id: "pc-kind-offer-assignee-inert-even-on-a-match",
+        kind: POSITIVE,
+        title: "kind: Offer's own assignee grants nothing even when the caller matches it",
+        asserts: "odrl-vocab 3.2.2's own MUST NOT ('the Offer Policy ... MUST not grant any privileges \
+                  to that Party'): with partyIdentityClaim configured and the caller presenting exactly \
+                  the Offer's own named assignee, the decision and reason are byte-identical to \
+                  pc-kind-set's control -- a match narrows nothing, because an Offer's assignee is never \
+                  consulted at all.",
+        falsified_by: "a reason mentioning odrl:assignee, or any answer differing from pc-kind-set's -- \
+                       either would mean a matching assignee is being treated as meaningful",
+        request: {
+            let mut request = named_to_alice("Offer");
+            request.claims = alice_claims();
+            request.config.party_identity_claim = Some("sub".to_string());
+            request
+        },
+        patches: vec![],
+        expect: allow(&base_allow_reason()),
+    }));
+
+    probes.push(build(Spec {
+        id: "pc-kind-offer-assignee-inert-even-on-a-mismatch",
+        kind: POSITIVE,
+        title: "kind: Offer still grants to a stranger even with partyIdentityClaim configured",
+        asserts: "The regression this study fixed: before it, this exact request was wrongly excluded \
+                  by the same 'addressed to someone else' logic that is correct for an Agreement but \
+                  wrong for an Offer. Same shape as pc-kind-offer-assignee-inert-even-on-a-match, this \
+                  time with the caller's claims a stranger's -- and the answer does not change either \
+                  way, which is the whole point: an Offer's assignee decides nothing, regardless of \
+                  direction.",
+        falsified_by: "Deny -- which is exactly what this engine wrongly did before this fix",
+        request: {
+            let mut request = named_to_alice("Offer");
+            request.config.party_identity_claim = Some("sub".to_string());
+            request
+        },
+        patches: vec![],
+        expect: allow(&base_allow_reason()),
     }));
 
     probes.push(build(Spec {
@@ -3165,33 +3206,41 @@ pub fn rows() -> Vec<Row> {
             category: "policy-classes",
             term: "Policy class discrimination (Set, Offer, Agreement, Assertion, Privacy, Request, Ticket)",
             status: PARTIAL,
-            why: "The wire still carries `kind` as a bare string for six of the seven classes -- Set, \
-                  Offer, Assertion, Privacy, Request and Ticket all evaluate identically regardless of \
-                  what they call themselves, and none of their own class-specific MUSTs is checked. One \
-                  class now differs. An Agreement's own MUST (odrl-vocab 3.2.1, 'grant ... from the \
+            why: "The wire still carries `kind` as a bare string for five of the seven classes -- Set, \
+                  Assertion, Privacy, Request and Ticket all evaluate identically regardless of what \
+                  they call themselves, and none of their own class-specific MUSTs is checked. Two \
+                  classes now differ. An Agreement's own MUST (odrl-vocab 3.2.1, 'grant ... from the \
                   Assigner to the Assignee') is enforced when a host names `agreementAssigneeClaim` -- \
-                  opt-in, the same way `partyIdentityClaim` is, and independent of it.",
+                  opt-in, the same way `partyIdentityClaim` is, and independent of it. An Offer's own \
+                  MUST NOT (odrl-vocab 3.2.2, 'must not grant any privileges to that Party') is enforced \
+                  unconditionally: its assignee is inert regardless of any config, in both directions.",
             evidence: "engine/src/wire.rs::party_role_mismatch, engine/src/profile.rs::ResolvedConfig::\
                        agreement_assignee_claim",
             asserts: "Unconfigured, an Agreement still grants to a stranger exactly as Set does \
                       (pc-kind-agreement-ignores-assignee); configured, it excludes that same stranger \
                       (pc-kind-agreement-assignee-claim-excludes-a-mismatch) while still granting to its \
-                      real assignee (pc-kind-agreement-assignee-claim-hit). A Ticket carrying a forbidden \
+                      real assignee (pc-kind-agreement-assignee-claim-hit). An Offer reaches the \
+                      identical grant whether the caller matches its named assignee or not \
+                      (pc-kind-offer-assignee-inert-even-on-a-match, \
+                      pc-kind-offer-assignee-inert-even-on-a-mismatch). A Ticket carrying a forbidden \
                       assignee, and a kind that is not an ODRL class at all, both still evaluate \
                       identically to Set.",
             probe_ids: &[
                 "pc-kind-agreement-ignores-assignee",
                 "pc-kind-agreement-assignee-claim-hit",
                 "pc-kind-agreement-assignee-claim-excludes-a-mismatch",
+                "pc-kind-offer-assignee-inert-even-on-a-match",
+                "pc-kind-offer-assignee-inert-even-on-a-mismatch",
                 "pc-kind-ticket-with-assignee",
                 "pc-kind-nonsense",
             ],
             documented_because: None,
             caveat: Some(
-                "Narrow, on purpose: one class out of seven, and only the assignee half of what its \
-                 own MUST actually says. Nothing here resolves any other class-specific structural \
-                 rule -- checking document structure stays outside this engine's own \
-                 enforcement-vs-conformance scope.",
+                "Narrow, on purpose: two classes out of seven, and only the assignee half of what each \
+                 MUST/MUST NOT actually says. Nothing here validates that an Offer's own rules avoid \
+                 Agreement-only wording, or resolves any other class-specific structural rule -- \
+                 checking document structure stays outside this engine's own enforcement-vs-conformance \
+                 scope.",
             ),
         }),
         row(RowSpec {
@@ -3233,7 +3282,10 @@ pub fn rows() -> Vec<Row> {
                   assignee that caller does not match is then treated as absent from the request. \
                   Unset -- the default, and every request built before it existed -- both party fields \
                   are carried on the wire and dropped before the decision algorithm runs. assigner is \
-                  never evaluated at all: it names who granted the policy, not who is asking.",
+                  never evaluated at all: it names who granted the policy, not who is asking. One \
+                  `kind` is a full, unconditional exception to this whole check: an odrl:Offer's own \
+                  assignee is inert regardless of partyIdentityClaim, in either direction -- see \
+                  policy-classes.discrimination.",
             evidence: "engine/src/wire.rs::party_role_mismatch, engine/src/profile.rs::ResolvedConfig::\
                        party_identity_claim",
             asserts: "With no partyIdentityClaim, a named assignee does not scope the grant and removing \

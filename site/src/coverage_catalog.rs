@@ -788,9 +788,11 @@ mod tests {
     assert_eq!(file.categories.len(), 10);
     assert_eq!(
       file.probes.len(),
-      134,
-      "grew by 2 more (132 -> 134) when kind: Agreement gained a real agreementAssigneeClaim hit/miss \
-       pair (pc-kind-agreement-assignee-claim-hit, pc-kind-agreement-assignee-claim-excludes-a-mismatch), \
+      136,
+      "grew by 4 more (132 -> 136) when kind: Agreement and kind: Offer both gained real party-role \
+       probes -- agreementAssigneeClaim's own hit/miss pair (pc-kind-agreement-assignee-claim-hit, \
+       pc-kind-agreement-assignee-claim-excludes-a-mismatch) and Offer's unconditional-inertness pair \
+       (pc-kind-offer-assignee-inert-even-on-a-match, pc-kind-offer-assignee-inert-even-on-a-mismatch), \
        on top of the 131 -> 132 growth when odrl:andSequence moved from a single dropped-key negative \
        probe to a real hit/miss pair (lc-andsequence-honored, lc-andsequence-miss) alongside the \
        pre-existing odrl:and control, the 129 -> 131 growth for odrl:conflict cross-policy \
