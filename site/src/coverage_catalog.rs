@@ -788,9 +788,10 @@ mod tests {
     assert_eq!(file.categories.len(), 10);
     assert_eq!(
       file.probes.len(),
-      127,
-      "grew by 2 when odrl:AssetCollection membership (odrl:partOf) gained real probes \
-       (asset-collection-membership-hit/-wrong-collection-miss) instead of staying documented-only"
+      129,
+      "grew by 2 more (127 -> 129) when odrl:inheritFrom moved from documented-only to two real \
+       hit/control pairs (inheritfrom-safe-direction-*, inheritfrom-fail-open-*), on top of the \
+       125 -> 127 growth odrl:AssetCollection membership (odrl:partOf) already added"
     );
     assert!(file.spec.contains("odrl-vocab"));
   }
@@ -924,7 +925,7 @@ mod tests {
       "beh-closed-empty",                  // Implemented, reason_excludes
       "op-isnoneof-absent-satisfies",      // Implemented, positive
       "conflict-default-invalid-voids",    // Implemented, positive, reason_excludes
-      "inheritfrom-ignored",               // NotImplemented, multi-policy
+      "inheritfrom-fail-open-hit",         // Partial, positive, multi-policy
     ];
 
     for probe_id in sample {

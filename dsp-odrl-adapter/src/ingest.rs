@@ -264,7 +264,12 @@ fn policy_from(node: &Node, warnings: &mut Vec<String>) -> Result<WirePolicy, In
         );
     }
     if !odrl(node, "inheritFrom").is_empty() {
-        warnings.push("the policy declares odrl:inheritFrom; policy inheritance is not resolved".to_string());
+        warnings.push(
+            "the policy declares odrl:inheritFrom; this adapter does not map it, so \
+             WirePolicy.inherit_from is left empty here -- engine::wire itself now resolves the \
+             field when a caller populates it directly, but this ingestion path still does not"
+                .to_string(),
+        );
     }
     // `engine::Policy` really evaluates `odrl:conflict` now, and this
     // adapter maps no conflict term onto it: ingesting one means deciding
@@ -293,6 +298,8 @@ fn policy_from(node: &Node, warnings: &mut Vec<String>) -> Result<WirePolicy, In
         obligations: rules_from(node, "obligation", policy_target.as_deref(), warnings)?,
         // Never ingested from the document -- see the warning above.
         conflict: ConflictStrategy::default(),
+        // Never ingested from the document either -- see the odrl:inheritFrom warning above.
+        inherit_from: None,
     })
 }
 
@@ -528,6 +535,10 @@ mod tests {
             // Neither fixture declares `odrl:conflict`, and this adapter
             // would not ingest one if it did: ODRL's own default.
             conflict: ConflictStrategy::default(),
+            // Neither fixture declares `odrl:inheritFrom` either, and this
+            // adapter would not map it if it did -- see the warning in
+            // `policy_from`.
+            inherit_from: None,
         }
     }
 

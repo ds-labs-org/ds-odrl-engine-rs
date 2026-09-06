@@ -20,6 +20,17 @@
 //! `decision` precisely because it is about a field only this layer has:
 //! `decision::decide` still takes a party-less `decision::Policy` and is
 //! untouched by the setting.
+//!
+//! `WirePolicy` also carries `odrl:inheritFrom` (Information Model §2.9),
+//! the second field this layer reads for itself: `resolve_inherit_from`
+//! walks each policy's declared parents — by `id`, within this same
+//! request's `policies` list — and replicates their rules and party fields
+//! into it, before party-role scoping or `decide` sees any policy at all.
+//! See that function's doc comment for the exact MUST list this covers,
+//! what this contract has no field for, and how a circular chain is
+//! rejected.
+
+use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
@@ -178,6 +189,26 @@ pub struct WirePolicy {
     /// field existed parses and re-serializes byte-for-byte unchanged.
     #[serde(rename = "odrl:conflict", default, skip_serializing_if = "ConflictStrategy::is_default")]
     pub conflict: ConflictStrategy,
+    /// `odrl:inheritFrom` — Information Model §2.9's Policy Inheritance:
+    /// the `id`s of zero or more parent policies **elsewhere in this same
+    /// request's `policies` list** whose rules this (child) policy
+    /// replicates before `decide` ever sees it. `None` (the JSON key
+    /// absent, the common case for every fixture in this workspace) is a
+    /// policy with no parent, evaluated exactly as it always was — this is
+    /// the second field, after `conflict`, that this layer reads for
+    /// itself rather than merely carrying.
+    ///
+    /// **Resolved by `resolve_inherit_from`, once per `evaluate_request`
+    /// call, ahead of party-role scoping** (so an inherited `assignee`
+    /// participates in it) **and ahead of `decide`** (so inherited rules
+    /// are just more rules by the time the deny-override algorithm runs —
+    /// there is no separate "inherited" bit anywhere past this point).
+    /// See that function's own doc comment for exactly what §2.9's MUST
+    /// list this replicates, what it deliberately does not (this contract
+    /// has no policy-level Asset or `odrl:profile` field to replicate),
+    /// and how a cycle is rejected.
+    #[serde(rename = "inheritFrom", default, skip_serializing_if = "Option::is_none")]
+    pub inherit_from: Option<Vec<String>>,
 }
 
 impl WirePolicy {
@@ -800,6 +831,141 @@ fn party_role_mismatch<'a>(
     }
 }
 
+/// `odrl:inheritFrom` resolution (Information Model §2.9), run once per
+/// `evaluate_request` call over the whole request's `policies` list, before
+/// party-role scoping or `decide` ever sees a policy.
+///
+/// **What §2.9 requires a child to replicate, and what this maps it to.**
+/// The spec's own MUST list is "all policy-level Assets, Parties, Actions;
+/// all profile identifiers; conflict properties; all Rules." This wire
+/// contract has no policy-level Asset field (only `Rule::target`, per
+/// rule, untouched here — a permission naming its own target keeps it after
+/// inheriting) and no policy-level `odrl:profile` field at all (`config`
+/// is a whole-request setting, not a per-policy one — see the
+/// `other.profile-property` coverage row), so there is nothing to
+/// replicate for either. What remains, and what this actually replicates
+/// into the child:
+///
+/// - **Rules** — every entry of the parent's `permissions`, `prohibitions`
+///   and `obligations` is appended to the child's own (child's rules
+///   first, so a `reason` trace naming `permission[0]` still means "the
+///   child's own first rule" for a child that declares any).
+/// - **Parties** — `assigner` and `assignee` are the two this contract
+///   carries. Each is replicated only when the child leaves it unset
+///   (`assigner` the empty string, `assignee` `None`) — a child that
+///   *does* name its own is not overridden by a parent's. This is the one
+///   part of inheritance that can change a decision even for a child
+///   declaring its own rules: a policy addressed to nobody in particular
+///   picks up its parent's `odrl:assignee`, and so becomes subject to
+///   party-role scoping (`party_role_mismatch`) it otherwise would not
+///   have been.
+///
+/// `odrl:conflict` is deliberately **not** replicated: `ConflictStrategy`
+/// has no wire representation for "unset" distinct from its own default
+/// (`invalid`), the same ambiguity `#[serde(default)]` already accepts for
+/// a policy that never declares the field at all, so there is no way to
+/// tell "the child left this to inherit" apart from "the child declared
+/// `invalid` itself" — inventing a rule for that ambiguity is a separate
+/// decision from adding the field, not a side effect of this one. `kind`
+/// is not replicated either: it is the child's own declared class, and
+/// nothing here selects a semantics from it regardless.
+///
+/// **Multi-level and multi-parent, by construction.** A parent is itself
+/// resolved (recursively, through this same function) before its rules are
+/// copied into a child, so a grandparent's rules reach a grandchild
+/// through its parent exactly once each — and a diamond (two parents
+/// sharing a common ancestor) is resolved once and reused, not walked
+/// twice, because a fully-resolved policy is cached by `id` the first time
+/// any child reaches it.
+///
+/// **Circular inheritance MUST NOT occur, and is rejected, not looped.**
+/// A parent chain that returns to a policy already being resolved fails
+/// the whole request with `Decision::Error` (via a direct `Response`, the
+/// same way an empty `policies` array or a party-role mismatch construct
+/// their own outside `decide`) rather than silently truncating the chain
+/// or overflowing the stack. Likewise, an `inheritFrom` naming an `id` that
+/// is not any policy in this same request is an `Error`, not a `Deny`: in
+/// both cases nothing about the *request being decided* is at fault — the
+/// caller's own policy set is the thing that does not parse into a tree —
+/// which is exactly the "configuration gap" distinction `Decision::Error`
+/// exists to preserve elsewhere in this module.
+fn resolve_inherit_from(policies: &[WirePolicy]) -> Result<Vec<WirePolicy>, String> {
+    let by_id: HashMap<&str, &WirePolicy> = policies.iter().map(|p| (p.id.as_str(), p)).collect();
+    let mut resolved: HashMap<String, WirePolicy> = HashMap::with_capacity(policies.len());
+    let mut stack: Vec<String> = Vec::new();
+
+    for policy in policies {
+        resolve_one(&policy.id, &by_id, &mut resolved, &mut stack)?;
+    }
+
+    Ok(policies
+        .iter()
+        .map(|p| resolved.get(&p.id).expect("resolved above").clone())
+        .collect())
+}
+
+/// One policy's effective, post-inheritance form — see `resolve_inherit_from`
+/// for what "effective" replicates. `resolved` is both the memo table (a
+/// policy already fully resolved is cloned out, never recomputed, which is
+/// what keeps a diamond of shared ancestors linear rather than exponential)
+/// and, for a policy with no parents at all, exactly itself. `stack` is the
+/// `id`s on the current recursion path, checked before `by_id` is even
+/// consulted: an `id` already on it is a cycle, reported with the path that
+/// found it rather than left to recurse until the real call stack overflows.
+fn resolve_one(
+    id: &str,
+    by_id: &HashMap<&str, &WirePolicy>,
+    resolved: &mut HashMap<String, WirePolicy>,
+    stack: &mut Vec<String>,
+) -> Result<WirePolicy, String> {
+    if let Some(done) = resolved.get(id) {
+        return Ok(done.clone());
+    }
+    if let Some(start) = stack.iter().position(|on_stack| on_stack == id) {
+        let mut cycle = stack[start..].to_vec();
+        cycle.push(id.to_string());
+        return Err(format!(
+            "circular odrl:inheritFrom chain, which Information Model \u{a7}2.9 requires be \
+             rejected rather than resolved: {}",
+            cycle.join(" -> ")
+        ));
+    }
+
+    let policy = *by_id.get(id).ok_or_else(|| {
+        format!(
+            "a policy declares odrl:inheritFrom naming '{id}', which is not the id of any policy \
+             in this same request's policies list"
+        )
+    })?;
+
+    let parent_ids: &[String] = match &policy.inherit_from {
+        Some(ids) if !ids.is_empty() => ids,
+        _ => {
+            resolved.insert(id.to_string(), policy.clone());
+            return Ok(policy.clone());
+        }
+    };
+
+    stack.push(id.to_string());
+    let mut merged = policy.clone();
+    for parent_id in parent_ids {
+        let parent = resolve_one(parent_id, by_id, resolved, stack)?;
+        merged.permissions.extend(parent.permissions.iter().cloned());
+        merged.prohibitions.extend(parent.prohibitions.iter().cloned());
+        merged.obligations.extend(parent.obligations.iter().cloned());
+        if merged.assigner.is_empty() {
+            merged.assigner = parent.assigner.clone();
+        }
+        if merged.assignee.is_none() {
+            merged.assignee = parent.assignee.clone();
+        }
+    }
+    stack.pop();
+
+    resolved.insert(id.to_string(), merged.clone());
+    Ok(merged)
+}
+
 struct Evaluation<'a> {
     policy: &'a WirePolicy,
     outcome: DecisionOutcome,
@@ -825,15 +991,27 @@ struct Evaluation<'a> {
 /// closed. It is the one case with no per-policy `reason` to surface, so
 /// it constructs its own.
 ///
-/// **Party-role scoping runs before any of that**, when the config asks
-/// for it (`ResolvedConfig::party_identity_claim`, off by default): a
-/// policy whose `odrl:assignee` does not name the caller is removed from
-/// the set entirely — not evaluated and found wanting, *absent*. So it
-/// contributes neither a grant nor a deny nor a `Decision::Error`, and the
-/// combining rule above simply never sees it. When that leaves no policy
-/// at all, the answer is the same default deny an empty `policies` array
-/// gets, under a `reason` that names the mismatch rather than reporting a
-/// constraint miss that never happened. See `party_role_mismatch`.
+/// **`odrl:inheritFrom` resolves before any of that, even before
+/// party-role scoping**: each policy declaring a parent (by `id`, within
+/// this same request) replicates that parent's rules and unset party
+/// fields into itself first, so party-role scoping and `decide` both see
+/// the same, already-merged policy set `req.policies` describes — not the
+/// pre-inheritance one. A parent naming no `inheritFrom` of its own is
+/// unaffected either way. See `resolve_inherit_from` for exactly what is
+/// and is not replicated, and how a circular chain (or a parent `id` this
+/// request does not contain) fails the whole request as a `Decision::Error`
+/// before a single policy is decided.
+///
+/// **Party-role scoping runs before everything past that**, when the
+/// config asks for it (`ResolvedConfig::party_identity_claim`, off by
+/// default): a policy whose `odrl:assignee` does not name the caller is
+/// removed from the set entirely — not evaluated and found wanting,
+/// *absent*. So it contributes neither a grant nor a deny nor a
+/// `Decision::Error`, and the combining rule above simply never sees it.
+/// When that leaves no policy at all, the answer is the same default deny
+/// an empty `policies` array gets, under a `reason` that names the
+/// mismatch rather than reporting a constraint miss that never happened.
+/// See `party_role_mismatch`.
 pub fn evaluate_request(req: &Request) -> Response {
     evaluate_request_for_action(req, &req.action)
 }
@@ -860,20 +1038,39 @@ fn evaluate_request_for_action(req: &Request, requested_action: &str) -> Respons
         };
     }
 
-    // Party-role scoping, ahead of everything else: a policy this caller is
-    // not the `odrl:assignee` of is **absent from the request**, not a
-    // policy that happens to grant nothing. The distinction is the whole
-    // decision (see this function's own doc comment above) — it is why the
-    // prohibition of a policy addressed to somebody else cannot deny this
-    // caller, why an unrecognized action inside one is not this caller's
-    // configuration gap, and why `behaviour: "open"` does not turn one into
-    // a vacuous Allow. Off unless `config.party_identity_claim` names a
-    // claim key, so `skipped` is empty for every request built before this
-    // existed and this whole block is a no-op.
+    // `odrl:inheritFrom`, ahead of everything else, including party-role
+    // scoping below: see this function's own doc comment and
+    // `resolve_inherit_from`. A circular chain, or a parent `id` absent
+    // from this same request, is a caller configuration gap rather than a
+    // decidable request, so it fails the whole request here rather than
+    // being reported as any one policy's own outcome.
+    let policies: Vec<WirePolicy> = match resolve_inherit_from(&req.policies) {
+        Ok(policies) => policies,
+        Err(reason) => {
+            return Response {
+                dataset_id: req.dataset_id.clone(),
+                decision: WireDecision::Error,
+                reason,
+                duties: Vec::new(),
+            };
+        }
+    };
+
+    // Party-role scoping, ahead of everything past inheritance: a policy
+    // this caller is not the `odrl:assignee` of is **absent from the
+    // request**, not a policy that happens to grant nothing. The
+    // distinction is the whole decision (see this function's own doc
+    // comment above) — it is why the prohibition of a policy addressed to
+    // somebody else cannot deny this caller, why an unrecognized action
+    // inside one is not this caller's configuration gap, and why
+    // `behaviour: "open"` does not turn one into a vacuous Allow. Off
+    // unless `config.party_identity_claim` names a claim key, so `skipped`
+    // is empty for every request built before this existed and this whole
+    // block is a no-op.
     let (applicable, skipped): (Vec<&WirePolicy>, Vec<PartyRoleMismatch>) = {
-        let mut applicable = Vec::with_capacity(req.policies.len());
+        let mut applicable = Vec::with_capacity(policies.len());
         let mut skipped = Vec::new();
-        for policy in &req.policies {
+        for policy in &policies {
             match party_role_mismatch(policy, &req.claims, &config) {
                 Some(mismatch) => skipped.push(mismatch),
                 None => applicable.push(policy),
@@ -1280,6 +1477,7 @@ mod tests {
                 )],
                 obligations: vec![],
                 conflict: ConflictStrategy::Prohibit,
+                inherit_from: None,
             }],
             claims: [("nationality".to_string(), ClaimValue::Single("US".to_string()))]
                 .into_iter()
@@ -1330,6 +1528,7 @@ mod tests {
                 )],
                 obligations: vec![],
                 conflict: ConflictStrategy::default(),
+                inherit_from: None,
             }],
             claims: [
                 ("nationality".to_string(), ClaimValue::Single("US".to_string())),
@@ -1374,6 +1573,7 @@ mod tests {
                 prohibitions: vec![],
                 obligations: vec![],
                 conflict: ConflictStrategy::default(),
+                inherit_from: None,
             }],
             claims: Claims::new(),
             asset_collections: Vec::new(),
@@ -1403,6 +1603,7 @@ mod tests {
                     prohibitions: vec![],
                     obligations: vec![],
                     conflict: ConflictStrategy::default(),
+                    inherit_from: None,
                 },
                 WirePolicy {
                     id: "policy-bad".to_string(),
@@ -1413,6 +1614,7 @@ mod tests {
                     prohibitions: vec![],
                     obligations: vec![],
                     conflict: ConflictStrategy::default(),
+                    inherit_from: None,
                 },
             ],
             claims: Claims::new(),
@@ -1463,6 +1665,7 @@ mod tests {
                 prohibitions: vec![],
                 obligations: vec![Rule::new("notify", vec![])],
                 conflict: ConflictStrategy::default(),
+                inherit_from: None,
             }],
             claims: Claims::new(),
             asset_collections: Vec::new(),
@@ -1502,6 +1705,7 @@ mod tests {
                 prohibitions: vec![],
                 obligations: vec![],
                 conflict: ConflictStrategy::default(),
+                inherit_from: None,
             }],
             claims: Claims::new(),
             asset_collections: Vec::new(),
@@ -1532,6 +1736,7 @@ mod tests {
                 prohibitions: vec![],
                 obligations: vec![],
                 conflict: ConflictStrategy::default(),
+                inherit_from: None,
             }],
             claims: Claims::new(),
             asset_collections: Vec::new(),
@@ -1571,6 +1776,7 @@ mod tests {
                     )],
                     obligations: vec![],
                     conflict: ConflictStrategy::default(),
+                    inherit_from: None,
                 },
                 WirePolicy {
                     id: "policy-b".to_string(),
@@ -1584,6 +1790,7 @@ mod tests {
                         vec![crate::constraint::Constraint::new("sub", Operator::Eq, "alice")],
                     )],
                     conflict: ConflictStrategy::default(),
+                    inherit_from: None,
                 },
             ],
             claims: Claims::new(),
@@ -1802,6 +2009,7 @@ mod tests {
                 prohibitions: vec![],
                 obligations: vec![],
                 conflict: ConflictStrategy::default(),
+                inherit_from: None,
             }],
             claims: [
                 ("sub".to_string(), ClaimValue::Single("bob".to_string())),
@@ -2084,6 +2292,225 @@ mod tests {
         );
     }
 
+    // -- odrl:inheritFrom (Policy Inheritance, Information Model §2.9) ------
+
+    fn inheriting_policy(id: &str, assignee: Option<&str>, inherit_from: Option<&[&str]>) -> WirePolicy {
+        WirePolicy {
+            id: id.to_string(),
+            kind: "Set".to_string(),
+            assigner: "did:web:provider.example".to_string(),
+            assignee: assignee.map(|a| a.to_string()),
+            permissions: vec![],
+            prohibitions: vec![],
+            obligations: vec![],
+            conflict: ConflictStrategy::default(),
+            inherit_from: inherit_from.map(|ids| ids.iter().map(|id| id.to_string()).collect()),
+        }
+    }
+
+    #[test]
+    fn resolve_inherit_from_replicates_rules_and_unset_party_fields_but_not_conflict_or_kind() {
+        // A whitebox test of the merge itself (this module's own
+        // `use super::*` reaches a private fn), so the exact replication
+        // rule is pinned down independent of the wire-level combining
+        // subtlety the next test's own comment explains.
+        let mut parent = inheriting_policy("parent", None, None);
+        parent.assigner = "urn:parent-assigner".to_string();
+        parent.assignee = Some("urn:parent-assignee".to_string());
+        parent.permissions = vec![Rule::new("use", vec![])];
+        parent.prohibitions = vec![Rule::new("distribute", vec![])];
+        parent.conflict = ConflictStrategy::Perm;
+
+        let mut child = inheriting_policy("child", None, Some(&["parent"]));
+        child.kind = "Offer".to_string();
+        child.assigner = String::new(); // unset -- helper's own default is non-empty
+        child.permissions = vec![Rule::new("print", vec![])];
+
+        let resolved = resolve_inherit_from(&[parent, child]).unwrap();
+        let child = resolved.iter().find(|p| p.id == "child").unwrap();
+
+        assert_eq!(
+            child.permissions,
+            vec![Rule::new("print", vec![]), Rule::new("use", vec![])],
+            "the child's own permission stays first, the parent's is appended"
+        );
+        assert_eq!(child.prohibitions, vec![Rule::new("distribute", vec![])]);
+        assert_eq!(
+            child.assigner, "urn:parent-assigner",
+            "assigner is unset on the child (the empty string), so the parent's is replicated"
+        );
+        assert_eq!(
+            child.assignee,
+            Some("urn:parent-assignee".to_string()),
+            "assignee is unset on the child (None), so the parent's is replicated"
+        );
+        assert_eq!(
+            child.kind, "Offer",
+            "kind is the child's own declared class -- not in §2.9's replicated list, and not \
+             overwritten by the parent's"
+        );
+        assert_eq!(
+            child.conflict,
+            ConflictStrategy::default(),
+            "odrl:conflict is deliberately not replicated -- see resolve_inherit_from's own doc \
+             comment for why a wire-level 'unset' is indistinguishable from an explicit default"
+        );
+    }
+
+    #[test]
+    fn a_child_declaring_its_own_assignee_keeps_it_rather_than_the_parents() {
+        let parent = inheriting_policy("parent", Some("urn:parent-assignee"), None);
+        let child = inheriting_policy("child", Some("urn:child-assignee"), Some(&["parent"]));
+
+        let resolved = resolve_inherit_from(&[parent, child]).unwrap();
+        let child = resolved.iter().find(|p| p.id == "child").unwrap();
+        assert_eq!(child.assignee, Some("urn:child-assignee".to_string()));
+    }
+
+    /// The exact distinguishing example this backlog item cites, adapted to
+    /// actually isolate the gap this wire-level contract can observe.
+    ///
+    /// **Why the isolation matters.** `evaluate_request`'s own multi-policy
+    /// rule is deny-override *across the whole `policies` array*: if
+    /// `parent` were simply a second, unscoped sibling of `child` here, its
+    /// own unconstrained prohibition would independently deny the request
+    /// by itself, with or without inheritance ever being resolved -- the
+    /// two decisions would coincide and the test would prove nothing (this
+    /// was checked empirically against the pre-fix engine before writing
+    /// this test: the naive two-sibling shape already denied, for exactly
+    /// that reason, not because inheritance worked). What actually isolates
+    /// "did the child inherit the prohibition" is party-role scoping
+    /// (opt-in, and orthogonal to inheritance): `parent` is addressed to
+    /// somebody else and so drops out of `applicable` entirely, on its own
+    /// well-established semantics (`party_role_mismatch`) -- it contributes
+    /// neither a grant nor a deny. `child` names the caller as its own
+    /// `odrl:assignee` (so it is unaffected by party-role scoping either
+    /// way, and does not itself inherit `parent`'s mismatched assignee --
+    /// see the previous test), declares no rules of its own, and inherits
+    /// `parent`'s. `child` alone is then what `evaluate_request` actually
+    /// decides on.
+    #[test]
+    fn a_child_declaring_no_rules_of_its_own_inherits_its_parents_prohibition_and_denies() {
+        let mut config = deny_config(&["use"]);
+        config.behaviour = Behaviour::Open; // the engine's own documented default
+        config.party_identity_claim = Some("sub".to_string());
+
+        let req = Request {
+            dataset_id: "urn:uuid:ds".to_string(),
+            action: "use".to_string(),
+            config,
+            policies: vec![
+                {
+                    let mut p = inheriting_policy("parent", Some("did:web:someone-else.example"), None);
+                    p.prohibitions = vec![Rule::new("use", vec![])];
+                    p
+                },
+                inheriting_policy("child", Some("did:web:alice.example"), Some(&["parent"])),
+            ],
+            claims: [("sub".to_string(), ClaimValue::Single("did:web:alice.example".to_string()))]
+                .into_iter()
+                .collect(),
+            asset_collections: Vec::new(),
+        };
+
+        // The control this test is measured against: without the fix,
+        // `child` carries no rules at all once `parent`'s mismatched
+        // assignee excludes it, and `Behaviour::Open`'s vacuous-permission
+        // path grants -- confirmed against the pre-fix engine, reason
+        // `"policy 'child' has no permissions (open default)"`.
+        let response = evaluate_request(&req);
+        assert_eq!(
+            response.decision,
+            WireDecision::Deny,
+            "a child that inherits nothing of its own must still be bound by the parent's \
+             prohibition it declared odrl:inheritFrom for"
+        );
+        assert_eq!(
+            response.reason,
+            "prohibition[0] of policy 'child' matched: action 'use', unconstrained"
+        );
+    }
+
+    #[test]
+    fn direct_circular_inherit_from_is_rejected_as_an_error_not_looped_forever() {
+        let req = Request {
+            dataset_id: "urn:uuid:ds".to_string(),
+            action: "use".to_string(),
+            config: deny_config(&["use"]),
+            policies: vec![
+                inheriting_policy("a", None, Some(&["b"])),
+                inheriting_policy("b", None, Some(&["a"])),
+            ],
+            claims: Claims::new(),
+            asset_collections: Vec::new(),
+        };
+
+        let response = evaluate_request(&req);
+        assert_eq!(response.decision, WireDecision::Error);
+        assert!(
+            response.reason.contains("circular odrl:inheritFrom"),
+            "reason was: {}",
+            response.reason
+        );
+    }
+
+    #[test]
+    fn inherit_from_naming_an_id_absent_from_this_request_is_an_error() {
+        let req = Request {
+            dataset_id: "urn:uuid:ds".to_string(),
+            action: "use".to_string(),
+            config: deny_config(&["use"]),
+            policies: vec![inheriting_policy("child", None, Some(&["no-such-parent"]))],
+            claims: Claims::new(),
+            asset_collections: Vec::new(),
+        };
+
+        let response = evaluate_request(&req);
+        assert_eq!(response.decision, WireDecision::Error);
+        assert!(
+            response.reason.contains("no-such-parent") && response.reason.contains("not the id of any policy"),
+            "reason was: {}",
+            response.reason
+        );
+    }
+
+    #[test]
+    fn inheritance_is_transitive_across_more_than_one_level() {
+        // grandparent -> parent -> child, neither parent nor child
+        // declaring any rule of its own: the grandparent's prohibition
+        // must still reach child.
+        let req = Request {
+            dataset_id: "urn:uuid:ds".to_string(),
+            action: "use".to_string(),
+            config: deny_config(&["use"]),
+            policies: vec![
+                {
+                    let mut p = inheriting_policy("grandparent", None, None);
+                    p.prohibitions = vec![Rule::new("use", vec![])];
+                    p
+                },
+                inheriting_policy("parent", None, Some(&["grandparent"])),
+                inheriting_policy("child", None, Some(&["parent"])),
+            ],
+            claims: Claims::new(),
+            asset_collections: Vec::new(),
+        };
+
+        let response = evaluate_request(&req);
+        assert_eq!(response.decision, WireDecision::Deny);
+    }
+
+    #[test]
+    fn a_policy_naming_no_inherit_from_is_unaffected_and_round_trips_without_the_key() {
+        let req: Request = serde_json::from_str(ALLOW_EXAMPLE).unwrap();
+        assert_eq!(req.policies[0].inherit_from, None);
+        let value = serde_json::to_value(&req).unwrap();
+        assert!(
+            value["policies"][0].get("inheritFrom").is_none(),
+            "a policy with no odrl:inheritFrom must not gain the key on the way back out"
+        );
+    }
+
     // -- performable_actions_for_request -----------------------------------
 
     fn wire_policy(id: &str, permissions: Vec<Rule>, prohibitions: Vec<Rule>) -> WirePolicy {
@@ -2096,6 +2523,7 @@ mod tests {
             prohibitions,
             obligations: vec![],
             conflict: ConflictStrategy::default(),
+            inherit_from: None,
         }
     }
 

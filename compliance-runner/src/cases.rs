@@ -166,6 +166,7 @@ mod tests {
                 prohibitions: vec![],
                 obligations: vec![],
                 conflict: engine::ConflictStrategy::default(),
+                inherit_from: None,
             }],
             claims: Default::default(),
             asset_collections: Vec::new(),

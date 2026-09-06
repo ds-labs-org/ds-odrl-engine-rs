@@ -373,6 +373,11 @@ pub fn translate(policy: &PolicyInfo, req: &RequestInfo, sotw: &Graph, dataset_i
             // any strategy. Declaring one here would invent a term the
             // source document does not have.
             conflict: ConflictStrategy::default(),
+            // `odrl.rs` never parses a Policy-level `odrl:inheritFrom`
+            // triple at all -- no Turtle document in the vendored suite
+            // declares one, so there is nothing this adapter could resolve
+            // even now that `engine` itself can.
+            inherit_from: None,
         }]
     };
 

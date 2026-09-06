@@ -288,8 +288,12 @@ cannot audit.
   only — root README, Section 4.5);
 - a rule naming several `odrl:action`s (only the first is ingested);
 - an `odrl:profile` declaration (not loaded, so any term it defines stays
-  an opaque string) and `odrl:inheritFrom` (policy inheritance is not
-  resolved);
+  an opaque string) and `odrl:inheritFrom` (the engine now resolves policy
+  inheritance for a caller that populates `WirePolicy.inherit_from` itself
+  — root README, "Policy inheritance (`odrl:inheritFrom`)" — but this
+  adapter does not map the DSP document's own `odrl:inheritFrom` node
+  references onto it, so `WirePolicy.inherit_from` is always `None` from
+  this ingestion path);
 - an `odrl:conflict` declaration. The engine really evaluates that term
   now (root README, "Conflict strategy (`odrl:conflict`)"), and this
   adapter ingests none: mapping an IRI-or-literal

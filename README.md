@@ -122,7 +122,22 @@ it** — a policy declaring nothing used to be resolved prohibition-first and
 is now void, ODRL's own stated default — and it was made on the measured
 basis that no fixture in the vendored compliance corpus contains a policy
 with both a permission and a prohibition, so nothing there moves in either
-direction. See "Conflict strategy (`odrl:conflict`)" below. See
+direction. See "Conflict strategy (`odrl:conflict`)" below. A policy's
+`odrl:inheritFrom` is no longer parsed away as an unrecognized key either:
+`WirePolicy.inherit_from` names zero or more parent policy `id`s within
+this same request's own `policies` list, and each child replicates its
+parents' rules and unset `assigner`/`assignee` before party-role scoping
+or `decide` ever sees it — closing a real fail-open gap for the single
+most natural real-world shape ("child adds nothing, inherits everything"),
+which used to fall through to a vacuous `Decision::Allow` under
+`behaviour: "open"` regardless of what a parent explicitly prohibited. A
+circular chain, or an `inheritFrom` naming an `id` absent from the same
+request, is rejected as `Decision::Error` rather than looped or silently
+ignored; `odrl:conflict` is deliberately not among what is replicated
+(no wire representation for "unset" distinct from its own default), and
+this contract has no policy-level Asset or `odrl:profile` field to
+replicate in the first place. See "Policy inheritance (`odrl:inheritFrom`)"
+below. See
 "Per-permission duties, consequences and remedies" below for the full
 duty semantics and for the reasoning behind that remedy choice, the design
 rationale below for what's load-bearing versus what's
@@ -1194,6 +1209,87 @@ dropped term rather than substituting a strategy silently. The demonstrator
 site's own request types mirror the engine's only as far as they always
 did, and still do not model `odrl:conflict` (see `site/README.md`).
 
+## Policy inheritance (`odrl:inheritFrom`)
+
+Information Model §2.9 lets a (child) Policy declare `odrl:inheritFrom`,
+naming one or more (parent) Policies whose Assets, Parties, Actions,
+profile identifiers, conflict properties and Rules it inherits — "the
+`inheritFrom` property MUST be used" to do it, and "inheritance MUST NOT
+be circular." `WirePolicy.inherit_from` (`inheritFrom` on the wire) now
+carries this rather than being parsed away as an unrecognized key: zero or
+more parent `id`s, looked up **within this same request's own `policies`
+list** — this contract has no separate policy store, so a parent has to
+be sent alongside its child for either to be resolved at all.
+
+```json
+{
+  "policies": [
+    { "id": "parent", "kind": "Set", "prohibitions": [{ "action": "use", "constraints": [] }] },
+    { "id": "child", "kind": "Offer", "inheritFrom": ["parent"], "permissions": [], "prohibitions": [] }
+  ]
+}
+```
+
+Before `decide` or party-role scoping ever sees a policy,
+`engine::wire::resolve_inherit_from` replicates each parent's
+`permissions`, `prohibitions` and `obligations` into the child (the
+child's own rules first, the parent's appended), and its `assigner`/
+`assignee` **only where the child leaves them unset** — a child that
+names its own `odrl:assignee` is not overridden by a parent's. A parent
+is itself resolved first, so a multi-level chain (grandparent → parent →
+child) and a diamond (two parents sharing a common ancestor, resolved
+once and reused) both work without walking the same policy twice.
+
+**Why this closes a real fail-open gap, not a cosmetic one.** The single
+most natural real-world shape for `odrl:inheritFrom` is "child adds
+nothing, inherits everything" — a child with empty `permissions` and
+`prohibitions`, relying entirely on its parent. Before this addition,
+`inheritFrom` was silently dropped, that child was evaluated exactly as
+declared (genuinely empty), and `Behaviour::Open`'s own documented
+vacuous-permission reading (an empty `permissions` list is satisfied)
+granted `Decision::Allow` — for a child whose parent explicitly
+prohibited the very action being asked for, under this engine's own
+default configuration. See `engine/src/wire.rs`'s
+`a_child_declaring_no_rules_of_its_own_inherits_its_parents_prohibition_and_denies`
+for the worked example (and its own doc comment for why isolating the
+parent from independent applicability, via the unrelated, already-existing
+party-role mechanism, is what makes the example actually distinguish
+"inherited" from "coincidentally denied by the parent's own separate entry
+in the same request" — this contract's deny-override-across-the-whole-
+policy-set combining rule means a parent sent as an ordinary, unscoped
+sibling would decide the request by itself either way).
+
+**Circular inheritance, and a parent absent from the request, are both a
+`Decision::Error`, not a `Deny` or a silent truncation.** A chain that
+returns to a policy already being resolved, or an `inheritFrom` naming an
+`id` that is not any policy in the same request, is a caller
+configuration gap — the request's own policy set does not parse into a
+tree — exactly the distinction `Decision::Error` already exists to
+preserve for an unrecognized action.
+
+**Partial, against §2.9's own MUST list.** `odrl:conflict` is
+deliberately **not** replicated: `ConflictStrategy` has no wire
+representation for "unset" distinct from its own default (`invalid`), the
+same ambiguity `#[serde(default)]` already accepts for a policy that never
+declares the key at all, so there is no way to tell "the child left this
+to inherit" apart from "the child declared `invalid` itself." This
+contract has no policy-level Asset field (only `Rule::target`, per rule,
+untouched by inheritance) and no policy-level `odrl:profile` field at all
+(`config` is a whole-request setting, not a per-policy one — see the
+`other.profile-property` coverage row) — so neither has anything to
+replicate in the first place. `kind` is the child's own declared class and
+is never touched either; it is not in §2.9's replicated list, and nothing
+here selects a semantics from it regardless.
+
+Neither `compliance-runner` nor `dsp-odrl-adapter` resolves
+`odrl:inheritFrom` through this new field: no Turtle document in the
+vendored 68-fixture suite declares one, so `compliance-runner`'s own
+adapter never sets it, and `dsp-odrl-adapter`'s `ingest.rs` still only
+emits a warning naming the dropped term (`WirePolicy.inherit_from` stays
+`None` from that ingestion path) — mapping a DSP contract's own
+`odrl:inheritFrom` node references is a separate decision from the engine
+gaining the field, exactly as `odrl:conflict` ingestion already is.
+
 ## Asking which claims a set of policies actually reads
 
 The claims model above is one-directional: the host pushes a flat map it
@@ -1611,7 +1707,7 @@ explicit about the boundary: the Turtle→request translation and the
 `report:*` ground truth were computed natively and travel in the
 artifact; what runs in the browser is the engine and its ABI. A fourth
 page, **ODRL 2.2 Coverage**, does the same thing for this study's
-vocabulary claims: it executes all 127 probes of
+vocabulary claims: it executes all 129 probes of
 `compliance/reports/latest-coverage.json` against that same
 `engine.wasm`, live, and derives a per-row verdict that can come back
 *Contradicted*. The fifth, **Release History**, is the one page here that

@@ -98,6 +98,9 @@ pub fn policy(id: &str, permissions: Vec<Rule>) -> WirePolicy {
         // every other probe stays on ODRL's own default, `invalid`, which
         // is unreachable for a policy that carries no prohibition at all.
         conflict: ConflictStrategy::default(),
+        // Probes that exercise odrl:inheritFrom set it explicitly (below);
+        // every other probe has no parent.
+        inherit_from: None,
     }
 }
 
@@ -2181,7 +2184,7 @@ fn other_probes() -> Vec<Probe> {
     // Capacity is this category's own probe count, asserted by
     // `the_catalog_has_fifty_two_rows_across_ten_categories`'s sibling
     // checks rather than left as a guess.
-    let mut probes = Vec::with_capacity(14);
+    let mut probes = Vec::with_capacity(16);
 
     let empty_permissions = |behaviour: Behaviour| {
         let mut request = base_request();
@@ -2316,41 +2319,143 @@ fn other_probes() -> Vec<Probe> {
         expect: allow("permission[0] of policy 'probe' matched: action 'anonymize', unconstrained"),
     }));
 
-    probes.push(build(Spec {
-        id: "inheritfrom-ignored",
-        kind: NEGATIVE,
-        title: "odrl:inheritFrom is dropped: a child policy inherits nothing",
-        asserts: "`parent` permits the requested action; `child` declares inheritFrom parent and permits \
-                  something else entirely. Under real inheritance the child would inherit the grant. It \
-                  does not, and the deny-override across the policy set makes the child's own miss the \
-                  deciding outcome. (The child is given an unrelated permission rather than an empty \
-                  list so the reason is unambiguous either way.)",
-        falsified_by: "Allow -- which would mean inheritance is resolved",
-        request: Request {
-            config: flat_config(&["use", "notify"]),
-            policies: vec![policy("parent", vec![rule("use", vec![])]), policy("child", vec![rule("notify", vec![])])],
-            ..base_request()
-        },
-        patches: vec![Patch::set("/policies/1", "inheritFrom", json!("parent"))],
-        expect: deny(
-            "no permission of policy 'child' covered and matched requested action 'use' (closed default)",
-        ),
-    }));
+    // `odrl:inheritFrom` is now a real, modelled field
+    // (`engine::wire::WirePolicy::inherit_from`), so these four build it
+    // as a typed value like every other supported part of a request,
+    // rather than injecting it through `patch.rs`.
+    //
+    // **Why `parent` is scoped to a different `odrl:assignee` in all four.**
+    // `evaluate_request`'s own multi-policy rule is deny-override *across
+    // the whole policy set*: if `parent` were simply a second, unscoped
+    // sibling of `child`, its own rule would independently decide the
+    // request by itself, with or without `inheritFrom` ever being
+    // resolved, for the fail-open pair especially (an unconstrained
+    // prohibition on `parent` alone already denies), and the probe would
+    // demonstrate nothing (confirmed empirically against the pre-fix
+    // engine while writing these: the naive two-sibling shape already
+    // reached the fixed pair's Deny, for that reason, not because
+    // inheritance worked). Scoping `parent` to `did:web:mallory.example`
+    // under a configured `partyIdentityClaim` removes it from
+    // `applicable` entirely (`party_role_mismatch`) while leaving it in
+    // `policies` for `inheritFrom` to still find by `id` -- so what
+    // `evaluate_request` actually decides on is `child` alone.
+    let isolated_parent = |rule_kind_permissions: Vec<Rule>, rule_kind_prohibitions: Vec<Rule>| WirePolicy {
+        assignee: Some("did:web:mallory.example".to_string()),
+        permissions: rule_kind_permissions,
+        prohibitions: rule_kind_prohibitions,
+        ..policy("parent", vec![])
+    };
+    let child_addressed_to_caller = |inherit: bool, permissions: Vec<Rule>, prohibitions: Vec<Rule>| WirePolicy {
+        assignee: Some("did:web:alice.example".to_string()),
+        inherit_from: inherit.then(|| vec!["parent".to_string()]),
+        permissions,
+        prohibitions,
+        ..policy("child", vec![])
+    };
+    let isolated_config = |actions: &[&str], behaviour: Behaviour| {
+        let mut config = flat_config(actions);
+        config.behaviour = behaviour;
+        config.party_identity_claim = Some("sub".to_string());
+        config
+    };
+    let caller_is_alice = || claims(&[("sub", s("did:web:alice.example"))]);
 
     probes.push(build(Spec {
-        id: "inheritfrom-control",
+        id: "inheritfrom-safe-direction-hit",
         kind: POSITIVE,
-        title: "the parent policy alone does grant the requested action",
-        asserts: "The control for inheritfrom-ignored: the Deny there comes from the child's own missing \
-                  permission, not from anything wrong with the parent.",
-        falsified_by: "Deny",
+        title: "under a closed default, a child inherits a parent's permission it lacks itself",
+        asserts: "`parent` (party-scoped away from this caller, so only reachable through \
+                  `inheritFrom`) permits `use`; `child` (addressed to this caller) permits only \
+                  `notify` of its own and declares `inheritFrom: [\"parent\"]`. Real inheritance \
+                  makes `child` grant `use` too.",
+        falsified_by: "Deny -- which would mean inheritFrom is not resolved",
         request: Request {
-            config: flat_config(&["use", "notify"]),
-            policies: vec![policy("parent", vec![rule("use", vec![])])],
+            config: isolated_config(&["use", "notify"], Behaviour::Closed),
+            policies: vec![
+                isolated_parent(vec![rule("use", vec![])], vec![]),
+                child_addressed_to_caller(true, vec![rule("notify", vec![])], vec![]),
+            ],
+            claims: caller_is_alice(),
             ..base_request()
         },
         patches: vec![],
-        expect: allow("permission[0] of policy 'parent' matched: action 'use', unconstrained"),
+        expect: allow("permission[1] of policy 'child' matched: action 'use', unconstrained"),
+    }));
+
+    probes.push(build(Spec {
+        id: "inheritfrom-safe-direction-control",
+        kind: NEGATIVE,
+        title: "the same policies, minus inheritFrom, miss exactly as a closed default always has",
+        asserts: "The control for inheritfrom-safe-direction-hit: identical policies, `child` \
+                  declaring no `inheritFrom` at all. `child`'s own `notify` permission does not \
+                  cover `use`, and a closed default never grants vacuously -- the ordinary miss \
+                  this contract always had, proving the Allow above comes from real inheritance \
+                  rather than from the closed default itself.",
+        falsified_by: "Allow",
+        request: Request {
+            config: isolated_config(&["use", "notify"], Behaviour::Closed),
+            policies: vec![
+                isolated_parent(vec![rule("use", vec![])], vec![]),
+                child_addressed_to_caller(false, vec![rule("notify", vec![])], vec![]),
+            ],
+            claims: caller_is_alice(),
+            ..base_request()
+        },
+        patches: vec![],
+        expect: deny("no permission of policy 'child' covered and matched requested action 'use' (closed default)"),
+    }));
+
+    // The fail-open direction specifically: `child` declares no rule of
+    // its own at all, under `behaviour: open`'s documented vacuous-grant
+    // reading for an *empty* permissions list. This is the exact shape a
+    // real caller most naturally writes for "child adds nothing, inherits
+    // everything" -- and, unresolved, it used to make this engine grant an
+    // action `parent` explicitly prohibited.
+    probes.push(build(Spec {
+        id: "inheritfrom-fail-open-hit",
+        kind: POSITIVE,
+        title: "under the open default, a child with no rules of its own still inherits a prohibition",
+        asserts: "`parent` (party-scoped away, reachable only through inheritFrom) prohibits `use`; \
+                  `child` (addressed to this caller) declares neither permissions nor prohibitions \
+                  of its own, only `inheritFrom: [\"parent\"]`, under `behaviour: open` -- the \
+                  engine's own documented default. Before this addition, an empty child evaded an \
+                  inherited prohibition entirely; see inheritfrom-fail-open-control for the exact \
+                  vacuous Allow this closes.",
+        falsified_by: "Allow -- which is the fail-open gap this closes",
+        request: Request {
+            config: isolated_config(&["use"], Behaviour::Open),
+            policies: vec![
+                isolated_parent(vec![], vec![rule("use", vec![])]),
+                child_addressed_to_caller(true, vec![], vec![]),
+            ],
+            claims: caller_is_alice(),
+            ..base_request()
+        },
+        patches: vec![],
+        expect: deny("prohibition[0] of policy 'child' matched: action 'use', unconstrained"),
+    }));
+
+    probes.push(build(Spec {
+        id: "inheritfrom-fail-open-control",
+        kind: NEGATIVE,
+        title: "the same child with no inheritFrom is the vacuous Allow this addition closes",
+        asserts: "The control for inheritfrom-fail-open-hit: identical policies, `child` declaring \
+                  no `inheritFrom`. With no rule of its own and nothing inherited, `behaviour: \
+                  open`'s vacuous-permission reading grants -- exactly the fail-open outcome the hit \
+                  probe shows this addition now prevents for a child that names the prohibiting \
+                  policy as its parent.",
+        falsified_by: "Deny",
+        request: Request {
+            config: isolated_config(&["use"], Behaviour::Open),
+            policies: vec![
+                isolated_parent(vec![], vec![rule("use", vec![])]),
+                child_addressed_to_caller(false, vec![], vec![]),
+            ],
+            claims: caller_is_alice(),
+            ..base_request()
+        },
+        patches: vec![],
+        expect: allow("policy 'child' has no permissions (open default)"),
     }));
 
     probes.push(build(Spec {
@@ -3283,13 +3388,29 @@ pub fn rows() -> Vec<Row> {
             id: "other.inherit-from",
             category: "other",
             term: "odrl:inheritFrom (Policy inheritance)",
-            status: NOT_IMPLEMENTED,
-            why: "No inheritance resolution anywhere. Worth naming precisely because inheritance is the \
-                  most common real-world SOURCE of the conflicts row 9 has no strategy for.",
-            evidence: "engine/src/wire.rs::WirePolicy",
-            asserts: "A child declaring inheritFrom does not inherit its parent's permission, while the \
-                      control shows the parent alone does grant it.",
-            probe_ids: &["inheritfrom-ignored", "inheritfrom-control"],
+            status: PARTIAL,
+            why: "A child now replicates a named parent's permissions, prohibitions, obligations, \
+                  and its own unset assigner/assignee, resolved by id within the same request's \
+                  policies list (WirePolicy::inherit_from), with circular chains and an absent \
+                  parent id rejected as Decision::Error rather than looped or silently fail-open. \
+                  Partial, not full Section 2.9: odrl:conflict is deliberately not replicated (no \
+                  wire representation for 'unset' distinct from its own default), and this contract \
+                  has no policy-level Asset or odrl:profile field to replicate in the first place.",
+            evidence: "engine/src/wire.rs::resolve_inherit_from, WirePolicy::inherit_from",
+            asserts: "Two hit/control pairs. Under a closed default, a child with only an unrelated \
+                      permission of its own still grants the action its inheritFrom parent permits \
+                      (inheritfrom-safe-direction-hit/-control). Under the open default, a child \
+                      declaring no rule of its own at all -- the single most natural real-world \
+                      inheritFrom shape -- still denies an action its parent prohibits, rather than \
+                      the vacuous Allow an empty permissions list would otherwise grant \
+                      (inheritfrom-fail-open-hit/-control, the direction this addition actually \
+                      closes).",
+            probe_ids: &[
+                "inheritfrom-safe-direction-hit",
+                "inheritfrom-safe-direction-control",
+                "inheritfrom-fail-open-hit",
+                "inheritfrom-fail-open-control",
+            ],
             documented_because: None,
             caveat: None,
         }),
@@ -3566,7 +3687,8 @@ mod tests {
             ("act-includedin-1hop", "act-implies-ignored"),
             ("act-includedin-2hop", "act-includedin-undeclared-gap"),
             ("beh-open-empty", "beh-closed-empty"),
-            ("inheritfrom-control", "inheritfrom-ignored"),
+            ("inheritfrom-safe-direction-hit", "inheritfrom-safe-direction-control"),
+            ("inheritfrom-fail-open-control", "inheritfrom-fail-open-hit"),
             ("ror-literal-eq", "ror-not-dereferenced"),
             ("asset-per-rule-target-hit", "asset-per-rule-target-miss"),
             ("asset-collection-membership-hit", "asset-target-not-a-collection"),

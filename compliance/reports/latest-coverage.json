@@ -7990,22 +7990,24 @@
       "title": "a policy may use vocabulary its own declared profile never defines"
     },
     {
-      "asserts": "`parent` permits the requested action; `child` declares inheritFrom parent and permits something else entirely. Under real inheritance the child would inherit the grant. It does not, and the deny-override across the policy set makes the child's own miss the deciding outcome. (The child is given an unrelated permission rather than an empty list so the reason is unambiguous either way.)",
+      "asserts": "`parent` (party-scoped away from this caller, so only reachable through `inheritFrom`) permits `use`; `child` (addressed to this caller) permits only `notify` of its own and declares `inheritFrom: [\"parent\"]`. Real inheritance makes `child` grant `use` too.",
       "expect": {
         "dataset_id": null,
-        "decision": "Deny",
+        "decision": "Allow",
         "duties": null,
         "reason_contains": [
-          "no permission of policy 'child' covered and matched requested action 'use' (closed default)"
+          "permission[1] of policy 'child' matched: action 'use', unconstrained"
         ],
         "reason_excludes": []
       },
-      "falsified_by": "Allow -- which would mean inheritance is resolved",
-      "id": "inheritfrom-ignored",
-      "kind": "negative",
+      "falsified_by": "Deny -- which would mean inheritFrom is not resolved",
+      "id": "inheritfrom-safe-direction-hit",
+      "kind": "positive",
       "request": {
         "action": "use",
-        "claims": {},
+        "claims": {
+          "sub": "did:web:alice.example"
+        },
         "config": {
           "@id": "https://ds42.org/profiles/coverage-probe",
           "@type": "odrl:Profile",
@@ -8018,12 +8020,13 @@
             {
               "@id": "notify"
             }
-          ]
+          ],
+          "partyIdentityClaim": "sub"
         },
         "dataset_id": "urn:uuid:coverage-probe",
         "policies": [
           {
-            "assignee": null,
+            "assignee": "did:web:mallory.example",
             "assigner": "did:web:provider.example",
             "id": "parent",
             "kind": "Set",
@@ -8037,10 +8040,12 @@
             "prohibitions": []
           },
           {
-            "assignee": null,
+            "assignee": "did:web:alice.example",
             "assigner": "did:web:provider.example",
             "id": "child",
-            "inheritFrom": "parent",
+            "inheritFrom": [
+              "parent"
+            ],
             "kind": "Set",
             "obligations": [],
             "permissions": [
@@ -8053,25 +8058,27 @@
           }
         ]
       },
-      "title": "odrl:inheritFrom is dropped: a child policy inherits nothing"
+      "title": "under a closed default, a child inherits a parent's permission it lacks itself"
     },
     {
-      "asserts": "The control for inheritfrom-ignored: the Deny there comes from the child's own missing permission, not from anything wrong with the parent.",
+      "asserts": "The control for inheritfrom-safe-direction-hit: identical policies, `child` declaring no `inheritFrom` at all. `child`'s own `notify` permission does not cover `use`, and a closed default never grants vacuously -- the ordinary miss this contract always had, proving the Allow above comes from real inheritance rather than from the closed default itself.",
       "expect": {
         "dataset_id": null,
-        "decision": "Allow",
+        "decision": "Deny",
         "duties": null,
         "reason_contains": [
-          "permission[0] of policy 'parent' matched: action 'use', unconstrained"
+          "no permission of policy 'child' covered and matched requested action 'use' (closed default)"
         ],
         "reason_excludes": []
       },
-      "falsified_by": "Deny",
-      "id": "inheritfrom-control",
-      "kind": "positive",
+      "falsified_by": "Allow",
+      "id": "inheritfrom-safe-direction-control",
+      "kind": "negative",
       "request": {
         "action": "use",
-        "claims": {},
+        "claims": {
+          "sub": "did:web:alice.example"
+        },
         "config": {
           "@id": "https://ds42.org/profiles/coverage-probe",
           "@type": "odrl:Profile",
@@ -8084,12 +8091,13 @@
             {
               "@id": "notify"
             }
-          ]
+          ],
+          "partyIdentityClaim": "sub"
         },
         "dataset_id": "urn:uuid:coverage-probe",
         "policies": [
           {
-            "assignee": null,
+            "assignee": "did:web:mallory.example",
             "assigner": "did:web:provider.example",
             "id": "parent",
             "kind": "Set",
@@ -8101,10 +8109,147 @@
               }
             ],
             "prohibitions": []
+          },
+          {
+            "assignee": "did:web:alice.example",
+            "assigner": "did:web:provider.example",
+            "id": "child",
+            "kind": "Set",
+            "obligations": [],
+            "permissions": [
+              {
+                "action": "notify",
+                "constraints": []
+              }
+            ],
+            "prohibitions": []
           }
         ]
       },
-      "title": "the parent policy alone does grant the requested action"
+      "title": "the same policies, minus inheritFrom, miss exactly as a closed default always has"
+    },
+    {
+      "asserts": "`parent` (party-scoped away, reachable only through inheritFrom) prohibits `use`; `child` (addressed to this caller) declares neither permissions nor prohibitions of its own, only `inheritFrom: [\"parent\"]`, under `behaviour: open` -- the engine's own documented default. Before this addition, an empty child evaded an inherited prohibition entirely; see inheritfrom-fail-open-control for the exact vacuous Allow this closes.",
+      "expect": {
+        "dataset_id": null,
+        "decision": "Deny",
+        "duties": null,
+        "reason_contains": [
+          "prohibition[0] of policy 'child' matched: action 'use', unconstrained"
+        ],
+        "reason_excludes": []
+      },
+      "falsified_by": "Allow -- which is the fail-open gap this closes",
+      "id": "inheritfrom-fail-open-hit",
+      "kind": "positive",
+      "request": {
+        "action": "use",
+        "claims": {
+          "sub": "did:web:alice.example"
+        },
+        "config": {
+          "@id": "https://ds42.org/profiles/coverage-probe",
+          "@type": "odrl:Profile",
+          "behaviour": "open",
+          "dutyMode": "advise",
+          "odrl:action": [
+            {
+              "@id": "use"
+            }
+          ],
+          "partyIdentityClaim": "sub"
+        },
+        "dataset_id": "urn:uuid:coverage-probe",
+        "policies": [
+          {
+            "assignee": "did:web:mallory.example",
+            "assigner": "did:web:provider.example",
+            "id": "parent",
+            "kind": "Set",
+            "obligations": [],
+            "permissions": [],
+            "prohibitions": [
+              {
+                "action": "use",
+                "constraints": []
+              }
+            ]
+          },
+          {
+            "assignee": "did:web:alice.example",
+            "assigner": "did:web:provider.example",
+            "id": "child",
+            "inheritFrom": [
+              "parent"
+            ],
+            "kind": "Set",
+            "obligations": [],
+            "permissions": [],
+            "prohibitions": []
+          }
+        ]
+      },
+      "title": "under the open default, a child with no rules of its own still inherits a prohibition"
+    },
+    {
+      "asserts": "The control for inheritfrom-fail-open-hit: identical policies, `child` declaring no `inheritFrom`. With no rule of its own and nothing inherited, `behaviour: open`'s vacuous-permission reading grants -- exactly the fail-open outcome the hit probe shows this addition now prevents for a child that names the prohibiting policy as its parent.",
+      "expect": {
+        "dataset_id": null,
+        "decision": "Allow",
+        "duties": null,
+        "reason_contains": [
+          "policy 'child' has no permissions (open default)"
+        ],
+        "reason_excludes": []
+      },
+      "falsified_by": "Deny",
+      "id": "inheritfrom-fail-open-control",
+      "kind": "negative",
+      "request": {
+        "action": "use",
+        "claims": {
+          "sub": "did:web:alice.example"
+        },
+        "config": {
+          "@id": "https://ds42.org/profiles/coverage-probe",
+          "@type": "odrl:Profile",
+          "behaviour": "open",
+          "dutyMode": "advise",
+          "odrl:action": [
+            {
+              "@id": "use"
+            }
+          ],
+          "partyIdentityClaim": "sub"
+        },
+        "dataset_id": "urn:uuid:coverage-probe",
+        "policies": [
+          {
+            "assignee": "did:web:mallory.example",
+            "assigner": "did:web:provider.example",
+            "id": "parent",
+            "kind": "Set",
+            "obligations": [],
+            "permissions": [],
+            "prohibitions": [
+              {
+                "action": "use",
+                "constraints": []
+              }
+            ]
+          },
+          {
+            "assignee": "did:web:alice.example",
+            "assigner": "did:web:provider.example",
+            "id": "child",
+            "kind": "Set",
+            "obligations": [],
+            "permissions": [],
+            "prohibitions": []
+          }
+        ]
+      },
+      "title": "the same child with no inheritFrom is the vacuous Allow this addition closes"
     },
     {
       "asserts": "It works exactly when the claim IS that IRI.",
@@ -9029,19 +9174,21 @@
       "why": "Every request is evaluated against the union of all loaded profiles, never the specific one a policy names -- a named fail-open: a superset recognizes more, never fewer."
     },
     {
-      "asserts": "A child declaring inheritFrom does not inherit its parent's permission, while the control shows the parent alone does grant it.",
+      "asserts": "Two hit/control pairs. Under a closed default, a child with only an unrelated permission of its own still grants the action its inheritFrom parent permits (inheritfrom-safe-direction-hit/-control). Under the open default, a child declaring no rule of its own at all -- the single most natural real-world inheritFrom shape -- still denies an action its parent prohibits, rather than the vacuous Allow an empty permissions list would otherwise grant (inheritfrom-fail-open-hit/-control, the direction this addition actually closes).",
       "category": "other",
       "caveat": null,
       "documented_because": null,
-      "evidence": "engine/src/wire.rs::WirePolicy",
+      "evidence": "engine/src/wire.rs::resolve_inherit_from, WirePolicy::inherit_from",
       "id": "other.inherit-from",
       "probe_ids": [
-        "inheritfrom-ignored",
-        "inheritfrom-control"
+        "inheritfrom-safe-direction-hit",
+        "inheritfrom-safe-direction-control",
+        "inheritfrom-fail-open-hit",
+        "inheritfrom-fail-open-control"
       ],
-      "status": "NotImplemented",
+      "status": "Partial",
       "term": "odrl:inheritFrom (Policy inheritance)",
-      "why": "No inheritance resolution anywhere. Worth naming precisely because inheritance is the most common real-world SOURCE of the conflicts row 9 has no strategy for."
+      "why": "A child now replicates a named parent's permissions, prohibitions, obligations, and its own unset assigner/assignee, resolved by id within the same request's policies list (WirePolicy::inherit_from), with circular chains and an absent parent id rejected as Decision::Error rather than looped or silently fail-open. Partial, not full Section 2.9: odrl:conflict is deliberately not replicated (no wire representation for 'unset' distinct from its own default), and this contract has no policy-level Asset or odrl:profile field to replicate in the first place."
     },
     {
       "asserts": "An IRI right operand matches only as a literal; a value genuinely inside the referenced collection does not; and the odrl:rightOperandReference form itself is discarded.",
