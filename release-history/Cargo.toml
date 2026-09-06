@@ -4,7 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Generates compliance/reports/release-history.json: every tagged release's real ODRL-Test-Suite pass rate, plus the current 125-probe ODRL 2.2 coverage catalog re-executed against that release's own engine.wasm through its four-export C ABI"
+description = "Generates compliance/reports/release-history.json: every tagged release's real ODRL-Test-Suite pass rate, plus the current ODRL 2.2 coverage catalog re-executed against that release's own engine.wasm through its four-export C ABI"
 publish = false
 
 # Stage 2 of the Release History pipeline; `scripts/build-release-history.sh`

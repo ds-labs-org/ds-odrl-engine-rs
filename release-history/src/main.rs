@@ -6,9 +6,12 @@
 //! builds that tag's `engine.wasm`, runs that tag's own
 //! `compliance-runner` against the ODRL-Test-Suite revision that tag
 //! pinned, and leaves both results in a staging directory. This binary
-//! reads that staging directory, replays the **current** 125-probe ODRL
-//! 2.2 coverage catalog against each historical `engine.wasm` through its
-//! own four-export C ABI, and renders the artifact.
+//! reads that staging directory, replays the **current** ODRL 2.2
+//! coverage catalog (`compliance/reports/latest-coverage.json`, read
+//! fresh off disk below -- never a count baked in here, which would only
+//! ever describe the catalog as it stood on some earlier day) against
+//! each historical `engine.wasm` through its own four-export C ABI, and
+//! renders the artifact.
 //!
 //! ```text
 //! scripts/build-release-history.sh
@@ -32,20 +35,20 @@
 //! real JSON-LD vocabulary (`@type`/`@id`/`odrl:action`/
 //! `odrl:includedIn`) — a rename, not an addition, and
 //! `RequestConfig::recognized_actions` had no `#[serde(default)]` to fall
-//! back on. Every one of the current catalog's 125 requests is therefore
-//! refused by a v0.5.0-or-earlier engine with `missing field
+//! back on. Every request in the current catalog is therefore refused by
+//! a v0.5.0-or-earlier engine with `missing field
 //! \`recognized_actions\``, before a single line of policy logic runs.
 //!
 //! This binary detects that rather than papering over it: a release whose
 //! deserializer rejected *every* request is recorded with `coverage:
 //! null` and the engine's own rejection message, not as a release that
-//! contradicted 49 vocabulary rows. Partial rejection is the opposite
-//! case and is kept as real signal — a release with no `isAllOf` variant
-//! in its `Operator` enum rejects exactly the `isAllOf` probes and
-//! answers the other 124 normally, which is exactly the kind of
-//! historical fact this dashboard exists to show. Both counts are on
-//! every release (`envelope_rejected`), so a reader can see which is
-//! which.
+//! contradicted every probeable vocabulary row. Partial rejection is the
+//! opposite case and is kept as real signal — a release with no
+//! `isAllOf` variant in its `Operator` enum rejects exactly the
+//! `isAllOf` probes and answers every other probe normally, which is
+//! exactly the kind of historical fact this dashboard exists to show.
+//! Both counts are on every release (`envelope_rejected`), so a reader
+//! can see which is which.
 //!
 //! A `contradicted` row for an old release is the expected, wanted
 //! signal: the current catalog documents a capability that release did

@@ -1,25 +1,31 @@
 //! The Release History page.
 //!
-//! Nineteen tagged releases, each one rebuilt from its own tag and put
+//! Every tagged release, each one rebuilt from its own tag and put
 //! through this repo's two measuring instruments: the vendored
 //! ODRL-Test-Suite (run by *that tag's own* `compliance-runner`, against
-//! the suite revision *that tag* pinned) and the current 125-probe ODRL
-//! 2.2 coverage catalog (replayed against *that tag's* compiled
+//! the suite revision *that tag* pinned) and the current ODRL 2.2
+//! coverage catalog (replayed against *that tag's* compiled
 //! `engine.wasm`, driven through its own `alloc`/`dealloc`/`evaluate` C
-//! ABI in a `wasmi` interpreter).
+//! ABI in a `wasmi` interpreter). The release count and the catalog's own
+//! probe count both come out of the rendered `HistoryFile` at runtime
+//! (`intro`, `build_time_alert`) rather than being repeated here as
+//! literals that would need to be kept in lockstep with it by hand —
+//! this doc comment deliberately names no specific counts for the same
+//! reason.
 //!
 //! **This is the one page on this site that does not recompute what it
 //! shows, and it says so in its own first paragraph.** The Compliance
 //! Results and Coverage pages both re-execute their corpora against
 //! `engine.wasm` in the visitor's browser. Reproducing *this* page's
-//! numbers live would mean shipping nineteen historical `engine.wasm`
-//! binaries — 3.9 MB — instantiating every one of them, and running
-//! 2,375 probe evaluations on page load, in order to recompute figures
-//! that can only change when someone cuts a new tag. That is not a
-//! reasonable thing to ask of a visitor's browser, so the numbers are
-//! computed at build time by `release-history` and rendered here, with
-//! the per-release `engine.wasm` SHA-256 on the page so a reader can
-//! rebuild any tag and check they are looking at the same binary.
+//! numbers live would mean shipping every historical `engine.wasm`
+//! binary — several megabytes of them — instantiating every one, and
+//! running the whole probe catalog against each, on page load, in order
+//! to recompute figures that can only change when someone cuts a new
+//! tag. That is not a reasonable thing to ask of a visitor's browser, so
+//! the numbers are computed at build time by `release-history` and
+//! rendered here, with the per-release `engine.wasm` SHA-256 on the page
+//! so a reader can rebuild any tag and check they are looking at the
+//! same binary.
 //!
 //! The other honesty this page owes its reader: the nine releases before
 //! v0.6.0 are **not** shown as having supported nothing. v0.6.0 reshaped
@@ -481,6 +487,71 @@ fn dashboard(file: &HistoryFile) -> Html {
   )
 }
 
+/// The page's own introductory paragraph — reads `file.catalog.probes`
+/// rather than a literal, so it never drifts from the catalog it actually
+/// describes the way a hardcoded probe count already had (found stale at
+/// 125 when the real count was 132, and would have drifted again with
+/// every future catalog change). Only renderable once `HistoryFile` has
+/// loaded, which is why `HistoryPage` calls this inside its own
+/// `Some(Ok(file))` arm rather than unconditionally.
+fn intro(file: &HistoryFile) -> Html {
+  html!(
+    <Content>
+      <p>
+        { "Every tagged release of this engine, rebuilt from its own tag and put back through both of \
+           this repo's measuring instruments: the vendored " }
+        <a href="https://github.com/SolidLabResearch/ODRL-Test-Suite" target="_blank" rel="noopener noreferrer">
+          { "ODRL-Test-Suite" }
+        </a>
+        { ", run by that release's own " }<code>{ "compliance-runner" }</code>
+        { " against the suite revision that release pinned; and the current " }
+        { file.catalog.probes.to_string() }
+        { "-probe ODRL 2.2 coverage catalog, replayed against that release's compiled " }
+        <code>{ "engine.wasm" }</code>
+        { " through the same " }<code>{ "alloc" }</code>{ "/" }<code>{ "evaluate" }</code>{ "/" }
+        <code>{ "dealloc" }</code>{ " C ABI a browser drives, in a " }<code>{ "wasmi" }</code>
+        { " interpreter." }
+      </p>
+    </Content>
+  )
+}
+
+/// The "computed at build time" explainer — same reasoning as `intro`
+/// above: the release count and the total evaluation count are both
+/// derived from `file` rather than repeated as separate literals that
+/// would need to be kept in lockstep with it by hand.
+fn build_time_alert(file: &HistoryFile) -> Html {
+  let releases = file.releases.len();
+  let evaluations = releases * file.catalog.probes;
+  html!(
+    <Alert inline=true r#type={AlertType::Info} title={"Computed at build time, not in your browser"}>
+      <Content>
+        <p>
+          { "The " }<strong>{ "Compliance Results" }</strong>{ " and " }
+          <strong>{ "ODRL 2.2 Coverage" }</strong>
+          { " pages both re-execute their whole corpus against " }<code>{ "engine.wasm" }</code>
+          { " in your browser, live, and the numbers they show are computed there. This page does not, \
+             and the difference is deliberate: its subject is " }
+          { releases.to_string() }{ " " }<em>{ "different" }</em>
+          { " historical engine binaries. Reproducing it live would mean downloading and instantiating \
+             all " }{ releases.to_string() }{ " — several megabytes of wasm — and running " }
+          { evaluations.to_string() }
+          { " evaluations on page load, to recompute figures that can only change when someone cuts a \
+             new tag." }
+        </p>
+        <p>
+          { "So these are build-time figures with their provenance attached: every release's row carries \
+             the SHA-256 of the exact " }<code>{ "engine.wasm" }</code>
+          { " that produced it, so anyone can rebuild that tag and check the binary matches. The \
+             generator is checked in (" }<code>{ "scripts/build-release-history.sh" }</code>{ " and the " }
+          <code>{ "release-history" }</code>
+          { " crate) and the verdicts come from the very same module the live Coverage page runs." }
+        </p>
+      </Content>
+    </Alert>
+  )
+}
+
 /// The Release History page: a build-time-computed record of what every
 /// tagged release of this engine actually did, measured by re-running the
 /// instruments rather than by reading commit messages.
@@ -503,43 +574,7 @@ pub fn HistoryPage() -> Html {
       <style>{ HISTORY_CSS }</style>
       <Content>
         <Title level={Level::H1}>{ "Release History" }</Title>
-        <p>
-          { "Every tagged release of this engine, rebuilt from its own tag and put back through both of \
-             this repo's measuring instruments: the vendored " }
-          <a href="https://github.com/SolidLabResearch/ODRL-Test-Suite" target="_blank" rel="noopener noreferrer">
-            { "ODRL-Test-Suite" }
-          </a>
-          { ", run by that release's own " }<code>{ "compliance-runner" }</code>
-          { " against the suite revision that release pinned; and today's 125-probe ODRL 2.2 coverage \
-             catalog, replayed against that release's compiled " }<code>{ "engine.wasm" }</code>
-          { " through the same " }<code>{ "alloc" }</code>{ "/" }<code>{ "evaluate" }</code>{ "/" }
-          <code>{ "dealloc" }</code>{ " C ABI a browser drives, in a " }<code>{ "wasmi" }</code>
-          { " interpreter." }
-        </p>
       </Content>
-
-      <Alert inline=true r#type={AlertType::Info} title={"Computed at build time, not in your browser"}>
-        <Content>
-          <p>
-            { "The " }<strong>{ "Compliance Results" }</strong>{ " and " }
-            <strong>{ "ODRL 2.2 Coverage" }</strong>
-            { " pages both re-execute their whole corpus against " }<code>{ "engine.wasm" }</code>
-            { " in your browser, live, and the numbers they show are computed there. This page does not, \
-               and the difference is deliberate: its subject is nineteen " }<em>{ "different" }</em>
-            { " historical engine binaries. Reproducing it live would mean downloading and instantiating \
-               all nineteen — several megabytes of wasm — and running well over two thousand evaluations \
-               on page load, to recompute figures that can only change when someone cuts a new tag." }
-          </p>
-          <p>
-            { "So these are build-time figures with their provenance attached: every release's row carries \
-               the SHA-256 of the exact " }<code>{ "engine.wasm" }</code>
-            { " that produced it, so anyone can rebuild that tag and check the binary matches. The \
-               generator is checked in (" }<code>{ "scripts/build-release-history.sh" }</code>{ " and the " }
-            <code>{ "release-history" }</code>
-            { " crate) and the verdicts come from the very same module the live Coverage page runs." }
-          </p>
-        </Content>
-      </Alert>
 
       {
         match &*state {
@@ -558,6 +593,8 @@ pub fn HistoryPage() -> Html {
             let unaddressable = file.unaddressable().len();
             html!(
               <>
+                { intro(file) }
+                { build_time_alert(file) }
                 if unaddressable > 0 {
                   <Alert inline=true r#type={AlertType::Warning}
                          title={format!("{unaddressable} early releases predate the current wire shape")}>

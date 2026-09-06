@@ -1,5 +1,10 @@
 //! The catalog: 52 vocabulary rows from the source gap analysis, and the
-//! ~125 `evaluate()` calls that put 49 of them to the test in a browser.
+//! `evaluate()` calls (`probes()`'s own length, deliberately not repeated
+//! here as a literal that would drift every time this file grows a new
+//! probe) that put most of them to the test in a browser -- exactly two
+//! rows stay documented-only rather than probed, per
+//! `a_row_is_either_probed_or_documented_never_both_and_never_neither`
+//! below.
 //!
 //! Two design rules every probe here obeys, because without them a probe
 //! proves nothing:

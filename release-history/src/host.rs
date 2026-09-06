@@ -39,8 +39,8 @@ const FUEL_PER_CALL: u64 = 20_000_000_000;
 
 /// One instantiated historical engine, kept alive across probes the way a
 /// real host keeps one long-lived `Instance` (which is why `dealloc` is
-/// called on both buffers: the guest allocator must not leak across 125
-/// invocations).
+/// called on both buffers: the guest allocator must not leak across every
+/// probe's own invocation of the catalog).
 pub struct HistoricalEngine {
     store: Store<()>,
     memory: Memory,
