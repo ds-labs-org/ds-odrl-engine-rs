@@ -438,7 +438,12 @@ fn duties_from(node: &Node, property: &str, warnings: &mut Vec<String>) -> Resul
                 as_string(&value).unwrap_or_default(),
             ));
         };
-        duties.push(duty_from(&child, property, warnings)?);
+        // A permission's `odrl:duty` or a prohibition's `odrl:remedy` is a
+        // fresh duty chain, not a continuation of some enclosing
+        // `odrl:consequence` walk, so it starts its own depth count at 0 —
+        // exactly as `engine::decision::outstanding_duty` starts the same
+        // duty at depth 0 (see its own doc comment).
+        duties.push(duty_from(&child, property, 0, warnings)?);
     }
     Ok(duties)
 }
@@ -449,7 +454,14 @@ fn duties_from(node: &Node, property: &str, warnings: &mut Vec<String>) -> Resul
 /// policy: a duty's target, when it states one, is the duty's own
 /// deliverable, not the asset the permission/prohibition it hangs off is
 /// about), and its own `odrl:consequence`, if any.
-fn duty_from(node: &Node, local: &str, warnings: &mut Vec<String>) -> Result<Rule, IngestError> {
+///
+/// `depth` is *this* duty's own position in a consequence chain (0 for a
+/// permission's `odrl:duty` / a prohibition's `odrl:remedy`, or whatever
+/// depth [`consequence_from`] reached to build this node as a successor);
+/// it is what gets offered to this duty's own `odrl:consequence` lookup
+/// below, one hop deeper, mirroring
+/// `engine::decision::outstanding_duty_at`'s own `depth + 1` recursion.
+fn duty_from(node: &Node, local: &str, depth: usize, warnings: &mut Vec<String>) -> Result<Rule, IngestError> {
     // A Duty node never inherits the enclosing Policy's `odrl:action` --
     // exactly like a Duty's own `target` above, which is never inherited
     // from the policy either (see this function's own doc comment): the
@@ -465,7 +477,7 @@ fn duty_from(node: &Node, local: &str, warnings: &mut Vec<String>) -> Result<Rul
 
     let mut rule =
         Rule { target: first_string(node, "target"), action_refinement, ..Rule::new(action, constraints) };
-    rule.consequence = consequence_from(node, 0, warnings)?;
+    rule.consequence = consequence_from(node, depth + 1, warnings)?;
 
     // A Duty's own domain carries neither `odrl:duty` (Permission's) nor
     // `odrl:remedy` (Prohibition's); either appearing here is an
@@ -510,7 +522,11 @@ fn consequence_from(node: &Node, depth: usize, warnings: &mut Vec<String>) -> Re
             as_string(first).unwrap_or_default(),
         ));
     };
-    Ok(Some(Box::new(duty_from(child, "consequence", warnings)?)))
+    // `child` is the successor duty this call was asked to build at `depth`
+    // (the check just above already refused to build it past the bound);
+    // `duty_from` uses that same `depth` to place *its own* consequence one
+    // hop deeper.
+    Ok(Some(Box::new(duty_from(child, "consequence", depth, warnings)?)))
 }
 
 /// Warns when `node` (a rule of kind `local`) carries `odrl:{property}`,
@@ -1265,6 +1281,57 @@ mod tests {
             "the consequence successor must be the duty actually reported once the obligation \
              itself is unresolved: {:?}",
             response.duties
+        );
+    }
+
+    #[test]
+    fn an_odrl_consequence_chain_deeper_than_max_consequence_depth_is_bounded_at_ingestion() {
+        // A chain 6 links deep, one unique action per link, so the exact
+        // point of truncation is unambiguous. `rule_from`'s own call into
+        // `consequence_from` starts the chain at depth 0, so — mirroring
+        // `engine::decision::outstanding_duty_at`'s own depth walk, which
+        // this ingestion-time bound exists to match — links c1..c4 (depths
+        // 0..3) must be ingested and c5/c6 (depths 4 and 5) must not.
+        let mut duty = r#"{ "action": "c6" }"#.to_string();
+        for i in (1..=5).rev() {
+            duty = format!(r#"{{ "action": "c{i}", "consequence": [{duty}] }}"#);
+        }
+        let doc = format!(
+            r#"{{
+          "@context": "http://www.w3.org/ns/odrl.jsonld",
+          "@type": "Offer",
+          "@id": "urn:uuid:deep-consequence-offer",
+          "assigner": "did:web:provider.example",
+          "target": "urn:asset:A",
+          "permission": [{{ "action": "use" }}],
+          "obligation": [{{
+            "action": "c0",
+            "consequence": [{duty}]
+          }}]
+        }}"#
+        );
+        let ingested = ingest_policy(&doc).expect("must ingest");
+
+        let mut actions = Vec::new();
+        let mut next = ingested.policy.obligations[0].consequence.as_deref();
+        while let Some(rule) = next {
+            actions.push(rule.action.clone());
+            next = rule.consequence.as_deref();
+        }
+        assert_eq!(
+            actions,
+            vec!["c1", "c2", "c3", "c4"],
+            "MAX_CONSEQUENCE_DEPTH ({MAX_CONSEQUENCE_DEPTH}) links must be ingested and no \
+             more — c5/c6 must be dropped, not built into a Rule engine's own \
+             outstanding_duty_at would never fully walk anyway: {actions:?}"
+        );
+        assert!(
+            ingested
+                .warnings
+                .iter()
+                .any(|w| w.contains("MAX_CONSEQUENCE_DEPTH") && w.contains("dropped")),
+            "dropping a chain past MAX_CONSEQUENCE_DEPTH must be warned, not silent: {:?}",
+            ingested.warnings
         );
     }
 
