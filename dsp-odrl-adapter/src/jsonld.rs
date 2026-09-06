@@ -342,6 +342,14 @@ fn split_compact(value: &str) -> Option<(&str, &str)> {
     Some((prefix, suffix))
 }
 
+/// True for the one shape `split_compact` excludes *because* it is already
+/// absolute rather than because it isn't a colon-bearing string at all: a
+/// `scheme://…` IRI (`https://…`, `http://…`). Mirrors `split_compact`'s
+/// own `suffix.starts_with("//")` exclusion so the two stay in lockstep.
+fn is_scheme_absolute(value: &str) -> bool {
+    matches!(value.split_once(':'), Some((_, suffix)) if suffix.starts_with("//"))
+}
+
 /// JSON-LD IRI expansion. Returns the expanded value and whether it could
 /// actually be resolved to something absolute; an unresolved value is
 /// returned verbatim rather than guessed at, and the caller decides whether
@@ -360,7 +368,21 @@ fn expand_iri(ctx: &Ctx, value: &str, vocab: bool) -> (String, bool) {
             return (format!("{base}{suffix}"), true);
         }
         // A colon, no matching prefix: an absolute IRI (`urn:uuid:…`,
-        // `did:web:…`, `https://…`) is already what it needs to be.
+        // `did:web:…`) is already what it needs to be.
+        return (value.to_string(), true);
+    }
+    // A `scheme://…` string is excluded from `split_compact`'s compact-IRI
+    // branch above only because a `//`-prefixed suffix needs this
+    // different handling, not because it isn't already absolute — the
+    // JSON-LD 1.1 IRI Expansion algorithm's own carve-out for exactly this
+    // shape. Returning it verbatim here, *before* `@vocab` gets a turn,
+    // matters two ways: as a KEY (`vocab: true`), the alternative is
+    // `expand_key` falling through to "unresolved" and its caller
+    // (`Key::Dropped`) silently discarding the whole property with no
+    // warning; as a VALUE under a document-level `@vocab`, the alternative
+    // is silently concatenating the vocab prefix onto an already-absolute
+    // string (e.g. `https://example.org/ns#http://www.w3.org/ns/odrl/2/use`).
+    if is_scheme_absolute(value) {
         return (value.to_string(), true);
     }
     if vocab {
@@ -659,6 +681,60 @@ mod tests {
         assert!(
             inner.props.is_empty(),
             "`name` is out of scope inside the nested node, so it expands to nothing at all"
+        );
+    }
+
+    #[test]
+    fn an_already_absolute_iri_key_expands_verbatim_instead_of_being_dropped() {
+        // The ABNF-legal `scheme "://" …` shape is excluded from
+        // `split_compact`'s compact-IRI branch only because it needs
+        // different handling, not because it isn't already absolute (see
+        // the JSON-LD 1.1 IRI Expansion algorithm's own carve-out for a
+        // `//`-prefixed suffix). Before this fix, falling out of that
+        // branch with no `@vocab` set landed on `(value, false)`, and
+        // `expand_key`'s caller treats an unresolved key as `Key::Dropped`
+        // with no warning at all -- silently losing whatever the key named.
+        let ctx = Ctx::default();
+        assert_eq!(
+            expand_iri(&ctx, "http://www.w3.org/ns/odrl/2/prohibition", true),
+            ("http://www.w3.org/ns/odrl/2/prohibition".to_string(), true)
+        );
+    }
+
+    #[test]
+    fn an_already_absolute_iri_value_is_not_corrupted_by_a_document_level_vocab() {
+        // The other half of the same bug: under a document-level `@vocab`,
+        // an absolute IRI value must still be returned as-is rather than
+        // routed through vocab concatenation, which would otherwise
+        // silently produce the nonsensical
+        // `https://example.org/ns#http://www.w3.org/ns/odrl/2/use`.
+        let ctx = Ctx { vocab: Some("https://example.org/ns#".to_string()), ..Ctx::default() };
+        assert_eq!(
+            expand_iri(&ctx, "http://www.w3.org/ns/odrl/2/use", true),
+            ("http://www.w3.org/ns/odrl/2/use".to_string(), true)
+        );
+    }
+
+    #[test]
+    fn a_full_odrl_iri_written_in_place_of_the_compact_term_is_not_silently_dropped() {
+        // End-to-end version of the key-expansion test above: the ODRL 2.2
+        // Vocabulary's own bundled context maps `prohibition` 1:1 onto
+        // `http://www.w3.org/ns/odrl/2/prohibition`, so a document that
+        // writes the absolute IRI directly in place of the compact term is
+        // legal, RDF-equivalent JSON-LD -- not a malformed document.
+        let node = expanded(json!({
+            "@context": "http://www.w3.org/ns/odrl.jsonld",
+            "@type": "Offer",
+            "@id": "urn:uuid:t",
+            "assigner": "did:web:provider.example",
+            "target": "urn:asset:A",
+            "permission": [{ "action": "use" }],
+            "http://www.w3.org/ns/odrl/2/prohibition": [{ "action": "distribute" }]
+        }));
+        assert_eq!(
+            node.get(&format!("{ODRL_NS}prohibition")).len(),
+            1,
+            "the full-IRI-keyed prohibition must expand exactly like its compact-term sibling, not vanish"
         );
     }
 

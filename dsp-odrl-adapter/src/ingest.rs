@@ -590,6 +590,35 @@ mod tests {
     }
 
     #[test]
+    fn a_prohibition_keyed_by_its_full_odrl_iri_instead_of_the_compact_term_still_ingests() {
+        // `http://www.w3.org/ns/odrl.jsonld` maps `prohibition` 1:1 onto
+        // `http://www.w3.org/ns/odrl/2/prohibition`; writing that absolute
+        // IRI directly in place of the compact term is legal,
+        // RDF-equivalent JSON-LD, not a malformed document. Before the
+        // `expand_iri` fix this key expanded to nothing and was dropped
+        // with zero warning, so the whole prohibition vanished -- the
+        // fail-open direction this crate's README calls "the worst answer
+        // available".
+        let doc = r#"{
+          "@context": "http://www.w3.org/ns/odrl.jsonld",
+          "@type": "Offer",
+          "@id": "urn:uuid:t",
+          "assigner": "did:web:provider.example",
+          "target": "urn:asset:A",
+          "permission": [{ "action": "use" }],
+          "http://www.w3.org/ns/odrl/2/prohibition": [{ "action": "distribute" }]
+        }"#;
+        let ingested = ingest_policy(doc).expect("a full-IRI-keyed prohibition must still ingest");
+        assert_eq!(
+            ingested.policy.prohibitions,
+            vec![Rule::targeting("distribute", "urn:asset:A", vec![])],
+            "warnings: {:?}",
+            ingested.warnings
+        );
+        assert!(ingested.warnings.is_empty(), "warnings: {:?}", ingested.warnings);
+    }
+
+    #[test]
     fn a_declared_odrl_conflict_term_is_warned_about_rather_than_silently_dropped() {
         // `engine::Policy` now really evaluates `odrl:conflict`, and this
         // adapter does not ingest one -- it maps no conflict term onto

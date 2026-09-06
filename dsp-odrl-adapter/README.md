@@ -204,7 +204,14 @@ had to get right instead:
   left-to-right, a string reference resolved against the bundled registry
   below, and `"@context": null` as a reset;
 - prefix (compact-IRI) expansion, including the spec's own rule that a
-  suffix beginning `//` is never a compact IRI;
+  suffix beginning `//` is never a compact IRI — such a string (a key or a
+  value) is recognized as *already* an absolute IRI instead and returned
+  verbatim, the same as an unmatched `prefix:suffix` like `urn:uuid:…`, so
+  writing `"http://www.w3.org/ns/odrl/2/prohibition"` in place of the
+  compact `odrl:prohibition` term (legal, RDF-equivalent JSON-LD per the
+  W3C ODRL 2.2 context's own 1:1 mapping) ingests identically rather than
+  being dropped or, under a document-level `@vocab`, corrupted by
+  concatenation;
 - `@vocab`;
 - term definitions in both forms (`"t": "iri"` and `{"@id": …}`), keyword
   aliases (`"uid": "@id"`), and term removal (`"t": null`);
