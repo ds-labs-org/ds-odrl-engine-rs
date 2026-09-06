@@ -79,6 +79,14 @@ pub struct DutyExpect {
     pub policy_id: String,
     pub action: String,
     pub resolved: bool,
+    /// `DutyEntry::source` — where in the policy the duty was attached,
+    /// present only for a duty that is not a plain policy-level obligation
+    /// (`permission[0].duty[0]`, `prohibition[0].remedy[0]`, either with a
+    /// `.consequence` suffix). Skipped when absent so every duty
+    /// expectation recorded before nested duties existed serializes
+    /// exactly as it did.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
 }
 
 /// One `evaluate()` call, and the outcome that would demonstrate its row's

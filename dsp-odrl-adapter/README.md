@@ -283,6 +283,16 @@ cannot audit.
 - an `odrl:profile` declaration (not loaded, so any term it defines stays
   an opaque string) and `odrl:inheritFrom` (policy inheritance is not
   resolved);
+- an `odrl:conflict` declaration. The engine really evaluates that term
+  now (root README, "Conflict strategy (`odrl:conflict`)"), and this
+  adapter ingests none: mapping an IRI-or-literal
+  `odrl:perm`/`odrl:prohibit`/`odrl:invalid`, and deciding what an
+  unrecognized term should do, is its own decision rather than a side
+  effect of the engine gaining the field. The engine's default (`invalid`
+  — a policy whose permission and prohibition both match is void) applies
+  instead, which is the *opposite* answer for an offer asking for `perm`,
+  so the warning names it rather than letting one strategy stand in for
+  another;
 - a missing `@id` or `odrl:assigner`.
 
 Everything else is an error rather than a warning, all for one reason —

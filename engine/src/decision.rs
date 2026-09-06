@@ -3,6 +3,16 @@
 //! Section 4.5's policy-level duty evaluation, and real `odrl:includedIn`
 //! action-taxonomy coverage (`ResolvedConfig::covers`, `profile.rs`).
 //!
+//! Section 4.5's duty evaluation now runs at four ODRL attachment points
+//! rather than one — the policy's own `obligations`, a permission's
+//! `odrl:duty`, a duty's `odrl:consequence`, a prohibition's
+//! `odrl:remedy` — all through the same mechanism: a duty is satisfied
+//! when its own constraints match the claims map, and `dutyMode` governs
+//! an unresolved one. Nothing here observes execution state; see `decide`'s
+//! own doc comment for each position's scope and for the one place a
+//! choice had to be made (a satisfied `odrl:remedy` does not lift its
+//! prohibition).
+//!
 //! Stated per `(Policy, claims, config, requested_action)`. A permission
 //! or prohibition rule now matters only if it *covers* `requested_action`
 //! — an exact match, or a declared `includedIn` chain from the requested
@@ -43,6 +53,15 @@ use crate::profile::{Behaviour, DutyMode, ResolvedConfig};
 /// whatever the decision is being taken about when the rule names none.
 /// See that field's own doc comment for the default-fallback convention
 /// and for what "the same asset" does and does not mean here.
+///
+/// `duty`, `remedy` and `consequence` are the three later, equally
+/// additive nested-duty fields — ODRL's `odrl:duty` on a Permission,
+/// `odrl:remedy` on a Prohibition, `odrl:consequence` on a Duty. Each
+/// holds `Rule`s of this same type, because a Duty *is* an action plus
+/// constraints here; each is read only in the rule position it belongs to,
+/// stated on the field itself; and a rule carrying none of them — every
+/// rule this workspace's fixtures build — is byte-for-byte what it was
+/// before they existed.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Rule {
     pub action: String,
@@ -105,10 +124,13 @@ pub struct Rule {
     /// asset collection narrowed to a subset). Neither is implemented
     /// here, and neither is represented anywhere in this engine's wire
     /// contract: `decision::Policy` carries no party or asset at all
-    /// (`wire::WirePolicy`'s `assigner`/`assignee` are opaque strings this
-    /// engine never evaluates against), so there is no node for such a
-    /// refinement to attach to without first modelling parties and assets
-    /// as evaluable structures. That is a much larger change than this
+    /// (`wire::WirePolicy`'s `assigner`/`assignee` are opaque strings, and
+    /// the one place `assignee` is now read — `wire::party_role_mismatch`,
+    /// opt-in and above this layer — compares it by bare equality against
+    /// one claim key rather than resolving it into a collection with
+    /// members), so there is no node for such a refinement to attach to
+    /// without first modelling parties and assets as evaluable
+    /// structures. That is a much larger change than this
     /// one and is stated here as a scope decision, not an oversight.
     ///
     /// **Why not just another entry in `constraints`?** Because the two
@@ -136,7 +158,98 @@ pub struct Rule {
     /// field existed.
     #[serde(rename = "odrl:refinement", default, skip_serializing_if = "Option::is_none")]
     pub action_refinement: Option<Constraint>,
+    /// `odrl:duty` on this **permission**, per the ODRL 2.2 Information
+    /// Model (§2.6.1): the duties that are a *pre-condition* of receiving
+    /// this one permission, as opposed to `Policy::obligations`, which are
+    /// the whole policy's (Section 4.5). Read only when this rule sits in
+    /// `Policy::permissions`; a `duty` on a prohibition or on a duty is
+    /// carried and never consulted (`odrl:remedy` and `odrl:consequence`
+    /// below are those two positions' own properties), which is the
+    /// fail-*closed* direction in both cases — an ignored pre-condition on
+    /// a prohibition cannot weaken it.
+    ///
+    /// **Resolved exactly as a policy-level obligation is** — there is
+    /// deliberately no second claims-lookup mechanism here. A duty is
+    /// satisfied when its own `constraints` all match the claims map
+    /// (`Rule::duty_satisfied`), which is how a host asserts "this duty is
+    /// fulfilled" as an ordinary claim: a duty constrained
+    /// `duty:compensate eq fulfilled` resolves precisely when the host
+    /// supplies that claim. That generalizes what `compliance-runner`'s
+    /// adapter already does for this one vendored corpus, where the same
+    /// fact arrives as a `report:DutyReport`/`report:deonticState` triple
+    /// in the fixture's state-of-the-world graph and is resolved at
+    /// translate time. This engine is stateless and still cannot observe
+    /// whether anything was performed; that boundary is unchanged.
+    ///
+    /// **Scoped to this one permission, not to the policy.** An unresolved
+    /// duty here is governed by the same `dutyMode` axis Section 4.5
+    /// already defines, applied at this narrower attachment point: under
+    /// `DutyMode::Advise` the permission still grants and the duty is
+    /// reported advisory; under `DutyMode::Deny` *this permission* does not
+    /// grant, while a sibling permission with no outstanding duty still
+    /// does. Denying the whole policy would be the policy-level
+    /// obligation's behaviour, not this one's.
+    #[serde(rename = "odrl:duty", default, skip_serializing_if = "Vec::is_empty")]
+    pub duty: Vec<Rule>,
+    /// `odrl:remedy` on this **prohibition**, per the ODRL 2.2 Information
+    /// Model (§2.6.3): the duties that must be performed once the
+    /// prohibition has been violated. Read only when this rule sits in
+    /// `Policy::prohibitions`.
+    ///
+    /// **A remedy never lifts the prohibition** — see `decide`'s own doc
+    /// comment for the full reasoning behind that sub-decision. It is
+    /// resolved from claims exactly as any other duty here, and its only
+    /// effect is to appear (when unresolved) in `DecisionOutcome::
+    /// unresolved_duties` and in the `reason` trace.
+    #[serde(rename = "odrl:remedy", default, skip_serializing_if = "Vec::is_empty")]
+    pub remedy: Vec<Rule>,
+    /// `odrl:consequence` on this **duty**, per the ODRL 2.2 Information
+    /// Model (§2.6.2): the duty that applies when *this* duty is not
+    /// fulfilled. Read wherever this rule is being evaluated in duty
+    /// position — a policy-level obligation, a permission's `duty`, a
+    /// prohibition's `remedy`, or another duty's own consequence.
+    ///
+    /// When the duty it hangs off is unresolved, the consequence becomes
+    /// the duty actually evaluated (`outstanding_duty`); if the consequence
+    /// resolves, nothing is outstanding and `dutyMode` has nothing to act
+    /// on. If it does not, `dutyMode` governs exactly as it does for the
+    /// duty it replaced.
+    ///
+    /// **One successor, chained, bounded** by
+    /// [`MAX_CONSEQUENCE_DEPTH`]. ODRL permits a Duty to carry several
+    /// consequences; this models one, because "the duty that becomes the
+    /// one actually evaluated" needs a single successor to be well defined
+    /// and the decided semantics state no rule for combining several. The
+    /// successor may carry its own consequence, so this is a chain rather
+    /// than a single level — bounded for the same reason
+    /// `MAX_CONSTRAINT_DEPTH` bounds a constraint tree.
+    #[serde(rename = "odrl:consequence", default, skip_serializing_if = "Option::is_none")]
+    pub consequence: Option<Box<Rule>>,
 }
+
+/// The maximum number of `odrl:consequence` hops [`outstanding_duty`] will
+/// follow from an attached duty before treating the chain as unresolved
+/// instead of walking further. A duty itself is depth 0, so a duty plus
+/// `MAX_CONSEQUENCE_DEPTH` consequences is the longest chain evaluated.
+///
+/// Mirrors `constraint::MAX_CONSTRAINT_DEPTH` in intent and, deliberately,
+/// not in value. That bound is about a `Constraint` tree, which real ODRL
+/// policies genuinely nest a few levels deep and which costs nothing to
+/// allow generously; a consequence chain is a *deontic* escalation ("if you
+/// do not notify, you must compensate; if you do not compensate, ..."), and
+/// no policy in the corpora this workspace tracks — nor in ODRL 2.2's own
+/// examples — chains more than one. 4 is chosen as small, obviously
+/// sufficient, and still a chain rather than a single hardcoded level, so
+/// the bound is a stated limit rather than an accidental one.
+///
+/// **Past the bound a duty stays unresolved**, never resolved: the
+/// unwalked tail cannot report itself done. That is the same safe direction
+/// `duty_satisfied` already takes for an unconditional duty, and the
+/// opposite of `MAX_CONSTRAINT_DEPTH`'s deterministic non-*match* only in
+/// wording — both refuse to credit input the evaluator declined to read.
+/// See `wire.rs`'s
+/// `a_consequence_chain_is_followed_up_to_max_consequence_depth_and_bounded_past_it`.
+pub const MAX_CONSEQUENCE_DEPTH: usize = 4;
 
 impl Rule {
     /// Builds a rule with no action refinement and no `odrl:target` —
@@ -150,6 +263,24 @@ impl Rule {
             target: None,
             constraints,
             action_refinement: None,
+            duty: Vec::new(),
+            remedy: Vec::new(),
+            consequence: None,
+        }
+    }
+
+    /// Builds a duty carrying an `odrl:consequence` — the duty that applies
+    /// when this one is not fulfilled. Separate from `new` for the same
+    /// reason `refined` and `targeting` are: every existing call site keeps
+    /// compiling, and a duty has no consequence unless someone says so.
+    pub fn with_consequence(
+        action: impl Into<String>,
+        constraints: Vec<Constraint>,
+        consequence: Rule,
+    ) -> Self {
+        Self {
+            consequence: Some(Box::new(consequence)),
+            ..Self::new(action, constraints)
         }
     }
 
@@ -270,8 +401,152 @@ impl Rule {
     /// ever move a duty from resolved to unresolved, never the reverse —
     /// and it is why a duty carrying *only* a refinement and no
     /// constraints stays unresolved rather than becoming confirmable.
-    fn duty_satisfied(&self, claims: &Claims) -> bool {
+    pub(crate) fn duty_satisfied(&self, claims: &Claims) -> bool {
         !self.constraints.is_empty() && self.matches(claims) && self.refinement_satisfied(claims)
+    }
+
+    /// Are every one of this **permission**'s own `odrl:duty` chains
+    /// resolved? Vacuously true for a permission carrying none, which is
+    /// every rule this workspace's fixtures build.
+    pub(crate) fn duties_resolved(&self, claims: &Claims) -> bool {
+        self.duty.iter().all(|duty| outstanding_duty(duty, claims).is_none())
+    }
+
+    /// Does this permission actually grant — is it applicable
+    /// (`applies`), does it match its own `constraints` (`matches`), and,
+    /// under `DutyMode::Deny` only, are its per-permission `odrl:duty`
+    /// chains all resolved?
+    ///
+    /// `pub(crate)` and factored out rather than inlined into `decide`
+    /// because `wire::describe_reason` has to reconstruct exactly this
+    /// question to trace *why* a request was denied. Two copies of the
+    /// permission requirement is precisely the drift that produced the
+    /// `beh-closed-empty` "denied for a reason this trace could not
+    /// reconstruct" bug once already (see that function's own comment).
+    pub(crate) fn grants(
+        &self,
+        requested_action: &str,
+        requested_target: &str,
+        config: &ResolvedConfig,
+        claims: &Claims,
+    ) -> bool {
+        self.applies(requested_action, requested_target, config, claims)
+            && self.matches(claims)
+            && (config.duty_mode != DutyMode::Deny || self.duties_resolved(claims))
+    }
+}
+
+/// The duty that is actually outstanding once `odrl:consequence` has been
+/// followed from `duty`, or `None` when `duty` — or some duty in its
+/// consequence chain — is satisfied from the claims.
+///
+/// This is the whole of the `odrl:consequence` semantics: a duty that is
+/// not fulfilled does **not** immediately fall through to `dutyMode`
+/// (Section 4.5's original behaviour, still exactly what happens for a duty
+/// carrying no consequence). Its consequence becomes the duty actually
+/// evaluated, recursively, up to [`MAX_CONSEQUENCE_DEPTH`] hops; only when
+/// the chain runs out — or is cut off by the bound — is anything reported
+/// outstanding, and `dutyMode` then governs that as it always did.
+///
+/// The outstanding duty reported is the **last one evaluated**, not the
+/// first: the consequence is what the policy now requires, so a host acting
+/// on this list needs the consequence's action, not the action it replaced.
+/// `consequence_depth` says how many hops in that is, so a caller can tell
+/// the two apart.
+pub(crate) fn outstanding_duty(duty: &Rule, claims: &Claims) -> Option<OutstandingDuty> {
+    outstanding_duty_at(duty, claims, 0)
+}
+
+fn outstanding_duty_at(duty: &Rule, claims: &Claims, depth: usize) -> Option<OutstandingDuty> {
+    if duty.duty_satisfied(claims) {
+        return None;
+    }
+    match &duty.consequence {
+        // The bound is checked against the depth the *successor* would sit
+        // at, so `MAX_CONSEQUENCE_DEPTH` hops are walked and the next is
+        // not. An unwalked tail leaves this duty unresolved rather than
+        // resolved — the safe direction, since nothing this evaluator
+        // declined to read may report itself done.
+        Some(next) if depth < MAX_CONSEQUENCE_DEPTH => outstanding_duty_at(next, claims, depth + 1),
+        _ => Some(OutstandingDuty {
+            action: duty.action.clone(),
+            consequence_depth: depth,
+        }),
+    }
+}
+
+/// What [`outstanding_duty`] reports: which duty of a consequence chain is
+/// still outstanding, and how far down the chain it sits (0 being the
+/// attached duty itself).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OutstandingDuty {
+    pub action: String,
+    pub consequence_depth: usize,
+}
+
+/// W3C ODRL 2.2's `odrl:conflict` (Information Model §2.10, the
+/// `odrl:ConflictTerm` vocabulary): **what a policy means when one of its
+/// own permissions and one of its own prohibitions both hold for the same
+/// request**. Three values, exactly the three ODRL defines, spelled on the
+/// wire exactly as ODRL spells them — the same enum-with-`serde(rename)`
+/// shape [`Behaviour`] and [`DutyMode`] already use, and, like those two,
+/// a term outside the enumeration is a parse failure rather than a
+/// silently substituted default.
+///
+/// Consulted **only** for a genuine collision — see [`conflicting_rules`]
+/// for the exact test and [`decide`] for where it branches. A policy in
+/// which at most one of the two ever holds for a given request reaches the
+/// same decision under all three values, which is every policy shape this
+/// workspace's fixtures and the vendored compliance corpus contain.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ConflictStrategy {
+    /// The permission wins: a matching permission grants even though a
+    /// matching prohibition also applies. The one combining rule this
+    /// engine had no way to express at all before this field existed.
+    #[serde(rename = "perm")]
+    Perm,
+    /// The prohibition wins — deny-overrides, which is exactly what this
+    /// engine did unconditionally before this field existed, now a value a
+    /// policy has to actually ask for.
+    #[serde(rename = "prohibit")]
+    Prohibit,
+    /// The conflicting policy is **void**: neither rule resolves the
+    /// other, so the policy authorizes nothing. Surfaced as `Decision::
+    /// Deny` under a distinct `reason` (`wire::describe_reason`) rather
+    /// than as a fourth `Decision` variant — see [`Policy::conflict`] for
+    /// why a void policy is not a `Decision::Error`.
+    #[serde(rename = "invalid")]
+    Invalid,
+}
+
+impl Default for ConflictStrategy {
+    /// `Invalid` — **ODRL's own stated default** for a policy that
+    /// declares no `odrl:conflict` term, and a deliberate departure from
+    /// this engine's own prior implicit behaviour (an unconditional,
+    /// unnamed `Prohibit`).
+    ///
+    /// The departure is deliberate on a measured basis, and the measurement
+    /// is the whole argument: **zero of the 68 fixtures in the vendored
+    /// compliance corpus contain a policy carrying both a permission and a
+    /// prohibition**, so no fixture is affected in either direction and
+    /// there is nothing here to be compatible *with*. That is precisely the
+    /// situation [`Behaviour`] is not in — an `Offer` with an empty
+    /// `permissions` list is common real input, so `Behaviour::Open` keeps
+    /// diverging from the Formal Semantics draft's `closed` default for an
+    /// operational reason. There is no equivalent reason here, so this
+    /// follows the spec.
+    fn default() -> Self {
+        ConflictStrategy::Invalid
+    }
+}
+
+impl ConflictStrategy {
+    /// `skip_serializing_if` for [`Policy::conflict`] and
+    /// `wire::WirePolicy::conflict`: a policy meaning the default emits no
+    /// key at all, so every document this engine produced before the field
+    /// existed is byte-for-byte what it was.
+    pub(crate) fn is_default(&self) -> bool {
+        *self == ConflictStrategy::default()
     }
 }
 
@@ -287,6 +562,34 @@ pub struct Policy {
     pub prohibitions: Vec<Rule>,
     #[serde(default)]
     pub obligations: Vec<Rule>,
+    /// `odrl:conflict` on this policy — the [`ConflictStrategy`] to apply
+    /// when one of its permissions and one of its prohibitions both hold
+    /// for the same request. A later, purely additive addition on the
+    /// convention `Rule::target` and `Rule::action_refinement` already set:
+    /// `#[serde(default)]` plus a `skip_serializing_if` on the default, at
+    /// the `odrl:`-namespaced key `odrl:conflict` (real ODRL vocabulary,
+    /// unlike this contract's original bare-named `permissions`/
+    /// `prohibitions`).
+    ///
+    /// **Per policy, not per host.** ODRL puts `conflict` on the Policy,
+    /// and so does this: the strategy travels with the document that
+    /// contains the conflicting rules, rather than being one more knob in
+    /// `ResolvedConfig` that would let a host silently reinterpret
+    /// somebody else's policy. A host that controls the policies it sends
+    /// (`compliance-runner`, `dsp-odrl-adapter`, any broker assembling a
+    /// request) configures this by setting it on the policies it builds.
+    ///
+    /// **`Invalid` is a `Deny`, not a `Decision::Error`.** The distinction
+    /// `Decision::Error` exists to preserve is "this is a *configuration
+    /// gap* — load a profile that recognizes this action", which a caller
+    /// fixes by changing its own setup. A void policy is not that: the
+    /// policy parsed, every action in it was recognized, and the policy
+    /// itself says the two rules cannot be reconciled. Nothing about the
+    /// caller's configuration is wrong, and the enforcement answer is the
+    /// same one an unsatisfied permission gets. What it does need is to be
+    /// *distinguishable*, which is what the `reason` trace is for.
+    #[serde(rename = "odrl:conflict", default, skip_serializing_if = "ConflictStrategy::is_default")]
+    pub conflict: ConflictStrategy,
 }
 
 impl Policy {
@@ -328,20 +631,58 @@ impl Policy {
     }
 
     fn collect_left_operands(&self, out: &mut BTreeSet<String>) {
-        for rule in self.permissions.iter().chain(&self.prohibitions).chain(&self.obligations) {
-            for constraint in &rule.constraints {
-                constraint.collect_left_operands(0, out);
-            }
-            // An `odrl:refinement` is a `Constraint` this engine really
-            // evaluates against the claims map, so its own claim keys
-            // belong in this answer on exactly the same footing as a
-            // rule's `constraints`. Omitting them would tell a host to
-            // gather less than the engine reads — the fail-open direction
-            // this call exists to close.
-            if let Some(refinement) = &rule.action_refinement {
-                refinement.collect_left_operands(0, out);
+        // Each rule's own claim keys, then whichever nested duties this
+        // engine actually *reads* in that rule's position — a permission's
+        // `odrl:duty`, a prohibition's `odrl:remedy`, an obligation as a
+        // duty in its own right — each followed down its `odrl:consequence`
+        // chain. Walking only the positions evaluation reads keeps this a
+        // reachability answer rather than an inventory of every key present
+        // in the document.
+        for rule in &self.permissions {
+            collect_rule_left_operands(rule, out);
+            for duty in &rule.duty {
+                collect_duty_chain_left_operands(duty, 0, out);
             }
         }
+        for rule in &self.prohibitions {
+            collect_rule_left_operands(rule, out);
+            for remedy in &rule.remedy {
+                collect_duty_chain_left_operands(remedy, 0, out);
+            }
+        }
+        for duty in &self.obligations {
+            collect_duty_chain_left_operands(duty, 0, out);
+        }
+    }
+}
+
+/// One rule's own claim keys: its `constraints`, plus its
+/// `odrl:refinement`, which is a `Constraint` this engine really evaluates
+/// against the claims map. Omitting the refinement would tell a host to
+/// gather less than the engine reads — the fail-open direction
+/// `referenced_left_operands` exists to close.
+fn collect_rule_left_operands(rule: &Rule, out: &mut BTreeSet<String>) {
+    for constraint in &rule.constraints {
+        constraint.collect_left_operands(0, out);
+    }
+    if let Some(refinement) = &rule.action_refinement {
+        refinement.collect_left_operands(0, out);
+    }
+}
+
+/// A duty's claim keys and those of every duty in its `odrl:consequence`
+/// chain, stopping at the same [`MAX_CONSEQUENCE_DEPTH`] bound evaluation
+/// stops at: a duty past the bound is never evaluated, so naming its claim
+/// key would send a host to gather a claim that provably cannot change any
+/// decision (the rule `Constraint::collect_left_operands` already applies
+/// to its own depth bound).
+fn collect_duty_chain_left_operands(duty: &Rule, depth: usize, out: &mut BTreeSet<String>) {
+    collect_rule_left_operands(duty, out);
+    if depth >= MAX_CONSEQUENCE_DEPTH {
+        return;
+    }
+    if let Some(consequence) = &duty.consequence {
+        collect_duty_chain_left_operands(consequence, depth + 1, out);
     }
 }
 
@@ -392,16 +733,33 @@ pub struct UnrecognizedAction {
     pub action: String,
     pub rule_kind: RuleKind,
     pub rule_index: usize,
+    /// Set only for an action found on a **nested** duty — a permission's
+    /// `odrl:duty`, a prohibition's `odrl:remedy`, or anything down an
+    /// `odrl:consequence` chain — carrying that duty's full path
+    /// ([`duty_path`]), since `rule_index` alone cannot say which rule's
+    /// duty list it indexes. `None` for every rule of the three lists
+    /// `Policy` itself carries, which is every case that existed before
+    /// nested duties did, and which therefore prints exactly the message it
+    /// always printed.
+    pub duty_path: Option<String>,
 }
 
 impl fmt::Display for UnrecognizedAction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "unrecognized action \"{}\" in {} rule at index {}: no loaded profile's \
-             recognized_actions includes it",
-            self.action, self.rule_kind, self.rule_index
-        )
+        match &self.duty_path {
+            None => write!(
+                f,
+                "unrecognized action \"{}\" in {} rule at index {}: no loaded profile's \
+                 recognized_actions includes it",
+                self.action, self.rule_kind, self.rule_index
+            ),
+            Some(path) => write!(
+                f,
+                "unrecognized action \"{}\" in the duty at {path}: no loaded profile's \
+                 recognized_actions includes it",
+                self.action
+            ),
+        }
     }
 }
 
@@ -428,6 +786,66 @@ pub enum Decision {
 pub struct UnresolvedDuty {
     pub action: String,
     pub duty_index: usize,
+    /// Which of the three attachment points this duty hangs off. A later,
+    /// additive field: `DutyAttachment::Obligation` is Section 4.5's
+    /// original policy-level duty and the only value any fixture in this
+    /// workspace produces.
+    pub attachment: DutyAttachment,
+    /// How many `odrl:consequence` hops from the attached duty this
+    /// outstanding one sits — 0 being the attached duty itself, which is
+    /// every case before `odrl:consequence` existed.
+    pub consequence_depth: usize,
+}
+
+/// Where an unresolved duty was attached — the three ODRL positions a Duty
+/// can occupy in this engine's model, distinguished so a caller (and the
+/// `reason` trace) can tell a policy-wide obligation from a pre-condition
+/// on one permission from a prohibition's remedy. They behave differently
+/// enough that collapsing them would misreport what a host has to do.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DutyAttachment {
+    /// `Policy::obligations[duty_index]` — Section 4.5's policy-level duty.
+    Obligation,
+    /// `Policy::permissions[rule_index].duty[duty_index]`.
+    PermissionDuty { rule_index: usize },
+    /// `Policy::prohibitions[rule_index].remedy[duty_index]`.
+    ProhibitionRemedy { rule_index: usize },
+}
+
+/// Renders one duty's position as the short path both the `reason` trace
+/// and Section 5.2's `duties` entries use — `duty[0]`,
+/// `permission[1].duty[0]`, `prohibition[0].remedy[0]`, each with one
+/// `.consequence` segment per hop walked. Shared by both so the two can
+/// never disagree about what to call the same duty.
+pub(crate) fn duty_path(attachment: DutyAttachment, duty_index: usize, consequence_depth: usize) -> String {
+    let mut path = match attachment {
+        DutyAttachment::Obligation => format!("duty[{duty_index}]"),
+        DutyAttachment::PermissionDuty { rule_index } => format!("permission[{rule_index}].duty[{duty_index}]"),
+        DutyAttachment::ProhibitionRemedy { rule_index } => {
+            format!("prohibition[{rule_index}].remedy[{duty_index}]")
+        }
+    };
+    for _ in 0..consequence_depth {
+        path.push_str(".consequence");
+    }
+    path
+}
+
+impl UnresolvedDuty {
+    /// This duty's position, per [`duty_path`].
+    pub fn path(&self) -> String {
+        duty_path(self.attachment, self.duty_index, self.consequence_depth)
+    }
+
+    /// `true` for the shape that existed before per-permission duties,
+    /// consequences and remedies did: a policy-level obligation, itself
+    /// outstanding rather than some consequence of it. Section 5.2's
+    /// `duties` entries omit their `source` field for exactly these, so
+    /// every response this engine produced before this addition is
+    /// byte-for-byte what it was.
+    pub(crate) fn is_plain_policy_obligation(&self) -> bool {
+        self.attachment == DutyAttachment::Obligation && self.consequence_depth == 0
+    }
 }
 
 /// `decide`'s full result: Section 4.3/4.4's `Decision`, plus Section
@@ -467,6 +885,7 @@ fn first_unrecognized_action(policy: &Policy, config: &ResolvedConfig) -> Option
                 action: rule.action.clone(),
                 rule_kind: RuleKind::Prohibition,
                 rule_index,
+                duty_path: None,
             });
         }
     }
@@ -477,6 +896,7 @@ fn first_unrecognized_action(policy: &Policy, config: &ResolvedConfig) -> Option
                 action: rule.action.clone(),
                 rule_kind: RuleKind::Permission,
                 rule_index,
+                duty_path: None,
             });
         }
     }
@@ -487,11 +907,89 @@ fn first_unrecognized_action(policy: &Policy, config: &ResolvedConfig) -> Option
                 action: rule.action.clone(),
                 rule_kind: RuleKind::Duty,
                 rule_index,
+                duty_path: None,
             });
         }
     }
 
+    first_unrecognized_nested_duty_action(policy, config)
+}
+
+/// Section 4.4's same check, extended to the duties that hang off a rule
+/// rather than off the policy: a permission's `odrl:duty`, a prohibition's
+/// `odrl:remedy`, and every `odrl:consequence` reachable from any of those
+/// or from a policy-level obligation.
+///
+/// **Why these are checked at all.** A policy-level obligation naming an
+/// action outside every loaded profile's vocabulary is already a
+/// `Decision::Error` (the loop above), on Section 4.4's reasoning that an
+/// obligation this engine cannot even identify is no safer to guess about
+/// than a permission it cannot identify. An identical duty attached to a
+/// permission instead of to the policy is the same configuration gap, and
+/// leaving it unchecked would make the outcome depend on where the policy
+/// author put the duty rather than on what it says.
+///
+/// **Why it runs as a separate pass, after all three of the original
+/// loops.** So that every policy shape that existed before nested duties
+/// did reports exactly the rule it always reported: this pass can only
+/// change the answer for a policy that actually carries a nested duty.
+fn first_unrecognized_nested_duty_action(policy: &Policy, config: &ResolvedConfig) -> Option<UnrecognizedAction> {
+    // Prohibitions, then permissions, then obligations — the same
+    // precedence order the three loops above already use.
+    for (rule_index, rule) in policy.prohibitions.iter().enumerate() {
+        for (duty_index, remedy) in rule.remedy.iter().enumerate() {
+            let attachment = DutyAttachment::ProhibitionRemedy { rule_index };
+            if let Some(found) = first_unrecognized_in_duty_chain(remedy, config, attachment, duty_index, 0) {
+                return Some(found);
+            }
+        }
+    }
+    for (rule_index, rule) in policy.permissions.iter().enumerate() {
+        for (duty_index, duty) in rule.duty.iter().enumerate() {
+            let attachment = DutyAttachment::PermissionDuty { rule_index };
+            if let Some(found) = first_unrecognized_in_duty_chain(duty, config, attachment, duty_index, 0) {
+                return Some(found);
+            }
+        }
+    }
+    for (duty_index, obligation) in policy.obligations.iter().enumerate() {
+        // The obligation's own action was checked by the loop above; only
+        // its consequence chain is new here.
+        if let Some(consequence) = &obligation.consequence {
+            let attachment = DutyAttachment::Obligation;
+            if let Some(found) = first_unrecognized_in_duty_chain(consequence, config, attachment, duty_index, 1) {
+                return Some(found);
+            }
+        }
+    }
     None
+}
+
+/// Walks one duty and its `odrl:consequence` chain — bounded by
+/// [`MAX_CONSEQUENCE_DEPTH`], the same bound evaluation itself stops at, so
+/// this never reports a duty that could not have influenced a decision
+/// anyway — returning the first action no loaded profile declares.
+fn first_unrecognized_in_duty_chain(
+    duty: &Rule,
+    config: &ResolvedConfig,
+    attachment: DutyAttachment,
+    duty_index: usize,
+    depth: usize,
+) -> Option<UnrecognizedAction> {
+    if !config.recognizes(&duty.action) {
+        return Some(UnrecognizedAction {
+            action: duty.action.clone(),
+            rule_kind: RuleKind::Duty,
+            rule_index: duty_index,
+            duty_path: Some(duty_path(attachment, duty_index, depth)),
+        });
+    }
+    if depth >= MAX_CONSEQUENCE_DEPTH {
+        return None;
+    }
+    duty.consequence
+        .as_ref()
+        .and_then(|next| first_unrecognized_in_duty_chain(next, config, attachment, duty_index, depth + 1))
 }
 
 /// Section 4.5's duty evaluation: every policy-level duty whose
@@ -507,17 +1005,152 @@ fn first_unrecognized_action(policy: &Policy, config: &ResolvedConfig) -> Option
 /// silently drop obligations a policy really does attach to the very
 /// permission being exercised, so this engine leaves a duty's own target
 /// as descriptive data it carries and does not evaluate.
-fn unresolved_duties(policy: &Policy, claims: &Claims) -> Vec<UnresolvedDuty> {
+///
+/// Each obligation is resolved through `outstanding_duty`, so a duty
+/// carrying an `odrl:consequence` falls through to it on non-fulfilment
+/// rather than straight to `dutyMode`. A duty with no consequence behaves
+/// exactly as it always did.
+fn unresolved_obligations(policy: &Policy, claims: &Claims) -> Vec<UnresolvedDuty> {
     policy
         .obligations
         .iter()
         .enumerate()
-        .filter(|(_, duty)| !duty.duty_satisfied(claims))
-        .map(|(duty_index, duty)| UnresolvedDuty {
-            action: duty.action.clone(),
-            duty_index,
+        .filter_map(|(duty_index, duty)| {
+            outstanding_duty(duty, claims).map(|outstanding| UnresolvedDuty {
+                action: outstanding.action,
+                duty_index,
+                attachment: DutyAttachment::Obligation,
+                consequence_depth: outstanding.consequence_depth,
+            })
         })
         .collect()
+}
+
+/// The per-permission `odrl:duty` chains that are outstanding, across every
+/// permission that is actually **in play** for this decision (applicable
+/// and matching its own constraints).
+///
+/// Scoping to permissions in play is the whole difference from
+/// `unresolved_obligations` above: a policy-level obligation is the
+/// policy's, unconditionally, but a duty attached to a permission is a
+/// pre-condition *of that permission*. A permission this request never
+/// reaches — wrong action, wrong asset, constraints missed — imposes
+/// nothing, so reporting its duty would send a host chasing an obligation
+/// it does not have.
+fn unresolved_permission_duties(
+    policy: &Policy,
+    claims: &Claims,
+    config: &ResolvedConfig,
+    requested_action: &str,
+    requested_target: &str,
+) -> Vec<UnresolvedDuty> {
+    let mut outstanding = Vec::new();
+    for (rule_index, rule) in policy.permissions.iter().enumerate() {
+        if !(rule.applies(requested_action, requested_target, config, claims) && rule.matches(claims)) {
+            continue;
+        }
+        for (duty_index, duty) in rule.duty.iter().enumerate() {
+            if let Some(found) = outstanding_duty(duty, claims) {
+                outstanding.push(UnresolvedDuty {
+                    action: found.action,
+                    duty_index,
+                    attachment: DutyAttachment::PermissionDuty { rule_index },
+                    consequence_depth: found.consequence_depth,
+                });
+            }
+        }
+    }
+    outstanding
+}
+
+/// The `odrl:remedy` chains that are outstanding, across every prohibition
+/// that actually **fired** — applied, matched, and so denied.
+///
+/// A remedy is what must be done *once the prohibition has been violated*,
+/// so a prohibition that did not fire imposes no remedy: reporting one
+/// would invent an obligation out of a rule that had nothing to say. This
+/// mirrors the permission-duty scoping above, at the opposite polarity.
+fn unresolved_remedies(
+    policy: &Policy,
+    claims: &Claims,
+    config: &ResolvedConfig,
+    requested_action: &str,
+    requested_target: &str,
+) -> Vec<UnresolvedDuty> {
+    let mut outstanding = Vec::new();
+    for (rule_index, rule) in policy.prohibitions.iter().enumerate() {
+        if !(rule.applies(requested_action, requested_target, config, claims) && rule.matches(claims)) {
+            continue;
+        }
+        for (duty_index, remedy) in rule.remedy.iter().enumerate() {
+            if let Some(found) = outstanding_duty(remedy, claims) {
+                outstanding.push(UnresolvedDuty {
+                    action: found.action,
+                    duty_index,
+                    attachment: DutyAttachment::ProhibitionRemedy { rule_index },
+                    consequence_depth: found.consequence_depth,
+                });
+            }
+        }
+    }
+    outstanding
+}
+
+/// The two rules of a genuine `odrl:conflict` collision, when there is
+/// one: the index of the first permission that actually **grants** and the
+/// index of the first prohibition that actually **denies**, for this exact
+/// `requested_action`/`requested_target`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ConflictingRules {
+    pub(crate) permission_index: usize,
+    pub(crate) prohibition_index: usize,
+}
+
+/// **What "conflict" means here, precisely.** A permission and a
+/// prohibition of the same policy collide when both would independently
+/// have decided this request: a prohibition that applies
+/// (`Rule::applies` — right asset, right action, refinement satisfied) and
+/// matches its own constraints, *and* a permission that `Rule::grants`,
+/// for the identical `requested_action` and `requested_target`. Only then
+/// is [`Policy::conflict`] consulted at all; when at most one of the two
+/// holds, the decision is whatever that one rule already made it, under
+/// every strategy alike.
+///
+/// **`Rule::grants`, not `applies() && matches()`, on the permission
+/// side** — the same predicate `decide` uses for the permission
+/// requirement. A permission whose own `odrl:duty` is outstanding under
+/// `DutyMode::Deny` is not in force, so it is not a party to a conflict
+/// either, and `perm` cannot promote it over a prohibition. Using a looser
+/// test here would make `perm` able to grant through a duty gate that
+/// `decide` itself treats as closed.
+///
+/// **Deliberately *not* keyed off `permission_requirement_met`.** Under
+/// `Behaviour::Open` a policy with an empty `permissions` list meets the
+/// permission requirement vacuously — but there is no permission there to
+/// win anything, so a matching prohibition denies under every strategy,
+/// `perm` included. A conflict needs two actual rules.
+///
+/// `pub(crate)` and shared rather than re-derived: `wire::describe_reason`
+/// has to name both rules of a collision in its trace, and two copies of
+/// this test drifting apart is exactly the failure mode that produced the
+/// `beh-closed-empty` "denied for a reason this trace could not
+/// reconstruct" bug once already.
+pub(crate) fn conflicting_rules(
+    policy: &Policy,
+    claims: &Claims,
+    config: &ResolvedConfig,
+    requested_action: &str,
+    requested_target: &str,
+) -> Option<ConflictingRules> {
+    let prohibition_index = policy
+        .prohibitions
+        .iter()
+        .position(|rule| rule.applies(requested_action, requested_target, config, claims) && rule.matches(claims))?;
+    let permission_index = policy
+        .permissions
+        .iter()
+        .position(|rule| rule.grants(requested_action, requested_target, config, claims))?;
+    Some(ConflictingRules { permission_index, prohibition_index })
 }
 
 /// Section 4.3's decision algorithm: deny-overrides, then a permission
@@ -536,6 +1169,17 @@ fn unresolved_duties(policy: &Policy, claims: &Claims) -> Vec<UnresolvedDuty> {
 /// governs *only* that one degenerate case — a matching prohibition
 /// still denies, and a non-empty `permissions` list that never matches
 /// still denies, under either setting.
+///
+/// **Deny-overrides is no longer unconditional either.** When a granting
+/// permission and a denying prohibition both hold for this exact request —
+/// and only then ([`conflicting_rules`]) — the policy's own
+/// `odrl:conflict` term ([`Policy::conflict`]) decides: `perm` lets the
+/// permission win, `prohibit` is the deny-overrides this function applied
+/// unconditionally before the term existed, and `invalid` — **ODRL's own
+/// default, and therefore this engine's for a policy that declares
+/// nothing** — voids the policy, which surfaces as `Deny` under a distinct
+/// `reason` rather than as a fourth `Decision`. A policy in which at most
+/// one of the two ever holds is entirely unaffected, under every strategy.
 ///
 /// Duty evaluation (Section 4.5) runs after the permission/prohibition
 /// decision is reached, and can only ever *tighten* it: under
@@ -579,7 +1223,57 @@ fn unresolved_duties(policy: &Policy, claims: &Claims) -> Vec<UnresolvedDuty> {
 /// policy-level duty says what must be *done* (`notify`, perhaps about
 /// some audit log), not what is being asked for, so scoping it by the
 /// requested asset would silently drop duties a policy really does attach.
-/// See `unresolved_duties` below.
+/// See `unresolved_obligations` below.
+///
+/// # Duties beyond the policy level
+///
+/// Section 4.5 attached duties to the policy. Three more ODRL attachment
+/// points are evaluated here, all of them the *same* mechanism at a
+/// different position — a claims-precondition read by `dutyMode`, never
+/// an observation that anything was performed:
+///
+/// - **A permission's `odrl:duty`** (`Rule::duty`) is a pre-condition of
+///   that one permission. Under `DutyMode::Advise` the permission still
+///   grants and the duty is reported; under `DutyMode::Deny` that
+///   permission does not grant, while any sibling permission with nothing
+///   outstanding still does. Only permissions actually in play contribute.
+/// - **A duty's `odrl:consequence`** (`Rule::consequence`) is the duty that
+///   applies when the duty it hangs off is not fulfilled. It replaces that
+///   duty as the one evaluated, chained up to `MAX_CONSEQUENCE_DEPTH`; when
+///   the chain also fails to resolve, `dutyMode` governs exactly as before.
+///   See `outstanding_duty`.
+/// - **A prohibition's `odrl:remedy`** (`Rule::remedy`) is what must be done
+///   once the prohibition has been violated. Only prohibitions that
+///   actually fired contribute one.
+///
+/// ## The remedy sub-decision, stated plainly
+///
+/// **A satisfied remedy does not lift the prohibition.** A prohibition
+/// that applies and matches denies, and its remedy — resolved or not —
+/// only ever adds an entry to `unresolved_duties` and a clause to the
+/// `reason` trace. The alternative reading (ODRL's "the remedy substitutes
+/// for the violation", turning a would-be `Deny` into an
+/// `Allow`-with-a-duty) was considered and rejected on three grounds:
+///
+/// 1. **Duties in this engine only ever tighten a decision.** Section
+///    4.5's duty step can move `Allow` to `Deny` under `DutyMode::Deny` and
+///    can never move `Deny` to `Allow`. A remedy that flipped a denial
+///    would be the first duty here that loosens one, which contradicts the
+///    very pattern this addition was asked to extend rather than redesign.
+/// 2. **"Satisfied" here is a host-supplied claim, not an observation.**
+///    This engine cannot see that a remedy was performed; it sees that the
+///    claims map says so. Letting one such claim erase a prohibition would
+///    make the engine's most consequential rule the easiest thing in the
+///    contract to switch off — a strictly worse fail-open than the adapter
+///    bug this repo's README already records for exactly this construct.
+/// 3. **ODRL's remedy is consequent on the violation, not a licence for
+///    it.** The prohibited act still happened; the policy's response is to
+///    demand something further, which is what an outstanding duty entry and
+///    a named clause in the trace say.
+///
+/// An **unresolved** remedy therefore behaves exactly analogously to an
+/// unresolved obligation under the current `dutyMode` semantics — reported,
+/// and unable to make the decision any more permissive than it already is.
 pub fn decide(
     policy: &Policy,
     claims: &Claims,
@@ -599,16 +1293,38 @@ pub fn decide(
         .iter()
         .any(|rule| rule.applies(requested_action, requested_target, config, claims) && rule.matches(claims));
 
-    let any_permission_covers_and_matches = policy
+    // `Rule::grants`, not `applies() && matches()`: under
+    // `DutyMode::Deny` a permission whose own `odrl:duty` chain is
+    // outstanding does not grant. That gating is scoped to the one
+    // permission — a sibling permission with nothing outstanding still
+    // grants, which is exactly what makes a per-permission duty different
+    // from a policy-level obligation below.
+    let any_permission_grants = policy
         .permissions
         .iter()
-        .any(|rule| rule.applies(requested_action, requested_target, config, claims) && rule.matches(claims));
+        .any(|rule| rule.grants(requested_action, requested_target, config, claims));
     let permission_requirement_met = match config.behaviour {
-        Behaviour::Open => policy.permissions.is_empty() || any_permission_covers_and_matches,
-        Behaviour::Closed => any_permission_covers_and_matches,
+        Behaviour::Open => policy.permissions.is_empty() || any_permission_grants,
+        Behaviour::Closed => any_permission_grants,
     };
 
-    let mut decision = if denied_by_prohibition {
+    // ODRL's `odrl:conflict`, and the *only* place it is consulted: both a
+    // granting permission and a denying prohibition hold for this exact
+    // request, so the policy's own strategy decides which reading wins —
+    // or, under the default `invalid`, that neither does and the policy is
+    // void. When at most one of the two holds there is nothing to
+    // reconcile, and the three arms below are unreachable: the ordinary
+    // deny-overrides/permission-requirement branches decide exactly as they
+    // always have, under every strategy alike.
+    let mut decision = if denied_by_prohibition && any_permission_grants {
+        match policy.conflict {
+            ConflictStrategy::Perm => Decision::Allow,
+            // Same decision, different reasons — the trace tells a policy
+            // that chose prohibition-first apart from a policy that refused
+            // to resolve the conflict at all.
+            ConflictStrategy::Prohibit | ConflictStrategy::Invalid => Decision::Deny,
+        }
+    } else if denied_by_prohibition {
         Decision::Deny
     } else if permission_requirement_met {
         Decision::Allow
@@ -616,8 +1332,32 @@ pub fn decide(
         Decision::Deny
     };
 
-    let unresolved_duties = unresolved_duties(policy, claims);
-    if config.duty_mode == DutyMode::Deny && !unresolved_duties.is_empty() {
+    // Policy-level obligations first, then the two narrower attachment
+    // points — the order Section 5.2's `duties` list reports them in, and
+    // the order that keeps every response this engine produced before
+    // nested duties existed byte-for-byte what it was (a policy carrying
+    // neither a per-permission duty nor a remedy contributes nothing to
+    // either of the two tails).
+    let mut unresolved_duties = unresolved_obligations(policy, claims);
+    let obligation_outstanding = !unresolved_duties.is_empty();
+    unresolved_duties.extend(unresolved_permission_duties(
+        policy,
+        claims,
+        config,
+        requested_action,
+        requested_target,
+    ));
+    unresolved_duties.extend(unresolved_remedies(policy, claims, config, requested_action, requested_target));
+
+    // Deliberately keyed off the *policy-level* obligations alone, not off
+    // the whole list. An unresolved obligation is the policy's and denies
+    // the request outright, exactly as Section 4.5 has always had it; an
+    // unresolved per-permission duty has already had its effect, scoped to
+    // its own permission, in `Rule::grants` above, and denying here as well
+    // would silently un-scope it (a sibling permission that does grant
+    // would stop mattering). An unresolved remedy never denies anything
+    // either, because its prohibition already did.
+    if config.duty_mode == DutyMode::Deny && obligation_outstanding {
         decision = Decision::Deny;
     }
 
@@ -748,6 +1488,7 @@ mod tests {
             permissions: vec![Rule::new("read", vec![])],
             prohibitions: vec![],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[]);
         assert_eq!(decide(&policy, &claims, &all_actions_config(), "read", ASSET).decision, Decision::Allow);
@@ -762,6 +1503,7 @@ mod tests {
             )],
             prohibitions: vec![],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[("sub", ClaimValue::Single("alice".into()))]);
         assert_eq!(decide(&policy, &claims, &all_actions_config(), "read", ASSET).decision, Decision::Allow);
@@ -776,6 +1518,7 @@ mod tests {
                 vec![Constraint::new("sub", Operator::Eq, "alice")],
             )],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[("sub", ClaimValue::Single("alice".into()))]);
         assert_eq!(
@@ -794,6 +1537,7 @@ mod tests {
                 vec![Constraint::new("sub", Operator::Eq, "bob")],
             )],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[("sub", ClaimValue::Single("alice".into()))]);
         assert_eq!(decide(&policy, &claims, &all_actions_config(), "read", ASSET).decision, Decision::Allow);
@@ -808,6 +1552,7 @@ mod tests {
             )],
             prohibitions: vec![],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[("sub", ClaimValue::Single("alice".into()))]);
         assert_eq!(
@@ -823,6 +1568,7 @@ mod tests {
             permissions: vec![],
             prohibitions: vec![],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[]);
         assert_eq!(
@@ -838,6 +1584,7 @@ mod tests {
             permissions: vec![],
             prohibitions: vec![Rule::new("read", vec![])],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[]);
         assert_eq!(decide(&policy, &claims, &all_actions_config(), "read", ASSET).decision, Decision::Deny);
@@ -849,6 +1596,7 @@ mod tests {
             permissions: vec![],
             prohibitions: vec![],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[]);
         let config = config_with(&["read"], DutyMode::Advise, Behaviour::Closed);
@@ -866,6 +1614,7 @@ mod tests {
             permissions: vec![Rule::new("read", vec![])],
             prohibitions: vec![],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[]);
         let config = config_with(&["read"], DutyMode::Advise, Behaviour::Closed);
@@ -890,6 +1639,7 @@ mod tests {
             permissions: vec![],
             prohibitions: vec![Rule::new("use", vec![])],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[]);
         let config_open = config_with(&["use", "sell"], DutyMode::Advise, Behaviour::Open);
@@ -918,6 +1668,7 @@ mod tests {
             ],
             prohibitions: vec![],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[("sub", ClaimValue::Single("alice".into()))]);
         assert_eq!(
@@ -936,6 +1687,7 @@ mod tests {
                 Rule::new("read", vec![]),
             ],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[("sub", ClaimValue::Single("alice".into()))]);
         assert_eq!(decide(&policy, &claims, &all_actions_config(), "read", ASSET).decision, Decision::Deny);
@@ -969,6 +1721,7 @@ mod tests {
             permissions: vec![Rule::new("distribute", vec![])],
             prohibitions: vec![],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[]);
         let config = config_recognizing(&["distribute"]);
@@ -986,6 +1739,7 @@ mod tests {
             permissions: vec![Rule::new("anonymize", vec![])],
             prohibitions: vec![],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[]);
         let config = config_recognizing(&["read", "write"]);
@@ -1014,6 +1768,7 @@ mod tests {
             permissions: vec![],
             prohibitions: vec![Rule::new("anonymize", vec![])],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[]);
         let config = config_recognizing(&["read", "write"]);
@@ -1039,6 +1794,7 @@ mod tests {
             )],
             prohibitions: vec![],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[("sub", ClaimValue::Single("alice".into()))]);
         let config = config_recognizing(&["read"]);
@@ -1058,6 +1814,7 @@ mod tests {
             permissions: vec![Rule::new("anonymize", vec![])],
             prohibitions: vec![],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[]);
         let config = config_recognizing(&["read"]);
@@ -1070,6 +1827,7 @@ mod tests {
             permissions: vec![Rule::new("modify", vec![])],
             prohibitions: vec![],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[]);
         let config = crate::profile::resolve(&[
@@ -1109,6 +1867,7 @@ mod tests {
             permissions: vec![Rule::new("transfer", vec![])],
             prohibitions: vec![],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[]);
         let config = crate::profile::resolve(&[Profile {
@@ -1130,6 +1889,7 @@ mod tests {
             permissions: vec![Rule::new("sell", vec![])],
             prohibitions: vec![],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[]);
         let config = crate::profile::resolve(&[Profile {
@@ -1154,6 +1914,7 @@ mod tests {
                 "notify",
                 vec![Constraint::new("sub", Operator::Eq, "alice")],
             )],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[("sub", ClaimValue::Single("alice".into()))]);
         let config = config_with_duty_mode(&["read", "notify"], DutyMode::Deny);
@@ -1176,6 +1937,7 @@ mod tests {
             permissions: vec![Rule::new("read", vec![])],
             prohibitions: vec![],
             obligations: vec![Rule::new("notify", vec![])],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[]);
         let config = config_with_duty_mode(&["read", "notify"], DutyMode::Deny);
@@ -1190,6 +1952,8 @@ mod tests {
             vec![UnresolvedDuty {
                 action: "notify".to_string(),
                 duty_index: 0,
+                attachment: DutyAttachment::Obligation,
+                consequence_depth: 0,
             }]
         );
     }
@@ -1200,6 +1964,7 @@ mod tests {
             permissions: vec![Rule::new("read", vec![])],
             prohibitions: vec![],
             obligations: vec![Rule::new("delete-after-30-days", vec![])],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[]);
         let config = config_with_duty_mode(&["read", "delete-after-30-days"], DutyMode::Deny);
@@ -1219,6 +1984,7 @@ mod tests {
             permissions: vec![Rule::new("read", vec![])],
             prohibitions: vec![],
             obligations: vec![Rule::new("notify", vec![])],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[]);
         let config = config_with_duty_mode(&["read", "notify"], DutyMode::Advise);
@@ -1233,6 +1999,8 @@ mod tests {
             vec![UnresolvedDuty {
                 action: "notify".to_string(),
                 duty_index: 0,
+                attachment: DutyAttachment::Obligation,
+                consequence_depth: 0,
             }],
             "the unresolved duty must still be surfaced for the caller to act on"
         );
@@ -1244,6 +2012,7 @@ mod tests {
             permissions: vec![Rule::new("read", vec![])],
             prohibitions: vec![Rule::new("read", vec![])],
             obligations: vec![Rule::new("notify", vec![])],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[]);
         let config = config_with_duty_mode(&["read", "notify"], DutyMode::Advise);
@@ -1264,6 +2033,7 @@ mod tests {
                     vec![Constraint::new("sub", Operator::Eq, "nobody")],
                 ),
             ],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[("sub", ClaimValue::Single("alice".into()))]);
         let config = config_with_duty_mode(&["read", "notify", "delete-after-30-days"], DutyMode::Advise);
@@ -1275,10 +2045,14 @@ mod tests {
                 UnresolvedDuty {
                     action: "notify".to_string(),
                     duty_index: 0,
+                    attachment: DutyAttachment::Obligation,
+                    consequence_depth: 0,
                 },
                 UnresolvedDuty {
                     action: "delete-after-30-days".to_string(),
                     duty_index: 1,
+                    attachment: DutyAttachment::Obligation,
+                    consequence_depth: 0,
                 },
             ]
         );
@@ -1302,6 +2076,7 @@ mod tests {
             )],
             prohibitions: vec![],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         let config = all_actions_config();
 
@@ -1329,6 +2104,7 @@ mod tests {
                 ])],
             )],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         let config = all_actions_config();
 
@@ -1366,6 +2142,7 @@ mod tests {
             permissions: vec![Rule::new("read", vec![])],
             prohibitions: vec![],
             obligations: vec![Rule::new("notify", vec![])],
+            conflict: ConflictStrategy::default(),
         };
         assert!(
             policy.referenced_left_operands().is_empty(),
@@ -1380,6 +2157,7 @@ mod tests {
             permissions: vec![Rule::new("read", vec![Constraint::new("sub", Operator::Eq, "alice")])],
             prohibitions: vec![],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         assert_eq!(policy.referenced_left_operands(), vec!["sub".to_string()]);
     }
@@ -1397,6 +2175,7 @@ mod tests {
             )],
             prohibitions: vec![Rule::new("read", vec![Constraint::new("embargo", Operator::Eq, "true")])],
             obligations: vec![Rule::new("notify", vec![Constraint::new("sub", Operator::Eq, "alice")])],
+            conflict: ConflictStrategy::default(),
         };
         assert_eq!(
             policy.referenced_left_operands(),
@@ -1423,6 +2202,7 @@ mod tests {
             )],
             prohibitions: vec![],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         assert_eq!(
             policy.referenced_left_operands(),
@@ -1439,6 +2219,7 @@ mod tests {
                 permissions: vec![Rule::new("read", vec![Constraint::new("sub", Operator::Eq, "alice")])],
                 prohibitions: vec![],
                 obligations: vec![],
+                conflict: ConflictStrategy::default(),
             },
             Policy {
                 permissions: vec![],
@@ -1450,6 +2231,7 @@ mod tests {
                     ])],
                 )],
                 obligations: vec![],
+                conflict: ConflictStrategy::default(),
             },
         ];
         assert_eq!(
@@ -1478,6 +2260,7 @@ mod tests {
             )],
             prohibitions: vec![],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[("copies", ClaimValue::Single("5".into()))]);
         assert_eq!(
@@ -1498,6 +2281,7 @@ mod tests {
             )],
             prohibitions: vec![],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[("copies", ClaimValue::Single("2".into()))]);
         assert_eq!(
@@ -1519,6 +2303,7 @@ mod tests {
             permissions: vec![rule],
             prohibitions: vec![],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[("sub", ClaimValue::Single("alice".into()))]);
         assert_eq!(
@@ -1544,6 +2329,7 @@ mod tests {
             permissions: vec![refined()],
             prohibitions: vec![],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         let config = config_recognizing(&["print"]);
 
@@ -1588,6 +2374,7 @@ mod tests {
                 Constraint::new("copies", Operator::Gt, "2"),
             )],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         let config = config_recognizing(&["print"]);
 
@@ -1622,6 +2409,7 @@ mod tests {
             )],
             prohibitions: vec![],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         let config = config_recognizing(&["print"]);
 
@@ -1657,6 +2445,7 @@ mod tests {
                 vec![Constraint::new("notified", Operator::Eq, "true")],
                 Constraint::new("notify_channel", Operator::Eq, "email"),
             )],
+            conflict: ConflictStrategy::default(),
         };
         let config = config_recognizing(&["read", "notify"]);
 
@@ -1696,6 +2485,7 @@ mod tests {
             )],
             prohibitions: vec![],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         assert_eq!(
             policy.referenced_left_operands(),
@@ -1711,6 +2501,7 @@ mod tests {
             permissions: vec![Rule::new("read", vec![])],
             prohibitions: vec![],
             obligations: vec![Rule::new("anonymize", vec![])],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[]);
         let config = config_recognizing(&["read"]);
@@ -1741,6 +2532,7 @@ mod tests {
             permissions: vec![Rule::targeting("read", ASSET_B, vec![])],
             prohibitions: vec![],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[]);
         assert_eq!(
@@ -1765,6 +2557,7 @@ mod tests {
             permissions: vec![Rule::targeting("read", ASSET_A, vec![])],
             prohibitions: vec![Rule::targeting("read", ASSET_B, vec![])],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[]);
         assert_eq!(
@@ -1789,6 +2582,7 @@ mod tests {
             permissions: vec![Rule::new("read", vec![])],
             prohibitions: vec![],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[]);
         for target in [ASSET_A, ASSET_B, "", "anything at all"] {
@@ -1808,6 +2602,7 @@ mod tests {
             permissions: vec![Rule::targeting("read", ASSET_A, vec![])],
             prohibitions: vec![],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[]);
         let config = all_actions_config();
@@ -1838,6 +2633,7 @@ mod tests {
             permissions: vec![Rule::targeting("read", "urn:asset:A", vec![])],
             prohibitions: vec![],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[]);
         let config = all_actions_config();
@@ -1861,6 +2657,7 @@ mod tests {
             permissions: vec![Rule::new("read", vec![])],
             prohibitions: vec![Rule::targeting("read", "urn:asset:never-heard-of", vec![])],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[]);
         assert_eq!(
@@ -1885,6 +2682,7 @@ mod tests {
                 "urn:asset:audit-log",
                 vec![Constraint::new("notified", Operator::Eq, "true")],
             )],
+            conflict: ConflictStrategy::default(),
         };
         let config = config_with_duty_mode(&["read", "notify"], DutyMode::Deny);
 
@@ -1917,6 +2715,7 @@ mod tests {
             ],
             prohibitions: vec![],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[]);
         let config = config_with(&["read", "write"], DutyMode::Advise, Behaviour::Closed);
@@ -1940,6 +2739,7 @@ mod tests {
             )],
             prohibitions: vec![],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         assert_eq!(policy.referenced_left_operands(), vec!["sub".to_string()]);
     }
@@ -1972,6 +2772,7 @@ mod tests {
             ],
             prohibitions: vec![Rule::new("write", vec![])],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         }
     }
 
@@ -2038,6 +2839,7 @@ mod tests {
                     permissions: vec![Rule::new("use", vec![])],
                     prohibitions: vec![],
                     obligations: vec![Rule::new("notify", vec![])],
+                    conflict: ConflictStrategy::default(),
                 },
                 claims_with(&[]),
                 taxonomy_config(Behaviour::Closed, DutyMode::Deny),
@@ -2048,6 +2850,7 @@ mod tests {
                     permissions: vec![Rule::new("anonymize", vec![])],
                     prohibitions: vec![],
                     obligations: vec![],
+                    conflict: ConflictStrategy::default(),
                 },
                 claims_with(&[]),
                 taxonomy_config(Behaviour::Closed, DutyMode::Advise),
@@ -2062,6 +2865,7 @@ mod tests {
                     )],
                     prohibitions: vec![],
                     obligations: vec![],
+                    conflict: ConflictStrategy::default(),
                 },
                 claims_with(&[("copies", ClaimValue::Single("5".into()))]),
                 taxonomy_config(Behaviour::Closed, DutyMode::Advise),
@@ -2094,6 +2898,7 @@ mod tests {
             permissions: vec![Rule::new("use", vec![]), Rule::new("anonymize", vec![])],
             prohibitions: vec![],
             obligations: vec![],
+            conflict: ConflictStrategy::default(),
         };
         assert!(performable_actions(&policy, &claims, &config, ASSET).is_empty());
 
@@ -2146,12 +2951,281 @@ mod tests {
         );
     }
 
+    // -- nested duties: odrl:duty, odrl:consequence, odrl:remedy -----------
+
+    /// A duty resolved the way every duty here is: by an ordinary
+    /// claims-map lookup a host satisfies with a claim asserting the duty
+    /// fulfilled. There is deliberately no second mechanism.
+    fn asserted_duty(action: &str) -> Rule {
+        Rule::new(action, vec![Constraint::new(format!("duty:{action}"), Operator::Eq, "fulfilled")])
+    }
+
+    fn fulfilled(actions: &[&str]) -> Claims {
+        actions
+            .iter()
+            .map(|a| (format!("duty:{a}"), ClaimValue::Single("fulfilled".into())))
+            .collect()
+    }
+
+    #[test]
+    fn a_permission_duty_naming_an_action_outside_the_vocabulary_is_a_configuration_error() {
+        // Section 4.4's own posture, at the new attachment point: a
+        // policy-level obligation naming an unknown action is already an
+        // Error, and an identical duty attached to a permission is the same
+        // configuration gap. Leaving it unchecked would make the outcome
+        // depend on where the policy author put the duty.
+        let policy = Policy {
+            permissions: vec![Rule {
+                duty: vec![asserted_duty("anonymize")],
+                ..Rule::new("read", vec![])
+            }],
+            prohibitions: vec![],
+            obligations: vec![],
+            conflict: ConflictStrategy::default(),
+        };
+        let claims = claims_with(&[]);
+        match decide(&policy, &claims, &config_recognizing(&["read"]), "read", ASSET).decision {
+            Decision::Error(unrecognized) => {
+                assert_eq!(unrecognized.action, "anonymize");
+                assert_eq!(unrecognized.rule_kind, RuleKind::Duty);
+                assert_eq!(unrecognized.duty_path.as_deref(), Some("permission[0].duty[0]"));
+                assert!(
+                    unrecognized.to_string().contains("permission[0].duty[0]"),
+                    "the message must say which rule's duty list it indexes: {unrecognized}"
+                );
+            }
+            other => panic!("expected Decision::Error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_consequence_or_remedy_naming_an_unknown_action_is_an_error_too() {
+        let claims = claims_with(&[]);
+        let with_consequence = Policy {
+            permissions: vec![Rule::new("read", vec![])],
+            prohibitions: vec![],
+            obligations: vec![Rule::with_consequence(
+                "notify",
+                vec![Constraint::new("duty:notify", Operator::Eq, "fulfilled")],
+                asserted_duty("anonymize"),
+            )],
+            conflict: ConflictStrategy::default(),
+        };
+        match decide(&with_consequence, &claims, &config_recognizing(&["read", "notify"]), "read", ASSET).decision {
+            Decision::Error(u) => assert_eq!(u.duty_path.as_deref(), Some("duty[0].consequence")),
+            other => panic!("expected Decision::Error for an unknown consequence action, got {other:?}"),
+        }
+
+        let with_remedy = Policy {
+            permissions: vec![Rule::new("read", vec![])],
+            prohibitions: vec![Rule {
+                remedy: vec![asserted_duty("anonymize")],
+                ..Rule::new("read", vec![])
+            }],
+            obligations: vec![],
+            conflict: ConflictStrategy::default(),
+        };
+        match decide(&with_remedy, &claims, &config_recognizing(&["read"]), "read", ASSET).decision {
+            Decision::Error(u) => assert_eq!(u.duty_path.as_deref(), Some("prohibition[0].remedy[0]")),
+            other => panic!("expected Decision::Error for an unknown remedy action, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn an_ordinary_policy_still_reports_the_unrecognized_action_message_it_always_did() {
+        // The nested pass runs after all three original loops precisely so
+        // that no policy without a nested duty can change its answer, this
+        // message text included — it reaches a caller inside `reason`.
+        let policy = Policy {
+            permissions: vec![Rule::new("anonymize", vec![])],
+            prohibitions: vec![],
+            obligations: vec![],
+            conflict: ConflictStrategy::default(),
+        };
+        match decide(&policy, &claims_with(&[]), &config_recognizing(&["read"]), "read", ASSET).decision {
+            Decision::Error(u) => {
+                assert_eq!(u.duty_path, None);
+                assert_eq!(
+                    u.to_string(),
+                    "unrecognized action \"anonymize\" in permission rule at index 0: no loaded \
+                     profile's recognized_actions includes it"
+                );
+            }
+            other => panic!("expected Decision::Error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn nested_duties_contribute_their_left_operands_to_the_claims_a_host_must_gather() {
+        // The same fail-open reasoning `referenced_left_operands` already
+        // applies to an action refinement: a host told to gather less than
+        // the engine reads leaves the duty unfeedable, and a duty that can
+        // never resolve is a permission that can never grant under
+        // duty_mode: deny — or, for a remedy, an obligation the host is
+        // never told it has.
+        let policy = Policy {
+            permissions: vec![Rule {
+                duty: vec![Rule::with_consequence(
+                    "notify",
+                    vec![Constraint::new("duty:notify", Operator::Eq, "fulfilled")],
+                    asserted_duty("compensate"),
+                )],
+                ..Rule::new("read", vec![Constraint::new("sub", Operator::Eq, "alice")])
+            }],
+            prohibitions: vec![Rule {
+                remedy: vec![asserted_duty("anonymize")],
+                ..Rule::new("read", vec![])
+            }],
+            obligations: vec![],
+            conflict: ConflictStrategy::default(),
+        };
+        assert_eq!(
+            policy.referenced_left_operands(),
+            vec![
+                "duty:anonymize".to_string(),
+                "duty:compensate".to_string(),
+                "duty:notify".to_string(),
+                "sub".to_string(),
+            ],
+            "a permission's duty, that duty's consequence, and a prohibition's remedy are all \
+             read by this engine, so all three belong in the set a host is told to gather"
+        );
+    }
+
+    #[test]
+    fn the_left_operand_walk_stops_at_the_same_consequence_bound_evaluation_stops_at() {
+        // A duty past the bound is never evaluated, so naming its claim key
+        // would send a host to gather a claim that provably cannot change
+        // any decision — the rule `Constraint::collect_left_operands`
+        // already applies to its own depth bound.
+        let mut duty = asserted_duty("past-the-bound");
+        for _ in 0..=MAX_CONSEQUENCE_DEPTH {
+            duty = Rule::with_consequence(
+                "notify",
+                vec![Constraint::new("duty:notify", Operator::Eq, "fulfilled")],
+                duty,
+            );
+        }
+        let policy = Policy {
+            permissions: vec![],
+            prohibitions: vec![],
+            obligations: vec![duty],
+            conflict: ConflictStrategy::default(),
+        };
+        assert_eq!(
+            policy.referenced_left_operands(),
+            vec!["duty:notify".to_string()],
+            "the deepest link's own claim key sits past MAX_CONSEQUENCE_DEPTH and is not reported"
+        );
+    }
+
+    #[test]
+    fn a_per_permission_duty_gates_only_its_own_permission_under_duty_mode_deny() {
+        // The decision-layer statement of the scoping rule, beside
+        // `wire.rs`'s wire-level one: unlike a policy-level obligation,
+        // which denies the request outright, an unresolved per-permission
+        // duty removes exactly one permission from consideration.
+        let policy = Policy {
+            permissions: vec![
+                Rule {
+                    duty: vec![asserted_duty("compensate")],
+                    ..Rule::new("read", vec![])
+                },
+                Rule::new("read", vec![]),
+            ],
+            prohibitions: vec![],
+            obligations: vec![],
+            conflict: ConflictStrategy::default(),
+        };
+        let config = config_with(&["read", "compensate"], DutyMode::Deny, Behaviour::Closed);
+
+        let outcome = decide(&policy, &claims_with(&[]), &config, "read", ASSET);
+        assert_eq!(
+            outcome.decision,
+            Decision::Allow,
+            "permission[1] grants on its own; permission[0]'s outstanding duty is not the policy's"
+        );
+        assert_eq!(outcome.unresolved_duties.len(), 1);
+        assert_eq!(outcome.unresolved_duties[0].path(), "permission[0].duty[0]");
+
+        // With permission[1] gone, that same outstanding duty is the whole
+        // reason nothing grants — and the control shows it really is the duty.
+        let alone = Policy {
+            permissions: vec![policy.permissions[0].clone()],
+            ..policy
+        };
+        assert_eq!(decide(&alone, &claims_with(&[]), &config, "read", ASSET).decision, Decision::Deny);
+        assert_eq!(
+            decide(&alone, &fulfilled(&["compensate"]), &config, "read", ASSET).decision,
+            Decision::Allow
+        );
+    }
+
+    #[test]
+    fn a_remedy_never_lifts_a_prohibition_in_either_direction() {
+        // The documented sub-decision, asserted at the decision layer: a
+        // remedy is reported, never enforced away. Both resolutions give
+        // the same Deny; only the duty list differs.
+        let policy = Policy {
+            permissions: vec![Rule::new("read", vec![])],
+            prohibitions: vec![Rule {
+                remedy: vec![asserted_duty("anonymize")],
+                ..Rule::new("read", vec![])
+            }],
+            obligations: vec![],
+            conflict: ConflictStrategy::default(),
+        };
+        let config = config_recognizing(&["read", "anonymize"]);
+
+        let violated = decide(&policy, &claims_with(&[]), &config, "read", ASSET);
+        assert_eq!(violated.decision, Decision::Deny);
+        assert_eq!(violated.unresolved_duties.len(), 1);
+        assert_eq!(violated.unresolved_duties[0].path(), "prohibition[0].remedy[0]");
+
+        let remedied = decide(&policy, &fulfilled(&["anonymize"]), &config, "read", ASSET);
+        assert_eq!(
+            remedied.decision,
+            Decision::Deny,
+            "a satisfied remedy is still a Deny: duties in this engine only ever tighten a \
+             decision, and a claims-asserted remedy able to erase a prohibition would be the \
+             first one that loosens one"
+        );
+        assert!(remedied.unresolved_duties.is_empty());
+    }
+
+    #[test]
+    fn performable_actions_inherits_the_per_permission_duty_gating_rather_than_re_deciding_it() {
+        let policy = Policy {
+            permissions: vec![
+                Rule {
+                    duty: vec![asserted_duty("compensate")],
+                    ..Rule::new("read", vec![])
+                },
+                Rule::new("write", vec![]),
+            ],
+            prohibitions: vec![],
+            obligations: vec![],
+            conflict: ConflictStrategy::default(),
+        };
+        let config = config_with(&["read", "write", "compensate"], DutyMode::Deny, Behaviour::Closed);
+        assert_eq!(
+            performable_actions(&policy, &claims_with(&[]), &config, ASSET),
+            vec!["write".to_string()],
+            "`read` is gated by its own permission's outstanding duty; `write` is not"
+        );
+        assert_eq!(
+            performable_actions(&policy, &fulfilled(&["compensate"]), &config, ASSET),
+            vec!["read".to_string(), "write".to_string()]
+        );
+    }
+
     #[test]
     fn an_unresolved_duty_under_duty_mode_deny_makes_nothing_performable() {
         let policy = Policy {
             permissions: vec![Rule::new("use", vec![])],
             prohibitions: vec![],
             obligations: vec![Rule::new("notify", vec![])],
+            conflict: ConflictStrategy::default(),
         };
         let claims = claims_with(&[]);
         assert!(
@@ -2166,6 +3240,281 @@ mod tests {
         assert_eq!(
             performable_actions(&policy, &claims, &taxonomy_config(Behaviour::Open, DutyMode::Advise), ASSET),
             vec!["read".to_string(), "use".to_string(), "write".to_string()]
+        );
+    }
+
+    // -- odrl:conflict -----------------------------------------------------
+
+    const EVERY_STRATEGY: [ConflictStrategy; 3] =
+        [ConflictStrategy::Perm, ConflictStrategy::Prohibit, ConflictStrategy::Invalid];
+
+    /// The one shape `odrl:conflict` is about: a permission and a
+    /// prohibition that both cover and match the *same* requested action on
+    /// the *same* requested target.
+    fn colliding_policy(conflict: ConflictStrategy) -> Policy {
+        Policy {
+            permissions: vec![Rule::new("read", vec![])],
+            prohibitions: vec![Rule::new("read", vec![])],
+            obligations: vec![],
+            conflict,
+        }
+    }
+
+    #[test]
+    fn a_policy_that_declares_no_conflict_strategy_defaults_to_invalid() {
+        // The deliberate departure from this engine's own prior implicit
+        // behaviour, stated as its own assertion rather than left to be
+        // inferred from a decision that happens to be `Deny` either way.
+        // ODRL's stated default for a policy carrying no conflict term is
+        // `invalid`; the engine's was an unconditional, unnamed `prohibit`.
+        assert_eq!(Policy::default().conflict, ConflictStrategy::Invalid);
+        assert_eq!(
+            serde_json::from_str::<Policy>(r#"{"permissions": [], "prohibitions": []}"#).unwrap().conflict,
+            ConflictStrategy::Invalid,
+            "a policy document from before this field existed reads as ODRL's own default"
+        );
+        assert_eq!(
+            serde_json::from_str::<Policy>(r#"{"odrl:conflict": "perm"}"#).unwrap().conflict,
+            ConflictStrategy::Perm,
+            "the control: the key is really read, so the assertion above is about a default \
+             and not about an ignored key"
+        );
+    }
+
+    #[test]
+    fn a_policy_carrying_the_default_conflict_strategy_serializes_exactly_as_it_did_before() {
+        // Wire-additive on the convention `odrl:target` and
+        // `odrl:refinement` already set: the key is emitted only by a
+        // policy that means something other than the default, so every
+        // document this engine produced before the field existed is
+        // byte-for-byte what it was.
+        assert_eq!(
+            serde_json::to_string(&Policy::default()).unwrap(),
+            r#"{"permissions":[],"prohibitions":[],"obligations":[]}"#
+        );
+        assert_eq!(
+            serde_json::to_string(&colliding_policy(ConflictStrategy::Perm)).unwrap(),
+            r#"{"permissions":[{"action":"read","constraints":[]}],"prohibitions":[{"action":"read","constraints":[]}],"obligations":[],"odrl:conflict":"perm"}"#
+        );
+    }
+
+    #[test]
+    fn conflict_perm_lets_a_matching_permission_beat_a_matching_prohibition() {
+        // The one combining rule this engine has never had at all.
+        assert_eq!(
+            decide(&colliding_policy(ConflictStrategy::Perm), &claims_with(&[]), &all_actions_config(), "read", ASSET)
+                .decision,
+            Decision::Allow
+        );
+    }
+
+    #[test]
+    fn conflict_prohibit_and_conflict_invalid_both_deny_a_genuine_collision() {
+        // Same decision, different reasons -- `prohibit` resolves the
+        // policy prohibition-first, `invalid` refuses to resolve it at all.
+        // The two are told apart by the wire trace (`wire.rs`), which is
+        // deliberately the only place they differ: there is no fourth
+        // `Decision` variant for a void policy.
+        for conflict in [ConflictStrategy::Prohibit, ConflictStrategy::Invalid] {
+            assert_eq!(
+                decide(&colliding_policy(conflict), &claims_with(&[]), &all_actions_config(), "read", ASSET).decision,
+                Decision::Deny,
+                "{conflict:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_conflict_strategy_changes_nothing_for_a_policy_with_no_genuine_collision() {
+        // The regression guard for the whole addition: `odrl:conflict` is
+        // consulted only where a permission and a prohibition both hold for
+        // the same request. Every other shape -- which is every shape any
+        // fixture in this workspace or in the vendored compliance corpus
+        // actually has -- must answer identically under all three
+        // strategies, including the new default.
+        let alice = claims_with(&[("sub", ClaimValue::Single("alice".into()))]);
+        let fixtures: Vec<(&str, Policy, Claims, ResolvedConfig, &str)> = vec![
+            (
+                "permission only, matching",
+                Policy { permissions: vec![Rule::new("read", vec![])], ..Policy::default() },
+                claims_with(&[]),
+                all_actions_config(),
+                ASSET,
+            ),
+            (
+                "prohibition only, matching",
+                Policy { prohibitions: vec![Rule::new("read", vec![])], ..Policy::default() },
+                claims_with(&[]),
+                all_actions_config(),
+                ASSET,
+            ),
+            (
+                "permission matches, prohibition misses on its constraint",
+                Policy {
+                    permissions: vec![Rule::new("read", vec![])],
+                    prohibitions: vec![Rule::new("read", vec![Constraint::new("sub", Operator::Eq, "bob")])],
+                    ..Policy::default()
+                },
+                alice.clone(),
+                all_actions_config(),
+                ASSET,
+            ),
+            (
+                "prohibition matches, permission misses on its constraint",
+                Policy {
+                    permissions: vec![Rule::new("read", vec![Constraint::new("sub", Operator::Eq, "bob")])],
+                    prohibitions: vec![Rule::new("read", vec![])],
+                    ..Policy::default()
+                },
+                alice.clone(),
+                all_actions_config(),
+                ASSET,
+            ),
+            (
+                "both rules present but about different assets, so only one applies",
+                Policy {
+                    permissions: vec![Rule::targeting("read", ASSET, vec![])],
+                    prohibitions: vec![Rule::targeting("read", "urn:uuid:other-asset", vec![])],
+                    ..Policy::default()
+                },
+                claims_with(&[]),
+                all_actions_config(),
+                ASSET,
+            ),
+            (
+                "both rules present but about different actions",
+                Policy {
+                    permissions: vec![Rule::new("read", vec![])],
+                    prohibitions: vec![Rule::new("write", vec![])],
+                    ..Policy::default()
+                },
+                claims_with(&[]),
+                all_actions_config(),
+                ASSET,
+            ),
+            (
+                "empty permissions under behaviour: open, with a matching prohibition",
+                Policy { prohibitions: vec![Rule::new("read", vec![])], ..Policy::default() },
+                claims_with(&[]),
+                config_with(&["read", "write"], DutyMode::Advise, Behaviour::Open),
+                ASSET,
+            ),
+            (
+                "nothing matches at all under behaviour: closed",
+                Policy {
+                    permissions: vec![Rule::new("read", vec![Constraint::new("sub", Operator::Eq, "bob")])],
+                    ..Policy::default()
+                },
+                alice.clone(),
+                config_with(&["read", "write"], DutyMode::Advise, Behaviour::Closed),
+                ASSET,
+            ),
+            (
+                "an unresolved policy-level obligation under duty_mode: deny",
+                Policy {
+                    permissions: vec![Rule::new("read", vec![])],
+                    obligations: vec![Rule::new("write", vec![])],
+                    ..Policy::default()
+                },
+                claims_with(&[]),
+                config_with(&["read", "write"], DutyMode::Deny, Behaviour::Open),
+                ASSET,
+            ),
+        ];
+
+        for (label, policy, claims, config, target) in fixtures {
+            let baseline = decide(&policy, &claims, &config, "read", target);
+            for conflict in EVERY_STRATEGY {
+                let declared = Policy { conflict, ..policy.clone() };
+                assert_eq!(
+                    decide(&declared, &claims, &config, "read", target),
+                    baseline,
+                    "{label}: declaring odrl:conflict {conflict:?} changed a decision with no \
+                     genuine collision in it"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn an_empty_permissions_list_is_never_a_conflict_however_open_the_behaviour_is() {
+        // `Behaviour::Open` meets the permission *requirement* vacuously
+        // for a policy with no permissions at all -- but there is no
+        // permission to win a conflict, so `perm` has nothing to promote
+        // and the prohibition denies under every strategy. Keyed off an
+        // actual granting permission rather than off
+        // `permission_requirement_met` for exactly this reason.
+        let policy = Policy { prohibitions: vec![Rule::new("read", vec![])], ..Policy::default() };
+        let config = config_with(&["read"], DutyMode::Advise, Behaviour::Open);
+        for conflict in EVERY_STRATEGY {
+            assert_eq!(
+                decide(&Policy { conflict, ..policy.clone() }, &claims_with(&[]), &config, "read", ASSET).decision,
+                Decision::Deny,
+                "{conflict:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn conflict_resolution_counts_only_permissions_that_actually_grant() {
+        // A permission whose own `odrl:duty` is outstanding under
+        // `duty_mode: deny` does not grant (`Rule::grants`), so it is not a
+        // party to a conflict either: `perm` cannot promote a permission
+        // that is not in force. The control below -- the identical policy
+        // with the duty's claim supplied -- is what makes this an
+        // assertion about the duty rather than about `perm` being inert.
+        let policy = Policy {
+            permissions: vec![Rule {
+                duty: vec![Rule::new(
+                    "compensate",
+                    vec![Constraint::new("duty:compensate", Operator::Eq, "fulfilled")],
+                )],
+                ..Rule::new("read", vec![])
+            }],
+            prohibitions: vec![Rule::new("read", vec![])],
+            obligations: vec![],
+            conflict: ConflictStrategy::Perm,
+        };
+        let config = config_with(&["read", "compensate"], DutyMode::Deny, Behaviour::Open);
+        assert_eq!(
+            decide(&policy, &claims_with(&[]), &config, "read", ASSET).decision,
+            Decision::Deny,
+            "an outstanding per-permission duty keeps the permission out of the conflict"
+        );
+        assert_eq!(
+            decide(&policy, &fulfilled(&["compensate"]), &config, "read", ASSET).decision,
+            Decision::Allow,
+            "the control: with the duty resolved the permission grants, the conflict is genuine, \
+             and `perm` resolves it"
+        );
+    }
+
+    #[test]
+    fn performable_actions_inherits_the_conflict_strategy_rather_than_re_deciding_it() {
+        // The enumeration entry point is a thin wrapper over `decide`, and
+        // that has to hold for this axis too: under `perm` every action the
+        // colliding pair covers comes back, under the `invalid` default
+        // none of them does.
+        let policy = Policy {
+            permissions: vec![Rule::new("use", vec![])],
+            prohibitions: vec![Rule::new("use", vec![])],
+            obligations: vec![],
+            conflict: ConflictStrategy::Perm,
+        };
+        let config = taxonomy_config(Behaviour::Open, DutyMode::Advise);
+        assert_eq!(
+            performable_actions(&policy, &claims_with(&[]), &config, ASSET),
+            vec!["read".to_string(), "use".to_string(), "write".to_string()]
+        );
+        assert!(
+            performable_actions(
+                &Policy { conflict: ConflictStrategy::Invalid, ..policy },
+                &claims_with(&[]),
+                &config,
+                ASSET
+            )
+            .is_empty(),
+            "a void policy performs nothing"
         );
     }
 }

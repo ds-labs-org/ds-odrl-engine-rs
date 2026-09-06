@@ -786,7 +786,7 @@ mod tests {
     assert_eq!(file.schema, COVERAGE_SCHEMA);
     assert_eq!(file.rows.len(), 52, "the source gap analysis enumerates 52 vocabulary rows");
     assert_eq!(file.categories.len(), 10);
-    assert_eq!(file.probes.len(), 115);
+    assert_eq!(file.probes.len(), 125);
     assert!(file.spec.contains("odrl-vocab"));
   }
 
@@ -911,11 +911,11 @@ mod tests {
       "act-includedin-undeclared-gap",     // Partial, negative
       "lc-andsequence-ignored",            // NotImplemented, negative
       "op-profile-operator-unparseable",   // OutOfScope, negative
-      "duty-per-permission-ignored",       // NotImplemented, duties asserted
+      "duty-per-permission-advisory",      // Partial, duties asserted with a source
       "asset-per-rule-target-hit",         // Partial, positive, per-rule odrl:target
       "beh-closed-empty",                  // Implemented, reason_excludes
       "op-isnoneof-absent-satisfies",      // Implemented, positive
-      "conflict-invalid-ignored",          // NotImplemented, negative
+      "conflict-default-invalid-voids",    // Implemented, positive, reason_excludes
       "inheritfrom-ignored",               // NotImplemented, multi-policy
     ];
 
@@ -951,10 +951,12 @@ mod tests {
   /// `crate::wire`'s types do not model, and a round trip would drop the
   /// one key each of those probes turns on. Most are keys the *engine*
   /// does not model either — that is what those probes assert. The
-  /// exception is `odrl:target`, which the engine models and this site's
-  /// own mirror of `Rule` deliberately still does not (`site/README.md`):
-  /// a round trip would drop it here just the same, silently turning a
-  /// probe about per-rule assets into one about none.
+  /// exceptions are `odrl:target` and `odrl:duty`, which the engine models
+  /// and this site's own mirror of `Rule` deliberately still does not
+  /// (`site/README.md`): a round trip would drop either here just the
+  /// same, silently turning a probe about per-rule assets into one about
+  /// none, or a probe about a per-permission duty into one about a bare
+  /// permission.
   #[test]
   fn a_probes_raw_request_keeps_the_keys_this_sites_own_types_do_not_model() {
     let file = parse_coverage_catalog(LATEST_COVERAGE_JSON).expect("the committed artifact parses");
@@ -964,8 +966,8 @@ mod tests {
 
     for (probe_id, key) in [
       ("lc-andsequence-ignored", "odrl:andSequence"),
-      ("conflict-perm-ignored", "\"conflict\""),
-      ("duty-per-permission-ignored", "\"duty\""),
+      ("conflict-perm-allows", "odrl:conflict"),
+      ("duty-per-permission-advisory", "odrl:duty"),
       ("asset-per-rule-target-hit", "odrl:target"),
       ("act-implies-ignored", "odrl:implies"),
       ("uid-rule-index-not-uid", "urn:rule:r-7"),

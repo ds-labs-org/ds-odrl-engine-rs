@@ -157,6 +157,16 @@ fn run() -> Result<(), String> {
                 actions: actions.iter().map(WireActionDecl::from).collect(),
                 duty_mode: resolved.duty_mode,
                 behaviour: resolved.behaviour,
+                // Carried from the resolved config for the same reason
+                // `duty_mode` and `behaviour` above are — but always `None`
+                // here, so the key is never emitted: `engine::resolve`
+                // cannot set it, because which claim key carries the
+                // caller's identity is host deployment configuration rather
+                // than something an ODRL Profile document declares. See
+                // `engine::ResolvedConfig::party_identity_claim`; a host
+                // wanting party-role scoping adds `partyIdentityClaim` to
+                // the config this prints.
+                party_identity_claim: resolved.party_identity_claim.clone(),
             };
             println!("{}", serde_json::to_string_pretty(&config).map_err(|e| e.to_string())?);
             Ok(())

@@ -100,16 +100,21 @@
 //!   `odrl:assignee`/`odrl:target` match already was for an individual —
 //!   still no claim or wire-contract change, since membership is decided
 //!   once, at translate time, not evaluated inside the engine.
-//! - A per-permission `odrl:duty`: this engine still has no nested-duty
-//!   *model* (Section 4.5 evaluates only policy-level obligations) — what
-//!   this adapter does is narrower than that: it reads the SOTW's own
-//!   `report:DutyReport` fact for that duty node (this vendored corpus's
-//!   own way of stating "here is what actually happened" for a duty) and
-//!   excludes the rule entirely when `report:deonticState` is
+//! - A per-permission `odrl:duty`: `engine::Rule` now models one
+//!   (`Rule::duty`, resolved from the claims map like every other duty
+//!   there), but this adapter deliberately does **not** go through it —
+//!   what it does is narrower and stays translate-time: it reads the
+//!   SOTW's own `report:DutyReport` fact for that duty node (this vendored
+//!   corpus's own way of stating "here is what actually happened" for a
+//!   duty) and excludes the rule entirely when `report:deonticState` is
 //!   `report:Violated`. A `Fulfilled` or `NonSet` (unknown) state leaves
 //!   the rule in play, matching this corpus's own expected reports. This
-//!   resolves the three fixture cases that exercise it; it is not a claim
-//!   that per-permission duties are modeled in general.
+//!   resolves the three fixture cases that exercise it. Migrating it onto
+//!   the engine's own field — which would mean minting a claim per duty
+//!   node and rewriting every exported request in
+//!   `compliance/reports/latest-cases.json` — is a separate deliberate
+//!   decision, exactly as it is for the native logical constraints and
+//!   per-rule `odrl:target` above.
 //!
 //! If **no** rule of a policy survives assignee/target scoping or duty
 //! exclusion, the policy has nothing to say about the request under
@@ -125,7 +130,9 @@
 
 use engine::profile::ActionDecl;
 use engine::wire::WireActionDecl;
-use engine::{ClaimValue, Claims, Constraint, DutyMode, Operator, Request, RequestConfig, Rule, WirePolicy};
+use engine::{
+    ClaimValue, Claims, ConflictStrategy, Constraint, DutyMode, Operator, Request, RequestConfig, Rule, WirePolicy,
+};
 
 use crate::graph::{dct, local_name, odrl, report_ns, Graph};
 use crate::odrl::{ConstraintForm, PartyRef, PolicyInfo, RequestInfo, RuleKind, TargetRef};
@@ -178,6 +185,15 @@ fn base_request_config() -> RequestConfig {
         // parameter instead of relying on an empty-`policies`-array side
         // effect of rule pre-filtering, which no longer exists.
         behaviour: engine::profile::Behaviour::Closed,
+        // Left off deliberately, and this adapter is a large part of why
+        // the capability had to be opt-in. This translation already
+        // resolves `odrl:assignee` itself — per *rule*, against the SOTW
+        // graph's `odrl:partOf` collection membership, mirrored into a
+        // `sub` constraint (see this module's header). Switching the
+        // engine's own party-role scoping on as well would layer a second,
+        // coarser, policy-level assignee check on top of the one this
+        // corpus's ground truth is actually stated in terms of.
+        party_identity_claim: None,
     }
 }
 
@@ -345,6 +361,14 @@ pub fn translate(policy: &PolicyInfo, req: &RequestInfo, sotw: &Graph, dataset_i
             permissions,
             prohibitions,
             obligations: Vec::new(),
+            // The engine's `odrl:conflict` default, `invalid`, and
+            // deliberately not overridden: no Turtle document in the
+            // vendored suite declares `odrl:conflict` at all, and no
+            // fixture policy carries a permission and a prohibition at
+            // once, so no case in this corpus can reach a conflict under
+            // any strategy. Declaring one here would invent a term the
+            // source document does not have.
+            conflict: ConflictStrategy::default(),
         }]
     };
 

@@ -72,6 +72,14 @@ pub struct WireActionDecl {
 /// axis (Section 3.6) -- `"open"` (an empty `permissions` list is
 /// vacuously met, Section 4.3's own original default) or `"closed"`
 /// (nothing actively permits denies, full stop).
+///
+/// `engine::wire::RequestConfig`'s fourth setting, `partyIdentityClaim`,
+/// is deliberately **not** mirrored: it switches on comparison of a
+/// policy's `odrl:assignee` against the caller, and the Demonstrator's
+/// form has no assignee field to compare against (`demo_form.rs`'s own
+/// module doc). Omitting the key is that capability's documented default,
+/// so every request this page builds evaluates exactly as it would have
+/// before the key existed. See `site/README.md`'s "Known limitations".
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RequestConfig {
   #[serde(rename = "@type")]

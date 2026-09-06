@@ -38,7 +38,13 @@ const NOTE: &str = "Each `request` is the exact engine::wire::Request compliance
 /// built from the *same* bindings in `main.rs`'s per-case closure rather
 /// than reconstructed (and possibly diverging) afterwards.
 pub enum FixtureData {
-    Ready { request: Request, expected: WireDecision },
+    /// `request` is boxed purely so this enum's two variants stay close in
+    /// size: a `Request` is by far the larger of the two payloads (and grew
+    /// again when `RequestConfig` gained `partyIdentityClaim`), and an
+    /// unboxed one makes every `Skipped` entry of the 68-case `Vec` in
+    /// `main.rs` carry a `Request`-sized hole. No serialization consequence
+    /// — `fixture_view` borrows straight through the box.
+    Ready { request: Box<Request>, expected: WireDecision },
     Skipped { reason: String },
 }
 
@@ -85,7 +91,7 @@ pub fn fixture_view<'a>(slug: &'a str, title: &'a str, data: &'a FixtureData) ->
         FixtureData::Ready { request, expected } => CaseFixture {
             slug,
             title,
-            request: Some(request),
+            request: Some(request.as_ref()),
             expected_decision: Some(decision_str(*expected)),
             skip_reason: None,
         },
@@ -144,6 +150,12 @@ mod tests {
                 actions: vec![WireActionDecl { id: "read".to_string(), included_in: None }],
                 duty_mode: DutyMode::Advise,
                 behaviour: Behaviour::Closed,
+                // This suite evaluates whole policies against a caller the
+                // vendored corpus identifies by an `assignee` *constraint*
+                // (`translate.rs` mirrors `odrl:assignee` into a `sub`
+                // claim), not by the engine's own party-role scoping, which
+                // stays off here.
+                party_identity_claim: None,
             },
             policies: vec![WirePolicy {
                 id: "policy-1".to_string(),
@@ -153,6 +165,7 @@ mod tests {
                 permissions: vec![Rule::new("read", vec![Constraint::new("sub", Operator::Eq, "alice")])],
                 prohibitions: vec![],
                 obligations: vec![],
+                conflict: engine::ConflictStrategy::default(),
             }],
             claims: Default::default(),
         }
@@ -167,7 +180,7 @@ mod tests {
     fn a_ready_fixture_serializes_the_request_verbatim_and_no_skip_reason() {
         let request = a_request();
         let expected_request = serde_json::to_value(&request).unwrap();
-        let file = rendered(FixtureData::Ready { request, expected: WireDecision::Allow });
+        let file = rendered(FixtureData::Ready { request: Box::new(request), expected: WireDecision::Allow });
 
         let case = &file["cases"][0];
         assert_eq!(case["slug"], "testcase-001-alice");
@@ -189,7 +202,7 @@ mod tests {
 
     #[test]
     fn the_envelope_carries_the_schema_tag_and_no_tally_of_its_own() {
-        let file = rendered(FixtureData::Ready { request: a_request(), expected: WireDecision::Deny });
+        let file = rendered(FixtureData::Ready { request: Box::new(a_request()), expected: WireDecision::Deny });
 
         assert_eq!(file["schema"], SCHEMA);
         assert!(file["suite"].as_str().unwrap().contains("ODRL-Test-Suite"));
@@ -242,8 +255,8 @@ mod tests {
         claims_b.insert("dateTime".to_string(), "2024-02-12T11:20:10.999Z".to_string().into());
         claims_b.insert("sub".to_string(), "alice".to_string().into());
 
-        let data_a = FixtureData::Ready { request: request_with_claims(claims_a), expected: WireDecision::Allow };
-        let data_b = FixtureData::Ready { request: request_with_claims(claims_b), expected: WireDecision::Allow };
+        let data_a = FixtureData::Ready { request: Box::new(request_with_claims(claims_a)), expected: WireDecision::Allow };
+        let data_b = FixtureData::Ready { request: Box::new(request_with_claims(claims_b)), expected: WireDecision::Allow };
         let view_a = fixture_view("testcase-x", "title", &data_a);
         let view_b = fixture_view("testcase-x", "title", &data_b);
 

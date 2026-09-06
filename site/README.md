@@ -322,3 +322,51 @@ without the corpus its Compliance page executes.
   `compliance/reports/latest-coverage.json` is the same policy asked
   about two different assets — so the capability is demonstrated in the
   browser even though the Demonstrator cannot author it by hand.
+- The Demonstrator's rule editor emits none of the three nested-duty
+  keys either — a permission's `odrl:duty`, a duty's `odrl:consequence`,
+  a prohibition's `odrl:remedy` (root README, "Per-permission duties,
+  consequences and remedies"). Same simplification as the two bullets
+  above, same absence of cost at the boundary (all three are optional and
+  a rule without them evaluates exactly as it did before they existed),
+  same fix: rows in `demo_form.rs` plus the fields on `src/wire.rs`'s own
+  `Rule` mirror, no ABI work. As with `odrl:target`, the Coverage Results
+  page **does** exercise all three live against `engine.wasm` today —
+  the `duty-per-permission-*`, `duty-consequence-*` and `duty-remedy-*`
+  probes in `compliance/reports/latest-coverage.json`.
+- The Demonstrator's policy form emits no `odrl:conflict` either (root
+  README, "Conflict strategy (`odrl:conflict`)"), and `src/wire.rs`'s
+  `Policy` mirror does not carry the field. Every request built here
+  therefore takes ODRL's own default, `invalid` — so a policy authored
+  with both a matching permission and a matching prohibition is reported
+  void rather than resolved, which is exactly what the engine does with
+  the same document. Unlike the bullets above this one is **not** free of
+  meaning at the boundary: it is the default that costs nothing, and a
+  Demonstrator user who wants `perm` or `prohibit` cannot ask for it here.
+  Same fix: a conflict selector in `demo_form.rs` plus the field on this
+  site's own `Policy` mirror, no ABI work. The Coverage Results page
+  **does** exercise all three terms live against `engine.wasm` today — the
+  `conflict-default-invalid-voids` / `conflict-perm-allows` /
+  `conflict-prohibit-denies` probes in
+  `compliance/reports/latest-coverage.json` are the same colliding policy
+  under each strategy in turn.
+- Section 5.2's `duties` entries gained an optional `source` field
+  (`permission[0].duty[0]`, `prohibition[0].remedy[0]`, either with a
+  `.consequence` suffix) naming where a duty was attached. This site's
+  `wire::DutyEntry` mirror does not read it: it is absent from every
+  entry a policy-level obligation produces, which is every duty the
+  Demonstrator can author, and the `reason` trace the page already
+  renders names the attachment point in prose anyway. The Coverage page
+  compares duties through the committed catalog's own `DutyExpect`
+  (which *does* carry `source`), not through this mirror.
+- The Demonstrator cannot author party-role scoping (root README,
+  "Party-role evaluation (`odrl:assignee`), opt-in"): its policy form has
+  no `assignee` field, and `src/wire.rs`'s `RequestConfig` mirror carries
+  no `partyIdentityClaim`, so every request it builds leaves the
+  capability off — which is its default, and therefore costs nothing at
+  the boundary. Same fix as the bullets above if it is ever wanted: an
+  assignee row and an identity-claim field in `demo_form.rs` plus the
+  matching fields on this site's own mirrors, no ABI work. The Coverage
+  Results page **does** exercise it live against `engine.wasm` today —
+  the `pf-assignee-scoped-hit` / `-miss` probe pair in
+  `compliance/reports/latest-coverage.json` is one policy asked about by
+  two different callers.

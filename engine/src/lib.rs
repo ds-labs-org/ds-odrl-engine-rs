@@ -9,8 +9,8 @@ pub mod wire;
 pub use claims::{ClaimValue, Claims};
 pub use constraint::{Constraint, Operator, MAX_CONSTRAINT_DEPTH};
 pub use decision::{
-    decide, performable_actions, referenced_left_operands, Decision, DecisionOutcome, Policy, Rule, RuleKind,
-    UnrecognizedAction, UnresolvedDuty,
+    decide, performable_actions, referenced_left_operands, ConflictStrategy, Decision, DecisionOutcome,
+    DutyAttachment, Policy, Rule, RuleKind, UnrecognizedAction, UnresolvedDuty, MAX_CONSEQUENCE_DEPTH,
 };
 pub use profile::{resolve, ActionDecl, Behaviour, DutyMode, Profile, ResolvedConfig};
 pub use wire::{

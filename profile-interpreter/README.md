@@ -42,6 +42,19 @@ than assumed — see `src/interpret.rs`'s module doc for the full reasoning:
   from the ODRL Formal Semantics draft, engine Section 4.3) is likewise
   never read from the document — same reasoning as `duty_mode` — so it's
   a caller-supplied flag too, defaulting to `open` when omitted.
+- `partyIdentityClaim` (the opt-in party-role setting, root README's
+  "Party-role evaluation (`odrl:assignee`), opt-in") is never read from
+  the document and, unlike the two flags above, is not even a
+  caller-supplied flag *here*: `engine::resolve` cannot set it, so
+  `resolve` never emits the key and the configs this tool prints always
+  leave party-role evaluation off. The reasoning is one step stronger
+  than `duty_mode`'s. Those two are statements about how policies should
+  be evaluated, which is at least the kind of thing a profile is about;
+  this one names which key of the *host's own claims map* carries the
+  caller's identity, which is a fact about somebody else's identity
+  provider that no published, shareable profile document could
+  legitimately assert. A host that wants party-role scoping adds the key
+  to the config this tool prints.
 - `odrl:LeftOperand`/`odrl:Operator` extension declarations are noted
   (the former needs no action — this engine's leftOperand is already a
   free-form claims-map key; the latter genuinely can't be honored, since

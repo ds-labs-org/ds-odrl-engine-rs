@@ -1,5 +1,5 @@
 //! The catalog: 52 vocabulary rows from the source gap analysis, and the
-//! ~115 `evaluate()` calls that put 49 of them to the test in a browser.
+//! ~125 `evaluate()` calls that put 49 of them to the test in a browser.
 //!
 //! Two design rules every probe here obeys, because without them a probe
 //! proves nothing:
@@ -25,7 +25,7 @@ use engine::claims::ClaimValue;
 use engine::constraint::{Constraint, Operator};
 use engine::profile::{Behaviour, DutyMode};
 use engine::wire::{WireActionDecl, WireNodeRef};
-use engine::{Claims, Request, RequestConfig, Rule, WirePolicy};
+use engine::{Claims, ConflictStrategy, Request, RequestConfig, Rule, WirePolicy};
 
 use crate::patch::{apply_patches, Patch};
 use crate::render::{Category, DutyExpect, Expect, Probe, Row};
@@ -60,6 +60,7 @@ pub fn config(actions: Vec<WireActionDecl>) -> RequestConfig {
         actions,
         duty_mode: DutyMode::Advise,
         behaviour: Behaviour::Closed,
+        party_identity_claim: None,
     }
 }
 
@@ -93,6 +94,10 @@ pub fn policy(id: &str, permissions: Vec<Rule>) -> WirePolicy {
         permissions,
         prohibitions: Vec::new(),
         obligations: Vec::new(),
+        // Probes that need a strategy set it explicitly (category 9);
+        // every other probe stays on ODRL's own default, `invalid`, which
+        // is unreachable for a policy that carries no prohibition at all.
+        conflict: ConflictStrategy::default(),
     }
 }
 
@@ -185,7 +190,19 @@ impl Expect {
 }
 
 fn duty(action: &str) -> DutyExpect {
-    DutyExpect { policy_id: "probe".to_string(), action: action.to_string(), resolved: false }
+    DutyExpect { policy_id: "probe".to_string(), action: action.to_string(), resolved: false, source: None }
+}
+
+/// A duty entry carrying provenance — a per-permission `odrl:duty`, a
+/// prohibition's `odrl:remedy`, or a consequence of either — which a plain
+/// policy-level obligation never does.
+fn attached_duty(action: &str, source: &str) -> DutyExpect {
+    DutyExpect {
+        policy_id: "probe".to_string(),
+        action: action.to_string(),
+        resolved: false,
+        source: Some(source.to_string()),
+    }
 }
 
 /// `permission[0] of policy 'probe' matched: action 'use', unconstrained`
@@ -1392,7 +1409,9 @@ fn policy_class_probes() -> Vec<Probe> {
         asserts: "An ODRL Agreement MUST grant only to its own named assignee. This request names \
                   did:web:alice.example and the caller presents did:web:mallory.example -- and the \
                   decision AND the reason are byte-identical to pc-kind-set's. No class-level MUST is \
-                  validated anywhere.",
+                  validated anywhere: `kind` never selects a semantics. Assignee scoping is available \
+                  (pf-assignee-scoped-miss) but is switched on by the config's partyIdentityClaim, not \
+                  by a policy calling itself an Agreement, and this request does not switch it on.",
         falsified_by: "Deny -- which would mean assignee scoping is enforced for Agreements",
         request: named_to_alice("Agreement"),
         patches: vec![],
@@ -1448,17 +1467,40 @@ fn party_probes() -> Vec<Probe> {
     // Capacity is this category's own probe count, asserted by
     // `the_catalog_has_fifty_two_rows_across_ten_categories`'s sibling
     // checks rather than left as a guess.
-    let mut probes = Vec::with_capacity(5);
+    let mut probes = Vec::with_capacity(7);
 
     let stranger = || claims(&[("sub", s("did:web:mallory.example"))]);
+
+    // The request the two `pf-assignee-scoped-*` probes share, differing
+    // only in whose identity the caller presents: one policy assigned to
+    // alice, under a config naming `sub` as the claim that identifies the
+    // caller. `party_identity_claim` is a real, modelled field on
+    // `engine::RequestConfig`, so these are typed values like every other
+    // supported part of a request rather than keys injected through
+    // `patch.rs`.
+    let scoped_to_alice = |caller_claims: Claims| {
+        let mut request = Request {
+            policies: vec![WirePolicy {
+                assignee: Some("did:web:alice.example".to_string()),
+                ..policy("probe", vec![rule("use", vec![])])
+            }],
+            claims: caller_claims,
+            ..base_request()
+        };
+        request.config.party_identity_claim = Some("sub".to_string());
+        request
+    };
 
     probes.push(build(Spec {
         id: "pf-assignee-mismatch",
         kind: NEGATIVE,
-        title: "a policy's assignee is never compared against the caller's identity claim",
+        title: "with no partyIdentityClaim configured, a policy's assignee is never compared against \
+                the caller",
         asserts: "The policy names did:web:alice.example; the caller's `sub` claim is \
-                  did:web:mallory.example. The permission still applies.",
-        falsified_by: "Deny -- which would mean assignee is evaluated as a party scope",
+                  did:web:mallory.example; the config names no identity claim. The permission still \
+                  applies. This is the default, and what every request built before \
+                  partyIdentityClaim existed gets.",
+        falsified_by: "Deny -- which would mean assignee is evaluated as a party scope unasked",
         request: Request {
             policies: vec![WirePolicy {
                 assignee: Some("did:web:alice.example".to_string()),
@@ -1476,7 +1518,8 @@ fn party_probes() -> Vec<Probe> {
         kind: POSITIVE,
         title: "the same request with no assignee at all reaches the identical answer",
         asserts: "The control for pf-assignee-mismatch and for every inert-party-property probe below: \
-                  the field is carried faithfully and consumed by nothing.",
+                  the field is carried faithfully and, with no partyIdentityClaim configured, consumed \
+                  by nothing.",
         falsified_by: "a decision or reason differing from pf-assignee-mismatch's",
         request: Request { claims: stranger(), ..base_request() },
         patches: vec![],
@@ -1484,12 +1527,47 @@ fn party_probes() -> Vec<Probe> {
     }));
 
     probes.push(build(Spec {
+        id: "pf-assignee-scoped-hit",
+        kind: POSITIVE,
+        title: "with partyIdentityClaim configured, a policy still applies to the assignee it names",
+        asserts: "The opt-in half of the pair: the config names `sub` as the caller's identity claim, \
+                  the policy names did:web:alice.example, and the caller presents exactly that. The \
+                  answer is byte-identical to pf-assignee-mismatch's -- switching party-role scoping \
+                  on must change nothing for the party a policy is addressed to.",
+        falsified_by: "Deny -- which would mean the check rejects even the correct assignee",
+        request: scoped_to_alice(claims(&[("sub", s("did:web:alice.example"))])),
+        patches: vec![],
+        expect: allow(&base_allow_reason()),
+    }));
+
+    probes.push(build(Spec {
+        id: "pf-assignee-scoped-miss",
+        kind: NEGATIVE,
+        title: "with partyIdentityClaim configured, a policy assigned to someone else grants nothing",
+        asserts: "Identical to pf-assignee-scoped-hit but for the caller's own `sub`. The policy is \
+                  treated as absent from the request rather than as a policy that grants nothing, so \
+                  the answer is a deny whose reason names the assignee mismatch -- explicitly not the \
+                  closed-default 'no permission ... covered and matched' line.",
+        falsified_by: "Allow, or a Deny reported as an ordinary constraint miss",
+        request: scoped_to_alice(stranger()),
+        patches: vec![],
+        expect: deny(
+            "no policy in the request applies to this caller: policy 'probe' names odrl:assignee \
+             'did:web:alice.example', which does not match the caller's 'sub' claim \
+             (\"did:web:mallory.example\")",
+        )
+        .excluding(&["no permission of policy"]),
+    }));
+
+    probes.push(build(Spec {
         id: "pf-assignee-as-claim",
         kind: POSITIVE,
-        title: "party scoping is reachable only by mirroring the party into the claims map",
-        asserts: "The one way a host gets party-scoped evaluation out of this engine: put the party in \
-                  the claims map and constrain on it as an ordinary opaque key. Note the key is a claim \
-                  named `assignee`, not the policy's own assignee field.",
+        title: "party scoping is also reachable by mirroring the party into the claims map",
+        asserts: "The other route to party-scoped evaluation, and the only one before \
+                  partyIdentityClaim existed: put the party in the claims map and constrain on it as \
+                  an ordinary opaque key. Note the key is a claim named `assignee`, not the policy's \
+                  own assignee field, and that this scopes one *rule* where partyIdentityClaim scopes \
+                  the whole policy.",
         falsified_by: "Deny",
         request: one(
             c("assignee", Operator::Eq, "did:web:alice.example"),
@@ -1605,64 +1683,196 @@ fn duty_probes() -> Vec<Probe> {
         expect: deny("duty[0] 'notify' of policy 'probe' is unresolved under duty_mode: deny").with_duties(vec![]),
     }));
 
+    // A duty asserted through the claims map, which is how every duty in
+    // this engine resolves: `duty:<action> eq fulfilled`. There is no
+    // second lookup mechanism -- a host states duty state as an ordinary
+    // claim, exactly as `compliance-runner` derives it from a
+    // `report:DutyReport` fact before building its request.
+    fn asserted_duty(action: &str) -> Rule {
+        rule(action, vec![c(&format!("duty:{action}"), Operator::Eq, "fulfilled")])
+    }
+
+    fn fulfilled(action: &str) -> Claims {
+        claims(&[(&format!("duty:{action}"), s("fulfilled"))])
+    }
+
+    // `base_request()` with the single `use` permission carrying one
+    // per-permission `odrl:duty`, under `duty_mode`.
+    let permission_duty_request = |duty_mode: DutyMode, duty: Rule, request_claims: Claims| {
+        let mut request = base_request();
+        request.config = flat_config(&["use", "compensate", "notify"]);
+        request.config.duty_mode = duty_mode;
+        request.policies[0].permissions = vec![Rule { duty: vec![duty], ..rule("use", vec![]) }];
+        request.claims = request_claims;
+        request
+    };
+
     probes.push(build(Spec {
-        id: "duty-per-permission-ignored",
-        kind: NEGATIVE,
-        title: "a per-permission odrl:duty is dropped, and the permission is granted anyway",
-        asserts: "ODRL's `duty` on a Permission is a PRE-CONDITION for receiving that permission. Injected \
-                  here on the permission, it changes nothing: the permission applies, and the duty does \
-                  not even appear in the response's duties list. Read against act-base-exact, the \
-                  byte-identical request without the injected key. This is a fail-OPEN gap, and the page \
-                  says so.",
-        falsified_by: "Deny, or a duties entry naming compensate -- either would mean the field is read",
-        request: base_request(),
-        patches: vec![Patch::set(
-            "/policies/0/permissions/0",
-            "duty",
-            json!([{"action": "compensate", "constraints": []}]),
-        )],
+        id: "duty-per-permission-unresolved-deny",
+        kind: POSITIVE,
+        title: "under dutyMode: deny an unresolved per-permission odrl:duty stops that permission granting",
+        asserts: "ODRL's `duty` on a Permission is a PRE-CONDITION for receiving that permission. It is                   resolved exactly as a policy-level obligation is -- its own constraints against the                   claims -- but the effect is scoped to the one permission it hangs off, so the reason                   names the permission rather than the policy.",
+        falsified_by: "Allow, which would mean the pre-condition was discarded -- the fail-open gap this                        row recorded before the field existed",
+        request: permission_duty_request(DutyMode::Deny, asserted_duty("compensate"), no_claims()),
+        patches: vec![],
+        expect: deny(
+            "permission[0] of policy 'probe' matched, but its odrl:duty[0] 'compensate' is \
+             unresolved under duty_mode: deny",
+        )
+        .with_duties(vec![attached_duty("compensate", "permission[0].duty[0]")]),
+    }));
+
+    probes.push(build(Spec {
+        id: "duty-per-permission-satisfied",
+        kind: POSITIVE,
+        title: "the same permission grants once the claims assert its duty fulfilled",
+        asserts: "The paired hit for the probe above: one claim differs. Without it, an engine that                   denied every duty-bearing permission outright would pass the deny probe.",
+        falsified_by: "Deny, or a non-empty duties list",
+        request: permission_duty_request(DutyMode::Deny, asserted_duty("compensate"), fulfilled("compensate")),
+        patches: vec![],
+        expect: allow(
+            "permission[0] of policy 'probe' matched: action 'use', unconstrained; odrl:duty[0] \
+             'compensate' satisfied",
+        )
+        .with_duties(vec![]),
+    }));
+
+    probes.push(build(Spec {
+        id: "duty-per-permission-advisory",
+        kind: POSITIVE,
+        title: "under dutyMode: advise the same unresolved duty is advisory, and carries its attachment point",
+        asserts: "The duty surfaces in `duties` with a `source` naming where it hangs -- the field a                   policy-level obligation never carries, which is how a caller tells the two apart.",
+        falsified_by: "Deny, or a duties entry with no source",
+        request: permission_duty_request(DutyMode::Advise, asserted_duty("compensate"), no_claims()),
+        patches: vec![],
+        expect: allow("permission[0] of policy 'probe' matched: action 'use', unconstrained")
+            .with_duties(vec![attached_duty("compensate", "permission[0].duty[0]")]),
+    }));
+
+    probes.push(build(Spec {
+        id: "duty-per-permission-scoped-to-its-own-permission",
+        kind: POSITIVE,
+        title: "an unresolved per-permission duty does not deny a policy whose other permission grants",
+        asserts: "The difference from a policy-level obligation, stated as an observation: under the same                   dutyMode: deny, an unresolved *obligation* denies outright (duty-obligation-deny-mode),                   while an unresolved duty on permission[0] leaves permission[1] free to grant.",
+        falsified_by: "Deny -- which would mean the duty was applied policy-wide, not to its own permission",
+        request: {
+            let mut request =
+                permission_duty_request(DutyMode::Deny, asserted_duty("compensate"), no_claims());
+            request.policies[0].permissions.push(rule("use", vec![]));
+            request
+        },
+        patches: vec![],
+        expect: allow("permission[1] of policy 'probe' matched: action 'use', unconstrained")
+            .with_duties(vec![attached_duty("compensate", "permission[0].duty[0]")]),
+    }));
+
+    /// A policy-level obligation `notify` carrying an `odrl:consequence`
+    /// duty `compensate`, both resolved from the claims map.
+    fn notify_with_consequence() -> Rule {
+        Rule::with_consequence(
+            "notify",
+            vec![c("duty:notify", Operator::Eq, "fulfilled")],
+            asserted_duty("compensate"),
+        )
+    }
+
+    probes.push(build(Spec {
+        id: "duty-consequence-resolves-where-the-primary-did-not",
+        kind: POSITIVE,
+        title: "an unfulfilled duty falls through to its odrl:consequence, which resolves",
+        asserts: "`notify` is not fulfilled, so ODRL says the consequence duty is what now applies -- and                   the claims assert *it* fulfilled, so nothing is outstanding and dutyMode: deny has                   nothing to act on.",
+        falsified_by: "Deny, or a duties entry -- either would mean the consequence was never consulted",
+        request: {
+            let mut request = base_request();
+            request.config = flat_config(&["use", "notify", "compensate"]);
+            request.config.duty_mode = DutyMode::Deny;
+            request.policies[0].obligations = vec![notify_with_consequence()];
+            request.claims = fulfilled("compensate");
+            request
+        },
+        patches: vec![],
         expect: allow(&base_allow_reason()).with_duties(vec![]),
     }));
 
     probes.push(build(Spec {
-        id: "duty-consequence-ignored",
-        kind: NEGATIVE,
-        title: "an odrl:consequence attached to an unresolved duty is dropped",
-        asserts: "The obligation itself is honoured (duties lists notify, exactly as in \
-                  duty-obligation-unresolved-advise), but the consequence duty that ODRL says applies on \
-                  non-fulfilment never appears anywhere.",
-        falsified_by: "a duties entry naming compensate",
-        request: obligation_request(DutyMode::Advise, vec![rule("notify", vec![])], no_claims()),
-        patches: vec![Patch::set(
-            "/policies/0/obligations/0",
-            "consequence",
-            json!([{"action": "compensate", "constraints": []}]),
-        )],
-        expect: allow(&base_allow_reason()).with_duties(vec![duty("notify")]),
+        id: "duty-consequence-itself-unresolved",
+        kind: POSITIVE,
+        title: "a consequence that is itself unresolved leaves dutyMode governing, and is named as a consequence",
+        asserts: "The paired miss: the same obligation with no claims at all. The outstanding duty reported                   is the consequence -- what the policy now requires -- not the `notify` it replaced, and                   its source says `.consequence`.",
+        falsified_by: "a duties entry naming notify, or one with no source",
+        request: {
+            let mut request = base_request();
+            request.config = flat_config(&["use", "notify", "compensate"]);
+            request.policies[0].obligations = vec![notify_with_consequence()];
+            request
+        },
+        patches: vec![],
+        expect: allow(&base_allow_reason())
+            .with_duties(vec![attached_duty("compensate", "duty[0].consequence")]),
+    }));
+
+    /// The prohibition every remedy probe below varies: `use` prohibited
+    /// for a US claim, carrying an `odrl:remedy` duty `anonymize`.
+    fn remedy_request(request_claims: Claims) -> Request {
+        let mut request = base_request();
+        request.config = flat_config(&["use", "anonymize"]);
+        request.policies[0].prohibitions = vec![Rule {
+            remedy: vec![asserted_duty("anonymize")],
+            ..rule("use", vec![c("nationality", Operator::Eq, "US")])
+        }];
+        // `base_request`'s unconstrained `use` permission plus this
+        // prohibition is a genuine odrl:conflict collision for a US claim.
+        // These probes are about a remedy never lifting a prohibition that
+        // won, so the policy declares the strategy under which one does --
+        // otherwise it would be void under ODRL's default and there would
+        // be no deciding prohibition to hang a remedy clause off at all
+        // (category 9 covers that case on its own).
+        request.policies[0].conflict = ConflictStrategy::Prohibit;
+        request.claims = request_claims;
+        request
+    }
+
+    probes.push(build(Spec {
+        id: "duty-remedy-unresolved-does-not-drop-the-prohibition",
+        kind: POSITIVE,
+        title: "a violated prohibition's unresolved odrl:remedy denies and leaves a trace",
+        asserts: "The specific fail-open hazard this engine's README names for remedy: a violated duty                   attached to a prohibition must not drop the prohibition. It denies exactly as the bare                   prohibition would, the remedy is named in the reason, and it surfaces in duties with its                   attachment point.",
+        falsified_by: "Allow, or an empty duties list, or a reason that does not mention the remedy",
+        request: remedy_request(claims(&[("nationality", s("US"))])),
+        patches: vec![],
+        expect: deny(
+            "prohibition[0] of policy 'probe' matched: action 'use': nationality eq US; its \
+             odrl:remedy[0] 'anonymize' is unresolved and does not lift the prohibition; \
+             odrl:conflict 'prohibit' resolves the conflict with permission[0] in the prohibition's favour",
+        )
+        .with_duties(vec![attached_duty("anonymize", "prohibition[0].remedy[0]")]),
     }));
 
     probes.push(build(Spec {
-        id: "duty-remedy-ignored",
+        id: "duty-remedy-satisfied-still-denies",
+        kind: POSITIVE,
+        title: "a satisfied remedy still denies -- a duty never loosens a decision in this engine",
+        asserts: "The documented sub-decision, as an observation rather than a claim: one extra claim                   resolves the remedy, and the decision is the same Deny. Duties here only ever tighten a                   decision (dutyMode: deny turns Allow into Deny; nothing turns Deny into Allow), so the                   ODRL reading where a remedy substitutes for the violation is deliberately not                   implemented -- see engine/src/decision.rs::decide.",
+        falsified_by: "Allow -- which would make a single host-supplied claim able to erase a prohibition",
+        request: remedy_request(claims(&[("nationality", s("US")), ("duty:anonymize", s("fulfilled"))])),
+        patches: vec![],
+        expect: deny(
+            "prohibition[0] of policy 'probe' matched: action 'use': nationality eq US; its \
+             odrl:remedy[0] 'anonymize' is satisfied, which does not lift the prohibition; \
+             odrl:conflict 'prohibit' resolves the conflict with permission[0] in the prohibition's favour",
+        )
+        .with_duties(vec![]),
+    }));
+
+    probes.push(build(Spec {
+        id: "duty-remedy-not-reported-when-the-prohibition-does-not-fire",
         kind: NEGATIVE,
-        title: "an odrl:remedy on a violated prohibition is dropped without trace",
-        asserts: "The prohibition matches and denies, as it should -- but nothing anywhere records that \
-                  the violated prohibition carried a remedy duty. duties is empty.",
+        title: "a remedy on a prohibition that never applies is not reported",
+        asserts: "A remedy is what must be done *on violation*. The same policy with a DE claim leaves the                   prohibition inapplicable, and reporting its remedy would invent an obligation out of a                   rule that had nothing to say.",
         falsified_by: "a duties entry naming anonymize",
-        request: Request {
-            policies: vec![WirePolicy {
-                prohibitions: vec![rule("use", vec![c("nationality", Operator::Eq, "US")])],
-                ..policy("probe", vec![rule("use", vec![])])
-            }],
-            claims: claims(&[("nationality", s("US"))]),
-            ..base_request()
-        },
-        patches: vec![Patch::set(
-            "/policies/0/prohibitions/0",
-            "remedy",
-            json!([{"action": "anonymize", "constraints": []}]),
-        )],
-        expect: deny("prohibition[0] of policy 'probe' matched: action 'use': nationality eq US")
-            .with_duties(vec![]),
+        request: remedy_request(claims(&[("nationality", s("DE"))])),
+        patches: vec![],
+        expect: allow(&base_allow_reason()).with_duties(vec![]),
     }));
 
     probes.push(build(Spec {
@@ -1784,68 +1994,129 @@ fn conflict_probes() -> Vec<Probe> {
     // Capacity is this category's own probe count, asserted by
     // `the_catalog_has_fifty_two_rows_across_ten_categories`'s sibling
     // checks rather than left as a guess.
-    let mut probes = Vec::with_capacity(4);
+    let mut probes = Vec::with_capacity(5);
 
-    let conflicting = || Request {
-        policies: vec![WirePolicy {
-            prohibitions: vec![rule("use", vec![])],
-            ..policy("probe", vec![rule("use", vec![])])
-        }],
-        ..base_request()
+    /// The one shape `odrl:conflict` has anything to say about: a
+    /// permission and a prohibition of the same policy that both cover and
+    /// match the same requested action on the same requested target.
+    /// `conflict` is a real, modelled field on `engine::WirePolicy` now, so
+    /// these probes set it as a typed value rather than injecting it as an
+    /// unknown key through `patch.rs`.
+    fn conflicting(conflict: ConflictStrategy) -> Request {
+        Request {
+            policies: vec![WirePolicy {
+                prohibitions: vec![rule("use", vec![])],
+                conflict,
+                ..policy("probe", vec![rule("use", vec![])])
+            }],
+            ..base_request()
+        }
+    }
+    let void_reason = || {
+        "policy 'probe' is void: permission[0] and prohibition[0] both matched requested action \
+         'use', and the policy's odrl:conflict strategy is 'invalid' (ODRL's own default), which \
+         voids a conflicting policy rather than resolving it"
     };
-    let prohibition_wins = || "prohibition[0] of policy 'probe' matched: action 'use', unconstrained";
 
     probes.push(build(Spec {
-        id: "conflict-prohibition-overrides",
+        id: "conflict-default-invalid-voids",
         kind: POSITIVE,
-        title: "a matching permission and a matching prohibition resolve prohibition-first",
-        asserts: "One fixed strategy, applied unconditionally. Worth noting against the spec: for a \
-                  policy that declares no odrl:conflict at all, ODRL's own default is `invalid` -- void \
-                  the policy -- which is neither this Deny nor an Allow.",
-        falsified_by: "Allow",
-        request: conflicting(),
+        title: "a policy declaring no odrl:conflict is void when a permission and a prohibition collide",
+        asserts: "ODRL's own default for an undeclared conflict term is `invalid` -- void the policy -- \
+                  and that is now what this engine does, rather than the unconditional \
+                  prohibition-overrides earlier revisions applied. Same Deny either way, so the reason \
+                  string is the whole observable: it must name the policy as void and name both \
+                  colliding rules.",
+        falsified_by: "Allow, or a reason reporting the prohibition as the deciding rule",
+        request: conflicting(ConflictStrategy::default()),
         patches: vec![],
-        expect: deny(prohibition_wins()),
+        expect: deny(void_reason()).excluding(&["prohibition[0] of policy 'probe' matched"]),
     }));
 
     probes.push(build(Spec {
-        id: "conflict-perm-ignored",
+        id: "conflict-invalid-declared-explicitly",
         kind: NEGATIVE,
-        title: "conflict: perm is dropped; the prohibition still wins",
-        asserts: "The policy asks explicitly for permission-first conflict resolution and gets \
-                  prohibition-first anyway -- byte-identical decision and reason to \
-                  conflict-prohibition-overrides.",
-        falsified_by: "Allow -- which would mean odrl:conflict is honoured",
-        request: conflicting(),
-        patches: vec![Patch::set("/policies/0", "conflict", json!("perm"))],
-        expect: deny(prohibition_wins()),
+        title: "declaring invalid explicitly is indistinguishable from declaring nothing",
+        asserts: "The control for conflict-default-invalid-voids: the same request with the term written \
+                  out on the wire reaches a byte-identical decision and reason, which is what makes the \
+                  undeclared case a real default rather than a separate code path. The key is injected \
+                  as a patch rather than set on the typed request precisely because a policy meaning the \
+                  default serializes without it -- setting the field would produce the same bytes as the \
+                  probe this one controls, and prove nothing.",
+        falsified_by: "any decision or reason differing from conflict-default-invalid-voids's",
+        request: conflicting(ConflictStrategy::Invalid),
+        patches: vec![Patch::set("/policies/0", "odrl:conflict", json!("invalid"))],
+        expect: deny(void_reason()).excluding(&["prohibition[0] of policy 'probe' matched"]),
     }));
 
     probes.push(build(Spec {
-        id: "conflict-invalid-ignored",
-        kind: NEGATIVE,
-        title: "conflict: invalid is dropped; the policy is resolved rather than voided",
-        asserts: "`invalid` means the conflicting policy should be void -- ODRL's own default, in fact. \
-                  The engine resolves it instead, with the identical reason as the unset case.",
-        falsified_by: "Error, or Allow -- either would mean the policy was treated as void",
-        request: conflicting(),
-        patches: vec![Patch::set("/policies/0", "conflict", json!("invalid"))],
-        expect: deny(prohibition_wins()),
+        id: "conflict-perm-allows",
+        kind: POSITIVE,
+        title: "odrl:conflict: perm lets the permission beat the matching prohibition",
+        asserts: "The one ODRL combining rule this engine had no way to express at all until this \
+                  revision: the identical policy that is void under the default Allows when it asks for \
+                  permission-first resolution, and the trace names the prohibition it overrode. Read \
+                  against conflict-default-invalid-voids, the byte-identical request minus the term.",
+        falsified_by: "Deny -- which would mean odrl:conflict is still inert",
+        request: conflicting(ConflictStrategy::Perm),
+        patches: vec![],
+        expect: allow(
+            "permission[0] of policy 'probe' matched: action 'use', unconstrained; odrl:conflict 'perm' \
+             resolves the conflict with prohibition[0] in the permission's favour",
+        ),
     }));
 
     probes.push(build(Spec {
-        id: "conflict-profile-strategy-ignored",
+        id: "conflict-prohibit-denies",
+        kind: POSITIVE,
+        title: "odrl:conflict: prohibit is deny-overrides, now as a value a policy has to ask for",
+        asserts: "What this engine did unconditionally before the term existed, reachable only by \
+                  declaring it -- and saying so in the trace, so \"prohibition-first because the policy \
+                  chose it\" and \"void because nothing reconciled the two\" are never the same string.",
+        falsified_by: "Allow, or the void reason",
+        request: conflicting(ConflictStrategy::Prohibit),
+        patches: vec![],
+        expect: deny(
+            "prohibition[0] of policy 'probe' matched: action 'use', unconstrained; odrl:conflict \
+             'prohibit' resolves the conflict with permission[0] in the prohibition's favour",
+        )
+        .excluding(&["is void"]),
+    }));
+
+    probes.push(build(Spec {
+        id: "conflict-no-collision-inert",
         kind: NEGATIVE,
-        title: "a profile-declared conflict strategy is dropped like any other unknown key",
-        asserts: "The config declares `ex:assigneeWins` and the policy selects it. Same decision, same \
-                  reason, controlled by conflict-prohibition-overrides.",
-        falsified_by: "any decision or reason differing from conflict-prohibition-overrides's",
-        request: conflicting(),
+        title: "a declared strategy changes nothing for a policy with no genuine collision",
+        asserts: "The scope limit of the whole feature, and the reason no vendored compliance fixture \
+                  moved: `perm` on a policy carrying no prohibition at all is byte-identical to the \
+                  bare baseline. Controlled by act-base-exact.",
+        falsified_by: "any decision or reason differing from act-base-exact's",
+        request: Request {
+            policies: vec![WirePolicy { conflict: ConflictStrategy::Perm, ..policy("probe", vec![rule("use", vec![])]) }],
+            ..base_request()
+        },
+        patches: vec![],
+        expect: allow(&base_allow_reason()),
+    }));
+
+    probes.push(build(Spec {
+        id: "conflict-profile-strategy-unparseable",
+        kind: NEGATIVE,
+        title: "a profile-declared conflict strategy cannot be selected: the request fails to parse",
+        asserts: "The config declares `ex:assigneeWins` and the policy selects it. ConflictStrategy is a \
+                  closed Rust enum spelling ODRL's three ConflictTerms and nothing else, so an \
+                  out-of-enum token is a deserialization failure rather than a silently substituted \
+                  default -- the same closed-enum posture op-isa-unparseable establishes for operators.",
+        falsified_by: "Allow or Deny -- either would mean the token was tolerated and some other strategy applied",
+        request: conflicting(ConflictStrategy::Prohibit),
         patches: vec![
             Patch::set("/config", "odrl:conflict", json!([{"@id": "ex:assigneeWins"}])),
-            Patch::set("/policies/0", "conflict", json!("ex:assigneeWins")),
+            Patch::set("/policies/0", "odrl:conflict", json!("ex:assigneeWins")),
         ],
-        expect: deny(prohibition_wins()),
+        expect: error(&[
+            "request did not parse as the documented Section 5.2 JSON shape",
+            "unknown variant `ex:assigneeWins`, expected one of `perm`, `prohibit`, `invalid`",
+        ]),
     }));
 
     probes
@@ -2611,14 +2882,32 @@ pub fn rows() -> Vec<Row> {
             category: "party",
             term: "assigner, assignee",
             status: PARTIAL,
-            why: "Carried faithfully on the wire, dropped before the decision algorithm ever runs: there \
-                  is party data here, and zero party-role evaluation.",
-            evidence: "engine/src/wire.rs::WirePolicy::as_decision_policy",
-            asserts: "A named assignee does not scope the grant; removing the field changes nothing; and \
-                      the only way to get party scoping is to mirror the party into the claims map.",
-            probe_ids: &["pf-assignee-mismatch", "pf-assignee-null-control", "pf-assignee-as-claim"],
+            why: "assignee is evaluated as a party scope, but only on request: a config naming \
+                  partyIdentityClaim says which claim identifies the caller, and a policy whose \
+                  assignee that caller does not match is then treated as absent from the request. \
+                  Unset -- the default, and every request built before it existed -- both party fields \
+                  are carried on the wire and dropped before the decision algorithm runs. assigner is \
+                  never evaluated at all: it names who granted the policy, not who is asking.",
+            evidence: "engine/src/wire.rs::party_role_mismatch, engine/src/profile.rs::ResolvedConfig::\
+                       party_identity_claim",
+            asserts: "With no partyIdentityClaim, a named assignee does not scope the grant and removing \
+                      the field changes nothing; with one, the named assignee still gets the same answer \
+                      while a stranger gets a deny that names the mismatch; and party scoping is also \
+                      reachable per-rule by mirroring the party into the claims map.",
+            probe_ids: &[
+                "pf-assignee-mismatch",
+                "pf-assignee-null-control",
+                "pf-assignee-scoped-hit",
+                "pf-assignee-scoped-miss",
+                "pf-assignee-as-claim",
+            ],
             documented_because: None,
-            caveat: None,
+            caveat: Some(
+                "Opt-in and assignee-only. Nothing here validates an assigner, resolves an \
+                 odrl:PartyCollection, or normalizes an IRI: the comparison is the engine's own `eq` \
+                 semantics against one claim key -- string equality, or membership for a multi-valued \
+                 claim.",
+            ),
         }),
         row(RowSpec {
             id: "party.collections",
@@ -2701,13 +2990,23 @@ pub fn rows() -> Vec<Row> {
             id: "duty.per-permission",
             category: "duty",
             term: "odrl:duty (per-permission pre-condition)",
-            status: NOT_IMPLEMENTED,
-            why: "Rule has no duty field at all. The permission is granted with the pre-condition \
-                  discarded -- a fail-open gap, not a neutral absence.",
-            evidence: "engine/src/decision.rs::Rule",
-            asserts: "The injected duty changes nothing: same Allow, same reason as the byte-identical \
-                      request without it, and an empty duties list.",
-            probe_ids: &["duty-per-permission-ignored", "act-base-exact"],
+            status: PARTIAL,
+            why: "Rule now carries odrl:duty, resolved exactly as a policy-level obligation is -- its own \
+                  constraints against the claims map -- but scoped to the one permission it hangs off: \
+                  under dutyMode: deny that permission does not grant, while a sibling permission still \
+                  can. Partial, not Implemented, for the same reason the obligation row is: \"satisfied\" \
+                  is a claims precondition, never an observation that the duty was performed.",
+            evidence: "engine/src/decision.rs::Rule::duty, Rule::grants, unresolved_permission_duties",
+            asserts: "Unresolved under deny stops that permission and says so in the reason; one claim \
+                      resolves it; under advise it is advisory and carries its attachment point in the \
+                      duties entry's source; and a sibling permission still grants, which a policy-level \
+                      obligation would not have allowed.",
+            probe_ids: &[
+                "duty-per-permission-unresolved-deny",
+                "duty-per-permission-satisfied",
+                "duty-per-permission-advisory",
+                "duty-per-permission-scoped-to-its-own-permission",
+            ],
             documented_because: None,
             caveat: None,
         }),
@@ -2715,12 +3014,17 @@ pub fn rows() -> Vec<Row> {
             id: "duty.consequence",
             category: "duty",
             term: "odrl:consequence",
-            status: NOT_IMPLEMENTED,
-            why: "A Duty's own on-non-fulfilment Duty has no representation on the wire.",
-            evidence: "engine/src/decision.rs::Rule",
-            asserts: "The obligation is reported unresolved exactly as its control probe is, and the \
-                      consequence duty never appears in duties.",
-            probe_ids: &["duty-consequence-ignored", "duty-obligation-unresolved-advise"],
+            status: PARTIAL,
+            why: "A Duty's on-non-fulfilment Duty is now evaluated: an unresolved duty falls through to \
+                  its consequence rather than straight to dutyMode, chained up to MAX_CONSEQUENCE_DEPTH \
+                  (4) hops and treated as unresolved past that bound. Partial: ODRL permits a Duty to \
+                  carry several consequences and this models one successor, because the decided semantics \
+                  state no rule for combining several.",
+            evidence: "engine/src/decision.rs::Rule::consequence, outstanding_duty, MAX_CONSEQUENCE_DEPTH",
+            asserts: "An unfulfilled duty whose consequence the claims satisfy leaves nothing outstanding; \
+                      the same duty with no claims reports the consequence -- not the duty it replaced -- \
+                      with a source ending .consequence.",
+            probe_ids: &["duty-consequence-resolves-where-the-primary-did-not", "duty-consequence-itself-unresolved"],
             documented_because: None,
             caveat: None,
         }),
@@ -2728,13 +3032,22 @@ pub fn rows() -> Vec<Row> {
             id: "duty.remedy",
             category: "duty",
             term: "odrl:remedy",
-            status: NOT_IMPLEMENTED,
-            why: "A violated prohibition's remedy duty is discarded, and nothing in the response records \
-                  that one existed.",
-            evidence: "engine/src/decision.rs::Rule, engine/src/wire.rs::evaluate_request",
-            asserts: "The prohibition denies as it should, and duties is empty -- the remedy left no \
-                      trace at all.",
-            probe_ids: &["duty-remedy-ignored"],
+            status: PARTIAL,
+            why: "A prohibition's remedy duty is evaluated and reported, and never lifts the prohibition. \
+                  Partial, and deliberately so: ODRL's reading where a performed remedy substitutes for \
+                  the violation is NOT implemented, because duties in this engine only ever tighten a \
+                  decision and a claims-asserted remedy able to erase a prohibition would be the first \
+                  one that loosens one.",
+            evidence: "engine/src/decision.rs::Rule::remedy, unresolved_remedies, decide (doc comment)",
+            asserts: "An unresolved remedy denies exactly as the bare prohibition would, names itself in \
+                      the reason and appears in duties with its attachment point; a satisfied one gives \
+                      the same Deny with an empty duties list; and a prohibition that never fires reports \
+                      no remedy at all.",
+            probe_ids: &[
+                "duty-remedy-unresolved-does-not-drop-the-prohibition",
+                "duty-remedy-satisfied-still-denies",
+                "duty-remedy-not-reported-when-the-prohibition-does-not-fire",
+            ],
             documented_because: None,
             caveat: None,
         }),
@@ -2821,29 +3134,36 @@ pub fn rows() -> Vec<Row> {
             id: "conflict.property",
             category: "conflict",
             term: "odrl:conflict (perm, prohibit, invalid)",
-            status: NOT_IMPLEMENTED,
-            why: "No conflict field exists on the wire policy shape; a policy declaring one is evaluated \
-                  with prohibition-overrides regardless -- the opposite of its own stated intent for \
-                  `perm`, and not the voiding `invalid` asks for.",
-            evidence: "engine/src/wire.rs::WirePolicy, decision.rs::decide",
-            asserts: "The baseline conflict Denies; declaring conflict: perm Denies identically; \
-                      declaring conflict: invalid Denies identically rather than voiding the policy.",
-            probe_ids: &["conflict-prohibition-overrides", "conflict-perm-ignored", "conflict-invalid-ignored"],
+            status: IMPLEMENTED,
+            why: "A real per-policy field on the wire policy shape, read by decide(): a genuine collision \
+                  -- a permission that grants and a prohibition that denies, for the same requested \
+                  action and target -- is resolved by the policy's own term. All three ConflictTerms are \
+                  evaluated, including `perm`, which was previously inexpressible.",
+            evidence: "engine/src/decision.rs::ConflictStrategy, conflicting_rules, decide; \
+                       engine/src/wire.rs::WirePolicy",
+            asserts: "The same colliding policy Denies as void under the default, Allows under `perm`, \
+                      and Denies naming the prohibition under `prohibit`.",
+            probe_ids: &["conflict-default-invalid-voids", "conflict-perm-allows", "conflict-prohibit-denies"],
             documented_because: None,
-            caveat: None,
+            caveat: Some(
+                "`invalid` surfaces as Deny under a distinct reason rather than as a fourth wire \
+                 decision -- a void policy is a policy decision, not the configuration gap \
+                 Decision::Error exists to flag. The probes read the reason string for it.",
+            ),
         }),
         row(RowSpec {
             id: "conflict.fixed-strategy",
             category: "conflict",
-            term: "Hardcoded deny-overrides, applied unconditionally",
-            status: PARTIAL,
-            why: "One fixed strategy, roughly ODRL's `prohibit`, always applied -- where the spec's own \
-                  default for an unset odrl:conflict is `invalid`. That is a divergence, not just an \
-                  absence.",
-            evidence: "engine/src/decision.rs::decide, engine/src/wire.rs::evaluate_request",
-            asserts: "A conflicting policy that declares no strategy at all is resolved prohibition-first \
-                      rather than voided.",
-            probe_ids: &["conflict-prohibition-overrides"],
+            term: "Default for a policy that declares no odrl:conflict",
+            status: IMPLEMENTED,
+            why: "ODRL's own stated default, `invalid`, is the default here too. Earlier revisions applied \
+                  an unconditional, unnamed prohibition-overrides instead; that was a divergence, and \
+                  closing it was safe to do because no fixture in the vendored compliance corpus carries \
+                  a policy with both a permission and a prohibition, so nothing in it moved.",
+            evidence: "engine/src/decision.rs::<ConflictStrategy as Default>::default",
+            asserts: "A conflicting policy declaring no strategy is void, and declaring `invalid` \
+                      explicitly reaches a byte-identical decision and reason.",
+            probe_ids: &["conflict-default-invalid-voids", "conflict-invalid-declared-explicitly"],
             documented_because: None,
             caveat: None,
         }),
@@ -2852,11 +3172,13 @@ pub fn rows() -> Vec<Row> {
             category: "conflict",
             term: "Profile-declared conflict strategies",
             status: OUT_OF_SCOPE,
-            why: "Named in the engine's own scope-narrowing sentence.",
-            evidence: "engine/src/profile.rs (module doc)",
-            asserts: "A declared ex:assigneeWins strategy, selected by the policy, changes nothing against \
-                      the unset baseline.",
-            probe_ids: &["conflict-profile-strategy-ignored", "conflict-prohibition-overrides"],
+            why: "Named in the engine's own scope-narrowing sentence. ConflictStrategy is closed at the \
+                  engine's compile time over ODRL's three ConflictTerms, so a profile-declared strategy \
+                  is not silently ignored either -- it fails deserialization.",
+            evidence: "engine/src/profile.rs (module doc), engine/src/decision.rs::ConflictStrategy",
+            asserts: "A declared ex:assigneeWins strategy, selected by the policy, makes the request fail \
+                      to parse rather than resolving under some substituted strategy.",
+            probe_ids: &["conflict-profile-strategy-unparseable", "conflict-no-collision-inert"],
             documented_because: None,
             caveat: Some(EXTENSION_CAVEAT),
         }),
@@ -3109,10 +3431,11 @@ mod tests {
                 let observed_duties: Vec<DutyExpect> = response
                     .duties
                     .iter()
-                    .map(|DutyEntry { policy_id, action, resolved }| DutyExpect {
+                    .map(|DutyEntry { policy_id, action, resolved, source }| DutyExpect {
                         policy_id: policy_id.clone(),
                         action: action.clone(),
                         resolved: *resolved,
+                        source: source.clone(),
                     })
                     .collect();
                 if &observed_duties != expected_duties {
@@ -3174,6 +3497,9 @@ mod tests {
             ("inheritfrom-control", "inheritfrom-ignored"),
             ("ror-literal-eq", "ror-not-dereferenced"),
             ("asset-per-rule-target-hit", "asset-per-rule-target-miss"),
+            ("pf-assignee-scoped-hit", "pf-assignee-scoped-miss"),
+            ("conflict-perm-allows", "conflict-default-invalid-voids"),
+            ("conflict-perm-allows", "conflict-prohibit-denies"),
         ] {
             assert_ne!(
                 decision_of(hit),
@@ -3195,7 +3521,6 @@ mod tests {
         };
 
         for (injected, control) in [
-            ("duty-per-permission-ignored", "act-base-exact"),
             ("duty-profile-rule-class-inert", "act-base-exact"),
             ("asset-output-ignored", "act-base-exact"),
             ("pf-assignerof-inert", "pf-assignee-null-control"),
@@ -3204,9 +3529,8 @@ mod tests {
             ("pc-kind-agreement-ignores-assignee", "pc-kind-set"),
             ("pc-kind-nonsense", "pc-kind-set"),
             ("pc-kind-profile-subclass", "pc-kind-nonsense"),
-            ("conflict-perm-ignored", "conflict-prohibition-overrides"),
-            ("conflict-invalid-ignored", "conflict-prohibition-overrides"),
-            ("conflict-profile-strategy-ignored", "conflict-prohibition-overrides"),
+            ("conflict-invalid-declared-explicitly", "conflict-default-invalid-voids"),
+            ("conflict-no-collision-inert", "act-base-exact"),
             ("lo-unitofcount-volume", "lo-unitofcount-page"),
         ] {
             assert_eq!(

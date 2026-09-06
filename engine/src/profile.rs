@@ -10,7 +10,15 @@
 //! `odrl:includedIn`) plus a `duty_mode` setting that Section 4.5's duty
 //! evaluation consumes. Nothing here claims the rest of that mechanism
 //! (additional Policy subclasses, Party functional roles, Logical
-//! Constraint operands, Rule classes, conflict strategies).
+//! Constraint operands, Rule classes, profile-declared conflict
+//! strategies).
+//!
+//! That last one is a narrower exclusion than it used to be. ODRL's own
+//! three `odrl:ConflictTerm`s are now really evaluated, per policy
+//! (`decision::ConflictStrategy`) — what stays out of scope is a *profile*
+//! declaring a strategy of its own (`ex:assigneeWins`), which this engine
+//! cannot select because the enum is closed at its compile time over those
+//! three.
 
 use serde::{Deserialize, Serialize};
 
@@ -117,11 +125,50 @@ pub struct ResolvedConfig {
     actions: Vec<ActionDecl>,
     pub duty_mode: DutyMode,
     pub behaviour: Behaviour,
+    /// **Which key of the caller's claims map carries the caller's own
+    /// identity** — and, by naming it, the switch that turns party-role
+    /// evaluation on at all. `None` (the default from every construction
+    /// path here, `resolve` included) means party roles are not evaluated:
+    /// a policy's `odrl:assignee` is carried on the wire and consulted by
+    /// nothing, exactly as it was before this field existed.
+    ///
+    /// `Some(key)` means a policy naming an `odrl:assignee` applies only to
+    /// a caller whose `claims[key]` matches it; see
+    /// `wire::party_role_mismatch` for the comparison's exact semantics and
+    /// `wire::evaluate_request` for what a mismatch does to the decision.
+    /// **Only the wire layer reads this**, because only `wire::WirePolicy`
+    /// carries a party at all — `decision::Policy` deliberately does not,
+    /// and `decision::decide` is therefore unaffected by this setting.
+    ///
+    /// **Deliberately not configurable, and not resolvable, from a
+    /// `Profile`**, unlike `duty_mode` and `behaviour` beside it. Those two
+    /// are statements about how policies should be *evaluated*, which is
+    /// what a profile document is for. This is a statement about the shape
+    /// of the host's own claims map — which key its identity plumbing puts
+    /// the caller's identifier under — and that is host deployment
+    /// configuration, not something a published, shareable ODRL profile can
+    /// or should assert about someone else's identity provider. A host names
+    /// it here (`with_party_identity_claim`) or on the wire
+    /// (`wire::RequestConfig::party_identity_claim`), and nowhere else.
+    pub party_identity_claim: Option<String>,
 }
 
 impl ResolvedConfig {
     pub fn new(actions: Vec<ActionDecl>, duty_mode: DutyMode, behaviour: Behaviour) -> Self {
-        Self { actions, duty_mode, behaviour }
+        Self { actions, duty_mode, behaviour, party_identity_claim: None }
+    }
+
+    /// Turns party-role evaluation on, naming the claim key that carries
+    /// the caller's identity (see `party_identity_claim`).
+    ///
+    /// A consuming builder rather than a fourth parameter of `new`
+    /// deliberately: `new` is public and already called from outside this
+    /// module, and this capability is opt-in — a host that never calls this
+    /// gets the behaviour it has always had, and does not have to be
+    /// recompiled against a wider signature to keep it.
+    pub fn with_party_identity_claim(mut self, claim: impl Into<String>) -> Self {
+        self.party_identity_claim = Some(claim.into());
+        self
     }
 
     /// Is `action` declared at all, by any loaded profile — Section 4.4's
@@ -253,7 +300,13 @@ pub fn resolve(profiles: &[Profile]) -> ResolvedConfig {
         }
     }
 
-    ResolvedConfig { actions, duty_mode, behaviour }
+    // `party_identity_claim` is deliberately absent from this merge: no
+    // ODRL Profile document declares which claim key carries the caller's
+    // identity (see that field's own doc comment), so resolving profiles
+    // can never switch party-role evaluation on by itself. A host that
+    // wants it chains `ResolvedConfig::with_party_identity_claim` onto this
+    // call, or sets `partyIdentityClaim` on the wire.
+    ResolvedConfig { actions, duty_mode, behaviour, party_identity_claim: None }
 }
 
 #[cfg(test)]
@@ -521,5 +574,28 @@ mod tests {
     fn behaviour_never_serializes_the_default_alias_back_out() {
         assert_eq!(serde_json::to_string(&Behaviour::Closed).unwrap(), "\"closed\"");
         assert_eq!(serde_json::to_string(&Behaviour::Open).unwrap(), "\"open\"");
+    }
+
+    #[test]
+    fn a_resolved_config_names_no_party_identity_claim_unless_a_host_asks_for_one() {
+        // Decision 1: off by default, from every construction path there is.
+        assert_eq!(ResolvedConfig::new(vec![], DutyMode::Advise, Behaviour::Open).party_identity_claim, None);
+        assert_eq!(resolve(&[]).party_identity_claim, None);
+        assert_eq!(
+            resolve(&[profile("p1", &flat(&["use"]), DutyMode::Advise)]).party_identity_claim,
+            None,
+            "no ODRL Profile document declares which claim carries the caller's identity, so \
+             resolving profiles can never switch party-role evaluation on by itself"
+        );
+    }
+
+    #[test]
+    fn with_party_identity_claim_names_the_claim_and_changes_nothing_else() {
+        let base = ResolvedConfig::new(vec![ActionDecl::new("use")], DutyMode::Deny, Behaviour::Closed);
+        let scoped = base.clone().with_party_identity_claim("sub");
+        assert_eq!(scoped.party_identity_claim.as_deref(), Some("sub"));
+        assert_eq!(scoped.duty_mode, base.duty_mode);
+        assert_eq!(scoped.behaviour, base.behaviour);
+        assert_eq!(scoped.declared_actions(), base.declared_actions());
     }
 }

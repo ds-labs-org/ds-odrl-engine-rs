@@ -80,12 +80,37 @@ is a new option a host can adopt instead, not a replacement
 rather than by any change to `engine`'s wire contract — a real host
 wanting that would still need the equivalent adapter logic, not just this
 engine, and a per-rule `odrl:target` naming a collection IRI matches
-only a request for that exact IRI, never a member of it. Per-permission
-`odrl:duty` is resolved only by reading this specific compliance suite's
-own SOTW-embedded `report:DutyReport` fact — `engine` itself still
-evaluates policy-level obligations only (Section 4.5); this is not
-general per-permission duty modeling. See the design rationale below for
-what's load-bearing versus what's compliance-suite-specific, and
+only a request for that exact IRI, never a member of it. `engine` no
+longer evaluates policy-level obligations only: a permission's own
+`odrl:duty`, a duty's `odrl:consequence` and a prohibition's
+`odrl:remedy` are all evaluated natively now — but strictly as
+**claims-asserted facts**, the same precondition reading Section 4.5
+already gave a policy-level obligation, never as an observation that
+anything was performed. This engine is stateless and cannot see execution
+state; that boundary is unchanged, and "duty satisfied" here means "the
+host supplied claims this duty's own constraints match." A satisfied
+`odrl:remedy` deliberately does **not** lift its prohibition. A policy's
+`odrl:assignee` is no longer unconditionally inert either — a host that
+names `partyIdentityClaim` in its `config` gets policy-level party-role
+scoping, where a policy addressed to somebody else is treated as absent
+from the request — but that is **opt-in and off by default**, is
+`assignee` only (an `odrl:assigner` names who granted a policy, not who is
+asking, and is deliberately never evaluated), and resolves no
+`odrl:PartyCollection`: see "Party-role evaluation (`odrl:assignee`),
+opt-in" below. Deny-overrides is no longer hardcoded either: a policy
+carries its own `odrl:conflict` term (`perm`/`prohibit`/`invalid`), read
+only where a permission that grants and a prohibition that denies really do
+both hold for the same request. **This is the one change in this engine's
+history that alters an existing decision's meaning rather than adding to
+it** — a policy declaring nothing used to be resolved prohibition-first and
+is now void, ODRL's own stated default — and it was made on the measured
+basis that no fixture in the vendored compliance corpus contains a policy
+with both a permission and a prohibition, so nothing there moves in either
+direction. See "Conflict strategy (`odrl:conflict`)" below. See
+"Per-permission duties, consequences and remedies" below for the full
+duty semantics and for the reasoning behind that remedy choice, the design
+rationale below for what's load-bearing versus what's
+compliance-suite-specific, and
 [`compliance/reports/latest.md`](compliance/reports/latest.md) for
 exactly which constructs pass, fail, or are skipped today, case by case,
 against a real external ODRL test suite.
@@ -121,7 +146,15 @@ rather than silently left for the next person to rediscover):
   as to permissions; a violated duty attached to a *prohibition* would
   drop the prohibition (fail-open) rather than the intended asymmetric
   handling ODRL's own `odrl:remedy` construct implies. Untested by this
-  corpus — no vendored fixture attaches a duty to a prohibition.
+  corpus — no vendored fixture attaches a duty to a prohibition. **This
+  remains true of `translate.rs`, which is untouched, and is now false of
+  `engine`**: a prohibition's `odrl:remedy` is a modelled field there and
+  a violated one cannot drop the prohibition by construction
+  (`engine/src/wire.rs`'s
+  `a_violated_remedy_does_not_drop_the_prohibition_and_leaves_a_trace`).
+  A host that stops going through this adapter therefore no longer
+  inherits the hazard; one that keeps going through it still does, which
+  is why the bullet stays.
 
 None of these are hard to fix; they're recorded because a case passing
 does not mean they don't exist, and a future contributor extending the
@@ -227,6 +260,12 @@ Request:
   permission instead — what a host wanting XACML's `deny-unless-permit`
   posture, or matching an external ODRL evaluator's closed-world ground
   truth (as this engine's own compliance suite does), should choose.
+  `partyIdentityClaim` is an optional fourth setting alongside those, and
+  is absent from the example above because absent is its default: naming a
+  claim key there switches on party-role scoping of each policy's
+  `odrl:assignee` against that key. Omitted, no policy's `assignee` is
+  consulted at all. See "Party-role evaluation (`odrl:assignee`), opt-in"
+  below.
 - `policies` mirrors the host's own `Policy`/`Rule`/`Constraint` shape
   field for field — each rule keeps its **own** declared `action`, not
   the request's. `constraints` supports ten operators: `eq`, `neq`, the
@@ -247,7 +286,18 @@ Request:
   optional `odrl:target` — the one asset that rule is about, matched
   against the request's own `dataset_id`; a rule without that key applies
   to whatever asset is requested, again exactly as it did before the key
-  existed. See "Per-rule assets (`odrl:target`)" below.
+  existed. See "Per-rule assets (`odrl:target`)" below. Three further
+  optional keys attach duties to individual rules — `odrl:duty` on a
+  permission, `odrl:remedy` on a prohibition, `odrl:consequence` on any
+  duty — each holding rules of this very same shape, and each absent from
+  every rule this workspace's fixtures build. See "Per-permission duties,
+  consequences and remedies" below. A **policy** (not a rule) may also
+  carry `odrl:conflict`, one of ODRL's three ConflictTerms — `"perm"`,
+  `"prohibit"`, `"invalid"` — governing what it means when one of its own
+  permissions and one of its own prohibitions both hold for the same
+  request. Absent means `"invalid"`, ODRL's own default; a value outside
+  those three fails deserialization rather than being substituted. See
+  "Conflict strategy (`odrl:conflict`)" below.
 - `claims` is the flat claims map: each value is a JSON string or array
   of strings, sourced from whatever identity the host already trusts —
   this engine never decodes a JWT or other identity-presentation format
@@ -273,15 +323,32 @@ Response:
 - `reason` is a short, human-readable trace of which rule or constraint
   drove the outcome. It is diagnostic text, not a machine-parseable
   contract to branch on.
-- `duties` lists any policy-level obligation this engine could not
-  confirm from the claims it was given; it is empty whenever every duty
-  was absent, already satisfied, or (under `duty_mode: "deny"`) already
-  forced the decision to `"Deny"`.
+- `duties` lists any duty this engine could not confirm from the claims it
+  was given — a policy-level obligation, a permission's own `odrl:duty`,
+  or a prohibition's `odrl:remedy`, each after its `odrl:consequence`
+  chain has been followed. It is empty whenever every duty was absent or
+  already satisfied. A **policy-level obligation** is additionally
+  suppressed under `duty_mode: "deny"`, because its unresolved state is
+  exactly what the resulting `"Deny"` already says; the two narrower
+  attachments are not suppressed, since neither one's state is carried by
+  the decision (an unresolved per-permission duty removes one permission
+  from consideration and the request may still be allowed by another; an
+  unresolved remedy never drove the decision at all). An entry for
+  anything other than a plain policy-level obligation carries an
+  additional `source` key naming where it was attached —
+  `"permission[0].duty[0]"`, `"prohibition[0].remedy[0]"`, either with one
+  `.consequence` segment per hop walked. The key is skipped when absent,
+  so an entry for a policy-level obligation is the exact three fields it
+  always was.
 - Multiple policies in one request combine by **deny-override across the
   whole set** (`Error` > `Deny` > `Allow`), with an empty `policies` array
   treated as a default deny. This combining rule is this implementation's
   own choice, documented in `engine/src/wire.rs` — the case study leaves
-  N-policy combining formally undefined (Section 7).
+  N-policy combining formally undefined (Section 7). A policy's
+  `odrl:conflict` term does **not** reach this level: ODRL states it of one
+  Policy, about that policy's own permissions and prohibitions, so a
+  permission in policy A and a prohibition in policy B are not a conflict
+  in its sense and the set-level rule above decides them unchanged.
 
 The wasm32 guest exposes exactly four `extern "C"` exports —
 `alloc(len) -> ptr`, `dealloc(ptr, len)`, `evaluate(req_ptr, req_len) ->
@@ -461,10 +528,11 @@ collection narrowed to members in a given role; an asset collection
 narrowed to a subset). Neither is implemented, and that is a scope
 decision rather than an oversight: `decision::Policy` models no party or
 asset at all — `wire::WirePolicy`'s `assigner`/`assignee` are opaque
-strings this engine never evaluates against, and the dataset is a bare
-`dataset_id` — so there is no evaluable node for such a refinement to
-attach to without first modelling parties and assets as structures with
-claims of their own. That is a much larger change than this one, and
+strings, compared (when party-role scoping is switched on at all) by bare
+equality against one claim key and never resolved into a structure with
+members, and the dataset is a bare `dataset_id` — so there is no evaluable
+node for such a refinement to attach to without first modelling parties
+and assets as structures with claims of their own. That is a much larger change than this one, and
 naming it here is the point: "supports `odrl:refinement`" without
 qualification would overstate what this engine does.
 
@@ -608,6 +676,480 @@ layers, and rewrite every exported request in
 re-runs. So the suite's 68/68 result is unchanged by this addition,
 byte for byte, and migrating that adapter is a separate deliberate
 decision, exactly as it is for the native logical constraints above.
+
+## Per-permission duties, consequences and remedies
+
+Section 4.5 gave this engine one place to hang a duty: `Policy.obligations`,
+the whole policy's. ODRL 2.2 has three more, and until this addition
+`engine` had no representation for any of them — a request carrying one was
+not rejected, the key was simply ignored. `engine::Rule` now carries all
+three, as optional fields serialized under their own `odrl:`-namespaced
+keys:
+
+| ODRL term | Field | Attached to | Read when that rule is a… |
+|---|---|---|---|
+| `odrl:duty` | `Rule::duty` (`Vec<Rule>`) | a Permission | permission |
+| `odrl:remedy` | `Rule::remedy` (`Vec<Rule>`) | a Prohibition | prohibition |
+| `odrl:consequence` | `Rule::consequence` (`Option<Box<Rule>>`) | a Duty | duty, in any of the four positions |
+
+**All three are the same mechanism at a different position, not new
+philosophy.** A duty resolves exactly as a policy-level obligation already
+did — its own `constraints` all match the claims map, and it has at least
+one (`Rule::duty_satisfied`; an unconditional duty stays unresolved, since
+there is nothing to check) — and an unresolved one is then governed by the
+same `dutyMode` axis. There is deliberately **no second claims-lookup
+mechanism**: a host asserts "this duty is fulfilled" by supplying an
+ordinary claim the duty's own constraint tests.
+
+```json
+{
+  "action": "use",
+  "constraints": [],
+  "odrl:duty": [
+    { "action": "compensate",
+      "constraints": [
+        { "left_operand": "duty:compensate", "operator": "eq", "right_operand": "fulfilled" }
+      ],
+      "odrl:consequence": {
+        "action": "notify",
+        "constraints": [
+          { "left_operand": "duty:notify", "operator": "eq", "right_operand": "fulfilled" }
+        ]
+      }
+    }
+  ]
+}
+```
+
+That generalizes into the engine what `compliance-runner`'s adapter already
+does for one vendored corpus, where the same fact arrives as a
+`report:DutyReport`/`report:deonticState` triple in a fixture's
+state-of-the-world graph and is resolved at translate time
+(`translate.rs`'s `duty_is_violated`). **The stateless boundary is
+unchanged and this is not execution-state tracking**: this engine still
+cannot observe whether anything was performed, and "satisfied" here means
+"the claims the host supplied say so", exactly as it always has for a
+policy-level obligation.
+
+### `odrl:duty` on a permission — a pre-condition, scoped to that permission
+
+A permission's duty is a pre-condition of *that one permission*. The
+`dutyMode` axis applies to it at that narrower scope:
+
+- **`advise`** — the permission still grants, and the duty is reported in
+  the response's `duties` with a `source` of `permission[0].duty[0]`.
+- **`deny`** — *that permission* does not grant. A sibling permission with
+  nothing outstanding still does, and the request can still be allowed by
+  it; that is the whole difference from a policy-level obligation, which
+  denies the request outright. `engine/src/decision.rs`'s
+  `a_per_permission_duty_gates_only_its_own_permission_under_duty_mode_deny`
+  asserts both halves against one policy.
+
+Only permissions actually **in play** contribute a duty — applicable
+(`Rule::applies`: action coverage, refinement, target) and matching their
+own constraints. A permission this request never reaches imposes nothing,
+so reporting its duty would send a host chasing an obligation it does not
+have.
+
+### `odrl:consequence` — the duty that applies on non-fulfilment
+
+A duty that is not fulfilled does not immediately fall through to
+`dutyMode`. If it carries an `odrl:consequence`, that becomes the duty
+actually evaluated; if the consequence resolves, nothing is outstanding at
+all. Only when the chain runs out does `dutyMode` govern, exactly as it did
+before. The duty reported outstanding is the **last one evaluated** — what
+the policy now requires — not the one it replaced, and its `source` says so
+with a `.consequence` segment per hop (`duty[0].consequence`).
+
+**The chain is bounded at `engine::decision::MAX_CONSEQUENCE_DEPTH` (4)
+hops**, mirroring `MAX_CONSTRAINT_DEPTH`'s intent and deliberately not its
+value: a constraint tree really does nest a few levels in real policies,
+whereas a consequence chain is a deontic escalation that no policy in the
+corpora this workspace tracks — nor in ODRL 2.2's own examples — chains
+more than once. Past the bound a duty stays **unresolved**, never resolved:
+a tail the evaluator declined to walk must not report itself done.
+`a_consequence_chain_is_followed_up_to_max_consequence_depth_and_bounded_past_it`
+pins both sides of that boundary.
+
+### `odrl:remedy` — reported, never enforced away
+
+**A satisfied remedy does not lift its prohibition.** A prohibition that
+applies and matches denies; its remedy — resolved or not — only ever adds
+an entry to `duties` and a clause to the `reason` trace. This is the one
+sub-decision inside the decided framing that had a real fork in it, so the
+reasoning is stated in full rather than assumed. The rejected reading is
+ODRL's own "the remedy substitutes for the violation", which would turn a
+would-be `Deny` into an `Allow`-with-a-duty.
+
+1. **Duties in this engine only ever tighten a decision.** Section 4.5's
+   duty step can move `Allow` to `Deny` under `dutyMode: "deny"` and can
+   never move `Deny` to `Allow`. A remedy that flipped a denial would be
+   the first duty here that loosens one — contradicting the very pattern
+   this addition extends. The instruction was to make the call *most
+   consistent with how `dutyMode`/obligation already work*, and an
+   unresolved remedy behaving analogously to an unresolved obligation only
+   holds if a *satisfied* one behaves analogously to a satisfied one, which
+   is to say: it changes nothing.
+2. **"Satisfied" is a host-supplied claim, not an observation.** This
+   engine cannot see that a remedy was performed; it sees that the claims
+   map says so. Letting one claim erase a prohibition would make the
+   engine's most consequential rule the easiest thing in the contract to
+   switch off — a strictly worse fail-open than the adapter bug this
+   README already records for exactly this construct.
+3. **A remedy is consequent on the violation, not a licence for it.** The
+   prohibited act still happened; the policy's response is to demand
+   something further, which is what an outstanding duty entry and a named
+   clause in the trace say.
+
+This directly closes the fail-open hazard named under "Known adapter
+fragility" above — "a violated duty attached to a prohibition would drop
+the prohibition, fail-open" — at the engine level, and the test asserting
+it is deliberately the strong form: a violated remedy must produce `Deny`
+**and** leave a trace, not merely avoid an `Allow`.
+
+Only prohibitions that actually **fired** contribute a remedy, mirroring
+the permission-duty scoping at the opposite polarity.
+
+### What the `reason` trace says
+
+A decision driven by any of the three names it distinctly from a
+policy-level obligation. A rule carrying none of the keys produces exactly
+the trace it always did.
+
+| Situation | `reason` |
+|---|---|
+| permission matched, its duty satisfied | `permission[0] of policy 'p' matched: action 'use', unconstrained; odrl:duty[0] 'compensate' satisfied` |
+| permission matched, duty outstanding, `advise` | `…; odrl:duty[0] 'compensate' unresolved (advisory under duty_mode: advise)` |
+| permission blocked by its own duty, `deny` | `permission[0] of policy 'p' matched, but its odrl:duty[0] 'compensate' is unresolved under duty_mode: deny` |
+| obligation's consequence outstanding, `deny` | `duty[0].consequence 'compensate' of policy 'p' is unresolved under duty_mode: deny` |
+| prohibition fired, remedy outstanding | `prohibition[0] of policy 'p' matched: action 'use': nationality eq US; its odrl:remedy[0] 'anonymize' is unresolved and does not lift the prohibition` |
+| prohibition fired, remedy satisfied | `…; its odrl:remedy[0] 'anonymize' is satisfied, which does not lift the prohibition` |
+
+The satisfied-remedy row is printed rather than left silent on purpose:
+"the prohibition denied and the remedy is done" is precisely the reading a
+caller might otherwise expect to have produced an `Allow`.
+
+### The rest of the contract, adjusted consistently
+
+- **Section 4.4's unrecognized-action check covers nested duties too.** A
+  policy-level obligation naming an action outside every loaded profile's
+  vocabulary was already `Decision::Error`; an identical duty attached to a
+  permission is the same configuration gap, and leaving it unchecked would
+  make the outcome depend on where the author put the duty. The message
+  names the duty's path (`unrecognized action "anonymize" in the duty at
+  permission[0].duty[0]: …`); a policy with no nested duty reports exactly
+  the message it always did, because the nested walk is a separate pass
+  after all three original loops.
+- **`referenced_left_operands` reports nested duties' claim keys**, down
+  the consequence chain and stopping at the same `MAX_CONSEQUENCE_DEPTH`
+  bound evaluation stops at. A host told to gather less than the engine
+  reads would leave a duty unfeedable — which under `deny` is a permission
+  that can never grant, and for a remedy an obligation the host is never
+  told it has.
+- **`performable_actions` inherits the gating** rather than re-deciding it,
+  as it does for every other semantic: an action reachable only through a
+  permission whose duty is outstanding is not performable under `deny`.
+- **A duty's own `odrl:target` is still carried, not evaluated**, at all
+  four positions, for the reason "Per-rule assets" already gives.
+
+### Additive, and unexercised by the vendored corpus
+
+All three keys are `#[serde(default)]` and skipped on serialization when
+empty/absent, so a rule that carries none — every rule in
+`compliance/reports/latest-cases.json`, and everything `Rule::new` builds —
+parses and re-serializes byte for byte as before
+(`an_existing_fixture_rule_gains_no_duty_consequence_or_remedy_key`), and
+a request built only from policy-level obligations produces a
+byte-identical response, `duties` entries included
+(`an_existing_policy_level_obligation_fixture_evaluates_byte_identically`).
+The vendored corpus exercises none of the three, so the suite's 68/68
+result is unchanged, and `compliance-runner`'s `translate.rs` adapter is
+untouched: it does not read `odrl:duty`, `odrl:consequence` or
+`odrl:remedy` out of a test-suite policy and keeps resolving per-permission
+duty state at translate time from the SOTW graph, exactly as before. The
+same is true of `dsp-odrl-adapter`, which still drops a per-rule
+`odrl:duty` it finds in a DSP contract offer — with a warning that now says
+plainly this is an adapter limitation rather than an engine one.
+
+## Party-role evaluation (`odrl:assignee`), opt-in
+
+A `WirePolicy` has always carried `assigner` and `assignee`, and this
+engine has always dropped both before deciding anything: `decision::Policy`
+models a policy as its three rule lists and no party at all. A policy
+addressed to `did:web:alice.example` therefore granted just as much to
+anybody else who presented it, which is not what an ODRL **Agreement**
+means.
+
+`config.partyIdentityClaim` closes that, without changing anything for a
+host that does not ask for it. It names **which key of `claims` carries the
+caller's own identity**:
+
+```json
+{
+  "config": {
+    "@type": "odrl:Profile",
+    "@id": "https://example.org/profiles/default",
+    "odrl:action": [{"@id": "use"}],
+    "dutyMode": "advise",
+    "behaviour": "closed",
+    "partyIdentityClaim": "sub"
+  },
+  "policies": [
+    {
+      "id": "agreement-7",
+      "kind": "Agreement",
+      "assigner": "did:web:provider.example",
+      "assignee": "did:web:alice.example",
+      "permissions": [{"action": "use", "constraints": []}],
+      "prohibitions": [],
+      "obligations": []
+    }
+  ],
+  "claims": { "sub": "did:web:alice.example" }
+}
+```
+
+- **Off unless the key is present.** No `partyIdentityClaim`, and no
+  policy's `assignee` is consulted at all — exactly what this engine did
+  unconditionally until now. The field is `#[serde(default)]` and skipped
+  on serialization when unset, so a config that never names one is
+  byte-for-byte the object it always was, and every fixture in this
+  workspace evaluates identically
+  (`party_role_evaluation_is_off_by_default_so_a_mismatched_assignee_still_grants`).
+- **The claim key is the host's to name, not `sub` by convention.** This
+  engine never decodes an identity token, so it has no basis for deciding
+  which key an arbitrary host puts a caller's identifier under. `sub` is
+  the obvious choice for an OIDC-shaped deployment; nothing here privileges
+  it.
+- **A policy with no `assignee` is unaffected either way.** There is no
+  party role to check, so it behaves exactly as today whether or not the
+  capability is configured — which is every policy in the vendored corpus.
+- **The comparison is this engine's own `eq` semantics**
+  (`ClaimValue::matches`): opaque string equality for a single-valued
+  claim, membership for a multi-valued one, so a caller presenting several
+  identifiers under one key matches a policy naming any of them. No IRI
+  normalization, no `odrl:PartyCollection` membership — "the same party"
+  means "the same characters", exactly as `odrl:target` says for assets.
+- **A claim key absent from the map is a mismatch**, not a bypass and not
+  an error. It is the same direction `Constraint::evaluate` already takes
+  for an absent key, and the only safe one: treating "I could not identify
+  the caller" as "the caller is whoever the policy names" would make an
+  unauthenticated request the cheapest way to collect somebody else's
+  agreement.
+
+### A non-matching policy is *absent from the request*
+
+This is the interpretation decision, and it is stronger than "its
+permissions do not apply". A policy the caller is not the assignee of
+contributes **nothing in either direction**:
+
+- its permissions do not grant;
+- its prohibitions do not deny — a policy forbidding alice something says
+  nothing whatsoever about bob;
+- an unrecognized action inside it is not this caller's configuration gap,
+  so it does not produce `Decision::Error`;
+- and it does not meet a permission requirement vacuously under
+  `behaviour: "open"`. The alternative reading — "a policy stripped of its
+  rules" — would have made a policy addressed to someone else *allow* an
+  arbitrary caller under the open default, which is the worst answer
+  available.
+
+If every policy in a request is addressed to someone else, the effective
+policy set is empty, and an empty policy set is a default deny — the same
+answer an empty `policies` array already gives.
+
+### What the `reason` trace says
+
+A party-role skip gets its own line, deliberately distinct from a
+constraint miss, because the two send a debugging host to entirely
+different places:
+
+```text
+no policy in the request applies to this caller: policy 'agreement-7' names
+odrl:assignee 'did:web:alice.example', which does not match the caller's
+'sub' claim ("did:web:mallory.example")
+```
+
+and, when the identity claim was not supplied at all,
+`... 'sub' claim (absent from the claims map)`. One clause per skipped
+policy, joined by `; `. Where some policy *does* apply, the trace is that
+policy's own, unchanged: the skipped ones are absent, so there is nothing
+for it to report about them.
+
+### Scope: assignee only, deliberately
+
+**`assigner` is not evaluated, and that is not an oversight.** An
+`odrl:assigner` identifies who *granted* a policy, not who is requesting,
+so comparing it against the caller's identity would be checking the wrong
+party. The genuine assigner question — was this party entitled to grant
+what it granted — is a trust and provenance question about the policy's
+issuance, which a stateless engine handed a JSON document has nothing to
+evaluate against. It stays a host concern.
+
+Equally out of scope here: `odrl:PartyCollection` membership (still
+resolved only by `compliance-runner`'s own SOTW-graph adapter), the
+inverse properties `assignerOf`/`assigneeOf`, ODRL's twelve common party
+functions, and Party refinement — all of which remain exactly what the
+coverage report already says they are.
+
+### Where the setting lives, and where it does not
+
+`partyIdentityClaim` is a field of the wire `config` and of
+`engine::ResolvedConfig` (`with_party_identity_claim`), beside `dutyMode`
+and `behaviour`. Unlike those two it is **not** a `Profile` field, and
+`engine::resolve` can never set it: `dutyMode` and `behaviour` are
+statements about how policies should be evaluated, which is what a profile
+document is for, whereas this is a statement about the shape of the host's
+own claims map — deployment configuration, not something a published,
+shareable ODRL profile can assert about somebody else's identity provider.
+`profile-interpreter` therefore never emits the key.
+
+Only the wire layer reads it, because only `wire::WirePolicy` carries a
+party: `decision::decide` takes a `decision::Policy`, which has no party
+and is unaffected by this setting.
+`wire::performable_actions_for_request` inherits the scoping (it goes
+through `evaluate_request`); `wire::left_operands_for_request`
+deliberately does *not* report the configured identity claim among the
+keys a host should gather, since that call answers "which claims do these
+policies read" off the policies alone, and the host is by construction the
+party that named this key.
+
+`compliance-runner` leaves it unset and the vendored corpus's 68/68 result
+is unchanged: that adapter already resolves `odrl:assignee` itself, per
+*rule*, against the suite's state-of-the-world graph (`odrl:partOf`
+collection membership included) and mirrors it into a `sub` constraint.
+Switching the engine's policy-level scoping on there as well would layer a
+second, coarser check on top of the one the ground truth is actually
+stated in terms of. `dsp-odrl-adapter` leaves it unset too, for the same
+reason it cannot guess any other host-identity detail.
+
+## Conflict strategy (`odrl:conflict`)
+
+ODRL 2.2 puts a `conflict` property on the **Policy** (Information Model
+§2.10, the `odrl:ConflictTerm` vocabulary): what the policy means when one
+of its own permissions and one of its own prohibitions both hold for the
+same request. This engine now reads it, and evaluates all three terms.
+
+```json
+{
+  "id": "urn:uuid:policy-1",
+  "kind": "Set",
+  "assigner": "did:web:provider.example",
+  "assignee": null,
+  "odrl:conflict": "perm",
+  "permissions": [{ "action": "use", "constraints": [] }],
+  "prohibitions": [{ "action": "use", "constraints": [] }],
+  "obligations": []
+}
+```
+
+- `"perm"` — the permission wins. **The one ODRL combining rule this
+  engine had no way to express at all** before this key existed.
+- `"prohibit"` — the prohibition wins. Deny-overrides, which is exactly
+  what this engine did unconditionally before the key existed, now a value
+  a policy has to ask for.
+- `"invalid"` — the conflicting policy is **void**: neither rule resolves
+  the other, so the policy authorizes nothing.
+
+A term outside those three is a **parse failure**, not a silently
+substituted default — the same closed-enum posture `Operator`, `dutyMode`
+and `behaviour` already have, and the reason a profile-declared strategy
+(`ex:assigneeWins`) cannot be selected here rather than being quietly
+ignored.
+
+### The default is `invalid`, and that is a real behaviour change
+
+Absent, the key means `"invalid"` — ODRL's own stated default, and **not**
+this engine's own prior implicit behaviour, which was an unconditional,
+unnamed `prohibit`. This is the only change in this engine's history that
+alters what an existing policy shape decides, rather than adding a key that
+does nothing unless set, so the reasoning is worth stating plainly:
+
+- It was checked first, not assumed. **Zero of the 68 fixtures in the
+  vendored compliance suite contain a policy carrying both a permission and
+  a prohibition** (measured against
+  [`compliance/reports/latest-cases.json`](compliance/reports/latest-cases.json)),
+  so no case in that corpus is affected in either direction, and the
+  68/68/0/0 result is byte-identically unchanged. There was nothing here to
+  stay compatible *with*.
+- That is precisely the position `behaviour` is *not* in. An `Offer` with
+  an empty `permissions` list is common real input, so `Behaviour::Open`
+  keeps diverging from the Formal Semantics draft's `closed` default for an
+  operational reason. No equivalent reason exists here, so this follows the
+  spec instead.
+
+### What counts as a conflict, precisely
+
+Only a genuine collision reaches the strategy at all: for one policy, a
+prohibition that **applies** (right asset, right action, refinement
+satisfied) and matches its own constraints, **and** a permission that
+**grants** — all for the identical requested action and requested target.
+When at most one of the two holds, the decision is whatever that one rule
+already made it, identically under every strategy, which is every policy
+shape any fixture in this workspace has.
+
+Two consequences of using `grants` rather than a looser test on the
+permission side, both deliberate:
+
+- A permission whose own `odrl:duty` is outstanding under
+  `dutyMode: "deny"` is not in force, so it is not a party to a conflict
+  either: `perm` cannot promote a permission through a duty gate the
+  decision algorithm itself treats as closed.
+- An **empty** `permissions` list under `behaviour: "open"` meets the
+  permission requirement vacuously, but there is no permission there to win
+  anything. A matching prohibition denies under every strategy, `perm`
+  included.
+
+### `invalid` is a `Deny` with its own reason, not a fourth decision
+
+A void policy surfaces as `Decision::Deny` / `"Deny"`, under a distinctly
+worded `reason`:
+
+```
+policy 'urn:uuid:policy-1' is void: permission[0] and prohibition[0] both
+matched requested action 'use', and the policy's odrl:conflict strategy is
+'invalid' (ODRL's own default), which voids a conflicting policy rather
+than resolving it
+```
+
+It is deliberately **not** a `Decision::Error`. That outcome exists to say
+"this is a *configuration gap* — load a profile that recognizes this
+action", which a caller fixes in its own setup; a void policy is not that.
+The policy parsed, every action in it was recognized, and the policy itself
+says the two rules cannot be reconciled. Adding a fourth `WireDecision`
+would also break every existing consumer, where this addition breaks none.
+
+The other two strategies name themselves in the trace as well, so
+"prohibition-first because this policy chose it" and "prohibition-first
+because nothing contested it" are never the same string:
+
+```
+prohibition[0] of policy 'p' matched: action 'use', unconstrained; odrl:conflict
+'prohibit' resolves the conflict with permission[0] in the prohibition's favour
+
+permission[0] of policy 'p' matched: action 'use', unconstrained; odrl:conflict
+'perm' resolves the conflict with prohibition[0] in the permission's favour
+```
+
+Both clauses are appended only for a genuine collision, so every `reason`
+this engine produced before this key existed is byte-for-byte what it was.
+
+### Per policy, not per host, and not ingested by every adapter
+
+The term travels with the document that contains the conflicting rules, as
+ODRL puts it, rather than being one more knob in `config` that would let a
+host silently reinterpret somebody else's policy. A host that controls the
+policies it sends sets it on the policies it builds.
+
+`compliance-runner` leaves it at the default and the 68/68 result is
+unchanged: no Turtle document in the vendored suite declares
+`odrl:conflict` at all. `dsp-odrl-adapter` does **not** ingest one — mapping
+an IRI-or-literal `odrl:perm`/`odrl:prohibit`/`odrl:invalid`, and deciding
+what an unrecognized term should do, is its own decision rather than a side
+effect of the engine gaining the field — so it emits a warning naming the
+dropped term rather than substituting a strategy silently. The demonstrator
+site's own request types mirror the engine's only as far as they always
+did, and still do not model `odrl:conflict` (see `site/README.md`).
 
 ## Asking which claims a set of policies actually reads
 
@@ -892,7 +1434,10 @@ property-key spelling — and both ingest to one identical `WirePolicy`.
 [`dsp-odrl-adapter/README.md`](dsp-odrl-adapter/README.md): it produces a
 `WirePolicy` (rules, per-rule and pushed-down policy-level `odrl:target`,
 constraints including nested `odrl:and`/`odrl:or`/`odrl:xone`, and an
-action's `odrl:refinement`), and nothing else — no negotiation, no
+action's `odrl:refinement`), and nothing else — no per-rule `odrl:duty`,
+`odrl:consequence` or `odrl:remedy` (all three modelled by `engine` now,
+none of them ingested here; a rule carrying a duty is translated without
+it and the run says so in a warning), no negotiation, no
 signature or credential verification, no collection-membership resolution,
 no evaluation. `@base`/relative-IRI resolution, property-scoped contexts,
 `@container`/`@list`, language maps, `@reverse`, `@nest`, `@graph` and RDF
@@ -932,7 +1477,7 @@ cargo test --workspace --features dsp-odrl-adapter/dsp-ingest
 ```
 
 Both runs are expected to pass; the second additionally runs that crate's
-16 tests.
+19 tests.
 
 WebAssembly guest module (no WASI — pure JSON-in/JSON-out, no filesystem,
 clock, or network):
@@ -1088,7 +1633,13 @@ case. See that module's doc comment for the citation, and for how
 `dateTime` constraints, logical `and`/`or` groups, party/asset collection
 membership, and per-permission duty state are each resolved (new
 `lt`/`lteq`/`gt`/`gteq` operators in `engine`, or SOTW-graph lookups in the
-adapter) without weakening the mapping or silently forcing a pass.
+adapter) without weakening the mapping or silently forcing a pass. Per-
+permission duty state stays a translate-time, SOTW-graph concern there even
+though `engine::Rule` now models `odrl:duty` itself: routing it through the
+engine would mean minting a claim per duty node and rewriting every
+exported request in `latest-cases.json`, which is a separate deliberate
+decision on exactly the footing the logical-constraint and `odrl:target`
+migrations already sit on.
 
 **A real regression was found here, and fixed with a real parameter, not
 a workaround.** Between the previous compliance-suite baseline (68/68)

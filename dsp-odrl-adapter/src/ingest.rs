@@ -23,7 +23,7 @@ use std::collections::BTreeSet;
 
 use engine::claims::Claims;
 use engine::constraint::{Constraint, Operator, MAX_CONSTRAINT_DEPTH};
-use engine::decision::Rule;
+use engine::decision::{ConflictStrategy, Rule};
 use engine::profile::{Behaviour, DutyMode};
 use engine::wire::{Request, RequestConfig, WireActionDecl, WirePolicy};
 
@@ -139,6 +139,13 @@ pub fn minimal_config(policy: &WirePolicy, duty_mode: DutyMode, behaviour: Behav
         actions: actions.into_iter().map(|id| WireActionDecl { id, included_in: None }).collect(),
         duty_mode,
         behaviour,
+        // Party-role scoping stays off for an ingested DSP offer: the
+        // adapter has no way to know which claim key the host's own
+        // identity plumbing puts the caller's identifier under, and
+        // guessing `sub` would silently switch on a decision-semantics
+        // change the host never asked for. A host that wants it sets
+        // `partyIdentityClaim` on the config this returns.
+        party_identity_claim: None,
     }
 }
 
@@ -254,6 +261,22 @@ fn policy_from(node: &Node, warnings: &mut Vec<String>) -> Result<WirePolicy, In
     if !odrl(node, "inheritFrom").is_empty() {
         warnings.push("the policy declares odrl:inheritFrom; policy inheritance is not resolved".to_string());
     }
+    // `engine::Policy` really evaluates `odrl:conflict` now, and this
+    // adapter maps no conflict term onto it: ingesting one means deciding
+    // what an IRI-or-literal `odrl:perm`/`odrl:prohibit`/`odrl:invalid`
+    // expands to and what an unrecognized term should do, which is its own
+    // decision rather than a side effect of the engine gaining the field.
+    // Until then the engine's default (`invalid` -- void a conflicting
+    // policy) applies, so an offer asking for `perm` would get the opposite
+    // answer, and that has to be said out loud.
+    if !odrl(node, "conflict").is_empty() {
+        warnings.push(
+            "the policy declares odrl:conflict; this adapter ingests no conflict strategy, so the \
+             engine's own default applies (invalid: a policy whose permission and prohibition both \
+             match is void)"
+                .to_string(),
+        );
+    }
 
     Ok(WirePolicy {
         id,
@@ -263,6 +286,8 @@ fn policy_from(node: &Node, warnings: &mut Vec<String>) -> Result<WirePolicy, In
         permissions: rules_from(node, "permission", policy_target.as_deref(), warnings)?,
         prohibitions: rules_from(node, "prohibition", policy_target.as_deref(), warnings)?,
         obligations: rules_from(node, "obligation", policy_target.as_deref(), warnings)?,
+        // Never ingested from the document -- see the warning above.
+        conflict: ConflictStrategy::default(),
     })
 }
 
@@ -300,8 +325,10 @@ fn rule_from(
 
     if !odrl(node, "duty").is_empty() {
         warnings.push(format!(
-            "the odrl:{local} rule for action {action:?} carries a per-rule odrl:duty; this engine \
-             evaluates policy-level obligations only, so it is dropped"
+            "the odrl:{local} rule for action {action:?} carries a per-rule odrl:duty; \
+             engine::Rule now models one (engine::Rule::duty, and odrl:consequence/odrl:remedy \
+             beside it), but this adapter does not yet ingest any of the three, so it is dropped \
+             — an adapter limitation now, not an engine one"
         ));
     }
 
@@ -493,6 +520,9 @@ mod tests {
                 )],
             )],
             obligations: vec![Rule::targeting("inform", OFFER_TARGET, vec![])],
+            // Neither fixture declares `odrl:conflict`, and this adapter
+            // would not ingest one if it did: ODRL's own default.
+            conflict: ConflictStrategy::default(),
         }
     }
 
@@ -557,6 +587,49 @@ mod tests {
         assert_eq!(ingested.policy.kind, "Offer");
         assert_eq!(ingested.policy.assignee, None);
         assert_eq!(ingested.policy.permissions, vec![Rule::targeting("use", "urn:asset:A", vec![])]);
+    }
+
+    #[test]
+    fn a_declared_odrl_conflict_term_is_warned_about_rather_than_silently_dropped() {
+        // `engine::Policy` now really evaluates `odrl:conflict`, and this
+        // adapter does not ingest one -- it maps no conflict term onto
+        // `WirePolicy::conflict`, so an offer asking for `perm` would be
+        // evaluated under ODRL's default `invalid` instead, which is the
+        // opposite answer for a policy that actually conflicts. Silently
+        // substituting one strategy for another is exactly the class of
+        // loss every other warning here exists for.
+        let doc = r#"{
+          "@context": "http://www.w3.org/ns/odrl.jsonld",
+          "@type": "Offer",
+          "@id": "urn:uuid:conflicting-offer",
+          "assigner": "did:web:provider.example",
+          "target": "urn:asset:A",
+          "conflict": "perm",
+          "permission": [{ "action": "use" }],
+          "prohibition": [{ "action": "use" }]
+        }"#;
+        let ingested = ingest_policy(doc).expect("a policy declaring odrl:conflict still ingests");
+        assert_eq!(
+            ingested.policy.conflict,
+            ConflictStrategy::default(),
+            "the strategy really is dropped -- which is what makes the warning load-bearing"
+        );
+        assert!(
+            ingested.warnings.iter().any(|w| w.contains("odrl:conflict")),
+            "warnings: {:?}",
+            ingested.warnings
+        );
+
+        // The control: an otherwise identical offer that declares no
+        // conflict term warns about nothing of the sort, so the assertion
+        // above is about the declaration and not about a warning this
+        // adapter emits for every policy.
+        let quiet = ingest_policy(&doc.replace("\"conflict\": \"perm\",", "")).expect("must ingest");
+        assert!(
+            !quiet.warnings.iter().any(|w| w.contains("odrl:conflict")),
+            "warnings: {:?}",
+            quiet.warnings
+        );
     }
 
     #[test]
