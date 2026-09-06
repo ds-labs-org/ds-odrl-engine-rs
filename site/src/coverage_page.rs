@@ -765,6 +765,17 @@ pub fn CoveragePage() -> Html {
              claims are about native tooling or about a pre-request concern no request can encode, and each \
              such row says so where its probes would be." }
         </p>
+        <p>
+          { "One capability on top of this vocabulary doesn't appear as a row at all, deliberately: " }
+          <code>{ "dsp-odrl-adapter" }</code>
+          { " (a separate, feature-flagged crate ingesting real Dataspace-Protocol-shaped ODRL contract \
+             policies — JSON-LD 1.1, opt-in, off by default) runs " }<em>{ "before" }</em>
+          { " a wire request exists, so it has no evaluate() call for a probe to make. It isn't a claim \
+             about this engine's ODRL 2.2 vocabulary support, so it doesn't belong in this table's own \
+             terms — and it isn't yet corpus-tested against a real DSP conformance suite either. See the \
+             " }<code>{ "dsp-odrl-adapter" }</code>{ " crate's own README, not a row here, for what it \
+             actually does and doesn't handle." }
+        </p>
       </Content>
 
       if let RunState::Done(report) = &*state {
