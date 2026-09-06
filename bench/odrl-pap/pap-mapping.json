@@ -1,0 +1,53 @@
+{
+  "action": {
+    "odrl": {
+      "read": {
+        "description": "Bench overlay: odrl:read against the generic-JSON payload action field, not an HTTP verb.",
+        "regoPackage": "json.action as json_action",
+        "regoMethod": "json_action.is_read(generic.payload)"
+      },
+      "write": {
+        "description": "Bench overlay: odrl:write against the generic-JSON payload action field, not an HTTP verb.",
+        "regoPackage": "json.action as json_action",
+        "regoMethod": "json_action.is_write(generic.payload)"
+      },
+      "use": {
+        "description": "Bench overlay: odrl:use against the generic-JSON payload action field, not an HTTP verb.",
+        "regoPackage": "json.action as json_action",
+        "regoMethod": "json_action.is_use(generic.payload)"
+      }
+    }
+  },
+  "assignee": {
+    "odrl": {
+      "assignee": {
+        "description": "Bench overlay: odrl:assignee against payload.assignee, not a JWT/VC issuer.",
+        "regoPackage": "odrl.assignee as odrl_assignee",
+        "regoMethod": "odrl_assignee.is_user(generic.payload.assignee,%s)"
+      }
+    }
+  },
+  "target": {
+    "odrl": {
+      "target": {
+        "description": "Bench overlay: odrl:target against payload.target.",
+        "regoPackage": "odrl.target as odrl_target",
+        "regoMethod": "odrl_target.is_target(generic.target,%s)"
+      },
+      "uid": {
+        "description": "Bench overlay: odrl:uid against payload.target.",
+        "regoPackage": "odrl.target as odrl_target",
+        "regoMethod": "odrl_target.is_target(generic.target,%s)"
+      }
+    }
+  },
+  "leftOperand": {
+    "odrl": {
+      "dateTime": {
+        "description": "Bench overlay: odrl:dateTime reads the fixture's own SotW clock from payload.currentTime instead of OPA's time.now_ns().",
+        "regoPackage": "json.leftOperand as json_lo",
+        "regoMethod": "json_lo.payload_value(generic.payload, \"$.currentTime\")"
+      }
+    }
+  }
+}

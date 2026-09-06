@@ -1,0 +1,45 @@
+
+=== ramp repeat 0: spawning 44 workers (MemAvailable 72992 MB) ===
+    pool ready in 9916.092 ms; worker RSS after warmup ~367192 kB
+  c= 1  tput  3364.812/s  med 0.044 ms  p95 0.3  p99 5.701  [light med 0.043 p99 0.187]  [exact med 0.044 p99 5.564]  cores 1.369  RSS 0.85 GiB  err 0
+  c= 2  tput  6638.601/s  med 0.043 ms  p95 0.181  p99 5.515  [light med 0.042 p99 0.156]  [exact med 0.044 p99 5.559]  cores 2.743  RSS 1.68 GiB  err 0
+  c= 4  tput 10705.904/s  med 0.049 ms  p95 0.244  p99 7.653  [light med 0.048 p99 0.23]  [exact med 0.049 p99 7.703]  cores 5.414  RSS 3.82 GiB  err 0
+  c= 8  tput 15007.375/s  med 0.061 ms  p95 0.325  p99 13.691  [light med 0.06 p99 0.271]  [exact med 0.061 p99 13.312]  cores 10.398  RSS 7.90 GiB  err 0
+  c=16  tput 16015.348/s  med 0.123 ms  p95 0.585  p99 20.68  [light med 0.119 p99 0.535]  [exact med 0.124 p99 20.529]  cores 18.195  RSS 14.31 GiB  err 0
+  c=22  tput 17222.634/s  med 0.138 ms  p95 3.283  p99 29.072  [light med 0.134 p99 1.512]  [exact med 0.134 p99 28.548]  cores 20.908  RSS 19.06 GiB  err 0
+  c=32  tput 16335.116/s  med 0.151 ms  p95 6.298  p99 49.126  [light med 0.147 p99 4.026]  [exact med 0.152 p99 48.142]  cores 21.149  RSS 25.06 GiB  err 0
+  c=44  tput 16054.679/s  med 0.155 ms  p95 9.267  p99 64.347  [light med 0.151 p99 6.601]  [exact med 0.155 p99 63.349]  cores 21.002  RSS 32.42 GiB  err 0
+
+=== ramp repeat 1: spawning 44 workers (MemAvailable 72740 MB) ===
+    pool ready in 13131.962 ms; worker RSS after warmup ~369848 kB
+  c= 1  tput  3256.764/s  med 0.043 ms  p95 0.216  p99 5.211  [light med 0.042 p99 0.184]  [exact med 0.043 p99 5.76]  cores 1.337  RSS 0.83 GiB  err 0
+  c= 2  tput  6392.793/s  med 0.044 ms  p95 0.218  p99 5.798  [light med 0.043 p99 0.178]  [exact med 0.044 p99 5.692]  cores 2.68  RSS 1.70 GiB  err 0
+  c= 4  tput 10315.027/s  med 0.051 ms  p95 0.247  p99 7.356  [light med 0.05 p99 0.227]  [exact med 0.051 p99 7.666]  cores 5.249  RSS 3.92 GiB  err 0
+  c= 8  tput 13761.295/s  med 0.068 ms  p95 0.355  p99 14.689  [light med 0.067 p99 0.286]  [exact med 0.067 p99 14.237]  cores 10.152  RSS 7.07 GiB  err 0
+  c=16  tput 16170.688/s  med 0.122 ms  p95 0.586  p99 20.73  [light med 0.119 p99 0.525]  [exact med 0.123 p99 20.584]  cores 18.124  RSS 13.53 GiB  err 0
+  c=22  tput 16848.414/s  med 0.137 ms  p95 3.321  p99 29.855  [light med 0.133 p99 2.074]  [exact med 0.137 p99 30.215]  cores 20.618  RSS 18.06 GiB  err 0
+  c=32  tput 16624.825/s  med 0.149 ms  p95 6.247  p99 47.842  [light med 0.145 p99 4.096]  [exact med 0.147 p99 47.16]  cores 21.424  RSS 24.02 GiB  err 0
+  c=44  tput  16186.74/s  med 0.153 ms  p95 9.238  p99 64.511  [light med 0.149 p99 6.626]  [exact med 0.156 p99 65.234]  cores 21.17  RSS 31.19 GiB  err 0
+
+=== ramp repeat 2: spawning 44 workers (MemAvailable 72767 MB) ===
+    pool ready in 13006.316 ms; worker RSS after warmup ~367544 kB
+  c= 1  tput  3358.402/s  med 0.043 ms  p95 0.192  p99 5.294  [light med 0.042 p99 0.187]  [exact med 0.043 p99 5.62]  cores 1.363  RSS 0.88 GiB  err 0
+  c= 2  tput  6367.167/s  med 0.044 ms  p95 0.18  p99 5.701  [light med 0.043 p99 0.18]  [exact med 0.044 p99 5.82]  cores 2.662  RSS 1.76 GiB  err 0
+  c= 4  tput 10363.091/s  med 0.051 ms  p95 0.245  p99 7.54  [light med 0.05 p99 0.226]  [exact med 0.052 p99 7.455]  cores 5.267  RSS 3.96 GiB  err 0
+  c= 8  tput 13942.207/s  med 0.069 ms  p95 0.32  p99 14.874  [light med 0.067 p99 0.296]  [exact med 0.072 p99 15.187]  cores 10.322  RSS 7.02 GiB  err 0
+  c=16  tput 16148.501/s  med 0.122 ms  p95 0.585  p99 20.7  [light med 0.119 p99 0.535]  [exact med 0.123 p99 20.907]  cores 18.269  RSS 13.64 GiB  err 0
+  c=22  tput 17236.257/s  med 0.136 ms  p95 3.241  p99 29.522  [light med 0.132 p99 1.967]  [exact med 0.135 p99 29.431]  cores 20.896  RSS 18.36 GiB  err 0
+  c=32  tput 16571.638/s  med 0.149 ms  p95 6.287  p99 47.668  [light med 0.145 p99 4.011]  [exact med 0.144 p99 46.75]  cores 21.294  RSS 24.34 GiB  err 0
+  c=44  tput 16224.906/s  med 0.151 ms  p95 9.343  p99 67.845  [light med 0.147 p99 7.259]  [exact med 0.158 p99 67.957]  cores 20.898  RSS 32.05 GiB  err 0
+
+===== ramp summary (medians across ramp repeats) =====
+  c |    tput/s | per-wkr |   med |   p95 |    p99 | L-med | L-p95 | L-p99 | cores | RSS GiB | err | rel.range
+  1 |  3358.402 | 3358.402 | 0.043 | 0.216 |  5.294 | 0.042 | 0.081 | 0.187 | 1.363 |    0.85 |   0 | 0.032
+  2 |  6392.793 | 3196.397 | 0.044 | 0.181 |  5.701 | 0.043 | 0.078 | 0.178 |  2.68 |    1.70 |   0 | 0.042
+  4 | 10363.091 | 2590.773 | 0.051 | 0.245 |   7.54 |  0.05 | 0.095 | 0.227 | 5.267 |    3.92 |   0 | 0.038
+  8 | 13942.207 | 1742.776 | 0.068 | 0.325 | 14.689 | 0.067 | 0.161 | 0.286 | 10.322 |    7.07 |   0 | 0.089
+ 16 | 16148.501 | 1009.281 | 0.122 | 0.585 |   20.7 | 0.119 | 0.277 | 0.535 | 18.195 |   13.64 |   0 | 0.01
+ 22 | 17222.634 | 782.847 | 0.137 | 3.283 | 29.522 | 0.133 | 0.312 | 1.967 | 20.896 |   18.36 |   0 | 0.023
+ 32 | 16571.638 | 517.864 | 0.149 | 6.287 | 47.842 | 0.145 | 0.492 | 4.026 | 21.294 |   24.34 |   0 | 0.017
+ 44 |  16186.74 |  367.88 | 0.153 | 9.267 | 64.511 | 0.149 | 1.508 | 6.626 | 21.002 |   32.05 |   0 | 0.011
+wrote /home/coder/deepthought-solutions/ds-odrl-engine-rs-work/bench/odrl-manager/results/load.json

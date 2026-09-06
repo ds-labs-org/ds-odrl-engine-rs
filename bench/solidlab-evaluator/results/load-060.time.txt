@@ -1,0 +1,72 @@
+npm notice run odrl-test-suite@0.2.0 npx
+npm notice run 'ts-node' bench/load-bench.ts
+load-bench: odrl-evaluator 0.6.0, levels 1,2,4,8,16,22,28, 10s steps, 3 repeats
+  ready 4/28 at 8.5s
+  ready 8/28 at 11.0s
+  ready 12/28 at 12.7s
+  ready 16/28 at 13.7s
+  ready 20/28 at 14.1s
+  ready 24/28 at 14.3s
+  ready 28/28 at 27.6s
+pool of 28 ready in 27.6s
+  c=1 rep=0: 3.36 eval/s, median 296ms, p99 334ms, rss 0.49 GiB, cores 1.3, exc 0
+  c=2 rep=0: 3.83 eval/s, median 322ms, p99 6766ms, rss 1.04 GiB, cores 2.1, exc 0
+  c=4 rep=0: 5.54 eval/s, median 361ms, p99 7511ms, rss 2.15 GiB, cores 4.2, exc 0
+  c=8 rep=0: 7.77 eval/s, median 493ms, p99 8713ms, rss 4.35 GiB, cores 7.6, exc 0
+  c=16 rep=0: 7.97 eval/s, median 808ms, p99 13872ms, rss 8.93 GiB, cores 13.9, exc 0
+  c=22 rep=0: 8.05 eval/s, median 1165ms, p99 16340ms, rss 11.78 GiB, cores 16.0, exc 0
+  c=28 rep=0: 8.61 eval/s, median 1508ms, p99 17268ms, rss 14.64 GiB, cores 16.2, exc 0
+  ready 4/28 at 11.9s
+  ready 8/28 at 15.2s
+  ready 12/28 at 16.4s
+  ready 16/28 at 16.8s
+  ready 20/28 at 17.2s
+  ready 24/28 at 17.7s
+  ready 28/28 at 31.2s
+pool of 28 ready in 31.2s
+  c=1 rep=1: 3.33 eval/s, median 299ms, p99 340ms, rss 0.43 GiB, cores 1.4, exc 0
+  c=2 rep=1: 3.91 eval/s, median 322ms, p99 6682ms, rss 0.99 GiB, cores 2.1, exc 0
+  c=4 rep=1: 5.23 eval/s, median 359ms, p99 7432ms, rss 2.24 GiB, cores 4.0, exc 0
+  c=8 rep=1: 7.29 eval/s, median 499ms, p99 8866ms, rss 4.47 GiB, cores 7.4, exc 0
+  c=16 rep=1: 7.04 eval/s, median 773ms, p99 14952ms, rss 9.03 GiB, cores 13.2, exc 0
+  c=22 rep=1: 8.43 eval/s, median 1118ms, p99 16343ms, rss 11.71 GiB, cores 16.1, exc 0
+  c=28 rep=1: 9.02 eval/s, median 1509ms, p99 16906ms, rss 14.57 GiB, cores 15.9, exc 0
+  ready 4/28 at 13.3s
+  ready 8/28 at 14.5s
+  ready 12/28 at 16.2s
+  ready 16/28 at 16.9s
+  ready 20/28 at 17.2s
+  ready 24/28 at 17.5s
+  ready 28/28 at 30.7s
+pool of 28 ready in 30.7s
+  c=1 rep=2: 3.38 eval/s, median 295ms, p99 323ms, rss 0.47 GiB, cores 1.4, exc 0
+  c=2 rep=2: 3.95 eval/s, median 318ms, p99 6502ms, rss 1.15 GiB, cores 2.1, exc 0
+  c=4 rep=2: 5.50 eval/s, median 349ms, p99 8097ms, rss 2.24 GiB, cores 4.2, exc 0
+  c=8 rep=2: 7.49 eval/s, median 485ms, p99 8740ms, rss 4.46 GiB, cores 7.8, exc 0
+  c=16 rep=2: 7.89 eval/s, median 798ms, p99 14432ms, rss 8.70 GiB, cores 14.5, exc 0
+  c=22 rep=2: 8.13 eval/s, median 1195ms, p99 16167ms, rss 11.78 GiB, cores 16.1, exc 0
+  c=28 rep=2: 9.11 eval/s, median 1532ms, p99 16802ms, rss 14.78 GiB, cores 14.7, exc 0
+wrote /home/coder/deepthought-solutions/ds-odrl-engine-rs-work/bench/solidlab-evaluator/results/load-060.json
+	Command being timed: "npx ts-node bench/load-bench.ts"
+	User time (seconds): 4015.49
+	System time (seconds): 123.34
+	Percent of CPU this job got: 979%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 7:02.45
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 874732
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 46454390
+	Voluntary context switches: 829077
+	Involuntary context switches: 853667
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 423376
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

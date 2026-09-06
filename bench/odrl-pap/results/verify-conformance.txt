@@ -1,0 +1,33 @@
+testcase-026-alice-read-x passed Allow
+testcase-027-alice-write-x passed Deny
+testcase-028-alice-read-y passed Deny
+testcase-029-bob-write-y passed Deny
+testcase-030-alice-read-x passed Allow
+testcase-031-alice-read-x-past passed Deny
+testcase-032-alice-read-x-future passed Deny
+testcase-033-alice-read-x passed Deny
+testcase-034-alice-read-x-past passed Allow
+testcase-035-alice-read-x-future passed Allow
+testcase-036-alice-read-x passed Deny
+testcase-037-alice-read-x-past passed Allow
+testcase-038-alice-read-x-future passed Deny
+testcase-039-alice-read-x passed Allow
+testcase-040-alice-read-x-past passed Allow
+testcase-041-alice-read-x-future passed Deny
+testcase-042-alice-read-x passed Deny
+testcase-043-alice-read-x-past passed Deny
+testcase-044-alice-read-x-future passed Allow
+testcase-045-alice-read-x passed Allow
+testcase-046-alice-read-x-past passed Deny
+testcase-047-alice-read-x-future passed Allow
+testcase-048-alice-read-x passed Allow
+testcase-049-alice-read-x-past passed Deny
+testcase-050-alice-read-x-future passed Deny
+testcase-059-nonset passed Allow
+testcase-060-fulfilled passed Allow
+testcase-061-violated failed Allow
+testcase-062-big-policy passed Allow
+testcase-063-big-policy-OoO passed Deny
+testcase-064-big-policy-past passed Deny
+
+total 68 | passed 30 | failed 1 | skipped 37 | error 0

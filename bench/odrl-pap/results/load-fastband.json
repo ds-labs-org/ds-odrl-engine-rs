@@ -1,0 +1,931 @@
+{
+  "engine": "ODRL-PAP (SEAMWARE/odrl-pap)",
+  "commit": "59e45474c910b97f537b8f39c68e2e17ec4243ef",
+  "tag": "1.7.0",
+  "endpoint": "http://localhost:8091/validate",
+  "started": "2026-09-06T12:22:15+0200",
+  "concurrency_means": "N simultaneous HTTP client connections issuing /validate; server-side parallelism is Quarkus's own worker pool, not something this harness sets",
+  "client": "ThreadPoolExecutor of blocking urllib callers (GIL released during socket I/O, so N threads = N requests genuinely in flight)",
+  "cases_in_mix": 28,
+  "excluded_slug_substrings": [
+    "big-policy"
+  ],
+  "levels": [
+    1,
+    2,
+    4,
+    8,
+    16,
+    32,
+    64,
+    96
+  ],
+  "requests_per_step": 560,
+  "repeats": 3,
+  "per_step_warmup": 31,
+  "ceiling": {
+    "max_concurrency": 96,
+    "error_stop_rate": 0.02,
+    "latency_stop_factor": 25.0
+  },
+  "resources_whole_ramp": {
+    "interval_s": 0.25,
+    "missing": [],
+    "trees": {
+      "quarkus": {
+        "samples": 1219,
+        "rss_first_kb": 355520,
+        "rss_median_kb": 484428,
+        "rss_peak_kb": 507048,
+        "rss_last_kb": 507048,
+        "rss_growth_kb": 151528,
+        "cpu_start_s": 5.58,
+        "cpu_end_s": 59.02,
+        "cpu_consumed_s": 53.44,
+        "max_procs_in_tree": 1
+      },
+      "opa": {
+        "samples": 1219,
+        "rss_first_kb": 36804,
+        "rss_median_kb": 56136,
+        "rss_peak_kb": 62096,
+        "rss_last_kb": 58748,
+        "rss_growth_kb": 21944,
+        "cpu_start_s": 0.06,
+        "cpu_end_s": 809.07,
+        "cpu_consumed_s": 809.01,
+        "max_procs_in_tree": 1
+      },
+      "postgres": {
+        "samples": 1219,
+        "rss_first_kb": 74784,
+        "rss_median_kb": 80416,
+        "rss_peak_kb": 92412,
+        "rss_last_kb": 84804,
+        "rss_growth_kb": 10020,
+        "cpu_start_s": 0.06,
+        "cpu_end_s": 0.07,
+        "cpu_consumed_s": 0.01,
+        "max_procs_in_tree": 8
+      }
+    },
+    "tool": "psutil 5.9.8 Sampler (perf_corpus.Sampler), 0.25s interval, watching the Quarkus JVM / OPA / Postgres trees from outside for the whole ramp"
+  },
+  "steps_raw": [
+    {
+      "concurrency": 1,
+      "repeat": 0,
+      "requests": 560,
+      "completed": 560,
+      "errors": 0,
+      "error_rate": 0.0,
+      "wrong_decisions": 20,
+      "wall_s": 19.7017,
+      "throughput_rps": 28.42,
+      "latency_ms": {
+        "n": 560,
+        "mean": 35.096,
+        "median": 34.609,
+        "p95": 41.431,
+        "p99": 48.668,
+        "min": 26.527,
+        "max": 55.6,
+        "stddev": 3.851,
+        "q1": 32.457,
+        "q3": 37.177,
+        "iqr": 4.72
+      },
+      "client_cpu_s": 2.19,
+      "server_cpu_s": {
+        "quarkus": 8.18,
+        "opa": 36.23,
+        "postgres": 0.0
+      },
+      "server_rss_peak_mb": {
+        "quarkus": 420,
+        "opa": 45,
+        "postgres": 77
+      },
+      "error_samples": []
+    },
+    {
+      "concurrency": 1,
+      "repeat": 1,
+      "requests": 560,
+      "completed": 560,
+      "errors": 0,
+      "error_rate": 0.0,
+      "wrong_decisions": 20,
+      "wall_s": 18.2001,
+      "throughput_rps": 30.77,
+      "latency_ms": {
+        "n": 560,
+        "mean": 32.404,
+        "median": 31.861,
+        "p95": 39.362,
+        "p99": 44.18,
+        "min": 25.293,
+        "max": 53.494,
+        "stddev": 3.726,
+        "q1": 29.653,
+        "q3": 34.277,
+        "iqr": 4.624
+      },
+      "client_cpu_s": 2.06,
+      "server_cpu_s": {
+        "quarkus": 2.02,
+        "opa": 36.66,
+        "postgres": 0.0
+      },
+      "server_rss_peak_mb": {
+        "quarkus": 473,
+        "opa": 56,
+        "postgres": 90
+      },
+      "error_samples": []
+    },
+    {
+      "concurrency": 1,
+      "repeat": 2,
+      "requests": 560,
+      "completed": 560,
+      "errors": 0,
+      "error_rate": 0.0,
+      "wrong_decisions": 20,
+      "wall_s": 17.3193,
+      "throughput_rps": 32.33,
+      "latency_ms": {
+        "n": 560,
+        "mean": 30.833,
+        "median": 30.182,
+        "p95": 36.823,
+        "p99": 40.975,
+        "min": 24.57,
+        "max": 47.312,
+        "stddev": 3.248,
+        "q1": 28.61,
+        "q3": 32.574,
+        "iqr": 3.964
+      },
+      "client_cpu_s": 2.02,
+      "server_cpu_s": {
+        "quarkus": 1.56,
+        "opa": 36.33,
+        "postgres": 0.0
+      },
+      "server_rss_peak_mb": {
+        "quarkus": 491,
+        "opa": 58,
+        "postgres": 90
+      },
+      "error_samples": []
+    },
+    {
+      "concurrency": 2,
+      "repeat": 0,
+      "requests": 560,
+      "completed": 560,
+      "errors": 0,
+      "error_rate": 0.0,
+      "wrong_decisions": 20,
+      "wall_s": 15.8824,
+      "throughput_rps": 35.26,
+      "latency_ms": {
+        "n": 560,
+        "mean": 56.603,
+        "median": 55.032,
+        "p95": 67.719,
+        "p99": 77.002,
+        "min": 44.545,
+        "max": 88.668,
+        "stddev": 5.945,
+        "q1": 52.878,
+        "q3": 58.699,
+        "iqr": 5.821
+      },
+      "client_cpu_s": 1.84,
+      "server_cpu_s": {
+        "quarkus": 4.9,
+        "opa": 38.53,
+        "postgres": 0.0
+      },
+      "server_rss_peak_mb": {
+        "quarkus": 420,
+        "opa": 47,
+        "postgres": 77
+      },
+      "error_samples": []
+    },
+    {
+      "concurrency": 2,
+      "repeat": 1,
+      "requests": 560,
+      "completed": 560,
+      "errors": 0,
+      "error_rate": 0.0,
+      "wrong_decisions": 20,
+      "wall_s": 15.5946,
+      "throughput_rps": 35.91,
+      "latency_ms": {
+        "n": 560,
+        "mean": 55.574,
+        "median": 53.667,
+        "p95": 69.71,
+        "p99": 78.249,
+        "min": 45.22,
+        "max": 92.103,
+        "stddev": 6.615,
+        "q1": 51.204,
+        "q3": 57.912,
+        "iqr": 6.708
+      },
+      "client_cpu_s": 1.86,
+      "server_cpu_s": {
+        "quarkus": 1.97,
+        "opa": 38.95,
+        "postgres": 0.0
+      },
+      "server_rss_peak_mb": {
+        "quarkus": 473,
+        "opa": 56,
+        "postgres": 90
+      },
+      "error_samples": []
+    },
+    {
+      "concurrency": 2,
+      "repeat": 2,
+      "requests": 560,
+      "completed": 560,
+      "errors": 0,
+      "error_rate": 0.0,
+      "wrong_decisions": 20,
+      "wall_s": 15.7543,
+      "throughput_rps": 35.55,
+      "latency_ms": {
+        "n": 560,
+        "mean": 56.147,
+        "median": 54.338,
+        "p95": 70.341,
+        "p99": 77.183,
+        "min": 45.052,
+        "max": 85.879,
+        "stddev": 6.746,
+        "q1": 51.627,
+        "q3": 58.517,
+        "iqr": 6.89
+      },
+      "client_cpu_s": 1.87,
+      "server_cpu_s": {
+        "quarkus": 1.58,
+        "opa": 40.0,
+        "postgres": 0.0
+      },
+      "server_rss_peak_mb": {
+        "quarkus": 491,
+        "opa": 58,
+        "postgres": 90
+      },
+      "error_samples": []
+    },
+    {
+      "concurrency": 4,
+      "repeat": 0,
+      "requests": 560,
+      "completed": 560,
+      "errors": 0,
+      "error_rate": 0.0,
+      "wrong_decisions": 20,
+      "wall_s": 16.4723,
+      "throughput_rps": 34.0,
+      "latency_ms": {
+        "n": 560,
+        "mean": 117.42,
+        "median": 115.34,
+        "p95": 136.538,
+        "p99": 149.542,
+        "min": 71.187,
+        "max": 166.878,
+        "stddev": 10.14,
+        "q1": 110.978,
+        "q3": 122.361,
+        "iqr": 11.383
+      },
+      "client_cpu_s": 1.86,
+      "server_cpu_s": {
+        "quarkus": 3.86,
+        "opa": 39.79,
+        "postgres": 0.0
+      },
+      "server_rss_peak_mb": {
+        "quarkus": 429,
+        "opa": 49,
+        "postgres": 90
+      },
+      "error_samples": []
+    },
+    {
+      "concurrency": 4,
+      "repeat": 1,
+      "requests": 560,
+      "completed": 560,
+      "errors": 0,
+      "error_rate": 0.0,
+      "wrong_decisions": 20,
+      "wall_s": 15.9487,
+      "throughput_rps": 35.11,
+      "latency_ms": {
+        "n": 560,
+        "mean": 113.671,
+        "median": 111.929,
+        "p95": 131.034,
+        "p99": 136.526,
+        "min": 88.049,
+        "max": 152.003,
+        "stddev": 9.402,
+        "q1": 106.38,
+        "q3": 118.949,
+        "iqr": 12.569
+      },
+      "client_cpu_s": 1.89,
+      "server_cpu_s": {
+        "quarkus": 2.77,
+        "opa": 39.11,
+        "postgres": 0.0
+      },
+      "server_rss_peak_mb": {
+        "quarkus": 473,
+        "opa": 56,
+        "postgres": 90
+      },
+      "error_samples": []
+    },
+    {
+      "concurrency": 4,
+      "repeat": 2,
+      "requests": 560,
+      "completed": 560,
+      "errors": 0,
+      "error_rate": 0.0,
+      "wrong_decisions": 20,
+      "wall_s": 15.6831,
+      "throughput_rps": 35.71,
+      "latency_ms": {
+        "n": 560,
+        "mean": 111.798,
+        "median": 110.607,
+        "p95": 130.042,
+        "p99": 140.769,
+        "min": 67.091,
+        "max": 150.523,
+        "stddev": 9.653,
+        "q1": 104.744,
+        "q3": 116.164,
+        "iqr": 11.42
+      },
+      "client_cpu_s": 1.85,
+      "server_cpu_s": {
+        "quarkus": 1.6,
+        "opa": 41.03,
+        "postgres": 0.0
+      },
+      "server_rss_peak_mb": {
+        "quarkus": 492,
+        "opa": 58,
+        "postgres": 90
+      },
+      "error_samples": []
+    },
+    {
+      "concurrency": 8,
+      "repeat": 0,
+      "requests": 560,
+      "completed": 560,
+      "errors": 0,
+      "error_rate": 0.0,
+      "wrong_decisions": 20,
+      "wall_s": 16.9352,
+      "throughput_rps": 33.07,
+      "latency_ms": {
+        "n": 560,
+        "mean": 241.124,
+        "median": 238.148,
+        "p95": 271.69,
+        "p99": 296.495,
+        "min": 131.887,
+        "max": 305.294,
+        "stddev": 17.651,
+        "q1": 231.002,
+        "q3": 248.372,
+        "iqr": 17.37
+      },
+      "client_cpu_s": 1.92,
+      "server_cpu_s": {
+        "quarkus": 3.23,
+        "opa": 40.19,
+        "postgres": 0.0
+      },
+      "server_rss_peak_mb": {
+        "quarkus": 436,
+        "opa": 51,
+        "postgres": 90
+      },
+      "error_samples": []
+    },
+    {
+      "concurrency": 8,
+      "repeat": 1,
+      "requests": 560,
+      "completed": 560,
+      "errors": 0,
+      "error_rate": 0.0,
+      "wrong_decisions": 20,
+      "wall_s": 16.8233,
+      "throughput_rps": 33.29,
+      "latency_ms": {
+        "n": 560,
+        "mean": 239.483,
+        "median": 236.849,
+        "p95": 272.363,
+        "p99": 291.887,
+        "min": 131.988,
+        "max": 313.522,
+        "stddev": 17.721,
+        "q1": 230.032,
+        "q3": 246.299,
+        "iqr": 16.267
+      },
+      "client_cpu_s": 1.97,
+      "server_cpu_s": {
+        "quarkus": 2.92,
+        "opa": 42.34,
+        "postgres": 0.0
+      },
+      "server_rss_peak_mb": {
+        "quarkus": 479,
+        "opa": 56,
+        "postgres": 90
+      },
+      "error_samples": []
+    },
+    {
+      "concurrency": 8,
+      "repeat": 2,
+      "requests": 560,
+      "completed": 560,
+      "errors": 0,
+      "error_rate": 0.0,
+      "wrong_decisions": 20,
+      "wall_s": 16.2529,
+      "throughput_rps": 34.46,
+      "latency_ms": {
+        "n": 560,
+        "mean": 231.417,
+        "median": 232.302,
+        "p95": 258.54,
+        "p99": 268.761,
+        "min": 119.827,
+        "max": 276.21,
+        "stddev": 16.611,
+        "q1": 220.649,
+        "q3": 239.893,
+        "iqr": 19.244
+      },
+      "client_cpu_s": 1.87,
+      "server_cpu_s": {
+        "quarkus": 1.62,
+        "opa": 42.22,
+        "postgres": 0.0
+      },
+      "server_rss_peak_mb": {
+        "quarkus": 492,
+        "opa": 58,
+        "postgres": 90
+      },
+      "error_samples": []
+    },
+    {
+      "concurrency": 16,
+      "repeat": 0,
+      "requests": 560,
+      "completed": 560,
+      "errors": 0,
+      "error_rate": 0.0,
+      "wrong_decisions": 20,
+      "wall_s": 18.3299,
+      "throughput_rps": 30.55,
+      "latency_ms": {
+        "n": 560,
+        "mean": 520.242,
+        "median": 520.807,
+        "p95": 572.255,
+        "p99": 580.49,
+        "min": 311.848,
+        "max": 606.773,
+        "stddev": 33.866,
+        "q1": 499.713,
+        "q3": 541.862,
+        "iqr": 42.149
+      },
+      "client_cpu_s": 2.06,
+      "server_cpu_s": {
+        "quarkus": 3.44,
+        "opa": 44.68,
+        "postgres": 0.0
+      },
+      "server_rss_peak_mb": {
+        "quarkus": 471,
+        "opa": 53,
+        "postgres": 90
+      },
+      "error_samples": []
+    },
+    {
+      "concurrency": 16,
+      "repeat": 1,
+      "requests": 560,
+      "completed": 560,
+      "errors": 0,
+      "error_rate": 0.0,
+      "wrong_decisions": 20,
+      "wall_s": 18.2437,
+      "throughput_rps": 30.7,
+      "latency_ms": {
+        "n": 560,
+        "mean": 517.814,
+        "median": 515.411,
+        "p95": 585.475,
+        "p99": 604.577,
+        "min": 280.424,
+        "max": 615.774,
+        "stddev": 35.988,
+        "q1": 500.472,
+        "q3": 530.463,
+        "iqr": 29.991
+      },
+      "client_cpu_s": 2.07,
+      "server_cpu_s": {
+        "quarkus": 2.64,
+        "opa": 46.35,
+        "postgres": 0.0
+      },
+      "server_rss_peak_mb": {
+        "quarkus": 486,
+        "opa": 56,
+        "postgres": 90
+      },
+      "error_samples": []
+    },
+    {
+      "concurrency": 16,
+      "repeat": 2,
+      "requests": 560,
+      "completed": 560,
+      "errors": 0,
+      "error_rate": 0.0,
+      "wrong_decisions": 20,
+      "wall_s": 17.9047,
+      "throughput_rps": 31.28,
+      "latency_ms": {
+        "n": 560,
+        "mean": 507.903,
+        "median": 509.367,
+        "p95": 545.765,
+        "p99": 562.411,
+        "min": 261.536,
+        "max": 566.576,
+        "stddev": 30.967,
+        "q1": 497.434,
+        "q3": 523.272,
+        "iqr": 25.838
+      },
+      "client_cpu_s": 2.03,
+      "server_cpu_s": {
+        "quarkus": 1.57,
+        "opa": 45.41,
+        "postgres": 0.0
+      },
+      "server_rss_peak_mb": {
+        "quarkus": 493,
+        "opa": 58,
+        "postgres": 90
+      },
+      "error_samples": []
+    },
+    {
+      "concurrency": 32,
+      "repeat": 0,
+      "requests": 560,
+      "completed": 560,
+      "errors": 0,
+      "error_rate": 0.0,
+      "wrong_decisions": 20,
+      "wall_s": 21.0183,
+      "throughput_rps": 26.64,
+      "latency_ms": {
+        "n": 560,
+        "mean": 1178.948,
+        "median": 1203.391,
+        "p95": 1283.121,
+        "p99": 1289.172,
+        "min": 610.387,
+        "max": 1293.356,
+        "stddev": 112.395,
+        "q1": 1163.661,
+        "q3": 1235.695,
+        "iqr": 72.034
+      },
+      "client_cpu_s": 2.36,
+      "server_cpu_s": {
+        "quarkus": 2.38,
+        "opa": 51.67,
+        "postgres": 0.01
+      },
+      "server_rss_peak_mb": {
+        "quarkus": 471,
+        "opa": 56,
+        "postgres": 90
+      },
+      "error_samples": []
+    },
+    {
+      "concurrency": 32,
+      "repeat": 1,
+      "requests": 560,
+      "completed": 560,
+      "errors": 0,
+      "error_rate": 0.0,
+      "wrong_decisions": 20,
+      "wall_s": 21.0854,
+      "throughput_rps": 26.56,
+      "latency_ms": {
+        "n": 560,
+        "mean": 1184.673,
+        "median": 1213.986,
+        "p95": 1300.486,
+        "p99": 1319.738,
+        "min": 590.268,
+        "max": 1327.761,
+        "stddev": 121.202,
+        "q1": 1173.294,
+        "q3": 1234.382,
+        "iqr": 61.088
+      },
+      "client_cpu_s": 2.29,
+      "server_cpu_s": {
+        "quarkus": 1.73,
+        "opa": 52.62,
+        "postgres": 0.0
+      },
+      "server_rss_peak_mb": {
+        "quarkus": 491,
+        "opa": 58,
+        "postgres": 90
+      },
+      "error_samples": []
+    },
+    {
+      "concurrency": 32,
+      "repeat": 2,
+      "requests": 560,
+      "completed": 560,
+      "errors": 0,
+      "error_rate": 0.0,
+      "wrong_decisions": 20,
+      "wall_s": 20.9037,
+      "throughput_rps": 26.79,
+      "latency_ms": {
+        "n": 560,
+        "mean": 1173.193,
+        "median": 1196.399,
+        "p95": 1276.349,
+        "p99": 1292.764,
+        "min": 638.655,
+        "max": 1301.655,
+        "stddev": 107.556,
+        "q1": 1157.396,
+        "q3": 1231.939,
+        "iqr": 74.543
+      },
+      "client_cpu_s": 2.3,
+      "server_cpu_s": {
+        "quarkus": 1.85,
+        "opa": 52.96,
+        "postgres": 0.0
+      },
+      "server_rss_peak_mb": {
+        "quarkus": 495,
+        "opa": 60,
+        "postgres": 90
+      },
+      "error_samples": []
+    }
+  ],
+  "table": [
+    {
+      "concurrency": 1,
+      "repeats": 3,
+      "throughput_rps_median": 30.77,
+      "throughput_rps_per_repeat": [
+        28.42,
+        30.77,
+        32.33
+      ],
+      "latency_median_ms": 31.861,
+      "latency_p95_ms": 39.362,
+      "latency_p99_ms": 44.18,
+      "latency_max_ms": 55.6,
+      "error_rate": 0.0,
+      "wrong_decisions": 60,
+      "client_cpu_s_median": 2.06,
+      "server_cpu_s_median": {
+        "quarkus": 2.02,
+        "opa": 36.33,
+        "postgres": 0.0
+      },
+      "server_rss_peak_mb": {
+        "quarkus": 491,
+        "opa": 58,
+        "postgres": 90
+      },
+      "rule_3_p99_over_median": 1.387,
+      "rule_3_unstable": false,
+      "rule_4_rps_repeat_spread": 0.1271,
+      "rule_4_unstable": false
+    },
+    {
+      "concurrency": 2,
+      "repeats": 3,
+      "throughput_rps_median": 35.55,
+      "throughput_rps_per_repeat": [
+        35.26,
+        35.91,
+        35.55
+      ],
+      "latency_median_ms": 54.338,
+      "latency_p95_ms": 69.71,
+      "latency_p99_ms": 77.183,
+      "latency_max_ms": 92.103,
+      "error_rate": 0.0,
+      "wrong_decisions": 60,
+      "client_cpu_s_median": 1.86,
+      "server_cpu_s_median": {
+        "quarkus": 1.97,
+        "opa": 38.95,
+        "postgres": 0.0
+      },
+      "server_rss_peak_mb": {
+        "quarkus": 491,
+        "opa": 58,
+        "postgres": 90
+      },
+      "rule_3_p99_over_median": 1.42,
+      "rule_3_unstable": false,
+      "rule_4_rps_repeat_spread": 0.0183,
+      "rule_4_unstable": false
+    },
+    {
+      "concurrency": 4,
+      "repeats": 3,
+      "throughput_rps_median": 35.11,
+      "throughput_rps_per_repeat": [
+        34.0,
+        35.11,
+        35.71
+      ],
+      "latency_median_ms": 111.929,
+      "latency_p95_ms": 131.034,
+      "latency_p99_ms": 140.769,
+      "latency_max_ms": 166.878,
+      "error_rate": 0.0,
+      "wrong_decisions": 60,
+      "client_cpu_s_median": 1.86,
+      "server_cpu_s_median": {
+        "quarkus": 2.77,
+        "opa": 39.79,
+        "postgres": 0.0
+      },
+      "server_rss_peak_mb": {
+        "quarkus": 492,
+        "opa": 58,
+        "postgres": 90
+      },
+      "rule_3_p99_over_median": 1.258,
+      "rule_3_unstable": false,
+      "rule_4_rps_repeat_spread": 0.0487,
+      "rule_4_unstable": false
+    },
+    {
+      "concurrency": 8,
+      "repeats": 3,
+      "throughput_rps_median": 33.29,
+      "throughput_rps_per_repeat": [
+        33.07,
+        33.29,
+        34.46
+      ],
+      "latency_median_ms": 236.849,
+      "latency_p95_ms": 271.69,
+      "latency_p99_ms": 291.887,
+      "latency_max_ms": 313.522,
+      "error_rate": 0.0,
+      "wrong_decisions": 60,
+      "client_cpu_s_median": 1.92,
+      "server_cpu_s_median": {
+        "quarkus": 2.92,
+        "opa": 42.22,
+        "postgres": 0.0
+      },
+      "server_rss_peak_mb": {
+        "quarkus": 492,
+        "opa": 58,
+        "postgres": 90
+      },
+      "rule_3_p99_over_median": 1.232,
+      "rule_3_unstable": false,
+      "rule_4_rps_repeat_spread": 0.0418,
+      "rule_4_unstable": false
+    },
+    {
+      "concurrency": 16,
+      "repeats": 3,
+      "throughput_rps_median": 30.7,
+      "throughput_rps_per_repeat": [
+        30.55,
+        30.7,
+        31.28
+      ],
+      "latency_median_ms": 515.411,
+      "latency_p95_ms": 572.255,
+      "latency_p99_ms": 580.49,
+      "latency_max_ms": 615.774,
+      "error_rate": 0.0,
+      "wrong_decisions": 60,
+      "client_cpu_s_median": 2.06,
+      "server_cpu_s_median": {
+        "quarkus": 2.64,
+        "opa": 45.41,
+        "postgres": 0.0
+      },
+      "server_rss_peak_mb": {
+        "quarkus": 493,
+        "opa": 58,
+        "postgres": 90
+      },
+      "rule_3_p99_over_median": 1.126,
+      "rule_3_unstable": false,
+      "rule_4_rps_repeat_spread": 0.0238,
+      "rule_4_unstable": false
+    },
+    {
+      "concurrency": 32,
+      "repeats": 3,
+      "throughput_rps_median": 26.64,
+      "throughput_rps_per_repeat": [
+        26.64,
+        26.56,
+        26.79
+      ],
+      "latency_median_ms": 1203.391,
+      "latency_p95_ms": 1283.121,
+      "latency_p99_ms": 1292.764,
+      "latency_max_ms": 1327.761,
+      "error_rate": 0.0,
+      "wrong_decisions": 60,
+      "client_cpu_s_median": 2.3,
+      "server_cpu_s_median": {
+        "quarkus": 1.85,
+        "opa": 52.62,
+        "postgres": 0.0
+      },
+      "server_rss_peak_mb": {
+        "quarkus": 495,
+        "opa": 60,
+        "postgres": 90
+      },
+      "rule_3_p99_over_median": 1.074,
+      "rule_3_unstable": false,
+      "rule_4_rps_repeat_spread": 0.0086,
+      "rule_4_unstable": false
+    }
+  ],
+  "stopped_at": 32,
+  "stop_reason": "median 1203.4ms > 25.0x level-1 median 34.6ms at concurrency 32",
+  "peak": {
+    "concurrency": 2,
+    "throughput_rps": 35.55,
+    "latency_median_ms": 54.338,
+    "latency_p99_ms": 77.183
+  },
+  "gates": {
+    "rule_3_step_instability": {
+      "threshold_p99_over_median": 4.0,
+      "unstable_levels": []
+    },
+    "rule_4_repeat_spread": {
+      "threshold_rel_range_of_rps": 0.25,
+      "unstable_levels": []
+    }
+  },
+  "finished": "2026-09-06T12:27:51+0200"
+}

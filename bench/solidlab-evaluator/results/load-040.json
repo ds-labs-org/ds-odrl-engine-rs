@@ -1,0 +1,5699 @@
+{
+  "schema": "solidlab-evaluator/perf-bench@1",
+  "phase": "load",
+  "engine": "SolidLabResearch/ODRL-Evaluator",
+  "version": "0.4.0",
+  "node_version": "v24.18.0",
+  "started_utc": "2026-09-06T08:14:38.252Z",
+  "wall_seconds": 515.409,
+  "host": {
+    "nproc": 22,
+    "totalmem_bytes": 100651765760,
+    "loadavg_at_start": [
+      11.98,
+      12.76,
+      11.08
+    ]
+  },
+  "method": {
+    "concurrency_means": "one OS process per unit of concurrency: `npx ts-node bench/load-worker.ts`, each with its own ODRLEvaluator and its own WASM EYE reasoner, looping the same 68-case corpus from a different offset. NOT in-process async concurrency -- see perf-bench.ts's intra_process_concurrency_probe, which measures ~1.0x speedup for Promise.all over evaluate(). Not comparable to a thread-based concurrency figure from another engine.",
+    "levels": [
+      1,
+      2,
+      4,
+      8,
+      16,
+      22,
+      28
+    ],
+    "step_seconds": 10,
+    "throughput_note": "throughput_evals_per_sec divides by the step's REAL wall time; throughput_in_window_evals_per_sec counts only evaluations that completed within the nominal STEP_SECONDS. They diverge above concurrency 8 because an evaluation cannot be interrupted: a worker that has entered a ~13.5 s big-policy case holds the step open past its nominal end, so wall_seconds_median rises to ~25 s for a 10 s step.",
+    "ramp_repeats": 3,
+    "worker_warmup_evaluations": 5,
+    "pool": "MAX_CONCURRENCY=28 workers spawned once per ramp repeat; a step activates the first K and leaves the rest blocked on stdin (memory held, no CPU)",
+    "sampling": "/proc/<pid>/status VmRSS and /proc/<pid>/stat utime+stime for every active worker every 250 ms; CPU and RSS are kernel-reported, not self-reported",
+    "steady_state_rule": "median of the aggregate active-RSS samples taken after the first second of the step",
+    "heavy_case_split": "testcases 62/63/64 take ~13.5 s each against ~0.7 s for the other 65, so every step also reports latency_ms_light (the same window with those cases removed) and heavy_share (their fraction of the window's evaluations). Nothing is excluded from the run or from the headline latency_ms -- this is a second view, so that a reader can tell contention from corpus composition.",
+    "ceiling_justification": "ceiling is set by memory, not cores: each worker holds ~0.5 GiB RSS, so 28 workers is already ~14 GiB on a 22-core box. MIN_FREE_MB=6144 aborts a step rather than swapping a shared workstation.",
+    "stability_rule": "a level is 'unstable_across_repeats' when its throughput (max-min)/median across repeats > 0.15. Flagged, never dropped."
+  },
+  "worker_warmup_median_ms_per_pool": [
+    2583,
+    3024,
+    3110
+  ],
+  "levels": [
+    {
+      "concurrency": 1,
+      "repeats": 3,
+      "throughput_evals_per_sec_median": 1.527,
+      "throughput_in_window_evals_per_sec_median": 1.5,
+      "wall_seconds_median": 10.476,
+      "throughput_per_repeat": [
+        1.558,
+        1.516,
+        1.527
+      ],
+      "throughput_relative_range": 0.028,
+      "unstable_across_repeats": false,
+      "latency_ms_median_of_repeats": 649.949,
+      "latency_light_ms_median_of_repeats": 649.949,
+      "latency_light_ms_p95_median_of_repeats": 705.304,
+      "latency_light_ms_p99_median_of_repeats": 705.304,
+      "heavy_evaluations_total": 0,
+      "heavy_share": 0,
+      "latency_ms_p95_median_of_repeats": 705.304,
+      "latency_ms_p99_median_of_repeats": 705.304,
+      "latency_ms_max": 715.283,
+      "evaluations_total": 48,
+      "exceptions_total": 0,
+      "exception_rate": 0,
+      "mismatch_rate": 0,
+      "active_rss_peak_bytes_max": 470532096,
+      "active_rss_steady_bytes_median": 407646208,
+      "pool_rss_peak_bytes_max": 9729794048,
+      "cores_busy_median": 1.178,
+      "skipped": []
+    },
+    {
+      "concurrency": 2,
+      "repeats": 3,
+      "throughput_evals_per_sec_median": 2.822,
+      "throughput_in_window_evals_per_sec_median": 2.8,
+      "wall_seconds_median": 10.63,
+      "throughput_per_repeat": [
+        2.822,
+        2.801,
+        2.83
+      ],
+      "throughput_relative_range": 0.01,
+      "unstable_across_repeats": false,
+      "latency_ms_median_of_repeats": 692.554,
+      "latency_light_ms_median_of_repeats": 692.554,
+      "latency_light_ms_p95_median_of_repeats": 771.594,
+      "latency_light_ms_p99_median_of_repeats": 781.945,
+      "heavy_evaluations_total": 0,
+      "heavy_share": 0,
+      "latency_ms_p95_median_of_repeats": 771.594,
+      "latency_ms_p99_median_of_repeats": 781.945,
+      "latency_ms_max": 798.102,
+      "evaluations_total": 90,
+      "exceptions_total": 0,
+      "exception_rate": 0,
+      "mismatch_rate": 0,
+      "active_rss_peak_bytes_max": 897757184,
+      "active_rss_steady_bytes_median": 822657024,
+      "pool_rss_peak_bytes_max": 9487683584,
+      "cores_busy_median": 2.316,
+      "skipped": []
+    },
+    {
+      "concurrency": 4,
+      "repeats": 3,
+      "throughput_evals_per_sec_median": 4.847,
+      "throughput_in_window_evals_per_sec_median": 4.8,
+      "wall_seconds_median": 10.729,
+      "throughput_per_repeat": [
+        4.842,
+        4.847,
+        4.853
+      ],
+      "throughput_relative_range": 0.002,
+      "unstable_across_repeats": false,
+      "latency_ms_median_of_repeats": 790.395,
+      "latency_light_ms_median_of_repeats": 790.395,
+      "latency_light_ms_p95_median_of_repeats": 935.406,
+      "latency_light_ms_p99_median_of_repeats": 984.68,
+      "heavy_evaluations_total": 0,
+      "heavy_share": 0,
+      "latency_ms_p95_median_of_repeats": 935.406,
+      "latency_ms_p99_median_of_repeats": 984.68,
+      "latency_ms_max": 985.821,
+      "evaluations_total": 156,
+      "exceptions_total": 0,
+      "exception_rate": 0,
+      "mismatch_rate": 0,
+      "active_rss_peak_bytes_max": 1792073728,
+      "active_rss_steady_bytes_median": 1635504128,
+      "pool_rss_peak_bytes_max": 9724612608,
+      "cores_busy_median": 4.641,
+      "skipped": []
+    },
+    {
+      "concurrency": 8,
+      "repeats": 3,
+      "throughput_evals_per_sec_median": 6.692,
+      "throughput_in_window_evals_per_sec_median": 6.4,
+      "wall_seconds_median": 10.863,
+      "throughput_per_repeat": [
+        6.628,
+        6.692,
+        6.734
+      ],
+      "throughput_relative_range": 0.016,
+      "unstable_across_repeats": false,
+      "latency_ms_median_of_repeats": 1096.535,
+      "latency_light_ms_median_of_repeats": 1096.535,
+      "latency_light_ms_p95_median_of_repeats": 1741.2,
+      "latency_light_ms_p99_median_of_repeats": 1842.584,
+      "heavy_evaluations_total": 0,
+      "heavy_share": 0,
+      "latency_ms_p95_median_of_repeats": 1741.2,
+      "latency_ms_p99_median_of_repeats": 1842.584,
+      "latency_ms_max": 1948.104,
+      "evaluations_total": 218,
+      "exceptions_total": 0,
+      "exception_rate": 0,
+      "mismatch_rate": 0.069,
+      "active_rss_peak_bytes_max": 3368427520,
+      "active_rss_steady_bytes_median": 3215241216,
+      "pool_rss_peak_bytes_max": 9974284288,
+      "cores_busy_median": 9.343,
+      "skipped": []
+    },
+    {
+      "concurrency": 16,
+      "repeats": 3,
+      "throughput_evals_per_sec_median": 3.619,
+      "throughput_in_window_evals_per_sec_median": 7.2,
+      "wall_seconds_median": 24.869,
+      "throughput_per_repeat": [
+        3.619,
+        3.714,
+        3.479
+      ],
+      "throughput_relative_range": 0.065,
+      "unstable_across_repeats": false,
+      "latency_ms_median_of_repeats": 1878.561,
+      "latency_light_ms_median_of_repeats": 1866.004,
+      "latency_light_ms_p95_median_of_repeats": 2288.409,
+      "latency_light_ms_p99_median_of_repeats": 2883.262,
+      "heavy_evaluations_total": 9,
+      "heavy_share": 0.034,
+      "latency_ms_p95_median_of_repeats": 2717.007,
+      "latency_ms_p99_median_of_repeats": 20597.215,
+      "latency_ms_max": 21636.208,
+      "evaluations_total": 268,
+      "exceptions_total": 0,
+      "exception_rate": 0,
+      "mismatch_rate": 0.082,
+      "active_rss_peak_bytes_max": 7073685504,
+      "active_rss_steady_bytes_median": 6697435136,
+      "pool_rss_peak_bytes_max": 11019923456,
+      "cores_busy_median": 9.431,
+      "skipped": []
+    },
+    {
+      "concurrency": 22,
+      "repeats": 3,
+      "throughput_evals_per_sec_median": 3.309,
+      "throughput_in_window_evals_per_sec_median": 6.5,
+      "wall_seconds_median": 26.597,
+      "throughput_per_repeat": [
+        3.309,
+        3.276,
+        3.314
+      ],
+      "throughput_relative_range": 0.011,
+      "unstable_across_repeats": false,
+      "latency_ms_median_of_repeats": 2578.996,
+      "latency_light_ms_median_of_repeats": 2545.309,
+      "latency_light_ms_p95_median_of_repeats": 3234.906,
+      "latency_light_ms_p99_median_of_repeats": 3509.757,
+      "heavy_evaluations_total": 14,
+      "heavy_share": 0.053,
+      "latency_ms_p95_median_of_repeats": 17198.573,
+      "latency_ms_p99_median_of_repeats": 24111.332,
+      "latency_ms_max": 24195.016,
+      "evaluations_total": 265,
+      "exceptions_total": 0,
+      "exception_rate": 0,
+      "mismatch_rate": 0.143,
+      "active_rss_peak_bytes_max": 10172112896,
+      "active_rss_steady_bytes_median": 9699352576,
+      "pool_rss_peak_bytes_max": 12147609600,
+      "cores_busy_median": 11.583,
+      "skipped": []
+    },
+    {
+      "concurrency": 28,
+      "repeats": 3,
+      "throughput_evals_per_sec_median": 3.331,
+      "throughput_in_window_evals_per_sec_median": 5.7,
+      "wall_seconds_median": 25.821,
+      "throughput_per_repeat": [
+        3.308,
+        3.409,
+        3.331
+      ],
+      "throughput_relative_range": 0.03,
+      "unstable_across_repeats": false,
+      "latency_ms_median_of_repeats": 3275.705,
+      "latency_light_ms_median_of_repeats": 3246.494,
+      "latency_light_ms_p95_median_of_repeats": 4674.944,
+      "latency_light_ms_p99_median_of_repeats": 5177.775,
+      "heavy_evaluations_total": 15,
+      "heavy_share": 0.057,
+      "latency_ms_p95_median_of_repeats": 24443.088,
+      "latency_ms_p99_median_of_repeats": 25820.478,
+      "latency_ms_max": 26300.207,
+      "evaluations_total": 261,
+      "exceptions_total": 0,
+      "exception_rate": 0,
+      "mismatch_rate": 0.046,
+      "active_rss_peak_bytes_max": 12800843776,
+      "active_rss_steady_bytes_median": 12127371264,
+      "pool_rss_peak_bytes_max": 12800913408,
+      "cores_busy_median": 12.447,
+      "skipped": []
+    }
+  ],
+  "steps": [
+    {
+      "concurrency": 1,
+      "repeat": 0,
+      "wall_seconds": 10.27,
+      "evaluations": 16,
+      "exceptions": 0,
+      "mismatches": 0,
+      "exception_rate": 0,
+      "mismatch_rate": 0,
+      "throughput_evals_per_sec": 1.558,
+      "throughput_in_window_evals_per_sec": 1.5,
+      "evaluations_in_window": 15,
+      "per_worker": [
+        {
+          "index": 0,
+          "latencies": [
+            704.89,
+            645.54,
+            636.056,
+            632.545,
+            631.791,
+            636.901,
+            643.513,
+            635.749,
+            628.384,
+            636.235,
+            632.369,
+            623.149,
+            644.01,
+            631.028,
+            676.043,
+            628.807
+          ],
+          "seqs": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ]
+        }
+      ],
+      "latency_ms": {
+        "n": 16,
+        "mean": 641.688125,
+        "median": 635.9025,
+        "p95": 704.89,
+        "p99": 704.89,
+        "min": 623.149,
+        "max": 704.89,
+        "q1": 631.4095,
+        "q3": 643.7615000000001,
+        "iqr": 12.35200000000009,
+        "stddev": 19.979045713180966
+      },
+      "latency_ms_light": {
+        "n": 16,
+        "mean": 641.688125,
+        "median": 635.9025,
+        "p95": 704.89,
+        "p99": 704.89,
+        "min": 623.149,
+        "max": 704.89,
+        "q1": 631.4095,
+        "q3": 643.7615000000001,
+        "iqr": 12.35200000000009,
+        "stddev": 19.979045713180966
+      },
+      "heavy_evaluations": 0,
+      "heavy_share": 0,
+      "kernel": {
+        "samples": 41,
+        "active_rss_peak_bytes": 453107712,
+        "active_rss_steady_bytes": 407646208,
+        "pool_rss_peak_bytes": 9675083776,
+        "cpu_seconds_active": 12.16,
+        "cores_busy": 1.184
+      },
+      "host_loadavg_1m": 11.7,
+      "mem_available_mb_before": 65637.41
+    },
+    {
+      "concurrency": 2,
+      "repeat": 0,
+      "wall_seconds": 10.63,
+      "evaluations": 30,
+      "exceptions": 0,
+      "mismatches": 0,
+      "exception_rate": 0,
+      "mismatch_rate": 0,
+      "throughput_evals_per_sec": 2.822,
+      "throughput_in_window_evals_per_sec": 2.8,
+      "evaluations_in_window": 28,
+      "per_worker": [
+        {
+          "index": 0,
+          "latencies": [
+            673.135,
+            643.071,
+            682.953,
+            702.527,
+            721.465,
+            702.222,
+            668.741,
+            713.925,
+            660.16,
+            771.594,
+            710.33,
+            723.392,
+            694.275,
+            798.102,
+            763.498
+          ],
+          "seqs": [
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31
+          ]
+        },
+        {
+          "index": 1,
+          "latencies": [
+            699.792,
+            676.842,
+            663.746,
+            689.937,
+            687.155,
+            679.816,
+            682.201,
+            732.753,
+            671.847,
+            757.032,
+            699.803,
+            727.39,
+            686.805,
+            689.142,
+            713.985
+          ],
+          "seqs": [
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22
+          ]
+        }
+      ],
+      "latency_ms": {
+        "n": 30,
+        "mean": 702.9212,
+        "median": 697.0335,
+        "p95": 771.594,
+        "p99": 798.102,
+        "min": 643.071,
+        "max": 798.102,
+        "q1": 679.816,
+        "q3": 721.465,
+        "iqr": 41.649,
+        "stddev": 34.58945500621059
+      },
+      "latency_ms_light": {
+        "n": 30,
+        "mean": 702.9212,
+        "median": 697.0335,
+        "p95": 771.594,
+        "p99": 798.102,
+        "min": 643.071,
+        "max": 798.102,
+        "q1": 679.816,
+        "q3": 721.465,
+        "iqr": 41.649,
+        "stddev": 34.58945500621059
+      },
+      "heavy_evaluations": 0,
+      "heavy_share": 0,
+      "kernel": {
+        "samples": 42,
+        "active_rss_peak_bytes": 877723648,
+        "active_rss_steady_bytes": 819347456,
+        "pool_rss_peak_bytes": 9457815552,
+        "cpu_seconds_active": 24.62,
+        "cores_busy": 2.316
+      },
+      "host_loadavg_1m": 10.21,
+      "mem_available_mb_before": 65931.188
+    },
+    {
+      "concurrency": 4,
+      "repeat": 0,
+      "wall_seconds": 10.533,
+      "evaluations": 51,
+      "exceptions": 0,
+      "mismatches": 0,
+      "exception_rate": 0,
+      "mismatch_rate": 0,
+      "throughput_evals_per_sec": 4.842,
+      "throughput_in_window_evals_per_sec": 4.7,
+      "evaluations_in_window": 47,
+      "per_worker": [
+        {
+          "index": 0,
+          "latencies": [
+            773.751,
+            758.745,
+            760.546,
+            780.356,
+            854.66,
+            857.384,
+            871.592,
+            851.288,
+            901.612,
+            941.49,
+            908.354,
+            895.133
+          ],
+          "seqs": [
+            32,
+            33,
+            34,
+            35,
+            36,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42,
+            43
+          ]
+        },
+        {
+          "index": 1,
+          "latencies": [
+            735.488,
+            734.792,
+            752.03,
+            795.817,
+            864.574,
+            908.358,
+            828.296,
+            906.663,
+            905.354,
+            927.743,
+            918.571,
+            923.273
+          ],
+          "seqs": [
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34
+          ]
+        },
+        {
+          "index": 2,
+          "latencies": [
+            848.173,
+            738.507,
+            844.665,
+            705.986,
+            695.572,
+            743.51,
+            723.137,
+            730.075,
+            746.157,
+            707.974,
+            677.682,
+            716.564,
+            720.544,
+            722.105
+          ],
+          "seqs": [
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28
+          ]
+        },
+        {
+          "index": 3,
+          "latencies": [
+            880.25,
+            825.287,
+            723.711,
+            684.163,
+            741.743,
+            746.46,
+            739.778,
+            692.459,
+            783.442,
+            985.821,
+            944.456,
+            911.129,
+            871.307
+          ],
+          "seqs": [
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34
+          ]
+        }
+      ],
+      "latency_ms": {
+        "n": 51,
+        "mean": 807.9711176470588,
+        "median": 783.442,
+        "p95": 941.49,
+        "p99": 985.821,
+        "min": 677.682,
+        "max": 985.821,
+        "q1": 734.792,
+        "q3": 895.133,
+        "iqr": 160.341,
+        "stddev": 85.19136951032648
+      },
+      "latency_ms_light": {
+        "n": 51,
+        "mean": 807.9711176470588,
+        "median": 783.442,
+        "p95": 941.49,
+        "p99": 985.821,
+        "min": 677.682,
+        "max": 985.821,
+        "q1": 734.792,
+        "q3": 895.133,
+        "iqr": 160.341,
+        "stddev": 85.19136951032648
+      },
+      "heavy_evaluations": 0,
+      "heavy_share": 0,
+      "kernel": {
+        "samples": 42,
+        "active_rss_peak_bytes": 1731129344,
+        "active_rss_steady_bytes": 1636061184,
+        "pool_rss_peak_bytes": 9653362688,
+        "cpu_seconds_active": 48.88,
+        "cores_busy": 4.641
+      },
+      "host_loadavg_1m": 9.34,
+      "mem_available_mb_before": 65736.855
+    },
+    {
+      "concurrency": 8,
+      "repeat": 0,
+      "wall_seconds": 10.863,
+      "evaluations": 72,
+      "exceptions": 0,
+      "mismatches": 6,
+      "exception_rate": 0,
+      "mismatch_rate": 0.083,
+      "throughput_evals_per_sec": 6.628,
+      "throughput_in_window_evals_per_sec": 6.4,
+      "evaluations_in_window": 64,
+      "per_worker": [
+        {
+          "index": 0,
+          "latencies": [
+            859.116,
+            1301.32,
+            977.312,
+            1072.549,
+            1109.678,
+            1131.61,
+            1042.844,
+            993.255,
+            1044.756,
+            998.021
+          ],
+          "seqs": [
+            44,
+            45,
+            46,
+            47,
+            48,
+            49,
+            50,
+            51,
+            52,
+            53
+          ]
+        },
+        {
+          "index": 1,
+          "latencies": [
+            970.922,
+            1103.585,
+            1101.447,
+            1092.485,
+            1080.877,
+            1071.779,
+            1411.865,
+            1474.704,
+            1210.608
+          ],
+          "seqs": [
+            35,
+            36,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42,
+            43
+          ]
+        },
+        {
+          "index": 2,
+          "latencies": [
+            844.715,
+            1120.443,
+            1000.995,
+            1062.853,
+            1080.198,
+            1170.003,
+            1722.396,
+            1765.127,
+            1095.525
+          ],
+          "seqs": [
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37
+          ]
+        },
+        {
+          "index": 3,
+          "latencies": [
+            1040.847,
+            1049.191,
+            1166.616,
+            1101.128,
+            1090.803,
+            1070.126,
+            971.131,
+            1057.268,
+            1158.419,
+            995.403
+          ],
+          "seqs": [
+            35,
+            36,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42,
+            43,
+            44
+          ]
+        },
+        {
+          "index": 4,
+          "latencies": [
+            1401.607,
+            1880.389,
+            1133.743,
+            1431.127,
+            1234.495,
+            1097.545,
+            1026.764,
+            948.521
+          ],
+          "seqs": [
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36
+          ]
+        },
+        {
+          "index": 5,
+          "latencies": [
+            1518.404,
+            1948.104,
+            1468.362,
+            1170.099,
+            1081.158,
+            1115.207,
+            1122.177,
+            1020.949
+          ],
+          "seqs": [
+            36,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42,
+            43
+          ]
+        },
+        {
+          "index": 6,
+          "latencies": [
+            1205.751,
+            1341.901,
+            1519.757,
+            950.807,
+            1164.946,
+            1071.202,
+            1063.885,
+            989.422,
+            1252.943
+          ],
+          "seqs": [
+            43,
+            44,
+            45,
+            46,
+            47,
+            48,
+            49,
+            50,
+            51
+          ]
+        },
+        {
+          "index": 7,
+          "latencies": [
+            935.288,
+            1055.133,
+            1177.165,
+            955.344,
+            1702.098,
+            1171.396,
+            1057.783,
+            1136.807,
+            937.88
+          ],
+          "seqs": [
+            50,
+            51,
+            52,
+            53,
+            54,
+            55,
+            56,
+            57,
+            58
+          ]
+        }
+      ],
+      "latency_ms": {
+        "n": 72,
+        "mean": 1165.2788749999995,
+        "median": 1096.535,
+        "p95": 1722.396,
+        "p99": 1948.104,
+        "min": 844.715,
+        "max": 1948.104,
+        "q1": 1041.8455,
+        "q3": 1191.458,
+        "iqr": 149.61250000000018,
+        "stddev": 227.40386866260758
+      },
+      "latency_ms_light": {
+        "n": 72,
+        "mean": 1165.2788749999995,
+        "median": 1096.535,
+        "p95": 1722.396,
+        "p99": 1948.104,
+        "min": 844.715,
+        "max": 1948.104,
+        "q1": 1041.8455,
+        "q3": 1191.458,
+        "iqr": 149.61250000000018,
+        "stddev": 227.40386866260758
+      },
+      "heavy_evaluations": 0,
+      "heavy_share": 0,
+      "kernel": {
+        "samples": 43,
+        "active_rss_peak_bytes": 3368427520,
+        "active_rss_steady_bytes": 3169681408,
+        "pool_rss_peak_bytes": 9974284288,
+        "cpu_seconds_active": 99.65,
+        "cores_busy": 9.173
+      },
+      "host_loadavg_1m": 9.65,
+      "mem_available_mb_before": 65673.641
+    },
+    {
+      "concurrency": 16,
+      "repeat": 0,
+      "wall_seconds": 24.869,
+      "evaluations": 90,
+      "exceptions": 0,
+      "mismatches": 5,
+      "exception_rate": 0,
+      "mismatch_rate": 0.056,
+      "throughput_evals_per_sec": 3.619,
+      "throughput_in_window_evals_per_sec": 7.3,
+      "evaluations_in_window": 73,
+      "per_worker": [
+        {
+          "index": 0,
+          "latencies": [
+            2012.909,
+            1417.804,
+            1712.746,
+            2647.973,
+            1866.004,
+            1377.32
+          ],
+          "seqs": [
+            54,
+            55,
+            56,
+            57,
+            58,
+            59
+          ]
+        },
+        {
+          "index": 1,
+          "latencies": [
+            2217.693,
+            1482.992,
+            2054.514,
+            2201.684,
+            2132.767,
+            1544.02
+          ],
+          "seqs": [
+            44,
+            45,
+            46,
+            47,
+            48,
+            49
+          ]
+        },
+        {
+          "index": 2,
+          "latencies": [
+            1160.306,
+            1743.968,
+            1719.599,
+            1255.128,
+            2118.179,
+            2202.633
+          ],
+          "seqs": [
+            38,
+            39,
+            40,
+            41,
+            42,
+            43
+          ]
+        },
+        {
+          "index": 3,
+          "latencies": [
+            1421.173,
+            1635.718,
+            1831.089,
+            1807.754,
+            2098.026,
+            1855.721
+          ],
+          "seqs": [
+            45,
+            46,
+            47,
+            48,
+            49,
+            50
+          ]
+        },
+        {
+          "index": 4,
+          "latencies": [
+            2203.61,
+            2088.196,
+            2039.801,
+            2311.326,
+            2039.815
+          ],
+          "seqs": [
+            37,
+            38,
+            39,
+            40,
+            41
+          ]
+        },
+        {
+          "index": 5,
+          "latencies": [
+            2054.519,
+            1868.187,
+            1688.928,
+            2115.487,
+            2216.154,
+            1637.068
+          ],
+          "seqs": [
+            44,
+            45,
+            46,
+            47,
+            48,
+            49
+          ]
+        },
+        {
+          "index": 6,
+          "latencies": [
+            1985.169,
+            2010.642,
+            1570.833,
+            1428.195,
+            1399.177,
+            1369.921,
+            1268.039
+          ],
+          "seqs": [
+            52,
+            53,
+            54,
+            55,
+            56,
+            57,
+            58
+          ]
+        },
+        {
+          "index": 7,
+          "latencies": [
+            2610.538,
+            2099.681,
+            2016.611,
+            16602.583
+          ],
+          "seqs": [
+            59,
+            60,
+            61,
+            62
+          ]
+        },
+        {
+          "index": 8,
+          "latencies": [
+            1888.935,
+            2102.825,
+            2012.334,
+            1659.875,
+            1446.154,
+            15756.233
+          ],
+          "seqs": [
+            57,
+            58,
+            59,
+            60,
+            61,
+            62
+          ]
+        },
+        {
+          "index": 9,
+          "latencies": [
+            20597.215
+          ],
+          "seqs": [
+            64
+          ]
+        },
+        {
+          "index": 10,
+          "latencies": [
+            1957.286,
+            2717.007,
+            2219.533,
+            1918.126,
+            1830.36
+          ],
+          "seqs": [
+            3,
+            4,
+            5,
+            6,
+            7
+          ]
+        },
+        {
+          "index": 11,
+          "latencies": [
+            1163.894,
+            1403.712,
+            1922.999,
+            1419.424,
+            1536.009,
+            2060.692,
+            1801.991
+          ],
+          "seqs": [
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ]
+        },
+        {
+          "index": 12,
+          "latencies": [
+            2145.028,
+            1608.549,
+            1977.891,
+            2177.789,
+            2883.262
+          ],
+          "seqs": [
+            17,
+            18,
+            19,
+            20,
+            21
+          ]
+        },
+        {
+          "index": 13,
+          "latencies": [
+            2505.142,
+            1025.94,
+            1380.707,
+            1864.85,
+            1598.347,
+            1276.159,
+            1453.136
+          ],
+          "seqs": [
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30
+          ]
+        },
+        {
+          "index": 14,
+          "latencies": [
+            1481.445,
+            2081.388,
+            1978.672,
+            2093.396,
+            2125.826,
+            1689.504
+          ],
+          "seqs": [
+            31,
+            32,
+            33,
+            34,
+            35,
+            36
+          ]
+        },
+        {
+          "index": 15,
+          "latencies": [
+            1706.637,
+            2272.519,
+            2005.538,
+            1279.839,
+            1310.075,
+            1302.406,
+            1194.033
+          ],
+          "seqs": [
+            38,
+            39,
+            40,
+            41,
+            42,
+            43,
+            44
+          ]
+        }
+      ],
+      "latency_ms": {
+        "n": 90,
+        "mean": 2355.2764666666662,
+        "median": 1878.561,
+        "p95": 2717.007,
+        "p99": 20597.215,
+        "min": 1025.94,
+        "max": 20597.215,
+        "q1": 1482.992,
+        "q3": 2102.825,
+        "iqr": 619.8329999999999,
+        "stddev": 2891.4275176240585
+      },
+      "latency_ms_light": {
+        "n": 87,
+        "mean": 1827.8028850574708,
+        "median": 1866.004,
+        "p95": 2505.142,
+        "p99": 2883.262,
+        "min": 1025.94,
+        "max": 2883.262,
+        "q1": 1481.445,
+        "q3": 2098.026,
+        "iqr": 616.5809999999999,
+        "stddev": 384.86015007309555
+      },
+      "heavy_evaluations": 3,
+      "heavy_share": 0.033,
+      "kernel": {
+        "samples": 99,
+        "active_rss_peak_bytes": 6994964480,
+        "active_rss_steady_bytes": 6697435136,
+        "pool_rss_peak_bytes": 10938572800,
+        "cpu_seconds_active": 234.54,
+        "cores_busy": 9.431
+      },
+      "host_loadavg_1m": 9.88,
+      "mem_available_mb_before": 65054.367
+    },
+    {
+      "concurrency": 22,
+      "repeat": 0,
+      "wall_seconds": 26.597,
+      "evaluations": 88,
+      "exceptions": 0,
+      "mismatches": 13,
+      "exception_rate": 0,
+      "mismatch_rate": 0.148,
+      "throughput_evals_per_sec": 3.309,
+      "throughput_in_window_evals_per_sec": 6.4,
+      "evaluations_in_window": 64,
+      "per_worker": [
+        {
+          "index": 0,
+          "latencies": [
+            2547.379,
+            3182.996,
+            20865.794
+          ],
+          "seqs": [
+            60,
+            61,
+            62
+          ]
+        },
+        {
+          "index": 1,
+          "latencies": [
+            2732.171,
+            3084.19,
+            2558.971,
+            2252.536
+          ],
+          "seqs": [
+            50,
+            51,
+            52,
+            53
+          ]
+        },
+        {
+          "index": 2,
+          "latencies": [
+            2049.805,
+            3485.334,
+            2568.276,
+            2564.965
+          ],
+          "seqs": [
+            44,
+            45,
+            46,
+            47
+          ]
+        },
+        {
+          "index": 3,
+          "latencies": [
+            2086.973,
+            2582.41,
+            2896.562,
+            2621.144,
+            1499.797
+          ],
+          "seqs": [
+            51,
+            52,
+            53,
+            54,
+            55
+          ]
+        },
+        {
+          "index": 4,
+          "latencies": [
+            1835.829,
+            2650.233,
+            2521.557,
+            2804.241,
+            1896.562
+          ],
+          "seqs": [
+            42,
+            43,
+            44,
+            45,
+            46
+          ]
+        },
+        {
+          "index": 5,
+          "latencies": [
+            2919.184,
+            2123.947,
+            2636.364,
+            2358.324,
+            1528.48
+          ],
+          "seqs": [
+            50,
+            51,
+            52,
+            53,
+            54
+          ]
+        },
+        {
+          "index": 6,
+          "latencies": [
+            2403.414,
+            3290.342,
+            2996.773,
+            17307.628
+          ],
+          "seqs": [
+            59,
+            60,
+            61,
+            62
+          ]
+        },
+        {
+          "index": 7,
+          "latencies": [
+            24111.332
+          ],
+          "seqs": [
+            63
+          ]
+        },
+        {
+          "index": 8,
+          "latencies": [
+            24094.937
+          ],
+          "seqs": [
+            63
+          ]
+        },
+        {
+          "index": 9,
+          "latencies": [
+            2399.21,
+            2675.124,
+            2650.072,
+            2669.614
+          ],
+          "seqs": [
+            65,
+            66,
+            67,
+            68
+          ]
+        },
+        {
+          "index": 10,
+          "latencies": [
+            1566.196,
+            2589.215,
+            2704.884,
+            2668.521,
+            1929.678
+          ],
+          "seqs": [
+            8,
+            9,
+            10,
+            11,
+            12
+          ]
+        },
+        {
+          "index": 11,
+          "latencies": [
+            2272.121,
+            2201.139,
+            2560.329,
+            2339.065,
+            2253.792
+          ],
+          "seqs": [
+            17,
+            18,
+            19,
+            20,
+            21
+          ]
+        },
+        {
+          "index": 12,
+          "latencies": [
+            1575.381,
+            2695.582,
+            2291.937,
+            1975.408,
+            2286.43
+          ],
+          "seqs": [
+            22,
+            23,
+            24,
+            25,
+            26
+          ]
+        },
+        {
+          "index": 13,
+          "latencies": [
+            2628.761,
+            3122.684,
+            3509.757,
+            2535.799
+          ],
+          "seqs": [
+            31,
+            32,
+            33,
+            34
+          ]
+        },
+        {
+          "index": 14,
+          "latencies": [
+            1920.469,
+            2658.085,
+            2272.132,
+            2749.195,
+            2328.535
+          ],
+          "seqs": [
+            37,
+            38,
+            39,
+            40,
+            41
+          ]
+        },
+        {
+          "index": 15,
+          "latencies": [
+            2337.614,
+            2379.938,
+            2812.594,
+            2976.643
+          ],
+          "seqs": [
+            45,
+            46,
+            47,
+            48
+          ]
+        },
+        {
+          "index": 16,
+          "latencies": [
+            2964.672,
+            3358.712,
+            3011.12,
+            2361.982
+          ],
+          "seqs": [
+            45,
+            46,
+            47,
+            48
+          ]
+        },
+        {
+          "index": 17,
+          "latencies": [
+            3275.768,
+            2920.781,
+            2261.524,
+            2637.686
+          ],
+          "seqs": [
+            52,
+            53,
+            54,
+            55
+          ]
+        },
+        {
+          "index": 18,
+          "latencies": [
+            2578.882,
+            2961.838,
+            2854.012,
+            17926.042
+          ],
+          "seqs": [
+            59,
+            60,
+            61,
+            62
+          ]
+        },
+        {
+          "index": 19,
+          "latencies": [
+            2277.066,
+            2821.359,
+            3145.811,
+            2726.79
+          ],
+          "seqs": [
+            66,
+            67,
+            68,
+            1
+          ]
+        },
+        {
+          "index": 20,
+          "latencies": [
+            2616.86,
+            2365.764,
+            2679.479,
+            2862.848
+          ],
+          "seqs": [
+            5,
+            6,
+            7,
+            8
+          ]
+        },
+        {
+          "index": 21,
+          "latencies": [
+            3314.262,
+            2363.991,
+            2370.853,
+            2835.746
+          ],
+          "seqs": [
+            12,
+            13,
+            14,
+            15
+          ]
+        }
+      ],
+      "latency_ms": {
+        "n": 88,
+        "mean": 3603.2750227272727,
+        "median": 2624.9525,
+        "p95": 17307.628,
+        "p99": 24111.332,
+        "min": 1499.797,
+        "max": 24111.332,
+        "q1": 2333.0744999999997,
+        "q3": 2907.873,
+        "iqr": 574.7985000000003,
+        "stddev": 4312.484106376525
+      },
+      "latency_ms_light": {
+        "n": 83,
+        "mean": 2563.6442048192775,
+        "median": 2589.215,
+        "p95": 3290.342,
+        "p99": 3509.757,
+        "min": 1499.797,
+        "max": 3509.757,
+        "q1": 2291.937,
+        "q3": 2835.746,
+        "iqr": 543.8090000000002,
+        "stddev": 431.2840679101219
+      },
+      "heavy_evaluations": 5,
+      "heavy_share": 0.057,
+      "kernel": {
+        "samples": 106,
+        "active_rss_peak_bytes": 10166579200,
+        "active_rss_steady_bytes": 9578352640,
+        "pool_rss_peak_bytes": 12147609600,
+        "cpu_seconds_active": 312.94,
+        "cores_busy": 11.766
+      },
+      "host_loadavg_1m": 11.94,
+      "mem_available_mb_before": 64586.047
+    },
+    {
+      "concurrency": 28,
+      "repeat": 0,
+      "wall_seconds": 26.301,
+      "evaluations": 87,
+      "exceptions": 0,
+      "mismatches": 5,
+      "exception_rate": 0,
+      "mismatch_rate": 0.057,
+      "throughput_evals_per_sec": 3.308,
+      "throughput_in_window_evals_per_sec": 5.7,
+      "evaluations_in_window": 57,
+      "per_worker": [
+        {
+          "index": 0,
+          "latencies": [
+            26300.207
+          ],
+          "seqs": [
+            63
+          ]
+        },
+        {
+          "index": 1,
+          "latencies": [
+            4018.469,
+            3501.681,
+            3592.031
+          ],
+          "seqs": [
+            54,
+            55,
+            56
+          ]
+        },
+        {
+          "index": 2,
+          "latencies": [
+            3872.988,
+            3498.703,
+            3628.34
+          ],
+          "seqs": [
+            48,
+            49,
+            50
+          ]
+        },
+        {
+          "index": 3,
+          "latencies": [
+            2699.852,
+            2858.329,
+            4674.944,
+            2304.077
+          ],
+          "seqs": [
+            56,
+            57,
+            58,
+            59
+          ]
+        },
+        {
+          "index": 4,
+          "latencies": [
+            4009.771,
+            3819.624,
+            2836.673
+          ],
+          "seqs": [
+            47,
+            48,
+            49
+          ]
+        },
+        {
+          "index": 5,
+          "latencies": [
+            3184.437,
+            2850.387,
+            2821.128,
+            2897.193
+          ],
+          "seqs": [
+            55,
+            56,
+            57,
+            58
+          ]
+        },
+        {
+          "index": 6,
+          "latencies": [
+            25501.851
+          ],
+          "seqs": [
+            63
+          ]
+        },
+        {
+          "index": 7,
+          "latencies": [
+            25626.505
+          ],
+          "seqs": [
+            64
+          ]
+        },
+        {
+          "index": 8,
+          "latencies": [
+            24599.164
+          ],
+          "seqs": [
+            64
+          ]
+        },
+        {
+          "index": 9,
+          "latencies": [
+            2961.841,
+            3102.115,
+            3467.728,
+            2704.681
+          ],
+          "seqs": [
+            1,
+            2,
+            3,
+            4
+          ]
+        },
+        {
+          "index": 10,
+          "latencies": [
+            2652.977,
+            2750.628,
+            3462.929,
+            2481.379
+          ],
+          "seqs": [
+            13,
+            14,
+            15,
+            16
+          ]
+        },
+        {
+          "index": 11,
+          "latencies": [
+            3351.303,
+            4807.326,
+            3379.496
+          ],
+          "seqs": [
+            22,
+            23,
+            24
+          ]
+        },
+        {
+          "index": 12,
+          "latencies": [
+            2312.411,
+            3912.385,
+            3302.882,
+            2920.114
+          ],
+          "seqs": [
+            27,
+            28,
+            29,
+            30
+          ]
+        },
+        {
+          "index": 13,
+          "latencies": [
+            3767.654,
+            3372.16,
+            3558.373
+          ],
+          "seqs": [
+            35,
+            36,
+            37
+          ]
+        },
+        {
+          "index": 14,
+          "latencies": [
+            2775.535,
+            5177.775,
+            3713.549
+          ],
+          "seqs": [
+            42,
+            43,
+            44
+          ]
+        },
+        {
+          "index": 15,
+          "latencies": [
+            3030.225,
+            2980.843,
+            2814.194,
+            2891.024
+          ],
+          "seqs": [
+            49,
+            50,
+            51,
+            52
+          ]
+        },
+        {
+          "index": 16,
+          "latencies": [
+            3004.347,
+            3190.106,
+            3002.735,
+            2885.337
+          ],
+          "seqs": [
+            49,
+            50,
+            51,
+            52
+          ]
+        },
+        {
+          "index": 17,
+          "latencies": [
+            2670.484,
+            3953.216,
+            2761.589,
+            2839.541
+          ],
+          "seqs": [
+            56,
+            57,
+            58,
+            59
+          ]
+        },
+        {
+          "index": 18,
+          "latencies": [
+            24198.839
+          ],
+          "seqs": [
+            63
+          ]
+        },
+        {
+          "index": 19,
+          "latencies": [
+            3677.528,
+            3102.696,
+            2912.693,
+            2463.708
+          ],
+          "seqs": [
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "index": 20,
+          "latencies": [
+            3542.684,
+            4078.935,
+            3321.279
+          ],
+          "seqs": [
+            9,
+            10,
+            11
+          ]
+        },
+        {
+          "index": 21,
+          "latencies": [
+            2969.584,
+            3543.472,
+            2631.419,
+            2339.009
+          ],
+          "seqs": [
+            16,
+            17,
+            18,
+            19
+          ]
+        },
+        {
+          "index": 22,
+          "latencies": [
+            2774.262,
+            3528.747,
+            3557.01,
+            2353.173
+          ],
+          "seqs": [
+            19,
+            20,
+            21,
+            22
+          ]
+        },
+        {
+          "index": 23,
+          "latencies": [
+            3486.384,
+            3679.197,
+            2510.615,
+            2199.842
+          ],
+          "seqs": [
+            26,
+            27,
+            28,
+            29
+          ]
+        },
+        {
+          "index": 24,
+          "latencies": [
+            3588.467,
+            3443.143,
+            3656.798
+          ],
+          "seqs": [
+            33,
+            34,
+            35
+          ]
+        },
+        {
+          "index": 25,
+          "latencies": [
+            4717.576,
+            4318.792,
+            2937.98
+          ],
+          "seqs": [
+            40,
+            41,
+            42
+          ]
+        },
+        {
+          "index": 26,
+          "latencies": [
+            4808.759,
+            3762.548,
+            3679.893
+          ],
+          "seqs": [
+            47,
+            48,
+            49
+          ]
+        },
+        {
+          "index": 27,
+          "latencies": [
+            3539.218,
+            3423.395,
+            3054.507,
+            2262.248
+          ],
+          "seqs": [
+            54,
+            55,
+            56,
+            57
+          ]
+        }
+      ],
+      "latency_ms": {
+        "n": 87,
+        "mean": 4541.6050114942545,
+        "median": 3351.303,
+        "p95": 24198.839,
+        "p99": 26300.207,
+        "min": 2199.842,
+        "max": 26300.207,
+        "q1": 2839.541,
+        "q3": 3679.893,
+        "iqr": 840.3519999999999,
+        "stddev": 5151.610315556835
+      },
+      "latency_ms_light": {
+        "n": 82,
+        "mean": 3279.1837804878064,
+        "median": 3246.494,
+        "p95": 4674.944,
+        "p99": 5177.775,
+        "min": 2199.842,
+        "max": 5177.775,
+        "q1": 2836.673,
+        "q3": 3628.34,
+        "iqr": 791.6670000000004,
+        "stddev": 626.2794212796834
+      },
+      "heavy_evaluations": 5,
+      "heavy_share": 0.057,
+      "kernel": {
+        "samples": 104,
+        "active_rss_peak_bytes": 12794912768,
+        "active_rss_steady_bytes": 12191672320,
+        "pool_rss_peak_bytes": 12794912768,
+        "cpu_seconds_active": 327.38,
+        "cores_busy": 12.447
+      },
+      "host_loadavg_1m": 13.01,
+      "mem_available_mb_before": 63519.527
+    },
+    {
+      "concurrency": 1,
+      "repeat": 1,
+      "wall_seconds": 10.554,
+      "evaluations": 16,
+      "exceptions": 0,
+      "mismatches": 0,
+      "exception_rate": 0,
+      "mismatch_rate": 0,
+      "throughput_evals_per_sec": 1.516,
+      "throughput_in_window_evals_per_sec": 1.5,
+      "evaluations_in_window": 15,
+      "per_worker": [
+        {
+          "index": 0,
+          "latencies": [
+            688.144,
+            654.125,
+            665.94,
+            673.224,
+            648.116,
+            656.646,
+            653.182,
+            655.639,
+            650.44,
+            662.13,
+            644.156,
+            648.066,
+            663.149,
+            636.869,
+            705.304,
+            646.262
+          ],
+          "seqs": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ]
+        }
+      ],
+      "latency_ms": {
+        "n": 16,
+        "mean": 659.4620000000001,
+        "median": 654.8820000000001,
+        "p95": 705.304,
+        "p99": 705.304,
+        "min": 636.869,
+        "max": 705.304,
+        "q1": 648.091,
+        "q3": 664.5445,
+        "iqr": 16.453499999999963,
+        "stddev": 16.818213460412494
+      },
+      "latency_ms_light": {
+        "n": 16,
+        "mean": 659.4620000000001,
+        "median": 654.8820000000001,
+        "p95": 705.304,
+        "p99": 705.304,
+        "min": 636.869,
+        "max": 705.304,
+        "q1": 648.091,
+        "q3": 664.5445,
+        "iqr": 16.453499999999963,
+        "stddev": 16.818213460412494
+      },
+      "heavy_evaluations": 0,
+      "heavy_share": 0,
+      "kernel": {
+        "samples": 42,
+        "active_rss_peak_bytes": 470532096,
+        "active_rss_steady_bytes": 419844096,
+        "pool_rss_peak_bytes": 9702785024,
+        "cpu_seconds_active": 12.43,
+        "cores_busy": 1.178
+      },
+      "host_loadavg_1m": 11.48,
+      "mem_available_mb_before": 65546.141
+    },
+    {
+      "concurrency": 2,
+      "repeat": 1,
+      "wall_seconds": 10.712,
+      "evaluations": 30,
+      "exceptions": 0,
+      "mismatches": 0,
+      "exception_rate": 0,
+      "mismatch_rate": 0,
+      "throughput_evals_per_sec": 2.801,
+      "throughput_in_window_evals_per_sec": 2.8,
+      "evaluations_in_window": 28,
+      "per_worker": [
+        {
+          "index": 0,
+          "latencies": [
+            778.741,
+            678.834,
+            732.225,
+            731.563,
+            722.406,
+            755.482,
+            758.836,
+            764.029,
+            690.526,
+            740.293,
+            774.823,
+            764.976,
+            701.643,
+            780.989
+          ],
+          "seqs": [
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30
+          ]
+        },
+        {
+          "index": 1,
+          "latencies": [
+            689.705,
+            633.272,
+            658.352,
+            637.54,
+            637.896,
+            652.253,
+            639.74,
+            686.021,
+            647.028,
+            690.529,
+            642.794,
+            680.506,
+            689.018,
+            702.796,
+            693.554,
+            727.365
+          ],
+          "seqs": [
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23
+          ]
+        }
+      ],
+      "latency_ms": {
+        "n": 30,
+        "mean": 702.7911666666666,
+        "median": 692.0415,
+        "p95": 778.741,
+        "p99": 780.989,
+        "min": 633.272,
+        "max": 780.989,
+        "q1": 658.352,
+        "q3": 740.293,
+        "iqr": 81.94100000000003,
+        "stddev": 46.658763144117835
+      },
+      "latency_ms_light": {
+        "n": 30,
+        "mean": 702.7911666666666,
+        "median": 692.0415,
+        "p95": 778.741,
+        "p99": 780.989,
+        "min": 633.272,
+        "max": 780.989,
+        "q1": 658.352,
+        "q3": 740.293,
+        "iqr": 81.94100000000003,
+        "stddev": 46.658763144117835
+      },
+      "heavy_evaluations": 0,
+      "heavy_share": 0,
+      "kernel": {
+        "samples": 42,
+        "active_rss_peak_bytes": 897757184,
+        "active_rss_steady_bytes": 827418624,
+        "pool_rss_peak_bytes": 9487683584,
+        "cpu_seconds_active": 25.07,
+        "cores_busy": 2.34
+      },
+      "host_loadavg_1m": 10.03,
+      "mem_available_mb_before": 65825.234
+    },
+    {
+      "concurrency": 4,
+      "repeat": 1,
+      "wall_seconds": 10.729,
+      "evaluations": 52,
+      "exceptions": 0,
+      "mismatches": 0,
+      "exception_rate": 0,
+      "mismatch_rate": 0,
+      "throughput_evals_per_sec": 4.847,
+      "throughput_in_window_evals_per_sec": 4.8,
+      "evaluations_in_window": 48,
+      "per_worker": [
+        {
+          "index": 0,
+          "latencies": [
+            859.575,
+            918.046,
+            897.633,
+            872.823,
+            923.518,
+            935.406,
+            919.055,
+            897.969,
+            951.591,
+            903.303,
+            888.536,
+            760.405
+          ],
+          "seqs": [
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42
+          ]
+        },
+        {
+          "index": 1,
+          "latencies": [
+            724.847,
+            664.99,
+            711.961,
+            712.495,
+            712.224,
+            671.548,
+            762.173,
+            751.77,
+            743.25,
+            745.56,
+            768.947,
+            777.64,
+            925.384,
+            857.886
+          ],
+          "seqs": [
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37
+          ]
+        },
+        {
+          "index": 2,
+          "latencies": [
+            834.394,
+            777.327,
+            778.952,
+            811.045,
+            900.771,
+            835.178,
+            835.961,
+            851.559,
+            870.964,
+            830.73,
+            804.439,
+            843.338,
+            735.386
+          ],
+          "seqs": [
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27
+          ]
+        },
+        {
+          "index": 3,
+          "latencies": [
+            882.258,
+            785.879,
+            834.958,
+            696.06,
+            874.959,
+            771.942,
+            790.344,
+            744.009,
+            984.68,
+            832.264,
+            768.926,
+            751.103,
+            927.256
+          ],
+          "seqs": [
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34
+          ]
+        }
+      ],
+      "latency_ms": {
+        "n": 52,
+        "mean": 819.4849423076922,
+        "median": 831.4970000000001,
+        "p95": 935.406,
+        "p99": 984.68,
+        "min": 664.99,
+        "max": 984.68,
+        "q1": 756.0875,
+        "q3": 885.3969999999999,
+        "iqr": 129.30949999999996,
+        "stddev": 78.4399273301191
+      },
+      "latency_ms_light": {
+        "n": 52,
+        "mean": 819.4849423076922,
+        "median": 831.4970000000001,
+        "p95": 935.406,
+        "p99": 984.68,
+        "min": 664.99,
+        "max": 984.68,
+        "q1": 756.0875,
+        "q3": 885.3969999999999,
+        "iqr": 129.30949999999996,
+        "stddev": 78.4399273301191
+      },
+      "heavy_evaluations": 0,
+      "heavy_share": 0,
+      "kernel": {
+        "samples": 42,
+        "active_rss_peak_bytes": 1792073728,
+        "active_rss_steady_bytes": 1629192192,
+        "pool_rss_peak_bytes": 9724612608,
+        "cpu_seconds_active": 50.66,
+        "cores_busy": 4.722
+      },
+      "host_loadavg_1m": 9.1,
+      "mem_available_mb_before": 65664.207
+    },
+    {
+      "concurrency": 8,
+      "repeat": 1,
+      "wall_seconds": 10.759,
+      "evaluations": 72,
+      "exceptions": 0,
+      "mismatches": 4,
+      "exception_rate": 0,
+      "mismatch_rate": 0.056,
+      "throughput_evals_per_sec": 6.692,
+      "throughput_in_window_evals_per_sec": 6.4,
+      "evaluations_in_window": 64,
+      "per_worker": [
+        {
+          "index": 0,
+          "latencies": [
+            1334.221,
+            1753.175,
+            1186.827,
+            1312.797,
+            1232.733,
+            1231.441,
+            1165.475,
+            1101.551
+          ],
+          "seqs": [
+            43,
+            44,
+            45,
+            46,
+            47,
+            48,
+            49,
+            50
+          ]
+        },
+        {
+          "index": 1,
+          "latencies": [
+            1442.037,
+            1187.694,
+            1004.649,
+            1087.312,
+            1095.785,
+            1074.825,
+            1049.332,
+            1040.369,
+            1133.076
+          ],
+          "seqs": [
+            38,
+            39,
+            40,
+            41,
+            42,
+            43,
+            44,
+            45,
+            46
+          ]
+        },
+        {
+          "index": 2,
+          "latencies": [
+            1018.611,
+            1004.626,
+            1042.121,
+            1111.893,
+            1061.949,
+            935.898,
+            1258.073,
+            968.061,
+            1049.85,
+            939.327
+          ],
+          "seqs": [
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37
+          ]
+        },
+        {
+          "index": 3,
+          "latencies": [
+            965.33,
+            1147.322,
+            1095.064,
+            1098.78,
+            1073.045,
+            1071.359,
+            1063.678,
+            1226.401,
+            944.322,
+            911.719
+          ],
+          "seqs": [
+            35,
+            36,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42,
+            43,
+            44
+          ]
+        },
+        {
+          "index": 4,
+          "latencies": [
+            1473.275,
+            1793.043,
+            1814,
+            1788.624,
+            1483.794,
+            1038.222,
+            1042.943
+          ],
+          "seqs": [
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35
+          ]
+        },
+        {
+          "index": 5,
+          "latencies": [
+            936.542,
+            1175.092,
+            1122.726,
+            1040.476,
+            957.536,
+            1030.264,
+            974.227,
+            973.175,
+            1267.437,
+            1278.409
+          ],
+          "seqs": [
+            36,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42,
+            43,
+            44,
+            45
+          ]
+        },
+        {
+          "index": 6,
+          "latencies": [
+            1035.749,
+            983.504,
+            1148.83,
+            1137.965,
+            964.301,
+            1121.989,
+            1074.628,
+            1199.175,
+            1017.607,
+            997.446
+          ],
+          "seqs": [
+            43,
+            44,
+            45,
+            46,
+            47,
+            48,
+            49,
+            50,
+            51,
+            52
+          ]
+        },
+        {
+          "index": 7,
+          "latencies": [
+            1324.207,
+            1238.947,
+            1286.731,
+            1583.088,
+            1069.103,
+            1358.314,
+            1524.755,
+            1293.774
+          ],
+          "seqs": [
+            50,
+            51,
+            52,
+            53,
+            54,
+            55,
+            56,
+            57
+          ]
+        }
+      ],
+      "latency_ms": {
+        "n": 72,
+        "mean": 1166.258694444444,
+        "median": 1097.2825,
+        "p95": 1753.175,
+        "p99": 1814,
+        "min": 911.719,
+        "max": 1814,
+        "q1": 1033.0065,
+        "q3": 1248.51,
+        "iqr": 215.50350000000003,
+        "stddev": 211.45924925933912
+      },
+      "latency_ms_light": {
+        "n": 72,
+        "mean": 1166.258694444444,
+        "median": 1097.2825,
+        "p95": 1753.175,
+        "p99": 1814,
+        "min": 911.719,
+        "max": 1814,
+        "q1": 1033.0065,
+        "q3": 1248.51,
+        "iqr": 215.50350000000003,
+        "stddev": 211.45924925933912
+      },
+      "heavy_evaluations": 0,
+      "heavy_share": 0,
+      "kernel": {
+        "samples": 42,
+        "active_rss_peak_bytes": 3296874496,
+        "active_rss_steady_bytes": 3215241216,
+        "pool_rss_peak_bytes": 9915400192,
+        "cpu_seconds_active": 101.55,
+        "cores_busy": 9.438
+      },
+      "host_loadavg_1m": 9.52,
+      "mem_available_mb_before": 65644.754
+    },
+    {
+      "concurrency": 16,
+      "repeat": 1,
+      "wall_seconds": 24.233,
+      "evaluations": 90,
+      "exceptions": 0,
+      "mismatches": 9,
+      "exception_rate": 0,
+      "mismatch_rate": 0.1,
+      "throughput_evals_per_sec": 3.714,
+      "throughput_in_window_evals_per_sec": 7.2,
+      "evaluations_in_window": 72,
+      "per_worker": [
+        {
+          "index": 0,
+          "latencies": [
+            1426.458,
+            2337.675,
+            2056.927,
+            2031.471,
+            1841.319,
+            1378.939
+          ],
+          "seqs": [
+            51,
+            52,
+            53,
+            54,
+            55,
+            56
+          ]
+        },
+        {
+          "index": 1,
+          "latencies": [
+            1568.006,
+            1594.644,
+            2056.966,
+            2226.78,
+            2943.802
+          ],
+          "seqs": [
+            47,
+            48,
+            49,
+            50,
+            51
+          ]
+        },
+        {
+          "index": 2,
+          "latencies": [
+            2019.251,
+            2178.191,
+            2042.291,
+            2076.841,
+            2061.484
+          ],
+          "seqs": [
+            38,
+            39,
+            40,
+            41,
+            42
+          ]
+        },
+        {
+          "index": 3,
+          "latencies": [
+            2126.489,
+            2280.696,
+            1527.739,
+            1620.315,
+            1806.883,
+            1335.502
+          ],
+          "seqs": [
+            45,
+            46,
+            47,
+            48,
+            49,
+            50
+          ]
+        },
+        {
+          "index": 4,
+          "latencies": [
+            2030.125,
+            2088.258,
+            1441.239,
+            2188.356,
+            2105.239,
+            1593.564
+          ],
+          "seqs": [
+            36,
+            37,
+            38,
+            39,
+            40,
+            41
+          ]
+        },
+        {
+          "index": 5,
+          "latencies": [
+            1988.912,
+            2058.001,
+            1696.601,
+            2145.539,
+            2199.498,
+            1374.203
+          ],
+          "seqs": [
+            46,
+            47,
+            48,
+            49,
+            50,
+            51
+          ]
+        },
+        {
+          "index": 6,
+          "latencies": [
+            1221.483,
+            1468.123,
+            1584.795,
+            1053.272,
+            1088.496,
+            1184.665,
+            1655.577,
+            1420.685
+          ],
+          "seqs": [
+            53,
+            54,
+            55,
+            56,
+            57,
+            58,
+            59,
+            60
+          ]
+        },
+        {
+          "index": 7,
+          "latencies": [
+            1725.197,
+            1330.937,
+            2148.235,
+            2230.674,
+            16796.881
+          ],
+          "seqs": [
+            58,
+            59,
+            60,
+            61,
+            62
+          ]
+        },
+        {
+          "index": 8,
+          "latencies": [
+            1457.835,
+            2000.775,
+            2076.23,
+            1358.36,
+            1388.289,
+            15122.573
+          ],
+          "seqs": [
+            57,
+            58,
+            59,
+            60,
+            61,
+            62
+          ]
+        },
+        {
+          "index": 9,
+          "latencies": [
+            21636.208
+          ],
+          "seqs": [
+            64
+          ]
+        },
+        {
+          "index": 10,
+          "latencies": [
+            2170.627,
+            1379.427,
+            1978.907,
+            1811.136,
+            1543.884,
+            1284.692
+          ],
+          "seqs": [
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ]
+        },
+        {
+          "index": 11,
+          "latencies": [
+            1960.797,
+            1885.889,
+            1279.122,
+            1223.705,
+            1608.505,
+            1356.034,
+            1209.224
+          ],
+          "seqs": [
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ]
+        },
+        {
+          "index": 12,
+          "latencies": [
+            2881.684,
+            2215.033,
+            2015.578,
+            1655.534,
+            1442.357
+          ],
+          "seqs": [
+            17,
+            18,
+            19,
+            20,
+            21
+          ]
+        },
+        {
+          "index": 13,
+          "latencies": [
+            2154.545,
+            1835.693,
+            1530.201,
+            1413.446,
+            1679.082,
+            1770.389
+          ],
+          "seqs": [
+            24,
+            25,
+            26,
+            27,
+            28,
+            29
+          ]
+        },
+        {
+          "index": 14,
+          "latencies": [
+            1302.075,
+            2291.516,
+            2288.409,
+            2197.958,
+            2115.265,
+            1250.989
+          ],
+          "seqs": [
+            31,
+            32,
+            33,
+            34,
+            35,
+            36
+          ]
+        },
+        {
+          "index": 15,
+          "latencies": [
+            1620.509,
+            1695.511,
+            2275.629,
+            2055.417,
+            2048.826,
+            1471.185
+          ],
+          "seqs": [
+            38,
+            39,
+            40,
+            41,
+            42,
+            43
+          ]
+        }
+      ],
+      "latency_ms": {
+        "n": 90,
+        "mean": 2325.514155555555,
+        "median": 1823.4144999999999,
+        "p95": 2881.684,
+        "p99": 21636.208,
+        "min": 1053.272,
+        "max": 21636.208,
+        "q1": 1442.357,
+        "q3": 2115.265,
+        "iqr": 672.9079999999999,
+        "stddev": 2952.2057365354954
+      },
+      "latency_ms_light": {
+        "n": 87,
+        "mean": 1790.1219770114942,
+        "median": 1806.883,
+        "p95": 2288.409,
+        "p99": 2943.802,
+        "min": 1053.272,
+        "max": 2943.802,
+        "q1": 1441.239,
+        "q3": 2088.258,
+        "iqr": 647.0189999999998,
+        "stddev": 392.02564900895965
+      },
+      "heavy_evaluations": 3,
+      "heavy_share": 0.033,
+      "kernel": {
+        "samples": 96,
+        "active_rss_peak_bytes": 7026982912,
+        "active_rss_steady_bytes": 6748213248,
+        "pool_rss_peak_bytes": 10983243776,
+        "cpu_seconds_active": 232.73,
+        "cores_busy": 9.604
+      },
+      "host_loadavg_1m": 9.92,
+      "mem_available_mb_before": 65227.141
+    },
+    {
+      "concurrency": 22,
+      "repeat": 1,
+      "wall_seconds": 26.558,
+      "evaluations": 87,
+      "exceptions": 0,
+      "mismatches": 13,
+      "exception_rate": 0,
+      "mismatch_rate": 0.149,
+      "throughput_evals_per_sec": 3.276,
+      "throughput_in_window_evals_per_sec": 6.5,
+      "evaluations_in_window": 65,
+      "per_worker": [
+        {
+          "index": 0,
+          "latencies": [
+            2161.671,
+            2375.476,
+            2324.974,
+            2526.203,
+            2109.149
+          ],
+          "seqs": [
+            57,
+            58,
+            59,
+            60,
+            61
+          ]
+        },
+        {
+          "index": 1,
+          "latencies": [
+            2202.74,
+            2352.147,
+            2564.219,
+            2584.579,
+            1677.334
+          ],
+          "seqs": [
+            52,
+            53,
+            54,
+            55,
+            56
+          ]
+        },
+        {
+          "index": 2,
+          "latencies": [
+            2617.821,
+            2403.019,
+            2947.81,
+            2789.201
+          ],
+          "seqs": [
+            43,
+            44,
+            45,
+            46
+          ]
+        },
+        {
+          "index": 3,
+          "latencies": [
+            1879.194,
+            2352.722,
+            2319.238,
+            2213.406,
+            2155.376
+          ],
+          "seqs": [
+            51,
+            52,
+            53,
+            54,
+            55
+          ]
+        },
+        {
+          "index": 4,
+          "latencies": [
+            2317.227,
+            2693.03,
+            2805.731,
+            2528.298
+          ],
+          "seqs": [
+            42,
+            43,
+            44,
+            45
+          ]
+        },
+        {
+          "index": 5,
+          "latencies": [
+            1872.386,
+            2639.855,
+            2249.784,
+            1941.401,
+            2406.206
+          ],
+          "seqs": [
+            52,
+            53,
+            54,
+            55,
+            56
+          ]
+        },
+        {
+          "index": 6,
+          "latencies": [
+            2861.159,
+            21198.199
+          ],
+          "seqs": [
+            61,
+            62
+          ]
+        },
+        {
+          "index": 7,
+          "latencies": [
+            22437.591
+          ],
+          "seqs": [
+            63
+          ]
+        },
+        {
+          "index": 8,
+          "latencies": [
+            22356.914
+          ],
+          "seqs": [
+            63
+          ]
+        },
+        {
+          "index": 9,
+          "latencies": [
+            3427.155,
+            3340.851,
+            2912.793,
+            1877.875
+          ],
+          "seqs": [
+            65,
+            66,
+            67,
+            68
+          ]
+        },
+        {
+          "index": 10,
+          "latencies": [
+            2646.399,
+            2347.917,
+            2592.762,
+            2099.383,
+            1553.973
+          ],
+          "seqs": [
+            9,
+            10,
+            11,
+            12,
+            13
+          ]
+        },
+        {
+          "index": 11,
+          "latencies": [
+            1691.092,
+            2787.607,
+            2395.753,
+            2215.538,
+            1956.996
+          ],
+          "seqs": [
+            17,
+            18,
+            19,
+            20,
+            21
+          ]
+        },
+        {
+          "index": 12,
+          "latencies": [
+            2767.13,
+            2774.099,
+            2545.309,
+            2459.165
+          ],
+          "seqs": [
+            22,
+            23,
+            24,
+            25
+          ]
+        },
+        {
+          "index": 13,
+          "latencies": [
+            2207.037,
+            2805.602,
+            2459.468,
+            3143.782
+          ],
+          "seqs": [
+            30,
+            31,
+            32,
+            33
+          ]
+        },
+        {
+          "index": 14,
+          "latencies": [
+            2168.417,
+            2764.535,
+            2723.372,
+            2699.109
+          ],
+          "seqs": [
+            37,
+            38,
+            39,
+            40
+          ]
+        },
+        {
+          "index": 15,
+          "latencies": [
+            2000.379,
+            3025.173,
+            2947.967,
+            2623.893
+          ],
+          "seqs": [
+            44,
+            45,
+            46,
+            47
+          ]
+        },
+        {
+          "index": 16,
+          "latencies": [
+            2836.358,
+            3087.646,
+            2783.963,
+            2222.754
+          ],
+          "seqs": [
+            45,
+            46,
+            47,
+            48
+          ]
+        },
+        {
+          "index": 17,
+          "latencies": [
+            2226.66,
+            3309.169,
+            2797.959,
+            2476.931
+          ],
+          "seqs": [
+            52,
+            53,
+            54,
+            55
+          ]
+        },
+        {
+          "index": 18,
+          "latencies": [
+            2773.251,
+            3484.615,
+            3232.277,
+            17064.736
+          ],
+          "seqs": [
+            59,
+            60,
+            61,
+            62
+          ]
+        },
+        {
+          "index": 19,
+          "latencies": [
+            2578.996,
+            2701.381,
+            2699.739,
+            2438.516
+          ],
+          "seqs": [
+            66,
+            67,
+            68,
+            1
+          ]
+        },
+        {
+          "index": 20,
+          "latencies": [
+            2459.046,
+            2625.829,
+            2581.898,
+            2245.05,
+            1423.886
+          ],
+          "seqs": [
+            5,
+            6,
+            7,
+            8,
+            9
+          ]
+        },
+        {
+          "index": 21,
+          "latencies": [
+            2890.865,
+            2852.226,
+            2456.663,
+            2608.93
+          ],
+          "seqs": [
+            12,
+            13,
+            14,
+            15
+          ]
+        }
+      ],
+      "latency_ms": {
+        "n": 87,
+        "mean": 3352.688908045977,
+        "median": 2578.996,
+        "p95": 3484.615,
+        "p99": 22437.591,
+        "min": 1423.886,
+        "max": 22437.591,
+        "q1": 2245.05,
+        "q3": 2797.959,
+        "iqr": 552.9089999999997,
+        "stddev": 3871.813724884225
+      },
+      "latency_ms_light": {
+        "n": 83,
+        "mean": 2513.5722289156624,
+        "median": 2545.309,
+        "p95": 3232.277,
+        "p99": 3484.615,
+        "min": 1423.886,
+        "max": 3484.615,
+        "q1": 2226.66,
+        "q3": 2783.963,
+        "iqr": 557.3030000000003,
+        "stddev": 409.1379809565333
+      },
+      "heavy_evaluations": 4,
+      "heavy_share": 0.046,
+      "kernel": {
+        "samples": 105,
+        "active_rss_peak_bytes": 9820651520,
+        "active_rss_steady_bytes": 9699352576,
+        "pool_rss_peak_bytes": 11795861504,
+        "cpu_seconds_active": 289.3,
+        "cores_busy": 10.893
+      },
+      "host_loadavg_1m": 11.55,
+      "mem_available_mb_before": 64318.129
+    },
+    {
+      "concurrency": 28,
+      "repeat": 1,
+      "wall_seconds": 25.817,
+      "evaluations": 88,
+      "exceptions": 0,
+      "mismatches": 3,
+      "exception_rate": 0,
+      "mismatch_rate": 0.034,
+      "throughput_evals_per_sec": 3.409,
+      "throughput_in_window_evals_per_sec": 5.9,
+      "evaluations_in_window": 59,
+      "per_worker": [
+        {
+          "index": 0,
+          "latencies": [
+            25816.369
+          ],
+          "seqs": [
+            62
+          ]
+        },
+        {
+          "index": 1,
+          "latencies": [
+            3473.471,
+            3644.698,
+            2746.967,
+            2442.474
+          ],
+          "seqs": [
+            57,
+            58,
+            59,
+            60
+          ]
+        },
+        {
+          "index": 2,
+          "latencies": [
+            4539.766,
+            5109.451,
+            2633.86
+          ],
+          "seqs": [
+            47,
+            48,
+            49
+          ]
+        },
+        {
+          "index": 3,
+          "latencies": [
+            2411.099,
+            2934.733,
+            3090.551,
+            2613.716
+          ],
+          "seqs": [
+            56,
+            57,
+            58,
+            59
+          ]
+        },
+        {
+          "index": 4,
+          "latencies": [
+            4791.853,
+            5811.85
+          ],
+          "seqs": [
+            46,
+            47
+          ]
+        },
+        {
+          "index": 5,
+          "latencies": [
+            2481.201,
+            2912.529,
+            2833.052,
+            3427.118
+          ],
+          "seqs": [
+            57,
+            58,
+            59,
+            60
+          ]
+        },
+        {
+          "index": 6,
+          "latencies": [
+            24613.226
+          ],
+          "seqs": [
+            63
+          ]
+        },
+        {
+          "index": 7,
+          "latencies": [
+            24497.451
+          ],
+          "seqs": [
+            64
+          ]
+        },
+        {
+          "index": 8,
+          "latencies": [
+            25113.785
+          ],
+          "seqs": [
+            64
+          ]
+        },
+        {
+          "index": 9,
+          "latencies": [
+            2580.005,
+            3437.768,
+            3537.598,
+            2269.403
+          ],
+          "seqs": [
+            1,
+            2,
+            3,
+            4
+          ]
+        },
+        {
+          "index": 10,
+          "latencies": [
+            2669.212,
+            2456.308,
+            2386.171,
+            3019.645
+          ],
+          "seqs": [
+            14,
+            15,
+            16,
+            17
+          ]
+        },
+        {
+          "index": 11,
+          "latencies": [
+            2892.237,
+            3026.803,
+            3155.977,
+            2703.496
+          ],
+          "seqs": [
+            22,
+            23,
+            24,
+            25
+          ]
+        },
+        {
+          "index": 12,
+          "latencies": [
+            2241.819,
+            3871.623,
+            2985.683,
+            2399.373
+          ],
+          "seqs": [
+            26,
+            27,
+            28,
+            29
+          ]
+        },
+        {
+          "index": 13,
+          "latencies": [
+            3093.865,
+            3608.039,
+            3147.283,
+            2576.428
+          ],
+          "seqs": [
+            34,
+            35,
+            36,
+            37
+          ]
+        },
+        {
+          "index": 14,
+          "latencies": [
+            4718.692,
+            3576.237,
+            3026.491
+          ],
+          "seqs": [
+            41,
+            42,
+            43
+          ]
+        },
+        {
+          "index": 15,
+          "latencies": [
+            3606.058,
+            3617.691,
+            2836.48,
+            2315.582
+          ],
+          "seqs": [
+            48,
+            49,
+            50,
+            51
+          ]
+        },
+        {
+          "index": 16,
+          "latencies": [
+            2623.378,
+            3752.771,
+            4799.89
+          ],
+          "seqs": [
+            49,
+            50,
+            51
+          ]
+        },
+        {
+          "index": 17,
+          "latencies": [
+            3111.797,
+            2963.189,
+            3885.86,
+            2539.95
+          ],
+          "seqs": [
+            56,
+            57,
+            58,
+            59
+          ]
+        },
+        {
+          "index": 18,
+          "latencies": [
+            25367.7
+          ],
+          "seqs": [
+            63
+          ]
+        },
+        {
+          "index": 19,
+          "latencies": [
+            2612.335,
+            3175.91,
+            2603.29,
+            2636.774
+          ],
+          "seqs": [
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "index": 20,
+          "latencies": [
+            2666.967,
+            2349.969,
+            2617.282,
+            2991.037
+          ],
+          "seqs": [
+            10,
+            11,
+            12,
+            13
+          ]
+        },
+        {
+          "index": 21,
+          "latencies": [
+            3560.114,
+            4087.353,
+            2960.232
+          ],
+          "seqs": [
+            16,
+            17,
+            18
+          ]
+        },
+        {
+          "index": 22,
+          "latencies": [
+            3037.343,
+            3124.994,
+            2918.165,
+            3184.38
+          ],
+          "seqs": [
+            19,
+            20,
+            21,
+            22
+          ]
+        },
+        {
+          "index": 23,
+          "latencies": [
+            4169.387,
+            3494.003,
+            2896.233
+          ],
+          "seqs": [
+            26,
+            27,
+            28
+          ]
+        },
+        {
+          "index": 24,
+          "latencies": [
+            3345.467,
+            2620.412,
+            3195.705,
+            2370.777
+          ],
+          "seqs": [
+            33,
+            34,
+            35,
+            36
+          ]
+        },
+        {
+          "index": 25,
+          "latencies": [
+            3845.19,
+            4999.01,
+            3059.996
+          ],
+          "seqs": [
+            40,
+            41,
+            42
+          ]
+        },
+        {
+          "index": 26,
+          "latencies": [
+            3247.679,
+            3960.26,
+            3957.67
+          ],
+          "seqs": [
+            47,
+            48,
+            49
+          ]
+        },
+        {
+          "index": 27,
+          "latencies": [
+            2622.949,
+            3350.678,
+            3725.694,
+            2454.114
+          ],
+          "seqs": [
+            54,
+            55,
+            56,
+            57
+          ]
+        }
+      ],
+      "latency_ms": {
+        "n": 88,
+        "mean": 4438.421488636363,
+        "median": 3075.2735000000002,
+        "p95": 24497.451,
+        "p99": 25816.369,
+        "min": 2241.819,
+        "max": 25816.369,
+        "q1": 2628.619,
+        "q3": 3631.1944999999996,
+        "iqr": 1002.5754999999995,
+        "stddev": 5116.58322337253
+      },
+      "latency_ms_light": {
+        "n": 83,
+        "mean": 3194.8501204819277,
+        "median": 3026.803,
+        "p95": 4791.853,
+        "p99": 5811.85,
+        "min": 2241.819,
+        "max": 5811.85,
+        "q1": 2622.949,
+        "q3": 3576.237,
+        "iqr": 953.288,
+        "stddev": 724.1356741463627
+      },
+      "heavy_evaluations": 5,
+      "heavy_share": 0.057,
+      "kernel": {
+        "samples": 102,
+        "active_rss_peak_bytes": 12680925184,
+        "active_rss_steady_bytes": 12037629952,
+        "pool_rss_peak_bytes": 12680941568,
+        "cpu_seconds_active": 322.26,
+        "cores_busy": 12.482
+      },
+      "host_loadavg_1m": 14.42,
+      "mem_available_mb_before": 63441.66
+    },
+    {
+      "concurrency": 1,
+      "repeat": 2,
+      "wall_seconds": 10.476,
+      "evaluations": 16,
+      "exceptions": 0,
+      "mismatches": 0,
+      "exception_rate": 0,
+      "mismatch_rate": 0,
+      "throughput_evals_per_sec": 1.527,
+      "throughput_in_window_evals_per_sec": 1.5,
+      "evaluations_in_window": 15,
+      "per_worker": [
+        {
+          "index": 0,
+          "latencies": [
+            657.446,
+            635.647,
+            633.806,
+            689.393,
+            646.905,
+            631.655,
+            634.282,
+            634.717,
+            646.431,
+            652.993,
+            660.731,
+            641.03,
+            656.305,
+            660.565,
+            715.283,
+            676.986
+          ],
+          "seqs": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ]
+        }
+      ],
+      "latency_ms": {
+        "n": 16,
+        "mean": 654.6359375,
+        "median": 649.9490000000001,
+        "p95": 715.283,
+        "p99": 715.283,
+        "min": 631.655,
+        "max": 715.283,
+        "q1": 635.182,
+        "q3": 660.648,
+        "iqr": 25.466000000000008,
+        "stddev": 22.244628867067973
+      },
+      "latency_ms_light": {
+        "n": 16,
+        "mean": 654.6359375,
+        "median": 649.9490000000001,
+        "p95": 715.283,
+        "p99": 715.283,
+        "min": 631.655,
+        "max": 715.283,
+        "q1": 635.182,
+        "q3": 660.648,
+        "iqr": 25.466000000000008,
+        "stddev": 22.244628867067973
+      },
+      "heavy_evaluations": 0,
+      "heavy_share": 0,
+      "kernel": {
+        "samples": 41,
+        "active_rss_peak_bytes": 456986624,
+        "active_rss_steady_bytes": 406196224,
+        "pool_rss_peak_bytes": 9729794048,
+        "cpu_seconds_active": 12.34,
+        "cores_busy": 1.178
+      },
+      "host_loadavg_1m": 12.96,
+      "mem_available_mb_before": 65498.777
+    },
+    {
+      "concurrency": 2,
+      "repeat": 2,
+      "wall_seconds": 10.599,
+      "evaluations": 30,
+      "exceptions": 0,
+      "mismatches": 0,
+      "exception_rate": 0,
+      "mismatch_rate": 0,
+      "throughput_evals_per_sec": 2.83,
+      "throughput_in_window_evals_per_sec": 2.8,
+      "evaluations_in_window": 28,
+      "per_worker": [
+        {
+          "index": 0,
+          "latencies": [
+            720.387,
+            726.831,
+            727.767,
+            732.945,
+            746.32,
+            781.945,
+            739.536,
+            732.024,
+            690.598,
+            749.362,
+            740.523,
+            767.617,
+            700.779,
+            761.051
+          ],
+          "seqs": [
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30
+          ]
+        },
+        {
+          "index": 1,
+          "latencies": [
+            657.821,
+            657.273,
+            633.011,
+            653.531,
+            640.776,
+            638.609,
+            641.198,
+            670.618,
+            636.728,
+            695.388,
+            638.527,
+            694.509,
+            689.272,
+            685.728,
+            687.069,
+            676.471
+          ],
+          "seqs": [
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23
+          ]
+        }
+      ],
+      "latency_ms": {
+        "n": 30,
+        "mean": 697.1404666666666,
+        "median": 692.5535,
+        "p95": 767.617,
+        "p99": 781.945,
+        "min": 633.011,
+        "max": 781.945,
+        "q1": 657.273,
+        "q3": 732.945,
+        "iqr": 75.67200000000003,
+        "stddev": 43.73592881048208
+      },
+      "latency_ms_light": {
+        "n": 30,
+        "mean": 697.1404666666666,
+        "median": 692.5535,
+        "p95": 767.617,
+        "p99": 781.945,
+        "min": 633.011,
+        "max": 781.945,
+        "q1": 657.273,
+        "q3": 732.945,
+        "iqr": 75.67200000000003,
+        "stddev": 43.73592881048208
+      },
+      "heavy_evaluations": 0,
+      "heavy_share": 0,
+      "kernel": {
+        "samples": 42,
+        "active_rss_peak_bytes": 897130496,
+        "active_rss_steady_bytes": 822657024,
+        "pool_rss_peak_bytes": 9476800512,
+        "cpu_seconds_active": 24.4,
+        "cores_busy": 2.302
+      },
+      "host_loadavg_1m": 11.5,
+      "mem_available_mb_before": 65972.23
+    },
+    {
+      "concurrency": 4,
+      "repeat": 2,
+      "wall_seconds": 10.92,
+      "evaluations": 53,
+      "exceptions": 0,
+      "mismatches": 0,
+      "exception_rate": 0,
+      "mismatch_rate": 0,
+      "throughput_evals_per_sec": 4.853,
+      "throughput_in_window_evals_per_sec": 4.8,
+      "evaluations_in_window": 48,
+      "per_worker": [
+        {
+          "index": 0,
+          "latencies": [
+            857.092,
+            887.689,
+            785.193,
+            757.384,
+            780.64,
+            908.174,
+            924.135,
+            909.961,
+            803.909,
+            817.583,
+            817.794,
+            809.71,
+            859.56
+          ],
+          "seqs": [
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42,
+            43
+          ]
+        },
+        {
+          "index": 1,
+          "latencies": [
+            763.759,
+            793.53,
+            862.178,
+            875.209,
+            865.71,
+            718.423,
+            851.64,
+            860.567,
+            835.224,
+            797.032,
+            748.09,
+            782.747,
+            755.958
+          ],
+          "seqs": [
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36
+          ]
+        },
+        {
+          "index": 2,
+          "latencies": [
+            802.466,
+            796.58,
+            815.284,
+            741.16,
+            790.395,
+            732.432,
+            739.333,
+            736.275,
+            727.494,
+            750.413,
+            702.357,
+            740.968,
+            736.423,
+            775.503
+          ],
+          "seqs": [
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28
+          ]
+        },
+        {
+          "index": 3,
+          "latencies": [
+            796.069,
+            712.051,
+            786.661,
+            731.335,
+            749.128,
+            732.397,
+            757.408,
+            684.883,
+            760.814,
+            792.552,
+            793.933,
+            946.579,
+            895.676
+          ],
+          "seqs": [
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34
+          ]
+        }
+      ],
+      "latency_ms": {
+        "n": 53,
+        "mean": 795.3860377358491,
+        "median": 790.395,
+        "p95": 909.961,
+        "p99": 946.579,
+        "min": 684.883,
+        "max": 946.579,
+        "q1": 744.625,
+        "q3": 843.432,
+        "iqr": 98.80700000000002,
+        "stddev": 61.23064648784406
+      },
+      "latency_ms_light": {
+        "n": 53,
+        "mean": 795.3860377358491,
+        "median": 790.395,
+        "p95": 909.961,
+        "p99": 946.579,
+        "min": 684.883,
+        "max": 946.579,
+        "q1": 744.625,
+        "q3": 843.432,
+        "iqr": 98.80700000000002,
+        "stddev": 61.23064648784406
+      },
+      "heavy_evaluations": 0,
+      "heavy_share": 0,
+      "kernel": {
+        "samples": 43,
+        "active_rss_peak_bytes": 1749979136,
+        "active_rss_steady_bytes": 1635504128,
+        "pool_rss_peak_bytes": 9671024640,
+        "cpu_seconds_active": 50.07,
+        "cores_busy": 4.585
+      },
+      "host_loadavg_1m": 10.5,
+      "mem_available_mb_before": 65788.867
+    },
+    {
+      "concurrency": 8,
+      "repeat": 2,
+      "wall_seconds": 10.99,
+      "evaluations": 74,
+      "exceptions": 0,
+      "mismatches": 5,
+      "exception_rate": 0,
+      "mismatch_rate": 0.068,
+      "throughput_evals_per_sec": 6.734,
+      "throughput_in_window_evals_per_sec": 6.6,
+      "evaluations_in_window": 66,
+      "per_worker": [
+        {
+          "index": 0,
+          "latencies": [
+            1704.827,
+            1089.986,
+            942.584,
+            954.903,
+            997.416,
+            1307.411,
+            1224.853,
+            1000.937,
+            1034.647
+          ],
+          "seqs": [
+            44,
+            45,
+            46,
+            47,
+            48,
+            49,
+            50,
+            51,
+            52
+          ]
+        },
+        {
+          "index": 1,
+          "latencies": [
+            1195.969,
+            1097.214,
+            1362.934,
+            1063.305,
+            1155.477,
+            1034.042,
+            1053.71,
+            1016.684,
+            974.644,
+            898.418
+          ],
+          "seqs": [
+            37,
+            38,
+            39,
+            40,
+            41,
+            42,
+            43,
+            44,
+            45,
+            46
+          ]
+        },
+        {
+          "index": 2,
+          "latencies": [
+            810.916,
+            1842.584,
+            1327.182,
+            1240.583,
+            1110.925,
+            1113.729,
+            1028.476,
+            1099.756,
+            1107.915
+          ],
+          "seqs": [
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37
+          ]
+        },
+        {
+          "index": 3,
+          "latencies": [
+            1142.691,
+            1198.709,
+            1142.615,
+            1707.021,
+            1075.422,
+            1126.213,
+            1475.061,
+            1108.599,
+            1012.185
+          ],
+          "seqs": [
+            35,
+            36,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42,
+            43
+          ]
+        },
+        {
+          "index": 4,
+          "latencies": [
+            908.824,
+            1097.232,
+            1118.518,
+            1741.2,
+            1768.531,
+            1722.199,
+            1807.082
+          ],
+          "seqs": [
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35
+          ]
+        },
+        {
+          "index": 5,
+          "latencies": [
+            1216.57,
+            1112.05,
+            1057.698,
+            1105.058,
+            1085.538,
+            926.977,
+            1081.25,
+            1034.495,
+            1275.146,
+            1033.347
+          ],
+          "seqs": [
+            36,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42,
+            43,
+            44,
+            45
+          ]
+        },
+        {
+          "index": 6,
+          "latencies": [
+            973.284,
+            989.955,
+            993.509,
+            987.642,
+            963.497,
+            1406.786,
+            1001.887,
+            1031.132,
+            975.677,
+            1461.273
+          ],
+          "seqs": [
+            43,
+            44,
+            45,
+            46,
+            47,
+            48,
+            49,
+            50,
+            51,
+            52
+          ]
+        },
+        {
+          "index": 7,
+          "latencies": [
+            1138.454,
+            1123.95,
+            1024.723,
+            1039.218,
+            1066.052,
+            1036.484,
+            913.731,
+            852.642,
+            1128.557,
+            1240.503
+          ],
+          "seqs": [
+            50,
+            51,
+            52,
+            53,
+            54,
+            55,
+            56,
+            57,
+            58,
+            59
+          ]
+        }
+      ],
+      "latency_ms": {
+        "n": 74,
+        "mean": 1151.6380270270272,
+        "median": 1093.6,
+        "p95": 1741.2,
+        "p99": 1842.584,
+        "min": 810.916,
+        "max": 1842.584,
+        "q1": 1012.185,
+        "q3": 1198.709,
+        "iqr": 186.52400000000011,
+        "stddev": 233.06007978294292
+      },
+      "latency_ms_light": {
+        "n": 74,
+        "mean": 1151.6380270270272,
+        "median": 1093.6,
+        "p95": 1741.2,
+        "p99": 1842.584,
+        "min": 810.916,
+        "max": 1842.584,
+        "q1": 1012.185,
+        "q3": 1198.709,
+        "iqr": 186.52400000000011,
+        "stddev": 233.06007978294292
+      },
+      "heavy_evaluations": 0,
+      "heavy_share": 0,
+      "kernel": {
+        "samples": 43,
+        "active_rss_peak_bytes": 3367288832,
+        "active_rss_steady_bytes": 3219894272,
+        "pool_rss_peak_bytes": 9971302400,
+        "cpu_seconds_active": 102.68,
+        "cores_busy": 9.343
+      },
+      "host_loadavg_1m": 9.87,
+      "mem_available_mb_before": 65618.652
+    },
+    {
+      "concurrency": 16,
+      "repeat": 2,
+      "wall_seconds": 25.297,
+      "evaluations": 88,
+      "exceptions": 0,
+      "mismatches": 8,
+      "exception_rate": 0,
+      "mismatch_rate": 0.091,
+      "throughput_evals_per_sec": 3.479,
+      "throughput_in_window_evals_per_sec": 7,
+      "evaluations_in_window": 70,
+      "per_worker": [
+        {
+          "index": 0,
+          "latencies": [
+            2006.358,
+            1917.269,
+            1142.659,
+            1404.326,
+            2137.409,
+            1439.761,
+            1402.198
+          ],
+          "seqs": [
+            53,
+            54,
+            55,
+            56,
+            57,
+            58,
+            59
+          ]
+        },
+        {
+          "index": 1,
+          "latencies": [
+            2022.026,
+            2767.52,
+            2113.398,
+            1934.209,
+            1934.681
+          ],
+          "seqs": [
+            47,
+            48,
+            49,
+            50,
+            51
+          ]
+        },
+        {
+          "index": 2,
+          "latencies": [
+            1279.077,
+            1421.663,
+            1842.36,
+            2070.896,
+            1553.343,
+            1418.095,
+            1449.89
+          ],
+          "seqs": [
+            38,
+            39,
+            40,
+            41,
+            42,
+            43,
+            44
+          ]
+        },
+        {
+          "index": 3,
+          "latencies": [
+            2269.359,
+            1585.256,
+            2219.53,
+            2045.203,
+            2217.266
+          ],
+          "seqs": [
+            44,
+            45,
+            46,
+            47,
+            48
+          ]
+        },
+        {
+          "index": 4,
+          "latencies": [
+            1930.31,
+            1677.683,
+            1730.515,
+            1676.383,
+            1683.57,
+            1757.043
+          ],
+          "seqs": [
+            36,
+            37,
+            38,
+            39,
+            40,
+            41
+          ]
+        },
+        {
+          "index": 5,
+          "latencies": [
+            1443.614,
+            2040.989,
+            2493.878,
+            2254.187,
+            1437.287,
+            1358.155
+          ],
+          "seqs": [
+            46,
+            47,
+            48,
+            49,
+            50,
+            51
+          ]
+        },
+        {
+          "index": 6,
+          "latencies": [
+            2192.721,
+            2056.776,
+            1866.159,
+            1876.739,
+            1874.37,
+            1465.557
+          ],
+          "seqs": [
+            53,
+            54,
+            55,
+            56,
+            57,
+            58
+          ]
+        },
+        {
+          "index": 7,
+          "latencies": [
+            1929.597,
+            2089.186,
+            19259.575
+          ],
+          "seqs": [
+            60,
+            61,
+            62
+          ]
+        },
+        {
+          "index": 8,
+          "latencies": [
+            1358.405,
+            2069.774,
+            1990.868,
+            2010.065,
+            2119.866,
+            15745.339
+          ],
+          "seqs": [
+            57,
+            58,
+            59,
+            60,
+            61,
+            62
+          ]
+        },
+        {
+          "index": 9,
+          "latencies": [
+            19046.784
+          ],
+          "seqs": [
+            64
+          ]
+        },
+        {
+          "index": 10,
+          "latencies": [
+            1241.901,
+            1609.322,
+            1748.777,
+            1712.34,
+            1075.203,
+            2710.539,
+            1267.317
+          ],
+          "seqs": [
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9
+          ]
+        },
+        {
+          "index": 11,
+          "latencies": [
+            1469.99,
+            1960.462,
+            2191.96,
+            1870.505,
+            1175.281,
+            2043.461
+          ],
+          "seqs": [
+            10,
+            11,
+            12,
+            13,
+            14,
+            15
+          ]
+        },
+        {
+          "index": 12,
+          "latencies": [
+            2110.1,
+            1961.258,
+            1512.653,
+            1569.59,
+            2075.63,
+            1863.629
+          ],
+          "seqs": [
+            17,
+            18,
+            19,
+            20,
+            21,
+            22
+          ]
+        },
+        {
+          "index": 13,
+          "latencies": [
+            2260.691,
+            1972.059,
+            1978.197,
+            1823.973,
+            1432.567,
+            1416.824
+          ],
+          "seqs": [
+            24,
+            25,
+            26,
+            27,
+            28,
+            29
+          ]
+        },
+        {
+          "index": 14,
+          "latencies": [
+            2266.94,
+            1937.572,
+            1488.084,
+            2082.702,
+            1432.54,
+            1503.558
+          ],
+          "seqs": [
+            31,
+            32,
+            33,
+            34,
+            35,
+            36
+          ]
+        },
+        {
+          "index": 15,
+          "latencies": [
+            2247.99,
+            1714.125,
+            2213.868,
+            2131.178,
+            2137.334
+          ],
+          "seqs": [
+            38,
+            39,
+            40,
+            41,
+            42
+          ]
+        }
+      ],
+      "latency_ms": {
+        "n": 88,
+        "mean": 2377.7189431818183,
+        "median": 1923.433,
+        "p95": 2710.539,
+        "p99": 19259.575,
+        "min": 1075.203,
+        "max": 19259.575,
+        "q1": 1495.821,
+        "q3": 2099.643,
+        "iqr": 603.8220000000001,
+        "stddev": 2973.5405796498776
+      },
+      "latency_ms_light": {
+        "n": 85,
+        "mean": 1825.7361058823524,
+        "median": 1876.739,
+        "p95": 2266.94,
+        "p99": 2767.52,
+        "min": 1075.203,
+        "max": 2767.52,
+        "q1": 1479.037,
+        "q3": 2079.166,
+        "iqr": 600.1290000000001,
+        "stddev": 353.88176297817574
+      },
+      "heavy_evaluations": 3,
+      "heavy_share": 0.034,
+      "kernel": {
+        "samples": 100,
+        "active_rss_peak_bytes": 7073685504,
+        "active_rss_steady_bytes": 6689931264,
+        "pool_rss_peak_bytes": 11019923456,
+        "cpu_seconds_active": 231.66,
+        "cores_busy": 9.158
+      },
+      "host_loadavg_1m": 8.9,
+      "mem_available_mb_before": 65195.906
+    },
+    {
+      "concurrency": 22,
+      "repeat": 2,
+      "wall_seconds": 27.159,
+      "evaluations": 90,
+      "exceptions": 0,
+      "mismatches": 12,
+      "exception_rate": 0,
+      "mismatch_rate": 0.133,
+      "throughput_evals_per_sec": 3.314,
+      "throughput_in_window_evals_per_sec": 6.7,
+      "evaluations_in_window": 67,
+      "per_worker": [
+        {
+          "index": 0,
+          "latencies": [
+            2562.98,
+            2996.083,
+            20445.134
+          ],
+          "seqs": [
+            60,
+            61,
+            62
+          ]
+        },
+        {
+          "index": 1,
+          "latencies": [
+            1723.512,
+            2517.597,
+            2278.222,
+            2567.252,
+            1971.328
+          ],
+          "seqs": [
+            52,
+            53,
+            54,
+            55,
+            56
+          ]
+        },
+        {
+          "index": 2,
+          "latencies": [
+            2517.844,
+            3410.479,
+            3234.176,
+            2265.148
+          ],
+          "seqs": [
+            45,
+            46,
+            47,
+            48
+          ]
+        },
+        {
+          "index": 3,
+          "latencies": [
+            1583.682,
+            3198.552,
+            2542.415,
+            2429.114,
+            2115.473
+          ],
+          "seqs": [
+            49,
+            50,
+            51,
+            52,
+            53
+          ]
+        },
+        {
+          "index": 4,
+          "latencies": [
+            2775.467,
+            2403.958,
+            2970.298,
+            2836.973
+          ],
+          "seqs": [
+            42,
+            43,
+            44,
+            45
+          ]
+        },
+        {
+          "index": 5,
+          "latencies": [
+            3062.597,
+            2549.47,
+            2175.755,
+            2546.262
+          ],
+          "seqs": [
+            52,
+            53,
+            54,
+            55
+          ]
+        },
+        {
+          "index": 6,
+          "latencies": [
+            2063.931,
+            3163.606,
+            3532.355,
+            18397.954
+          ],
+          "seqs": [
+            59,
+            60,
+            61,
+            62
+          ]
+        },
+        {
+          "index": 7,
+          "latencies": [
+            24195.016
+          ],
+          "seqs": [
+            63
+          ]
+        },
+        {
+          "index": 8,
+          "latencies": [
+            23031.745
+          ],
+          "seqs": [
+            63
+          ]
+        },
+        {
+          "index": 9,
+          "latencies": [
+            2119.302,
+            2746.205,
+            2712.395,
+            3110.071
+          ],
+          "seqs": [
+            65,
+            66,
+            67,
+            68
+          ]
+        },
+        {
+          "index": 10,
+          "latencies": [
+            1363.868,
+            2536.844,
+            2120.334,
+            2340.733,
+            2734.137
+          ],
+          "seqs": [
+            10,
+            11,
+            12,
+            13,
+            14
+          ]
+        },
+        {
+          "index": 11,
+          "latencies": [
+            1613.379,
+            3121.674,
+            2292.432,
+            2538.709,
+            2156.711
+          ],
+          "seqs": [
+            16,
+            17,
+            18,
+            19,
+            20
+          ]
+        },
+        {
+          "index": 12,
+          "latencies": [
+            1837.719,
+            2521.202,
+            2505.809,
+            2300.115,
+            2242.645
+          ],
+          "seqs": [
+            23,
+            24,
+            25,
+            26,
+            27
+          ]
+        },
+        {
+          "index": 13,
+          "latencies": [
+            2663.339,
+            2949.836,
+            2852.531,
+            2901.071
+          ],
+          "seqs": [
+            30,
+            31,
+            32,
+            33
+          ]
+        },
+        {
+          "index": 14,
+          "latencies": [
+            1854.291,
+            2710.349,
+            2723.559,
+            2546.449,
+            2036.724
+          ],
+          "seqs": [
+            37,
+            38,
+            39,
+            40,
+            41
+          ]
+        },
+        {
+          "index": 15,
+          "latencies": [
+            2079.399,
+            2773.074,
+            2522.688,
+            2716.548,
+            1757.895
+          ],
+          "seqs": [
+            43,
+            44,
+            45,
+            46,
+            47
+          ]
+        },
+        {
+          "index": 16,
+          "latencies": [
+            2651.946,
+            3317.315,
+            3318.01,
+            1959.313
+          ],
+          "seqs": [
+            45,
+            46,
+            47,
+            48
+          ]
+        },
+        {
+          "index": 17,
+          "latencies": [
+            2058.601,
+            2793.579,
+            2697.301,
+            2831.494
+          ],
+          "seqs": [
+            52,
+            53,
+            54,
+            55
+          ]
+        },
+        {
+          "index": 18,
+          "latencies": [
+            2362.28,
+            2992.759,
+            3234.906,
+            17198.573
+          ],
+          "seqs": [
+            59,
+            60,
+            61,
+            62
+          ]
+        },
+        {
+          "index": 19,
+          "latencies": [
+            2347.993,
+            2861.92,
+            2480.043,
+            1882.876,
+            1911.337
+          ],
+          "seqs": [
+            66,
+            67,
+            68,
+            1,
+            2
+          ]
+        },
+        {
+          "index": 20,
+          "latencies": [
+            2666.969,
+            2664.6,
+            2488.316,
+            2522.43
+          ],
+          "seqs": [
+            5,
+            6,
+            7,
+            8
+          ]
+        },
+        {
+          "index": 21,
+          "latencies": [
+            1706.493,
+            3062.371,
+            2563.746,
+            2500.114,
+            1899.795
+          ],
+          "seqs": [
+            12,
+            13,
+            14,
+            15,
+            16
+          ]
+        }
+      ],
+      "latency_ms": {
+        "n": 90,
+        "mean": 3522.6832777777777,
+        "median": 2546.3555,
+        "p95": 17198.573,
+        "p99": 24195.016,
+        "min": 1363.868,
+        "max": 24195.016,
+        "q1": 2242.645,
+        "q3": 2861.92,
+        "iqr": 619.2750000000001,
+        "stddev": 4225.314896295581
+      },
+      "latency_ms_light": {
+        "n": 85,
+        "mean": 2514.977329411765,
+        "median": 2538.709,
+        "p95": 3234.906,
+        "p99": 3532.355,
+        "min": 1363.868,
+        "max": 3532.355,
+        "q1": 2166.233,
+        "q3": 2812.5365,
+        "iqr": 646.3035,
+        "stddev": 458.3714424422337
+      },
+      "heavy_evaluations": 5,
+      "heavy_share": 0.056,
+      "kernel": {
+        "samples": 108,
+        "active_rss_peak_bytes": 10172112896,
+        "active_rss_steady_bytes": 9875779584,
+        "pool_rss_peak_bytes": 12146728960,
+        "cpu_seconds_active": 314.57,
+        "cores_busy": 11.583
+      },
+      "host_loadavg_1m": 10.26,
+      "mem_available_mb_before": 64261.676
+    },
+    {
+      "concurrency": 28,
+      "repeat": 2,
+      "wall_seconds": 25.821,
+      "evaluations": 86,
+      "exceptions": 0,
+      "mismatches": 4,
+      "exception_rate": 0,
+      "mismatch_rate": 0.047,
+      "throughput_evals_per_sec": 3.331,
+      "throughput_in_window_evals_per_sec": 5.6,
+      "evaluations_in_window": 56,
+      "per_worker": [
+        {
+          "index": 0,
+          "latencies": [
+            24443.088
+          ],
+          "seqs": [
+            63
+          ]
+        },
+        {
+          "index": 1,
+          "latencies": [
+            3371.79,
+            3536.718,
+            2643.155,
+            2087.544
+          ],
+          "seqs": [
+            57,
+            58,
+            59,
+            60
+          ]
+        },
+        {
+          "index": 2,
+          "latencies": [
+            3706.308,
+            3382.569,
+            3835.279
+          ],
+          "seqs": [
+            49,
+            50,
+            51
+          ]
+        },
+        {
+          "index": 3,
+          "latencies": [
+            3475.113,
+            2801.525,
+            2988.459,
+            2300.432
+          ],
+          "seqs": [
+            54,
+            55,
+            56,
+            57
+          ]
+        },
+        {
+          "index": 4,
+          "latencies": [
+            3509.389,
+            4293.127,
+            3597.661
+          ],
+          "seqs": [
+            46,
+            47,
+            48
+          ]
+        },
+        {
+          "index": 5,
+          "latencies": [
+            3828.7,
+            2616.439,
+            3396.996,
+            2326.945
+          ],
+          "seqs": [
+            56,
+            57,
+            58,
+            59
+          ]
+        },
+        {
+          "index": 6,
+          "latencies": [
+            25820.478
+          ],
+          "seqs": [
+            63
+          ]
+        },
+        {
+          "index": 7,
+          "latencies": [
+            25595.393
+          ],
+          "seqs": [
+            64
+          ]
+        },
+        {
+          "index": 8,
+          "latencies": [
+            25166.334
+          ],
+          "seqs": [
+            64
+          ]
+        },
+        {
+          "index": 9,
+          "latencies": [
+            3376.534,
+            2925.739,
+            3137.794,
+            2496.529
+          ],
+          "seqs": [
+            1,
+            2,
+            3,
+            4
+          ]
+        },
+        {
+          "index": 10,
+          "latencies": [
+            3070.615,
+            2888.933,
+            3258.114,
+            2332.851
+          ],
+          "seqs": [
+            15,
+            16,
+            17,
+            18
+          ]
+        },
+        {
+          "index": 11,
+          "latencies": [
+            3773.313,
+            3345.177,
+            3524.425
+          ],
+          "seqs": [
+            21,
+            22,
+            23
+          ]
+        },
+        {
+          "index": 12,
+          "latencies": [
+            3242.872,
+            5053.027,
+            3502.969
+          ],
+          "seqs": [
+            28,
+            29,
+            30
+          ]
+        },
+        {
+          "index": 13,
+          "latencies": [
+            3594.191,
+            3836.016,
+            3290.785
+          ],
+          "seqs": [
+            34,
+            35,
+            36
+          ]
+        },
+        {
+          "index": 14,
+          "latencies": [
+            3056.625,
+            4394.762,
+            3382.921
+          ],
+          "seqs": [
+            42,
+            43,
+            44
+          ]
+        },
+        {
+          "index": 15,
+          "latencies": [
+            3320.492,
+            3255.303,
+            3894.579
+          ],
+          "seqs": [
+            48,
+            49,
+            50
+          ]
+        },
+        {
+          "index": 16,
+          "latencies": [
+            3153.741,
+            3983.082,
+            2885.82,
+            2260.126
+          ],
+          "seqs": [
+            49,
+            50,
+            51,
+            52
+          ]
+        },
+        {
+          "index": 17,
+          "latencies": [
+            2371.187,
+            3488.454,
+            3108.166,
+            3045.711
+          ],
+          "seqs": [
+            56,
+            57,
+            58,
+            59
+          ]
+        },
+        {
+          "index": 18,
+          "latencies": [
+            24524.502
+          ],
+          "seqs": [
+            63
+          ]
+        },
+        {
+          "index": 19,
+          "latencies": [
+            2736.572,
+            2676.093,
+            2915.669,
+            2282.488
+          ],
+          "seqs": [
+            3,
+            4,
+            5,
+            6
+          ]
+        },
+        {
+          "index": 20,
+          "latencies": [
+            2370.504,
+            3301.842,
+            2528.3,
+            2219.253
+          ],
+          "seqs": [
+            9,
+            10,
+            11,
+            12
+          ]
+        },
+        {
+          "index": 21,
+          "latencies": [
+            2703.277,
+            2871.024,
+            2593.492,
+            3241.477
+          ],
+          "seqs": [
+            17,
+            18,
+            19,
+            20
+          ]
+        },
+        {
+          "index": 22,
+          "latencies": [
+            5084.989,
+            4339.145,
+            2755.438
+          ],
+          "seqs": [
+            19,
+            20,
+            21
+          ]
+        },
+        {
+          "index": 23,
+          "latencies": [
+            2750.594,
+            3260.625,
+            3668.868,
+            2154.523
+          ],
+          "seqs": [
+            26,
+            27,
+            28,
+            29
+          ]
+        },
+        {
+          "index": 24,
+          "latencies": [
+            3983.488,
+            4107.261,
+            3089.066
+          ],
+          "seqs": [
+            33,
+            34,
+            35
+          ]
+        },
+        {
+          "index": 25,
+          "latencies": [
+            2807.232,
+            4325.662,
+            3399.943
+          ],
+          "seqs": [
+            40,
+            41,
+            42
+          ]
+        },
+        {
+          "index": 26,
+          "latencies": [
+            3465.822,
+            3194.227,
+            3840.487
+          ],
+          "seqs": [
+            47,
+            48,
+            49
+          ]
+        },
+        {
+          "index": 27,
+          "latencies": [
+            3477.41,
+            2680.764,
+            3936.371,
+            2074.018
+          ],
+          "seqs": [
+            54,
+            55,
+            56,
+            57
+          ]
+        }
+      ],
+      "latency_ms": {
+        "n": 86,
+        "mean": 4492.264197674418,
+        "median": 3275.705,
+        "p95": 24443.088,
+        "p99": 25820.478,
+        "min": 2074.018,
+        "max": 25820.478,
+        "q1": 2755.438,
+        "q3": 3706.308,
+        "iqr": 950.8699999999999,
+        "stddev": 5161.77129011986
+      },
+      "latency_ms_light": {
+        "n": 81,
+        "mean": 3219.5669876543216,
+        "median": 3255.303,
+        "p95": 4325.662,
+        "p99": 5084.989,
+        "min": 2074.018,
+        "max": 5084.989,
+        "q1": 2743.583,
+        "q3": 3565.4545,
+        "iqr": 821.8714999999997,
+        "stddev": 640.1743471301921
+      },
+      "heavy_evaluations": 5,
+      "heavy_share": 0.058,
+      "kernel": {
+        "samples": 102,
+        "active_rss_peak_bytes": 12800843776,
+        "active_rss_steady_bytes": 12127371264,
+        "pool_rss_peak_bytes": 12800913408,
+        "cpu_seconds_active": 319.94,
+        "cores_busy": 12.391
+      },
+      "host_loadavg_1m": 13.03,
+      "mem_available_mb_before": 63285.406
+    }
+  ]
+}

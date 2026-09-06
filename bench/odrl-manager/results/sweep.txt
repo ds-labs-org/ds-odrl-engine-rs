@@ -1,0 +1,13 @@
+=== date ===
+2026-09-06T13:12:48+02:00
+=== straggler node processes from this bench ===
+=== count ===
+0
+=== any node process at all ===
+0
+=== uptime ===
+ 13:12:48 up 2 days,  4:44,  1 user,  load average: 0,41, 2,95, 6,09
+=== free -h ===
+               total       utilisé      libre     partagé tamp/cache   disponible
+Mem:            93Gi        21Gi        34Gi       3,4Gi        41Gi        71Gi
+Échange:          0B          0B          0B

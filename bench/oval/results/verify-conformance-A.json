@@ -1,0 +1,614 @@
+[
+  {
+    "slug": "testcase-001-alice",
+    "title": "Any request results into yes (Alice Request).",
+    "expected": "Allow",
+    "status": "PASS",
+    "actual": "Allow",
+    "raw_validity": 1,
+    "ms": 55.76
+  },
+  {
+    "slug": "testcase-002-bob",
+    "title": "Any request results into yes (Bob Request).",
+    "expected": "Allow",
+    "status": "PASS",
+    "actual": "Allow",
+    "raw_validity": 1,
+    "ms": 49.45
+  },
+  {
+    "slug": "testcase-003-bob-write-y",
+    "title": "Any request results into yes (Bob Request Write).",
+    "expected": "Allow",
+    "status": "PASS",
+    "actual": "Allow",
+    "raw_validity": 1,
+    "ms": 66.26
+  },
+  {
+    "slug": "testcase-004-alice",
+    "title": "Any request results into no (Alice Request).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 46.71
+  },
+  {
+    "slug": "testcase-005-bob",
+    "title": "Any request results into no (Bob Request).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 48.38
+  },
+  {
+    "slug": "testcase-006-bob-write-y",
+    "title": "Any request results into no (Bob Request Write).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 48.44
+  },
+  {
+    "slug": "testcase-007-alice",
+    "title": "Any request to use results into yes (Alice Request).",
+    "expected": "Allow",
+    "status": "PASS",
+    "actual": "Allow",
+    "raw_validity": 1,
+    "ms": 75.94
+  },
+  {
+    "slug": "testcase-008-bob",
+    "title": "Any request to use results into yes (Bob Request).",
+    "expected": "Allow",
+    "status": "PASS",
+    "actual": "Allow",
+    "raw_validity": 1,
+    "ms": 47.24
+  },
+  {
+    "slug": "testcase-009-bob-write-y",
+    "title": "Any request to use results into yes (Bob Request Write).",
+    "expected": "Allow",
+    "status": "FAIL",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 45.99
+  },
+  {
+    "slug": "testcase-010-alice-sell",
+    "title": "Any request to use results into yes (Alice Request Sell).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 46.77
+  },
+  {
+    "slug": "testcase-011-alice",
+    "title": "Any request to use results into no (Alice Request).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 73.69
+  },
+  {
+    "slug": "testcase-012-bob",
+    "title": "Any request to use results into no (Bob Request).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 46.02
+  },
+  {
+    "slug": "testcase-013-bob-write-y",
+    "title": "Any request to use results into no (Bob Request Write).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 46.45
+  },
+  {
+    "slug": "testcase-014-alice-sell",
+    "title": "Any request to use results into no (Alice Request Sell).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 48.88
+  },
+  {
+    "slug": "testcase-015-alice",
+    "title": "Any request from Alice to use returns into yes (Alice Request).",
+    "expected": "Allow",
+    "status": "PASS",
+    "actual": "Allow",
+    "raw_validity": 1,
+    "ms": 46.74
+  },
+  {
+    "slug": "testcase-016-bob",
+    "title": "Any request from Alice to use returns into yes (Bob Request).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 75.45
+  },
+  {
+    "slug": "testcase-017-alice-sell",
+    "title": "Any request from Alice to use returns into yes (Alice Request Sell).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 47.37
+  },
+  {
+    "slug": "testcase-018-alice",
+    "title": "Any request from Bob to use returns into no (Alice Request).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 49.12
+  },
+  {
+    "slug": "testcase-019-bob",
+    "title": "Any request from Bob to use returns into no (Bob Request).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 47.05
+  },
+  {
+    "slug": "testcase-020-bob-sell",
+    "title": "Any request from Bob to use returns into no (Bob Request Sell).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 74.3
+  },
+  {
+    "slug": "testcase-021-alice",
+    "title": "Read request from Alice returns into yes (Alice Request).",
+    "expected": "Allow",
+    "status": "PASS",
+    "actual": "Allow",
+    "raw_validity": 1,
+    "ms": 51.71
+  },
+  {
+    "slug": "testcase-022-alice-sell",
+    "title": "Read request from Alice returns into yes (Alice Request Sell).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 46.36
+  },
+  {
+    "slug": "testcase-023-alice-read-y",
+    "title": "Read request from Alice returns into yes (Alice Request Read Y).",
+    "expected": "Allow",
+    "status": "PASS",
+    "actual": "Allow",
+    "raw_validity": 1,
+    "ms": 47.98
+  },
+  {
+    "slug": "testcase-024-alice-write-x",
+    "title": "Read request from Alice returns into yes (Alice Request Write X).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 79.02
+  },
+  {
+    "slug": "testcase-025-bob-read-x",
+    "title": "Read request from Alice returns into yes (Bob Request Read X).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 47.53
+  },
+  {
+    "slug": "testcase-026-alice-read-x",
+    "title": "Read request from Alice to resource X returns into yes (Alice Request Read X).",
+    "expected": "Allow",
+    "status": "PASS",
+    "actual": "Allow",
+    "raw_validity": 1,
+    "ms": 46.63
+  },
+  {
+    "slug": "testcase-027-alice-write-x",
+    "title": "Read request from Alice to resource X returns into yes (Alice Request Write X).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 46.78
+  },
+  {
+    "slug": "testcase-028-alice-read-y",
+    "title": "Read request from Alice to resource X returns into yes (Alice Request Read Y).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 78.83
+  },
+  {
+    "slug": "testcase-029-bob-write-y",
+    "title": "Read request from Alice to resource X returns into yes (Bob Request Write Y).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 50.43
+  },
+  {
+    "slug": "testcase-030-alice-read-x",
+    "title": "Read request from Alice to resource X returns into yes (temporal eq) (Alice Request Read X).",
+    "expected": "Allow",
+    "status": "PASS",
+    "actual": "Allow",
+    "raw_validity": 1,
+    "ms": 48.34
+  },
+  {
+    "slug": "testcase-031-alice-read-x-past",
+    "title": "Read request from Alice to resource X returns into yes (temporal eq - past) (Alice Request Read X).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 48.25
+  },
+  {
+    "slug": "testcase-032-alice-read-x-future",
+    "title": "Read request from Alice to resource X returns into yes (temporal eq - future) (Alice Request Read X).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 49.37
+  },
+  {
+    "slug": "testcase-033-alice-read-x",
+    "title": "Read request from Alice to resource X returns into yes (temporal neq) (Alice Request Read X).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 80.18
+  },
+  {
+    "slug": "testcase-034-alice-read-x-past",
+    "title": "Read request from Alice to resource X returns into yes (temporal neq - past) (Alice Request Read X).",
+    "expected": "Allow",
+    "status": "PASS",
+    "actual": "Allow",
+    "raw_validity": 1,
+    "ms": 47.46
+  },
+  {
+    "slug": "testcase-035-alice-read-x-future",
+    "title": "Read request from Alice to resource X returns into yes (temporal neq - future) (Alice Request Read X).",
+    "expected": "Allow",
+    "status": "PASS",
+    "actual": "Allow",
+    "raw_validity": 1,
+    "ms": 48.2
+  },
+  {
+    "slug": "testcase-036-alice-read-x",
+    "title": "Read request from Alice to resource X returns into yes (temporal lt) (Alice Request Read X).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 47.61
+  },
+  {
+    "slug": "testcase-037-alice-read-x-past",
+    "title": "Read request from Alice to resource X returns into yes (temporal lt - past) (Alice Request Read X).",
+    "expected": "Allow",
+    "status": "PASS",
+    "actual": "Allow",
+    "raw_validity": 1,
+    "ms": 79.57
+  },
+  {
+    "slug": "testcase-038-alice-read-x-future",
+    "title": "Read request from Alice to resource X returns into yes (temporal lt - future) (Alice Request Read X).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 48.65
+  },
+  {
+    "slug": "testcase-039-alice-read-x",
+    "title": "Read request from Alice to resource X returns into yes (temporal lteq) (Alice Request Read X).",
+    "expected": "Allow",
+    "status": "PASS",
+    "actual": "Allow",
+    "raw_validity": 1,
+    "ms": 47.37
+  },
+  {
+    "slug": "testcase-040-alice-read-x-past",
+    "title": "Read request from Alice to resource X returns into yes (temporal lteq - past) (Alice Request Read X).",
+    "expected": "Allow",
+    "status": "PASS",
+    "actual": "Allow",
+    "raw_validity": 1,
+    "ms": 48.71
+  },
+  {
+    "slug": "testcase-041-alice-read-x-future",
+    "title": "Read request from Alice to resource X returns into yes (temporal lteq - future) (Alice Request Read X).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 77.95
+  },
+  {
+    "slug": "testcase-042-alice-read-x",
+    "title": "Read request from Alice to resource X returns into yes (temporal gt) (Alice Request Read X).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 48.3
+  },
+  {
+    "slug": "testcase-043-alice-read-x-past",
+    "title": "Read request from Alice to resource X returns into yes (temporal gt - past) (Alice Request Read X).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 48.02
+  },
+  {
+    "slug": "testcase-044-alice-read-x-future",
+    "title": "Read request from Alice to resource X returns into yes (temporal gt - future) (Alice Request Read X).",
+    "expected": "Allow",
+    "status": "PASS",
+    "actual": "Allow",
+    "raw_validity": 1,
+    "ms": 48.43
+  },
+  {
+    "slug": "testcase-045-alice-read-x",
+    "title": "Read request from Alice to resource X returns into yes (temporal gteq) (Alice Request Read X).",
+    "expected": "Allow",
+    "status": "PASS",
+    "actual": "Allow",
+    "raw_validity": 1,
+    "ms": 79.27
+  },
+  {
+    "slug": "testcase-046-alice-read-x-past",
+    "title": "Read request from Alice to resource X returns into yes (temporal gteq - past) (Alice Request Read X).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 47.7
+  },
+  {
+    "slug": "testcase-047-alice-read-x-future",
+    "title": "Read request from Alice to resource X returns into yes (temporal gteq - future) (Alice Request Read X).",
+    "expected": "Allow",
+    "status": "PASS",
+    "actual": "Allow",
+    "raw_validity": 1,
+    "ms": 50.46
+  },
+  {
+    "slug": "testcase-048-alice-read-x",
+    "title": "Read request from Alice to resource X returns into yes (temporal + And (year 2024)) (Alice Request Read X).",
+    "expected": "Allow",
+    "status": "PASS",
+    "actual": "Allow",
+    "raw_validity": 1,
+    "ms": 49.26
+  },
+  {
+    "slug": "testcase-049-alice-read-x-past",
+    "title": "Read request from Alice to resource X returns into yes (temporal + And (year 2024)) (Alice Request Read X - past).",
+    "expected": "Deny",
+    "status": "FAIL",
+    "actual": "Allow",
+    "raw_validity": 1,
+    "ms": 48.0
+  },
+  {
+    "slug": "testcase-050-alice-read-x-future",
+    "title": "Read request from Alice to resource X returns into yes (temporal + And (year 2024)) (Alice Request Read X - future).",
+    "expected": "Deny",
+    "status": "FAIL",
+    "actual": "Allow",
+    "raw_validity": 1,
+    "ms": 81.67
+  },
+  {
+    "slug": "testcase-051-alice",
+    "title": "Read request from people in party collection to resource X returns into yes (Alice Request Read X).",
+    "expected": "Allow",
+    "status": "FAIL",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 48.33
+  },
+  {
+    "slug": "testcase-052-bob-read-x",
+    "title": "Read request from people in party collection to resource X returns into yes (Bob Request Read X).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 49.24
+  },
+  {
+    "slug": "testcase-053-alice-read-x",
+    "title": "Read request from Alice to resource in asset collection returns into yes (Alice Request Read X).",
+    "expected": "Allow",
+    "status": "FAIL",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 48.91
+  },
+  {
+    "slug": "testcase-054-alice-read-y",
+    "title": "Read request from Alice to resource in asset collection returns into yes (Alice Request Read Y).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 81.39
+  },
+  {
+    "slug": "testcase-055-alice-read-x",
+    "title": "Read request from people in party collection to resource in asset collection returns into yes (Alice Request Read X).",
+    "expected": "Allow",
+    "status": "FAIL",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 51.21
+  },
+  {
+    "slug": "testcase-056-alice-read-y",
+    "title": "Read request from people in party collection to resource in asset collection returns into yes (Alice Request Read Y).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 49.52
+  },
+  {
+    "slug": "testcase-057-bob-read-x",
+    "title": "Read request from people in party collection to resource in asset collection returns into yes (Bob Request Read X).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 48.01
+  },
+  {
+    "slug": "testcase-058-bob-write-y",
+    "title": "Read request from people in party collection to resource in asset collection returns into yes (Bob Request Write Y).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 82.79
+  },
+  {
+    "slug": "testcase-059-nonset",
+    "title": "Read request from Alice to resource X returns into yes, if duty is not violated (Alice Request Read X - duty unknown).",
+    "expected": "Allow",
+    "status": "FAIL",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 48.97
+  },
+  {
+    "slug": "testcase-060-fulfilled",
+    "title": "Read request from Alice to resource X returns into yes, if duty is not violated (Alice Request Read X- duty fulfilled).",
+    "expected": "Allow",
+    "status": "PASS",
+    "actual": "Allow",
+    "raw_validity": 1,
+    "ms": 50.42
+  },
+  {
+    "slug": "testcase-061-violated",
+    "title": "Read request from Alice to resource X returns into yes, if duty is not violated (Alice Request Read X - duty violated).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 50.15
+  },
+  {
+    "slug": "testcase-062-big-policy",
+    "title": "Read request from Alice to resource X on weekdays from 9-17 in 2024 returns into yes (Alice Request Read X).",
+    "expected": "Allow",
+    "status": "FAIL",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 148.99
+  },
+  {
+    "slug": "testcase-063-big-policy-OoO",
+    "title": "Read request from Alice to resource X on weekdays from 9-17 in 2024 returns into yes (Alice Request Read X - out of office).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 130.47
+  },
+  {
+    "slug": "testcase-064-big-policy-past",
+    "title": "Read request from Alice to resource X on weekdays from 9-17 in 2024 returns into yes (Alice Request Read X - past).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 177.24
+  },
+  {
+    "slug": "testcase-065-alice",
+    "title": "Read request from people in party collection to resource X in 2024 returns into yes (Alice Request Read X).",
+    "expected": "Allow",
+    "status": "FAIL",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 92.54
+  },
+  {
+    "slug": "testcase-066-bob-sell",
+    "title": "Read request from people in party collection to resource X in 2024 returns into yes (Alice Request Read X - past).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 134.64
+  },
+  {
+    "slug": "testcase-067-alice-past",
+    "title": "Read request from people in party collection to resource X in 2024 returns into yes (Alice Request Read X - past).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 92.79
+  },
+  {
+    "slug": "testcase-068-bob-write-y-past",
+    "title": "Read request from people in party collection to resource X in 2024 returns into yes (Bob Request Write Y - past).",
+    "expected": "Deny",
+    "status": "PASS",
+    "actual": "Deny",
+    "raw_validity": 0,
+    "ms": 135.6
+  }
+]

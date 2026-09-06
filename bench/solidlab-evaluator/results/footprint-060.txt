@@ -1,0 +1,14 @@
+suite checkout (incl. .git, node_modules):
+184M	/tmp/claude-1002/-home-coder-deepthought-solutions-dataspace/9a455f1e-9157-40f0-a70b-fc272472716d/scratchpad/perf-bench/solidlab-evaluator/ODRL-Test-Suite
+node_modules total:
+175M	/tmp/claude-1002/-home-coder-deepthought-solutions-dataspace/9a455f1e-9157-40f0-a70b-fc272472716d/scratchpad/perf-bench/solidlab-evaluator/ODRL-Test-Suite/node_modules
+odrl-evaluator package:
+828K	/tmp/claude-1002/-home-coder-deepthought-solutions-dataspace/9a455f1e-9157-40f0-a70b-fc272472716d/scratchpad/perf-bench/solidlab-evaluator/ODRL-Test-Suite/node_modules/odrl-evaluator
+odrl-evaluator dist:
+804K	/tmp/claude-1002/-home-coder-deepthought-solutions-dataspace/9a455f1e-9157-40f0-a70b-fc272472716d/scratchpad/perf-bench/solidlab-evaluator/ODRL-Test-Suite/node_modules/odrl-evaluator/dist
+eye WASM (the reasoner):
+   2150992  /tmp/claude-1002/-home-coder-deepthought-solutions-dataspace/9a455f1e-9157-40f0-a70b-fc272472716d/scratchpad/perf-bench/solidlab-evaluator/ODRL-Test-Suite/node_modules/swipl-wasm/dist/swipl/swipl-web.wasm
+     55466  /tmp/claude-1002/-home-coder-deepthought-solutions-dataspace/9a455f1e-9157-40f0-a70b-fc272472716d/scratchpad/perf-bench/solidlab-evaluator/ODRL-Test-Suite/node_modules/undici/lib/llhttp/llhttp.wasm
+     55450  /tmp/claude-1002/-home-coder-deepthought-solutions-dataspace/9a455f1e-9157-40f0-a70b-fc272472716d/scratchpad/perf-bench/solidlab-evaluator/ODRL-Test-Suite/node_modules/undici/lib/llhttp/llhttp_simd.wasm
+installed package count:
+416

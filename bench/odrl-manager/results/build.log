@@ -1,0 +1,18 @@
+CLI Building entry: src/index.ts
+CLI Using tsconfig: tsconfig.json
+CLI tsup v8.0.1
+CLI Using tsup config: /tmp/claude-1002/-home-coder-deepthought-solutions-dataspace/9a455f1e-9157-40f0-a70b-fc272472716d/scratchpad/perf-bench/odrl-manager/odrl-manager/tsup.config.ts
+CLI Target: es2016
+CLI Cleaning output folder
+CJS Build start
+ESM Build start
+ESM dist/index.mjs     83.54 KB
+ESM dist/index.mjs.map 143.84 KB
+ESM ⚡️ Build success in 25ms
+CJS dist/index.js     84.67 KB
+CJS dist/index.js.map 143.90 KB
+CJS ⚡️ Build success in 26ms
+DTS Build start
+DTS ⚡️ Build success in 649ms
+DTS dist/index.d.ts  36.23 KB
+DTS dist/index.d.mts 36.23 KB

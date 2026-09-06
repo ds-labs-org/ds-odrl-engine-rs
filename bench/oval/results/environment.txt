@@ -1,0 +1,38 @@
+=== date ===
+2026-09-06T10:54:10+02:00
+=== uptime (baseline load) ===
+ 10:54:10 up 2 days,  2:26,  1 user,  load average: 1,37, 6,14, 5,45
+=== nproc ===
+22
+=== free -h ===
+               total       utilisé      libre     partagé tamp/cache   disponible
+Mem:            93Gi        22Gi        24Gi       3,4Gi        51Gi        71Gi
+Échange:          0B          0B          0B
+=== MemAvailable ===
+MemAvailable:   75094624 kB
+=== kernel ===
+Linux mainworkws 6.8.0-138-generic #138-Ubuntu SMP PREEMPT_DYNAMIC Fri Jul 31 22:41:49 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+=== cpu ===
+Nom de modèle :                           Intel(R) Core(TM) Ultra 9 185H
+Thread(s) par cœur :                      2
+=== python3 ===
+Python 3.12.3 (main, Jul 15 2026, 23:46:41) [GCC 13.3.0]
+=== git ===
+git version 2.43.0
+=== ps, top 15 by cpu ===
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+nico       10273  8.0  1.2 12748128 1200340 ?    Sl   sept.04 238:04 /usr/lib/firefox/firefox-bin -contentproc -isForBrowser -prefsHandle 0:51332 -prefMapHandle 1:295729 -jsInitHandle 2:160936 -parentBuildID 20260826195058 -sandboxReporter 3 -chrootClient 4 -ipcHandle 5 -initialChannelId {6e896fac-75d0-407f-8505-43070307278b} -parentPid 4193 -crashHelperPid 4339 -crashHelper 6 -crashReporter 7 -greomni /usr/lib/firefox/omni.ja -appomni /usr/lib/firefox/browser/omni.ja -appDir /usr/lib/firefox/browser 33 tab
+nico        4713  3.9  1.9 5572300 1905100 ?     Sl   sept.04 118:29 /usr/lib/firefox/firefox-bin -contentproc -isForBrowser -prefsHandle 0:51171 -prefMapHandle 1:295729 -jsInitHandle 2:160936 -parentBuildID 20260826195058 -sandboxReporter 3 -chrootClient 4 -ipcHandle 5 -initialChannelId {8015896c-1680-47b5-87d9-eac7c1652647} -parentPid 4193 -crashHelperPid 4339 -crashHelper 6 -crashReporter 7 -greomni /usr/lib/firefox/omni.ja -appomni /usr/lib/firefox/browser/omni.ja -appDir /usr/lib/firefox/browser 10 tab
+nico        4193  3.4  1.1 13203680 1162224 ?    Sl   sept.04 103:40 /usr/lib/firefox/firefox
+coder     280210  3.0  0.7 6685144 773448 pts/4  Sl+  sept.05  47:43 claude
+nico       19897  2.4  1.0 12761388 1014736 ?    Sl   sept.04  70:00 /usr/lib/firefox/firefox-bin --profile /home/nico/.config/mozilla/firefox/3j458754.default-release --profiles-activate
+nico       64112  2.3  0.1 2728232 176832 ?      Sl   sept.04  58:17 /usr/lib/firefox/firefox-bin -contentproc -isForBrowser -prefsHandle 0:51676 -prefMapHandle 1:295729 -jsInitHandle 2:160936 -parentBuildID 20260826195058 -sandboxReporter 3 -chrootClient 4 -ipcHandle 5 -initialChannelId {202f6594-6ad2-4628-91f8-7d5821506765} -parentPid 4193 -crashHelperPid 4339 -crashHelper 6 -crashReporter 7 -greomni /usr/lib/firefox/omni.ja -appomni /usr/lib/firefox/browser/omni.ja -appDir /usr/lib/firefox/browser 542 tab
+nico       20218  1.3  0.9 16441612 977688 ?     Sl   sept.04  37:17 /usr/lib/firefox/firefox-bin -contentproc -isForBrowser -prefsHandle 0:52036 -prefMapHandle 1:295500 -jsInitHandle 2:160936 -parentBuildID 20260826195058 -sandboxReporter 3 -chrootClient 4 -ipcHandle 5 -initialChannelId {028c1e6e-33de-4c51-ad02-11219e6b73cc} -parentPid 19897 -crashHelperPid 19902 -crashHelper 6 -crashReporter 7 -greomni /usr/lib/firefox/omni.ja -appomni /usr/lib/firefox/browser/omni.ja -appDir /usr/lib/firefox/browser 9 tab
+coder     283604  1.0  0.4 6690656 416440 pts/6  Sl+  sept.05  16:34 claude /usage
+nico        3906  0.9  0.3 5067664 322396 ?      Sl   sept.04  29:27 cinnamon --replace
+nico       36893  0.8  0.4 3208272 453296 ?      Sl   sept.04  23:40 /usr/lib/firefox/firefox-bin -contentproc -isForBrowser -prefsHandle 0:51385 -prefMapHandle 1:295729 -jsInitHandle 2:160936 -parentBuildID 20260826195058 -sandboxReporter 3 -chrootClient 4 -ipcHandle 5 -initialChannelId {b5999bd1-d3ee-4fa2-87fc-7624cafc0681} -parentPid 4193 -crashHelperPid 4339 -crashHelper 6 -crashReporter 7 -greomni /usr/lib/firefox/omni.ja -appomni /usr/lib/firefox/browser/omni.ja -appDir /usr/lib/firefox/browser 293 tab
+root        1984  0.7  0.2 1652376 225368 tty7   Ssl+ sept.04  23:58 /usr/lib/xorg/Xorg -core :0 -seat seat0 -auth /var/run/lightdm/root/:0 -nolisten tcp vt7 -novtswitch
+eona       85123  0.7  0.3 5583632 358876 pts/1  Sl+  sept.04  17:28 claude
+nico       71491  0.6  0.5 7701852 582600 ?      Sl   sept.04  16:47 /usr/lib/firefox/firefox-bin -contentproc -isForBrowser -prefsHandle 0:51677 -prefMapHandle 1:295729 -jsInitHandle 2:160936 -parentBuildID 20260826195058 -sandboxReporter 3 -chrootClient 4 -ipcHandle 5 -initialChannelId {a11c2ed3-1f21-47c3-8ed2-27c039d3d50d} -parentPid 4193 -crashHelperPid 4339 -crashHelper 6 -crashReporter 7 -greomni /usr/lib/firefox/omni.ja -appomni /usr/lib/firefox/browser/omni.ja -appDir /usr/lib/firefox/browser 704 tab
+nico        4592  0.5  0.8 3615836 877700 ?      Sl   sept.04  15:25 /usr/lib/firefox/firefox-bin -contentproc -isForBrowser -prefsHandle 0:51171 -prefMapHandle 1:295729 -jsInitHandle 2:160936 -parentBuildID 20260826195058 -sandboxReporter 3 -chrootClient 4 -ipcHandle 5 -initialChannelId {4e38379f-e041-49f7-8dd6-ac1d939e9451} -parentPid 4193 -crashHelperPid 4339 -crashHelper 6 -crashReporter 7 -greomni /usr/lib/firefox/omni.ja -appomni /usr/lib/firefox/browser/omni.ja -appDir /usr/lib/firefox/browser 8 tab
+nico       24607  0.4  0.7 8201992 771640 ?      Sl   sept.04  11:36 /usr/lib/thunderbird/thunderbird

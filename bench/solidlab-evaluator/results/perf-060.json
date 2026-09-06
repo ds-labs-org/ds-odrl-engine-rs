@@ -1,0 +1,6668 @@
+{
+  "schema": "solidlab-evaluator/perf-bench@1",
+  "phase": "perf",
+  "engine": "SolidLabResearch/ODRL-Evaluator",
+  "version": "0.6.0",
+  "node_version": "v24.18.0",
+  "corpus_cases": 68,
+  "started_utc": "2026-09-06T08:02:31.167Z",
+  "wall_seconds": 273.945,
+  "host": {
+    "nproc": 22,
+    "totalmem_bytes": 100651765760,
+    "loadavg_at_start": [
+      1.63,
+      4.82,
+      6.57
+    ]
+  },
+  "method": {
+    "warmup_iterations": 10,
+    "warmup_note": "cycled over the first WARMUP cases of the same corpus, results discarded; a warmup ERROR aborts the run",
+    "repeats_full": 5,
+    "repeats_engine": 2,
+    "paths": {
+      "full": "parseFile(policy)+parseFile(request)+parseFile(sotw) -> evaluate() -> reduceToDecision(); identical to allow-deny-bench.ts's timed region",
+      "engine": "evaluate() -> reduceToDecision() on quads parsed once up front; excludes n3 Turtle parsing"
+    },
+    "evaluator": "one ODRLEvaluator(new ODRLEngineMultipleSteps()) reused for the whole process, as in allow-deny-bench.ts",
+    "outlier_rule": "Tukey fence k=1.5 on the pooled per-path measurements: flagged when outside [Q1-1.5*IQR, Q3+1.5*IQR]. Flagged, never dropped.",
+    "stability_rule": "a case is 'unstable' when (max-min)/median over its 5 full-path measurements > 0.25"
+  },
+  "warmup_ms": [
+    454.621,
+    297.363,
+    280.714,
+    303.476,
+    281.674,
+    286.338,
+    274.704,
+    307.625,
+    295.532,
+    275.768
+  ],
+  "per_repeat": [
+    {
+      "path": "full",
+      "repeat": 0,
+      "wall_ms": 38690.997,
+      "median_ms": 296.258,
+      "pass": 67,
+      "fail": 1,
+      "err": 0
+    },
+    {
+      "path": "full",
+      "repeat": 1,
+      "wall_ms": 38632.424,
+      "median_ms": 300.961,
+      "pass": 67,
+      "fail": 1,
+      "err": 0
+    },
+    {
+      "path": "full",
+      "repeat": 2,
+      "wall_ms": 38528.827,
+      "median_ms": 299.225,
+      "pass": 67,
+      "fail": 1,
+      "err": 0
+    },
+    {
+      "path": "full",
+      "repeat": 3,
+      "wall_ms": 38249.827,
+      "median_ms": 296.041,
+      "pass": 67,
+      "fail": 1,
+      "err": 0
+    },
+    {
+      "path": "full",
+      "repeat": 4,
+      "wall_ms": 37993.922,
+      "median_ms": 294.057,
+      "pass": 67,
+      "fail": 1,
+      "err": 0
+    },
+    {
+      "path": "engine",
+      "repeat": 0,
+      "wall_ms": 38241.221,
+      "median_ms": 297.908,
+      "pass": 67,
+      "fail": 1,
+      "err": 0
+    },
+    {
+      "path": "engine",
+      "repeat": 1,
+      "wall_ms": 38278.185,
+      "median_ms": 294.158,
+      "pass": 67,
+      "fail": 1,
+      "err": 0
+    }
+  ],
+  "latency": {
+    "full": {
+      "n": 340,
+      "mean_ms": 564.923,
+      "median_ms": 296.542,
+      "p95_ms": 342.44,
+      "p99_ms": 6471.416,
+      "min_ms": 257.357,
+      "max_ms": 6518.066,
+      "stddev_ms": 1249.652,
+      "q1_ms": 283.037,
+      "q3_ms": 311.503,
+      "iqr_ms": 28.466
+    },
+    "engine": {
+      "n": 136,
+      "mean_ms": 562.58,
+      "median_ms": 295.233,
+      "p95_ms": 342.188,
+      "p99_ms": 6383.725,
+      "min_ms": 257.342,
+      "max_ms": 6419.984,
+      "stddev_ms": 1246.664,
+      "q1_ms": 279.042,
+      "q3_ms": 309.387,
+      "iqr_ms": 30.345
+    },
+    "parse_overhead_ms_median": 1.309
+  },
+  "outliers": {
+    "full": {
+      "fence_low_ms": 240.337,
+      "fence_high_ms": 354.202,
+      "flagged": 15,
+      "of": 340
+    },
+    "engine": {
+      "fence_low_ms": 233.524,
+      "fence_high_ms": 354.904,
+      "flagged": 6,
+      "of": 136
+    }
+  },
+  "conformance_check": {
+    "full": {
+      "pass": 67,
+      "fail": 1,
+      "err": 0
+    }
+  },
+  "memory_in_process": {
+    "note": "process.memoryUsage().rss sampled after every timed evaluation; authoritative peak RSS comes from /usr/bin/time -v around this process",
+    "first_rss_bytes": 527622144,
+    "last_rss_bytes": 758337536,
+    "max_rss_bytes": 826961920,
+    "median_rss_bytes": 754737152,
+    "growth_bytes": 230715392
+  },
+  "cpu_self_reported": {
+    "note": "process.cpuUsage(), microseconds, whole process incl. startup",
+    "after_warmup_user_s": 6.129,
+    "after_warmup_system_s": 0.352,
+    "total_user_s": 322.771,
+    "total_system_s": 8.384
+  },
+  "intra_process_concurrency_probe": {
+    "n": 4,
+    "sequential_ms": 1101.644,
+    "promise_all_ms": 1095.518,
+    "speedup": 1.006,
+    "verdict": "no intra-process parallelism: Promise.all over evaluate() is ~as slow as running them sequentially, so concurrency for this engine has to mean OS processes"
+  },
+  "per_case_full": [
+    {
+      "slug": "testcase-001-alice",
+      "seq": 1,
+      "n": 5,
+      "mean_ms": 275.043,
+      "median_ms": 272.849,
+      "min_ms": 268.471,
+      "max_ms": 286.868,
+      "stddev_ms": 6.307,
+      "relative_range": 0.067,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-002-bob",
+      "seq": 2,
+      "n": 5,
+      "mean_ms": 280.817,
+      "median_ms": 277.69,
+      "min_ms": 266.114,
+      "max_ms": 301.372,
+      "stddev_ms": 11.544,
+      "relative_range": 0.127,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-003-bob-write-y",
+      "seq": 3,
+      "n": 5,
+      "mean_ms": 284.819,
+      "median_ms": 299.387,
+      "min_ms": 257.357,
+      "max_ms": 307.735,
+      "stddev_ms": 21.718,
+      "relative_range": 0.168,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-004-alice",
+      "seq": 4,
+      "n": 5,
+      "mean_ms": 283.356,
+      "median_ms": 286.363,
+      "min_ms": 263.486,
+      "max_ms": 295.669,
+      "stddev_ms": 10.73,
+      "relative_range": 0.112,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-005-bob",
+      "seq": 5,
+      "n": 5,
+      "mean_ms": 274.172,
+      "median_ms": 271.407,
+      "min_ms": 265.813,
+      "max_ms": 287.841,
+      "stddev_ms": 8.37,
+      "relative_range": 0.081,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-006-bob-write-y",
+      "seq": 6,
+      "n": 5,
+      "mean_ms": 277.45,
+      "median_ms": 278.303,
+      "min_ms": 271.871,
+      "max_ms": 280.089,
+      "stddev_ms": 2.884,
+      "relative_range": 0.03,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-007-alice",
+      "seq": 7,
+      "n": 5,
+      "mean_ms": 286.741,
+      "median_ms": 282.936,
+      "min_ms": 269.283,
+      "max_ms": 309.846,
+      "stddev_ms": 14.035,
+      "relative_range": 0.143,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-008-bob",
+      "seq": 8,
+      "n": 5,
+      "mean_ms": 279.155,
+      "median_ms": 277.135,
+      "min_ms": 260.574,
+      "max_ms": 293.623,
+      "stddev_ms": 12.481,
+      "relative_range": 0.119,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-009-bob-write-y",
+      "seq": 9,
+      "n": 5,
+      "mean_ms": 278.802,
+      "median_ms": 271.572,
+      "min_ms": 260.394,
+      "max_ms": 298.675,
+      "stddev_ms": 15.587,
+      "relative_range": 0.141,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-010-alice-sell",
+      "seq": 10,
+      "n": 5,
+      "mean_ms": 289.948,
+      "median_ms": 298.312,
+      "min_ms": 264.012,
+      "max_ms": 310.843,
+      "stddev_ms": 16.669,
+      "relative_range": 0.157,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-011-alice",
+      "seq": 11,
+      "n": 5,
+      "mean_ms": 271.349,
+      "median_ms": 267.522,
+      "min_ms": 259.662,
+      "max_ms": 283.242,
+      "stddev_ms": 8.887,
+      "relative_range": 0.088,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-012-bob",
+      "seq": 12,
+      "n": 5,
+      "mean_ms": 281.417,
+      "median_ms": 278.656,
+      "min_ms": 261.079,
+      "max_ms": 305.235,
+      "stddev_ms": 16.762,
+      "relative_range": 0.158,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-013-bob-write-y",
+      "seq": 13,
+      "n": 5,
+      "mean_ms": 272.78,
+      "median_ms": 272.745,
+      "min_ms": 260.036,
+      "max_ms": 287.85,
+      "stddev_ms": 8.895,
+      "relative_range": 0.102,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-014-alice-sell",
+      "seq": 14,
+      "n": 5,
+      "mean_ms": 271.136,
+      "median_ms": 265.442,
+      "min_ms": 261.54,
+      "max_ms": 290.903,
+      "stddev_ms": 10.509,
+      "relative_range": 0.111,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-015-alice",
+      "seq": 15,
+      "n": 5,
+      "mean_ms": 290.179,
+      "median_ms": 285.126,
+      "min_ms": 278.386,
+      "max_ms": 304.291,
+      "stddev_ms": 11.101,
+      "relative_range": 0.091,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-016-bob",
+      "seq": 16,
+      "n": 5,
+      "mean_ms": 283.805,
+      "median_ms": 285.495,
+      "min_ms": 274.812,
+      "max_ms": 294.228,
+      "stddev_ms": 7.372,
+      "relative_range": 0.068,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-017-alice-sell",
+      "seq": 17,
+      "n": 5,
+      "mean_ms": 288.355,
+      "median_ms": 284.642,
+      "min_ms": 277.446,
+      "max_ms": 310.184,
+      "stddev_ms": 11.316,
+      "relative_range": 0.115,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-018-alice",
+      "seq": 18,
+      "n": 5,
+      "mean_ms": 276.106,
+      "median_ms": 274.783,
+      "min_ms": 269.613,
+      "max_ms": 285.133,
+      "stddev_ms": 5.337,
+      "relative_range": 0.056,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-019-bob",
+      "seq": 19,
+      "n": 5,
+      "mean_ms": 288.207,
+      "median_ms": 288.908,
+      "min_ms": 275.863,
+      "max_ms": 307.417,
+      "stddev_ms": 11.736,
+      "relative_range": 0.109,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-020-bob-sell",
+      "seq": 20,
+      "n": 5,
+      "mean_ms": 292.542,
+      "median_ms": 290.603,
+      "min_ms": 277.612,
+      "max_ms": 311.463,
+      "stddev_ms": 10.913,
+      "relative_range": 0.116,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-021-alice",
+      "seq": 21,
+      "n": 5,
+      "mean_ms": 289.433,
+      "median_ms": 289.482,
+      "min_ms": 279.632,
+      "max_ms": 297.713,
+      "stddev_ms": 5.883,
+      "relative_range": 0.062,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-022-alice-sell",
+      "seq": 22,
+      "n": 5,
+      "mean_ms": 292.337,
+      "median_ms": 287.077,
+      "min_ms": 282.066,
+      "max_ms": 305.151,
+      "stddev_ms": 9.182,
+      "relative_range": 0.08,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-023-alice-read-y",
+      "seq": 23,
+      "n": 5,
+      "mean_ms": 290.977,
+      "median_ms": 293.434,
+      "min_ms": 284.264,
+      "max_ms": 296.607,
+      "stddev_ms": 5.568,
+      "relative_range": 0.042,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-024-alice-write-x",
+      "seq": 24,
+      "n": 5,
+      "mean_ms": 294.667,
+      "median_ms": 288.979,
+      "min_ms": 285.123,
+      "max_ms": 317.356,
+      "stddev_ms": 11.877,
+      "relative_range": 0.112,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-025-bob-read-x",
+      "seq": 25,
+      "n": 5,
+      "mean_ms": 287.291,
+      "median_ms": 283.163,
+      "min_ms": 275.49,
+      "max_ms": 301.837,
+      "stddev_ms": 11.312,
+      "relative_range": 0.093,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-026-alice-read-x",
+      "seq": 26,
+      "n": 5,
+      "mean_ms": 286.935,
+      "median_ms": 285.064,
+      "min_ms": 278.496,
+      "max_ms": 300.21,
+      "stddev_ms": 7.729,
+      "relative_range": 0.076,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-027-alice-write-x",
+      "seq": 27,
+      "n": 5,
+      "mean_ms": 298.466,
+      "median_ms": 299.774,
+      "min_ms": 289.164,
+      "max_ms": 309.305,
+      "stddev_ms": 6.726,
+      "relative_range": 0.067,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-028-alice-read-y",
+      "seq": 28,
+      "n": 5,
+      "mean_ms": 291.462,
+      "median_ms": 287.605,
+      "min_ms": 283.137,
+      "max_ms": 304.694,
+      "stddev_ms": 7.769,
+      "relative_range": 0.075,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-029-bob-write-y",
+      "seq": 29,
+      "n": 5,
+      "mean_ms": 280.349,
+      "median_ms": 277.836,
+      "min_ms": 265.824,
+      "max_ms": 301.363,
+      "stddev_ms": 11.987,
+      "relative_range": 0.128,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-030-alice-read-x",
+      "seq": 30,
+      "n": 5,
+      "mean_ms": 312.091,
+      "median_ms": 309.869,
+      "min_ms": 300.742,
+      "max_ms": 328.019,
+      "stddev_ms": 9.191,
+      "relative_range": 0.088,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-031-alice-read-x-past",
+      "seq": 31,
+      "n": 5,
+      "mean_ms": 311.906,
+      "median_ms": 309.465,
+      "min_ms": 294.94,
+      "max_ms": 347.957,
+      "stddev_ms": 19.289,
+      "relative_range": 0.171,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-032-alice-read-x-future",
+      "seq": 32,
+      "n": 5,
+      "mean_ms": 320.724,
+      "median_ms": 315.837,
+      "min_ms": 306.823,
+      "max_ms": 339.619,
+      "stddev_ms": 13.215,
+      "relative_range": 0.104,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-033-alice-read-x",
+      "seq": 33,
+      "n": 5,
+      "mean_ms": 317.317,
+      "median_ms": 315.083,
+      "min_ms": 289.914,
+      "max_ms": 339.05,
+      "stddev_ms": 17.105,
+      "relative_range": 0.156,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-034-alice-read-x-past",
+      "seq": 34,
+      "n": 5,
+      "mean_ms": 307.895,
+      "median_ms": 304.575,
+      "min_ms": 291.486,
+      "max_ms": 334.637,
+      "stddev_ms": 14.461,
+      "relative_range": 0.142,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-035-alice-read-x-future",
+      "seq": 35,
+      "n": 5,
+      "mean_ms": 316.818,
+      "median_ms": 305.339,
+      "min_ms": 304.955,
+      "max_ms": 342.44,
+      "stddev_ms": 15.177,
+      "relative_range": 0.123,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-036-alice-read-x",
+      "seq": 36,
+      "n": 5,
+      "mean_ms": 306.161,
+      "median_ms": 303.45,
+      "min_ms": 295.644,
+      "max_ms": 317.4,
+      "stddev_ms": 7.551,
+      "relative_range": 0.072,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-037-alice-read-x-past",
+      "seq": 37,
+      "n": 5,
+      "mean_ms": 308.551,
+      "median_ms": 304.533,
+      "min_ms": 297.48,
+      "max_ms": 332.978,
+      "stddev_ms": 12.731,
+      "relative_range": 0.117,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-038-alice-read-x-future",
+      "seq": 38,
+      "n": 5,
+      "mean_ms": 295.806,
+      "median_ms": 293.13,
+      "min_ms": 290.059,
+      "max_ms": 303.982,
+      "stddev_ms": 5.894,
+      "relative_range": 0.047,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-039-alice-read-x",
+      "seq": 39,
+      "n": 5,
+      "mean_ms": 310.365,
+      "median_ms": 308.409,
+      "min_ms": 301.111,
+      "max_ms": 328.527,
+      "stddev_ms": 9.895,
+      "relative_range": 0.089,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-040-alice-read-x-past",
+      "seq": 40,
+      "n": 5,
+      "mean_ms": 307.483,
+      "median_ms": 310.265,
+      "min_ms": 291.991,
+      "max_ms": 323.434,
+      "stddev_ms": 12.293,
+      "relative_range": 0.101,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-041-alice-read-x-future",
+      "seq": 41,
+      "n": 5,
+      "mean_ms": 312.263,
+      "median_ms": 309.979,
+      "min_ms": 301.702,
+      "max_ms": 321.046,
+      "stddev_ms": 7.21,
+      "relative_range": 0.062,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-042-alice-read-x",
+      "seq": 42,
+      "n": 5,
+      "mean_ms": 306.524,
+      "median_ms": 307.053,
+      "min_ms": 293.316,
+      "max_ms": 320.418,
+      "stddev_ms": 9.239,
+      "relative_range": 0.088,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-043-alice-read-x-past",
+      "seq": 43,
+      "n": 5,
+      "mean_ms": 302.813,
+      "median_ms": 303.722,
+      "min_ms": 290.647,
+      "max_ms": 317.674,
+      "stddev_ms": 8.857,
+      "relative_range": 0.089,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-044-alice-read-x-future",
+      "seq": 44,
+      "n": 5,
+      "mean_ms": 311.476,
+      "median_ms": 313.441,
+      "min_ms": 296.438,
+      "max_ms": 336.817,
+      "stddev_ms": 14.696,
+      "relative_range": 0.129,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-045-alice-read-x",
+      "seq": 45,
+      "n": 5,
+      "mean_ms": 309.427,
+      "median_ms": 307.672,
+      "min_ms": 289.079,
+      "max_ms": 324.038,
+      "stddev_ms": 12,
+      "relative_range": 0.114,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-046-alice-read-x-past",
+      "seq": 46,
+      "n": 5,
+      "mean_ms": 308.255,
+      "median_ms": 302.314,
+      "min_ms": 292.281,
+      "max_ms": 327.93,
+      "stddev_ms": 14.592,
+      "relative_range": 0.118,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-047-alice-read-x-future",
+      "seq": 47,
+      "n": 5,
+      "mean_ms": 315.285,
+      "median_ms": 314.6,
+      "min_ms": 304.014,
+      "max_ms": 324.717,
+      "stddev_ms": 7.936,
+      "relative_range": 0.066,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-048-alice-read-x",
+      "seq": 48,
+      "n": 5,
+      "mean_ms": 314.309,
+      "median_ms": 312.299,
+      "min_ms": 307.56,
+      "max_ms": 323.767,
+      "stddev_ms": 6.12,
+      "relative_range": 0.052,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-049-alice-read-x-past",
+      "seq": 49,
+      "n": 5,
+      "mean_ms": 312.127,
+      "median_ms": 312.413,
+      "min_ms": 296.174,
+      "max_ms": 336.191,
+      "stddev_ms": 13.658,
+      "relative_range": 0.128,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-050-alice-read-x-future",
+      "seq": 50,
+      "n": 5,
+      "mean_ms": 326.034,
+      "median_ms": 326.293,
+      "min_ms": 304.258,
+      "max_ms": 339.46,
+      "stddev_ms": 12,
+      "relative_range": 0.108,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-051-alice",
+      "seq": 51,
+      "n": 5,
+      "mean_ms": 292.264,
+      "median_ms": 286.571,
+      "min_ms": 284.147,
+      "max_ms": 312.8,
+      "stddev_ms": 10.628,
+      "relative_range": 0.1,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-052-bob-read-x",
+      "seq": 52,
+      "n": 5,
+      "mean_ms": 297.062,
+      "median_ms": 292.847,
+      "min_ms": 281.12,
+      "max_ms": 318.81,
+      "stddev_ms": 12.508,
+      "relative_range": 0.129,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-053-alice-read-x",
+      "seq": 53,
+      "n": 5,
+      "mean_ms": 290.207,
+      "median_ms": 287.635,
+      "min_ms": 274.866,
+      "max_ms": 306.826,
+      "stddev_ms": 10.791,
+      "relative_range": 0.111,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-054-alice-read-y",
+      "seq": 54,
+      "n": 5,
+      "mean_ms": 295.014,
+      "median_ms": 295.591,
+      "min_ms": 276.469,
+      "max_ms": 310.008,
+      "stddev_ms": 11.184,
+      "relative_range": 0.113,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-055-alice-read-x",
+      "seq": 55,
+      "n": 5,
+      "mean_ms": 279.343,
+      "median_ms": 278.684,
+      "min_ms": 269.718,
+      "max_ms": 293.375,
+      "stddev_ms": 7.769,
+      "relative_range": 0.085,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-056-alice-read-y",
+      "seq": 56,
+      "n": 5,
+      "mean_ms": 289.578,
+      "median_ms": 281.119,
+      "min_ms": 274.571,
+      "max_ms": 313.473,
+      "stddev_ms": 14.191,
+      "relative_range": 0.138,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-057-bob-read-x",
+      "seq": 57,
+      "n": 5,
+      "mean_ms": 295.132,
+      "median_ms": 287.377,
+      "min_ms": 279.171,
+      "max_ms": 324.835,
+      "stddev_ms": 16.869,
+      "relative_range": 0.159,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-058-bob-write-y",
+      "seq": 58,
+      "n": 5,
+      "mean_ms": 279.109,
+      "median_ms": 273.864,
+      "min_ms": 266.417,
+      "max_ms": 297.027,
+      "stddev_ms": 12.837,
+      "relative_range": 0.112,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-059-nonset",
+      "seq": 59,
+      "n": 5,
+      "mean_ms": 299.641,
+      "median_ms": 301.267,
+      "min_ms": 279.397,
+      "max_ms": 314.439,
+      "stddev_ms": 11.576,
+      "relative_range": 0.116,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-060-fulfilled",
+      "seq": 60,
+      "n": 5,
+      "mean_ms": 298.819,
+      "median_ms": 292.892,
+      "min_ms": 282.446,
+      "max_ms": 320.023,
+      "stddev_ms": 13.156,
+      "relative_range": 0.128,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-061-violated",
+      "seq": 61,
+      "n": 5,
+      "mean_ms": 301.094,
+      "median_ms": 294.871,
+      "min_ms": 281.948,
+      "max_ms": 320.341,
+      "stddev_ms": 16.192,
+      "relative_range": 0.13,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "FAIL"
+      ]
+    },
+    {
+      "slug": "testcase-062-big-policy",
+      "seq": 62,
+      "n": 5,
+      "mean_ms": 6335.695,
+      "median_ms": 6297.968,
+      "min_ms": 6189.309,
+      "max_ms": 6516.894,
+      "stddev_ms": 121.728,
+      "relative_range": 0.052,
+      "unstable": false,
+      "outlier_measurements": 5,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-063-big-policy-OoO",
+      "seq": 63,
+      "n": 5,
+      "mean_ms": 6393.062,
+      "median_ms": 6436.08,
+      "min_ms": 6203.726,
+      "max_ms": 6518.066,
+      "stddev_ms": 110.218,
+      "relative_range": 0.049,
+      "unstable": false,
+      "outlier_measurements": 5,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-064-big-policy-past",
+      "seq": 64,
+      "n": 5,
+      "mean_ms": 6411.468,
+      "median_ms": 6449.275,
+      "min_ms": 6258.195,
+      "max_ms": 6489.893,
+      "stddev_ms": 83.894,
+      "relative_range": 0.036,
+      "unstable": false,
+      "outlier_measurements": 5,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-065-alice",
+      "seq": 65,
+      "n": 5,
+      "mean_ms": 330.875,
+      "median_ms": 331.004,
+      "min_ms": 324.591,
+      "max_ms": 340.893,
+      "stddev_ms": 5.924,
+      "relative_range": 0.049,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-066-bob-sell",
+      "seq": 66,
+      "n": 5,
+      "mean_ms": 312.87,
+      "median_ms": 315.261,
+      "min_ms": 300.312,
+      "max_ms": 324.965,
+      "stddev_ms": 10.151,
+      "relative_range": 0.078,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-067-alice-past",
+      "seq": 67,
+      "n": 5,
+      "mean_ms": 319.465,
+      "median_ms": 317.12,
+      "min_ms": 310.674,
+      "max_ms": 330.667,
+      "stddev_ms": 7.479,
+      "relative_range": 0.063,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-068-bob-write-y-past",
+      "seq": 68,
+      "n": 5,
+      "mean_ms": 322.305,
+      "median_ms": 318.537,
+      "min_ms": 311.542,
+      "max_ms": 344.732,
+      "stddev_ms": 11.717,
+      "relative_range": 0.104,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    }
+  ],
+  "per_case_engine": [
+    {
+      "slug": "testcase-001-alice",
+      "seq": 1,
+      "n": 2,
+      "mean_ms": 270.586,
+      "median_ms": 270.586,
+      "min_ms": 266.806,
+      "max_ms": 274.366,
+      "stddev_ms": 3.78,
+      "relative_range": 0.028,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-002-bob",
+      "seq": 2,
+      "n": 2,
+      "mean_ms": 266.891,
+      "median_ms": 266.891,
+      "min_ms": 257.342,
+      "max_ms": 276.44,
+      "stddev_ms": 9.549,
+      "relative_range": 0.072,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-003-bob-write-y",
+      "seq": 3,
+      "n": 2,
+      "mean_ms": 272.884,
+      "median_ms": 272.884,
+      "min_ms": 268.322,
+      "max_ms": 277.446,
+      "stddev_ms": 4.562,
+      "relative_range": 0.033,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-004-alice",
+      "seq": 4,
+      "n": 2,
+      "mean_ms": 268.657,
+      "median_ms": 268.657,
+      "min_ms": 258.598,
+      "max_ms": 278.716,
+      "stddev_ms": 10.059,
+      "relative_range": 0.075,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-005-bob",
+      "seq": 5,
+      "n": 2,
+      "mean_ms": 282.612,
+      "median_ms": 282.612,
+      "min_ms": 270.955,
+      "max_ms": 294.27,
+      "stddev_ms": 11.657,
+      "relative_range": 0.082,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-006-bob-write-y",
+      "seq": 6,
+      "n": 2,
+      "mean_ms": 297.54,
+      "median_ms": 297.54,
+      "min_ms": 297.316,
+      "max_ms": 297.763,
+      "stddev_ms": 0.224,
+      "relative_range": 0.002,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-007-alice",
+      "seq": 7,
+      "n": 2,
+      "mean_ms": 276.219,
+      "median_ms": 276.219,
+      "min_ms": 272.141,
+      "max_ms": 280.296,
+      "stddev_ms": 4.077,
+      "relative_range": 0.03,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-008-bob",
+      "seq": 8,
+      "n": 2,
+      "mean_ms": 276.872,
+      "median_ms": 276.872,
+      "min_ms": 275.028,
+      "max_ms": 278.716,
+      "stddev_ms": 1.844,
+      "relative_range": 0.013,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-009-bob-write-y",
+      "seq": 9,
+      "n": 2,
+      "mean_ms": 282.058,
+      "median_ms": 282.058,
+      "min_ms": 281.161,
+      "max_ms": 282.954,
+      "stddev_ms": 0.897,
+      "relative_range": 0.006,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-010-alice-sell",
+      "seq": 10,
+      "n": 2,
+      "mean_ms": 267.981,
+      "median_ms": 267.981,
+      "min_ms": 260.191,
+      "max_ms": 275.77,
+      "stddev_ms": 7.79,
+      "relative_range": 0.058,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-011-alice",
+      "seq": 11,
+      "n": 2,
+      "mean_ms": 288.129,
+      "median_ms": 288.129,
+      "min_ms": 277.215,
+      "max_ms": 299.043,
+      "stddev_ms": 10.914,
+      "relative_range": 0.076,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-012-bob",
+      "seq": 12,
+      "n": 2,
+      "mean_ms": 292.537,
+      "median_ms": 292.537,
+      "min_ms": 277.765,
+      "max_ms": 307.308,
+      "stddev_ms": 14.772,
+      "relative_range": 0.101,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-013-bob-write-y",
+      "seq": 13,
+      "n": 2,
+      "mean_ms": 275.406,
+      "median_ms": 275.406,
+      "min_ms": 271.444,
+      "max_ms": 279.367,
+      "stddev_ms": 3.962,
+      "relative_range": 0.029,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-014-alice-sell",
+      "seq": 14,
+      "n": 2,
+      "mean_ms": 266.688,
+      "median_ms": 266.688,
+      "min_ms": 260.097,
+      "max_ms": 273.279,
+      "stddev_ms": 6.591,
+      "relative_range": 0.049,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-015-alice",
+      "seq": 15,
+      "n": 2,
+      "mean_ms": 293.776,
+      "median_ms": 293.776,
+      "min_ms": 276.486,
+      "max_ms": 311.066,
+      "stddev_ms": 17.29,
+      "relative_range": 0.118,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-016-bob",
+      "seq": 16,
+      "n": 2,
+      "mean_ms": 297.866,
+      "median_ms": 297.866,
+      "min_ms": 295.424,
+      "max_ms": 300.307,
+      "stddev_ms": 2.442,
+      "relative_range": 0.016,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-017-alice-sell",
+      "seq": 17,
+      "n": 2,
+      "mean_ms": 284.5,
+      "median_ms": 284.5,
+      "min_ms": 283.027,
+      "max_ms": 285.973,
+      "stddev_ms": 1.473,
+      "relative_range": 0.01,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-018-alice",
+      "seq": 18,
+      "n": 2,
+      "mean_ms": 273.415,
+      "median_ms": 273.415,
+      "min_ms": 272.365,
+      "max_ms": 274.465,
+      "stddev_ms": 1.05,
+      "relative_range": 0.008,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-019-bob",
+      "seq": 19,
+      "n": 2,
+      "mean_ms": 284.28,
+      "median_ms": 284.28,
+      "min_ms": 276.447,
+      "max_ms": 292.113,
+      "stddev_ms": 7.833,
+      "relative_range": 0.055,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-020-bob-sell",
+      "seq": 20,
+      "n": 2,
+      "mean_ms": 296.751,
+      "median_ms": 296.751,
+      "min_ms": 291.504,
+      "max_ms": 301.998,
+      "stddev_ms": 5.247,
+      "relative_range": 0.035,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-021-alice",
+      "seq": 21,
+      "n": 2,
+      "mean_ms": 295.736,
+      "median_ms": 295.736,
+      "min_ms": 282.768,
+      "max_ms": 308.704,
+      "stddev_ms": 12.968,
+      "relative_range": 0.088,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-022-alice-sell",
+      "seq": 22,
+      "n": 2,
+      "mean_ms": 289.67,
+      "median_ms": 289.67,
+      "min_ms": 285.295,
+      "max_ms": 294.045,
+      "stddev_ms": 4.375,
+      "relative_range": 0.03,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-023-alice-read-y",
+      "seq": 23,
+      "n": 2,
+      "mean_ms": 279.948,
+      "median_ms": 279.948,
+      "min_ms": 276.134,
+      "max_ms": 283.762,
+      "stddev_ms": 3.814,
+      "relative_range": 0.027,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-024-alice-write-x",
+      "seq": 24,
+      "n": 2,
+      "mean_ms": 289.614,
+      "median_ms": 289.614,
+      "min_ms": 274.309,
+      "max_ms": 304.918,
+      "stddev_ms": 15.304,
+      "relative_range": 0.106,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-025-bob-read-x",
+      "seq": 25,
+      "n": 2,
+      "mean_ms": 276.351,
+      "median_ms": 276.351,
+      "min_ms": 265.713,
+      "max_ms": 286.988,
+      "stddev_ms": 10.637,
+      "relative_range": 0.077,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-026-alice-read-x",
+      "seq": 26,
+      "n": 2,
+      "mean_ms": 286.373,
+      "median_ms": 286.373,
+      "min_ms": 278.366,
+      "max_ms": 294.38,
+      "stddev_ms": 8.007,
+      "relative_range": 0.056,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-027-alice-write-x",
+      "seq": 27,
+      "n": 2,
+      "mean_ms": 295.702,
+      "median_ms": 295.702,
+      "min_ms": 290.908,
+      "max_ms": 300.496,
+      "stddev_ms": 4.794,
+      "relative_range": 0.032,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-028-alice-read-y",
+      "seq": 28,
+      "n": 2,
+      "mean_ms": 286.371,
+      "median_ms": 286.371,
+      "min_ms": 285.241,
+      "max_ms": 287.5,
+      "stddev_ms": 1.13,
+      "relative_range": 0.008,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-029-bob-write-y",
+      "seq": 29,
+      "n": 2,
+      "mean_ms": 283.04,
+      "median_ms": 283.04,
+      "min_ms": 265.616,
+      "max_ms": 300.465,
+      "stddev_ms": 17.424,
+      "relative_range": 0.123,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-030-alice-read-x",
+      "seq": 30,
+      "n": 2,
+      "mean_ms": 329.333,
+      "median_ms": 329.333,
+      "min_ms": 325.094,
+      "max_ms": 333.573,
+      "stddev_ms": 4.239,
+      "relative_range": 0.026,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-031-alice-read-x-past",
+      "seq": 31,
+      "n": 2,
+      "mean_ms": 307.444,
+      "median_ms": 307.444,
+      "min_ms": 298.193,
+      "max_ms": 316.694,
+      "stddev_ms": 9.251,
+      "relative_range": 0.06,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-032-alice-read-x-future",
+      "seq": 32,
+      "n": 2,
+      "mean_ms": 302.685,
+      "median_ms": 302.685,
+      "min_ms": 299.244,
+      "max_ms": 306.125,
+      "stddev_ms": 3.44,
+      "relative_range": 0.023,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-033-alice-read-x",
+      "seq": 33,
+      "n": 2,
+      "mean_ms": 303.634,
+      "median_ms": 303.634,
+      "min_ms": 291.859,
+      "max_ms": 315.408,
+      "stddev_ms": 11.775,
+      "relative_range": 0.078,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-034-alice-read-x-past",
+      "seq": 34,
+      "n": 2,
+      "mean_ms": 311.309,
+      "median_ms": 311.309,
+      "min_ms": 303.994,
+      "max_ms": 318.623,
+      "stddev_ms": 7.314,
+      "relative_range": 0.047,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-035-alice-read-x-future",
+      "seq": 35,
+      "n": 2,
+      "mean_ms": 293.082,
+      "median_ms": 293.082,
+      "min_ms": 292.591,
+      "max_ms": 293.572,
+      "stddev_ms": 0.49,
+      "relative_range": 0.003,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-036-alice-read-x",
+      "seq": 36,
+      "n": 2,
+      "mean_ms": 319.217,
+      "median_ms": 319.217,
+      "min_ms": 315.922,
+      "max_ms": 322.512,
+      "stddev_ms": 3.295,
+      "relative_range": 0.021,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-037-alice-read-x-past",
+      "seq": 37,
+      "n": 2,
+      "mean_ms": 309.822,
+      "median_ms": 309.822,
+      "min_ms": 307.848,
+      "max_ms": 311.796,
+      "stddev_ms": 1.974,
+      "relative_range": 0.013,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-038-alice-read-x-future",
+      "seq": 38,
+      "n": 2,
+      "mean_ms": 304.968,
+      "median_ms": 304.968,
+      "min_ms": 304.078,
+      "max_ms": 305.858,
+      "stddev_ms": 0.89,
+      "relative_range": 0.006,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-039-alice-read-x",
+      "seq": 39,
+      "n": 2,
+      "mean_ms": 297.437,
+      "median_ms": 297.437,
+      "min_ms": 294.13,
+      "max_ms": 300.744,
+      "stddev_ms": 3.307,
+      "relative_range": 0.022,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-040-alice-read-x-past",
+      "seq": 40,
+      "n": 2,
+      "mean_ms": 330.415,
+      "median_ms": 330.415,
+      "min_ms": 323.478,
+      "max_ms": 337.351,
+      "stddev_ms": 6.936,
+      "relative_range": 0.042,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-041-alice-read-x-future",
+      "seq": 41,
+      "n": 2,
+      "mean_ms": 310.51,
+      "median_ms": 310.51,
+      "min_ms": 302.237,
+      "max_ms": 318.782,
+      "stddev_ms": 8.272,
+      "relative_range": 0.053,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-042-alice-read-x",
+      "seq": 42,
+      "n": 2,
+      "mean_ms": 306.376,
+      "median_ms": 306.376,
+      "min_ms": 301.361,
+      "max_ms": 311.39,
+      "stddev_ms": 5.014,
+      "relative_range": 0.033,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-043-alice-read-x-past",
+      "seq": 43,
+      "n": 2,
+      "mean_ms": 311.456,
+      "median_ms": 311.456,
+      "min_ms": 299.904,
+      "max_ms": 323.007,
+      "stddev_ms": 11.552,
+      "relative_range": 0.074,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-044-alice-read-x-future",
+      "seq": 44,
+      "n": 2,
+      "mean_ms": 312.981,
+      "median_ms": 312.981,
+      "min_ms": 298.052,
+      "max_ms": 327.909,
+      "stddev_ms": 14.928,
+      "relative_range": 0.095,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-045-alice-read-x",
+      "seq": 45,
+      "n": 2,
+      "mean_ms": 304.201,
+      "median_ms": 304.201,
+      "min_ms": 302.299,
+      "max_ms": 306.102,
+      "stddev_ms": 1.901,
+      "relative_range": 0.013,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-046-alice-read-x-past",
+      "seq": 46,
+      "n": 2,
+      "mean_ms": 310.633,
+      "median_ms": 310.633,
+      "min_ms": 294.704,
+      "max_ms": 326.561,
+      "stddev_ms": 15.928,
+      "relative_range": 0.103,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-047-alice-read-x-future",
+      "seq": 47,
+      "n": 2,
+      "mean_ms": 317.058,
+      "median_ms": 317.058,
+      "min_ms": 305.638,
+      "max_ms": 328.478,
+      "stddev_ms": 11.42,
+      "relative_range": 0.072,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-048-alice-read-x",
+      "seq": 48,
+      "n": 2,
+      "mean_ms": 308.631,
+      "median_ms": 308.631,
+      "min_ms": 306.743,
+      "max_ms": 310.518,
+      "stddev_ms": 1.887,
+      "relative_range": 0.012,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-049-alice-read-x-past",
+      "seq": 49,
+      "n": 2,
+      "mean_ms": 303.138,
+      "median_ms": 303.138,
+      "min_ms": 296.207,
+      "max_ms": 310.069,
+      "stddev_ms": 6.931,
+      "relative_range": 0.046,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-050-alice-read-x-future",
+      "seq": 50,
+      "n": 2,
+      "mean_ms": 313.632,
+      "median_ms": 313.632,
+      "min_ms": 302.075,
+      "max_ms": 325.189,
+      "stddev_ms": 11.557,
+      "relative_range": 0.074,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-051-alice",
+      "seq": 51,
+      "n": 2,
+      "mean_ms": 292.583,
+      "median_ms": 292.583,
+      "min_ms": 276.9,
+      "max_ms": 308.267,
+      "stddev_ms": 15.684,
+      "relative_range": 0.107,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-052-bob-read-x",
+      "seq": 52,
+      "n": 2,
+      "mean_ms": 295.455,
+      "median_ms": 295.455,
+      "min_ms": 285.459,
+      "max_ms": 305.45,
+      "stddev_ms": 9.995,
+      "relative_range": 0.068,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-053-alice-read-x",
+      "seq": 53,
+      "n": 2,
+      "mean_ms": 289.792,
+      "median_ms": 289.792,
+      "min_ms": 284.542,
+      "max_ms": 295.042,
+      "stddev_ms": 5.25,
+      "relative_range": 0.036,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-054-alice-read-y",
+      "seq": 54,
+      "n": 2,
+      "mean_ms": 287.832,
+      "median_ms": 287.832,
+      "min_ms": 287.474,
+      "max_ms": 288.19,
+      "stddev_ms": 0.358,
+      "relative_range": 0.002,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-055-alice-read-x",
+      "seq": 55,
+      "n": 2,
+      "mean_ms": 266.443,
+      "median_ms": 266.443,
+      "min_ms": 265.679,
+      "max_ms": 267.207,
+      "stddev_ms": 0.764,
+      "relative_range": 0.006,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-056-alice-read-y",
+      "seq": 56,
+      "n": 2,
+      "mean_ms": 291.851,
+      "median_ms": 291.851,
+      "min_ms": 291.766,
+      "max_ms": 291.935,
+      "stddev_ms": 0.084,
+      "relative_range": 0.001,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-057-bob-read-x",
+      "seq": 57,
+      "n": 2,
+      "mean_ms": 274.143,
+      "median_ms": 274.143,
+      "min_ms": 271.762,
+      "max_ms": 276.524,
+      "stddev_ms": 2.381,
+      "relative_range": 0.017,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-058-bob-write-y",
+      "seq": 58,
+      "n": 2,
+      "mean_ms": 281.795,
+      "median_ms": 281.795,
+      "min_ms": 274.762,
+      "max_ms": 288.828,
+      "stddev_ms": 7.033,
+      "relative_range": 0.05,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-059-nonset",
+      "seq": 59,
+      "n": 2,
+      "mean_ms": 293.456,
+      "median_ms": 293.456,
+      "min_ms": 288.629,
+      "max_ms": 298.283,
+      "stddev_ms": 4.827,
+      "relative_range": 0.033,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-060-fulfilled",
+      "seq": 60,
+      "n": 2,
+      "mean_ms": 295.115,
+      "median_ms": 295.115,
+      "min_ms": 294.521,
+      "max_ms": 295.708,
+      "stddev_ms": 0.594,
+      "relative_range": 0.004,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-061-violated",
+      "seq": 61,
+      "n": 2,
+      "mean_ms": 300.083,
+      "median_ms": 300.083,
+      "min_ms": 292.814,
+      "max_ms": 307.352,
+      "stddev_ms": 7.269,
+      "relative_range": 0.048,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "FAIL"
+      ]
+    },
+    {
+      "slug": "testcase-062-big-policy",
+      "seq": 62,
+      "n": 2,
+      "mean_ms": 6336.131,
+      "median_ms": 6336.131,
+      "min_ms": 6293.036,
+      "max_ms": 6379.227,
+      "stddev_ms": 43.095,
+      "relative_range": 0.014,
+      "unstable": false,
+      "outlier_measurements": 2,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-063-big-policy-OoO",
+      "seq": 63,
+      "n": 2,
+      "mean_ms": 6396.677,
+      "median_ms": 6396.677,
+      "min_ms": 6373.37,
+      "max_ms": 6419.984,
+      "stddev_ms": 23.307,
+      "relative_range": 0.007,
+      "unstable": false,
+      "outlier_measurements": 2,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-064-big-policy-past",
+      "seq": 64,
+      "n": 2,
+      "mean_ms": 6361.423,
+      "median_ms": 6361.423,
+      "min_ms": 6339.12,
+      "max_ms": 6383.725,
+      "stddev_ms": 22.303,
+      "relative_range": 0.007,
+      "unstable": false,
+      "outlier_measurements": 2,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-065-alice",
+      "seq": 65,
+      "n": 2,
+      "mean_ms": 331.771,
+      "median_ms": 331.771,
+      "min_ms": 321.354,
+      "max_ms": 342.188,
+      "stddev_ms": 10.417,
+      "relative_range": 0.063,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-066-bob-sell",
+      "seq": 66,
+      "n": 2,
+      "mean_ms": 317.797,
+      "median_ms": 317.797,
+      "min_ms": 314.239,
+      "max_ms": 321.354,
+      "stddev_ms": 3.558,
+      "relative_range": 0.022,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-067-alice-past",
+      "seq": 67,
+      "n": 2,
+      "mean_ms": 318.237,
+      "median_ms": 318.237,
+      "min_ms": 310.633,
+      "max_ms": 325.842,
+      "stddev_ms": 7.605,
+      "relative_range": 0.048,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    },
+    {
+      "slug": "testcase-068-bob-write-y-past",
+      "seq": 68,
+      "n": 2,
+      "mean_ms": 318.455,
+      "median_ms": 318.455,
+      "min_ms": 316.362,
+      "max_ms": 320.547,
+      "stddev_ms": 2.093,
+      "relative_range": 0.013,
+      "unstable": false,
+      "outlier_measurements": 0,
+      "outcomes": [
+        "PASS"
+      ]
+    }
+  ],
+  "samples": [
+    {
+      "slug": "testcase-001-alice",
+      "seq": 1,
+      "repeat": 0,
+      "path": "full",
+      "ms": 271.732,
+      "outcome": "PASS",
+      "rssBytes": 527622144
+    },
+    {
+      "slug": "testcase-002-bob",
+      "seq": 2,
+      "repeat": 0,
+      "path": "full",
+      "ms": 266.114,
+      "outcome": "PASS",
+      "rssBytes": 575922176
+    },
+    {
+      "slug": "testcase-003-bob-write-y",
+      "seq": 3,
+      "repeat": 0,
+      "path": "full",
+      "ms": 307.735,
+      "outcome": "PASS",
+      "rssBytes": 530268160
+    },
+    {
+      "slug": "testcase-004-alice",
+      "seq": 4,
+      "repeat": 0,
+      "path": "full",
+      "ms": 263.486,
+      "outcome": "PASS",
+      "rssBytes": 578568192
+    },
+    {
+      "slug": "testcase-005-bob",
+      "seq": 5,
+      "repeat": 0,
+      "path": "full",
+      "ms": 279.332,
+      "outcome": "PASS",
+      "rssBytes": 573505536
+    },
+    {
+      "slug": "testcase-006-bob-write-y",
+      "seq": 6,
+      "repeat": 0,
+      "path": "full",
+      "ms": 278.303,
+      "outcome": "PASS",
+      "rssBytes": 607109120
+    },
+    {
+      "slug": "testcase-007-alice",
+      "seq": 7,
+      "repeat": 0,
+      "path": "full",
+      "ms": 282.936,
+      "outcome": "PASS",
+      "rssBytes": 535252992
+    },
+    {
+      "slug": "testcase-008-bob",
+      "seq": 8,
+      "repeat": 0,
+      "path": "full",
+      "ms": 272.188,
+      "outcome": "PASS",
+      "rssBytes": 583372800
+    },
+    {
+      "slug": "testcase-009-bob-write-y",
+      "seq": 9,
+      "repeat": 0,
+      "path": "full",
+      "ms": 296.039,
+      "outcome": "PASS",
+      "rssBytes": 553656320
+    },
+    {
+      "slug": "testcase-010-alice-sell",
+      "seq": 10,
+      "repeat": 0,
+      "path": "full",
+      "ms": 310.843,
+      "outcome": "PASS",
+      "rssBytes": 526024704
+    },
+    {
+      "slug": "testcase-011-alice",
+      "seq": 11,
+      "repeat": 0,
+      "path": "full",
+      "ms": 266.242,
+      "outcome": "PASS",
+      "rssBytes": 574144512
+    },
+    {
+      "slug": "testcase-012-bob",
+      "seq": 12,
+      "repeat": 0,
+      "path": "full",
+      "ms": 305.235,
+      "outcome": "PASS",
+      "rssBytes": 591785984
+    },
+    {
+      "slug": "testcase-013-bob-write-y",
+      "seq": 13,
+      "repeat": 0,
+      "path": "full",
+      "ms": 287.85,
+      "outcome": "PASS",
+      "rssBytes": 564948992
+    },
+    {
+      "slug": "testcase-014-alice-sell",
+      "seq": 14,
+      "repeat": 0,
+      "path": "full",
+      "ms": 265.229,
+      "outcome": "PASS",
+      "rssBytes": 613249024
+    },
+    {
+      "slug": "testcase-015-alice",
+      "seq": 15,
+      "repeat": 0,
+      "path": "full",
+      "ms": 302.698,
+      "outcome": "PASS",
+      "rssBytes": 606957568
+    },
+    {
+      "slug": "testcase-016-bob",
+      "seq": 16,
+      "repeat": 0,
+      "path": "full",
+      "ms": 285.495,
+      "outcome": "PASS",
+      "rssBytes": 535584768
+    },
+    {
+      "slug": "testcase-017-alice-sell",
+      "seq": 17,
+      "repeat": 0,
+      "path": "full",
+      "ms": 277.446,
+      "outcome": "PASS",
+      "rssBytes": 583704576
+    },
+    {
+      "slug": "testcase-018-alice",
+      "seq": 18,
+      "repeat": 0,
+      "path": "full",
+      "ms": 285.133,
+      "outcome": "PASS",
+      "rssBytes": 553775104
+    },
+    {
+      "slug": "testcase-019-bob",
+      "seq": 19,
+      "repeat": 0,
+      "path": "full",
+      "ms": 292.736,
+      "outcome": "PASS",
+      "rssBytes": 526057472
+    },
+    {
+      "slug": "testcase-020-bob-sell",
+      "seq": 20,
+      "repeat": 0,
+      "path": "full",
+      "ms": 293.607,
+      "outcome": "PASS",
+      "rssBytes": 574357504
+    },
+    {
+      "slug": "testcase-021-alice",
+      "seq": 21,
+      "repeat": 0,
+      "path": "full",
+      "ms": 297.713,
+      "outcome": "PASS",
+      "rssBytes": 592199680
+    },
+    {
+      "slug": "testcase-022-alice-sell",
+      "seq": 22,
+      "repeat": 0,
+      "path": "full",
+      "ms": 285.931,
+      "outcome": "PASS",
+      "rssBytes": 565272576
+    },
+    {
+      "slug": "testcase-023-alice-read-y",
+      "seq": 23,
+      "repeat": 0,
+      "path": "full",
+      "ms": 284.264,
+      "outcome": "PASS",
+      "rssBytes": 535613440
+    },
+    {
+      "slug": "testcase-024-alice-write-x",
+      "seq": 24,
+      "repeat": 0,
+      "path": "full",
+      "ms": 288.979,
+      "outcome": "PASS",
+      "rssBytes": 583553024
+    },
+    {
+      "slug": "testcase-025-bob-read-x",
+      "seq": 25,
+      "repeat": 0,
+      "path": "full",
+      "ms": 283.163,
+      "outcome": "PASS",
+      "rssBytes": 564170752
+    },
+    {
+      "slug": "testcase-026-alice-read-x",
+      "seq": 26,
+      "repeat": 0,
+      "path": "full",
+      "ms": 280.799,
+      "outcome": "PASS",
+      "rssBytes": 612290560
+    },
+    {
+      "slug": "testcase-027-alice-write-x",
+      "seq": 27,
+      "repeat": 0,
+      "path": "full",
+      "ms": 289.164,
+      "outcome": "PASS",
+      "rssBytes": 564117504
+    },
+    {
+      "slug": "testcase-028-alice-read-y",
+      "seq": 28,
+      "repeat": 0,
+      "path": "full",
+      "ms": 286.356,
+      "outcome": "PASS",
+      "rssBytes": 535543808
+    },
+    {
+      "slug": "testcase-029-bob-write-y",
+      "seq": 29,
+      "repeat": 0,
+      "path": "full",
+      "ms": 265.824,
+      "outcome": "PASS",
+      "rssBytes": 583843840
+    },
+    {
+      "slug": "testcase-030-alice-read-x",
+      "seq": 30,
+      "repeat": 0,
+      "path": "full",
+      "ms": 314.921,
+      "outcome": "PASS",
+      "rssBytes": 553906176
+    },
+    {
+      "slug": "testcase-031-alice-read-x-past",
+      "seq": 31,
+      "repeat": 0,
+      "path": "full",
+      "ms": 311.596,
+      "outcome": "PASS",
+      "rssBytes": 526295040
+    },
+    {
+      "slug": "testcase-032-alice-read-x-future",
+      "seq": 32,
+      "repeat": 0,
+      "path": "full",
+      "ms": 315.837,
+      "outcome": "PASS",
+      "rssBytes": 535535616
+    },
+    {
+      "slug": "testcase-033-alice-read-x",
+      "seq": 33,
+      "repeat": 0,
+      "path": "full",
+      "ms": 315.083,
+      "outcome": "PASS",
+      "rssBytes": 535584768
+    },
+    {
+      "slug": "testcase-034-alice-read-x-past",
+      "seq": 34,
+      "repeat": 0,
+      "path": "full",
+      "ms": 291.486,
+      "outcome": "PASS",
+      "rssBytes": 583884800
+    },
+    {
+      "slug": "testcase-035-alice-read-x-future",
+      "seq": 35,
+      "repeat": 0,
+      "path": "full",
+      "ms": 326.169,
+      "outcome": "PASS",
+      "rssBytes": 538537984
+    },
+    {
+      "slug": "testcase-036-alice-read-x",
+      "seq": 36,
+      "repeat": 0,
+      "path": "full",
+      "ms": 302.748,
+      "outcome": "PASS",
+      "rssBytes": 586657792
+    },
+    {
+      "slug": "testcase-037-alice-read-x-past",
+      "seq": 37,
+      "repeat": 0,
+      "path": "full",
+      "ms": 304.533,
+      "outcome": "PASS",
+      "rssBytes": 565190656
+    },
+    {
+      "slug": "testcase-038-alice-read-x-future",
+      "seq": 38,
+      "repeat": 0,
+      "path": "full",
+      "ms": 301.702,
+      "outcome": "PASS",
+      "rssBytes": 585859072
+    },
+    {
+      "slug": "testcase-039-alice-read-x",
+      "seq": 39,
+      "repeat": 0,
+      "path": "full",
+      "ms": 311.689,
+      "outcome": "PASS",
+      "rssBytes": 535375872
+    },
+    {
+      "slug": "testcase-040-alice-read-x-past",
+      "seq": 40,
+      "repeat": 0,
+      "path": "full",
+      "ms": 294.722,
+      "outcome": "PASS",
+      "rssBytes": 583675904
+    },
+    {
+      "slug": "testcase-041-alice-read-x-future",
+      "seq": 41,
+      "repeat": 0,
+      "path": "full",
+      "ms": 321.046,
+      "outcome": "PASS",
+      "rssBytes": 553922560
+    },
+    {
+      "slug": "testcase-042-alice-read-x",
+      "seq": 42,
+      "repeat": 0,
+      "path": "full",
+      "ms": 307.053,
+      "outcome": "PASS",
+      "rssBytes": 535457792
+    },
+    {
+      "slug": "testcase-043-alice-read-x-past",
+      "seq": 43,
+      "repeat": 0,
+      "path": "full",
+      "ms": 303.722,
+      "outcome": "PASS",
+      "rssBytes": 535404544
+    },
+    {
+      "slug": "testcase-044-alice-read-x-future",
+      "seq": 44,
+      "repeat": 0,
+      "path": "full",
+      "ms": 297.205,
+      "outcome": "PASS",
+      "rssBytes": 583704576
+    },
+    {
+      "slug": "testcase-045-alice-read-x",
+      "seq": 45,
+      "repeat": 0,
+      "path": "full",
+      "ms": 324.038,
+      "outcome": "PASS",
+      "rssBytes": 538464256
+    },
+    {
+      "slug": "testcase-046-alice-read-x-past",
+      "seq": 46,
+      "repeat": 0,
+      "path": "full",
+      "ms": 295.507,
+      "outcome": "PASS",
+      "rssBytes": 586764288
+    },
+    {
+      "slug": "testcase-047-alice-read-x-future",
+      "seq": 47,
+      "repeat": 0,
+      "path": "full",
+      "ms": 314.6,
+      "outcome": "PASS",
+      "rssBytes": 555769856
+    },
+    {
+      "slug": "testcase-048-alice-read-x",
+      "seq": 48,
+      "repeat": 0,
+      "path": "full",
+      "ms": 307.56,
+      "outcome": "PASS",
+      "rssBytes": 535613440
+    },
+    {
+      "slug": "testcase-049-alice-read-x-past",
+      "seq": 49,
+      "repeat": 0,
+      "path": "full",
+      "ms": 313.576,
+      "outcome": "PASS",
+      "rssBytes": 535453696
+    },
+    {
+      "slug": "testcase-050-alice-read-x-future",
+      "seq": 50,
+      "repeat": 0,
+      "path": "full",
+      "ms": 304.258,
+      "outcome": "PASS",
+      "rssBytes": 583753728
+    },
+    {
+      "slug": "testcase-051-alice",
+      "seq": 51,
+      "repeat": 0,
+      "path": "full",
+      "ms": 312.8,
+      "outcome": "PASS",
+      "rssBytes": 538390528
+    },
+    {
+      "slug": "testcase-052-bob-read-x",
+      "seq": 52,
+      "repeat": 0,
+      "path": "full",
+      "ms": 281.12,
+      "outcome": "PASS",
+      "rssBytes": 586510336
+    },
+    {
+      "slug": "testcase-053-alice-read-x",
+      "seq": 53,
+      "repeat": 0,
+      "path": "full",
+      "ms": 296.476,
+      "outcome": "PASS",
+      "rssBytes": 565215232
+    },
+    {
+      "slug": "testcase-054-alice-read-y",
+      "seq": 54,
+      "repeat": 0,
+      "path": "full",
+      "ms": 291.404,
+      "outcome": "PASS",
+      "rssBytes": 586051584
+    },
+    {
+      "slug": "testcase-055-alice-read-x",
+      "seq": 55,
+      "repeat": 0,
+      "path": "full",
+      "ms": 279.017,
+      "outcome": "PASS",
+      "rssBytes": 535449600
+    },
+    {
+      "slug": "testcase-056-alice-read-y",
+      "seq": 56,
+      "repeat": 0,
+      "path": "full",
+      "ms": 281.119,
+      "outcome": "PASS",
+      "rssBytes": 583749632
+    },
+    {
+      "slug": "testcase-057-bob-read-x",
+      "seq": 57,
+      "repeat": 0,
+      "path": "full",
+      "ms": 287.377,
+      "outcome": "PASS",
+      "rssBytes": 553869312
+    },
+    {
+      "slug": "testcase-058-bob-write-y",
+      "seq": 58,
+      "repeat": 0,
+      "path": "full",
+      "ms": 273.864,
+      "outcome": "PASS",
+      "rssBytes": 535687168
+    },
+    {
+      "slug": "testcase-059-nonset",
+      "seq": 59,
+      "repeat": 0,
+      "path": "full",
+      "ms": 297.596,
+      "outcome": "PASS",
+      "rssBytes": 535547904
+    },
+    {
+      "slug": "testcase-060-fulfilled",
+      "seq": 60,
+      "repeat": 0,
+      "path": "full",
+      "ms": 292.892,
+      "outcome": "PASS",
+      "rssBytes": 583847936
+    },
+    {
+      "slug": "testcase-061-violated",
+      "seq": 61,
+      "repeat": 0,
+      "path": "full",
+      "ms": 320.341,
+      "outcome": "FAIL",
+      "rssBytes": 538697728
+    },
+    {
+      "slug": "testcase-062-big-policy",
+      "seq": 62,
+      "repeat": 0,
+      "path": "full",
+      "ms": 6516.894,
+      "outcome": "PASS",
+      "rssBytes": 635138048,
+      "outlier": "high"
+    },
+    {
+      "slug": "testcase-063-big-policy-OoO",
+      "seq": 63,
+      "repeat": 0,
+      "path": "full",
+      "ms": 6463.669,
+      "outcome": "PASS",
+      "rssBytes": 817373184,
+      "outlier": "high"
+    },
+    {
+      "slug": "testcase-064-big-policy-past",
+      "seq": 64,
+      "repeat": 0,
+      "path": "full",
+      "ms": 6471.416,
+      "outcome": "PASS",
+      "rssBytes": 748093440,
+      "outlier": "high"
+    },
+    {
+      "slug": "testcase-065-alice",
+      "seq": 65,
+      "repeat": 0,
+      "path": "full",
+      "ms": 332.696,
+      "outcome": "PASS",
+      "rssBytes": 743161856
+    },
+    {
+      "slug": "testcase-066-bob-sell",
+      "seq": 66,
+      "repeat": 0,
+      "path": "full",
+      "ms": 315.261,
+      "outcome": "PASS",
+      "rssBytes": 791461888
+    },
+    {
+      "slug": "testcase-067-alice-past",
+      "seq": 67,
+      "repeat": 0,
+      "path": "full",
+      "ms": 325.406,
+      "outcome": "PASS",
+      "rssBytes": 754954240
+    },
+    {
+      "slug": "testcase-068-bob-write-y-past",
+      "seq": 68,
+      "repeat": 0,
+      "path": "full",
+      "ms": 315.024,
+      "outcome": "PASS",
+      "rssBytes": 754765824
+    },
+    {
+      "slug": "testcase-001-alice",
+      "seq": 1,
+      "repeat": 1,
+      "path": "full",
+      "ms": 268.471,
+      "outcome": "PASS",
+      "rssBytes": 803065856
+    },
+    {
+      "slug": "testcase-002-bob",
+      "seq": 2,
+      "repeat": 1,
+      "path": "full",
+      "ms": 301.372,
+      "outcome": "PASS",
+      "rssBytes": 757862400
+    },
+    {
+      "slug": "testcase-003-bob-write-y",
+      "seq": 3,
+      "repeat": 1,
+      "path": "full",
+      "ms": 300.016,
+      "outcome": "PASS",
+      "rssBytes": 728133632
+    },
+    {
+      "slug": "testcase-004-alice",
+      "seq": 4,
+      "repeat": 1,
+      "path": "full",
+      "ms": 283.414,
+      "outcome": "PASS",
+      "rssBytes": 754847744
+    },
+    {
+      "slug": "testcase-005-bob",
+      "seq": 5,
+      "repeat": 1,
+      "path": "full",
+      "ms": 287.841,
+      "outcome": "PASS",
+      "rssBytes": 754970624
+    },
+    {
+      "slug": "testcase-006-bob-write-y",
+      "seq": 6,
+      "repeat": 1,
+      "path": "full",
+      "ms": 271.871,
+      "outcome": "PASS",
+      "rssBytes": 803090432
+    },
+    {
+      "slug": "testcase-007-alice",
+      "seq": 7,
+      "repeat": 1,
+      "path": "full",
+      "ms": 309.846,
+      "outcome": "PASS",
+      "rssBytes": 758140928
+    },
+    {
+      "slug": "testcase-008-bob",
+      "seq": 8,
+      "repeat": 1,
+      "path": "full",
+      "ms": 292.257,
+      "outcome": "PASS",
+      "rssBytes": 764067840
+    },
+    {
+      "slug": "testcase-009-bob-write-y",
+      "seq": 9,
+      "repeat": 1,
+      "path": "full",
+      "ms": 267.332,
+      "outcome": "PASS",
+      "rssBytes": 725368832
+    },
+    {
+      "slug": "testcase-010-alice-sell",
+      "seq": 10,
+      "repeat": 1,
+      "path": "full",
+      "ms": 264.012,
+      "outcome": "PASS",
+      "rssBytes": 773668864
+    },
+    {
+      "slug": "testcase-011-alice",
+      "seq": 11,
+      "repeat": 1,
+      "path": "full",
+      "ms": 283.242,
+      "outcome": "PASS",
+      "rssBytes": 767434752
+    },
+    {
+      "slug": "testcase-012-bob",
+      "seq": 12,
+      "repeat": 1,
+      "path": "full",
+      "ms": 266.636,
+      "outcome": "PASS",
+      "rssBytes": 815554560
+    },
+    {
+      "slug": "testcase-013-bob-write-y",
+      "seq": 13,
+      "repeat": 1,
+      "path": "full",
+      "ms": 272.946,
+      "outcome": "PASS",
+      "rssBytes": 743804928
+    },
+    {
+      "slug": "testcase-014-alice-sell",
+      "seq": 14,
+      "repeat": 1,
+      "path": "full",
+      "ms": 265.442,
+      "outcome": "PASS",
+      "rssBytes": 792104960
+    },
+    {
+      "slug": "testcase-015-alice",
+      "seq": 15,
+      "repeat": 1,
+      "path": "full",
+      "ms": 285.126,
+      "outcome": "PASS",
+      "rssBytes": 764305408
+    },
+    {
+      "slug": "testcase-016-bob",
+      "seq": 16,
+      "repeat": 1,
+      "path": "full",
+      "ms": 274.812,
+      "outcome": "PASS",
+      "rssBytes": 755101696
+    },
+    {
+      "slug": "testcase-017-alice-sell",
+      "seq": 17,
+      "repeat": 1,
+      "path": "full",
+      "ms": 286.334,
+      "outcome": "PASS",
+      "rssBytes": 755105792
+    },
+    {
+      "slug": "testcase-018-alice",
+      "seq": 18,
+      "repeat": 1,
+      "path": "full",
+      "ms": 269.613,
+      "outcome": "PASS",
+      "rssBytes": 803405824
+    },
+    {
+      "slug": "testcase-019-bob",
+      "seq": 19,
+      "repeat": 1,
+      "path": "full",
+      "ms": 307.417,
+      "outcome": "PASS",
+      "rssBytes": 758112256
+    },
+    {
+      "slug": "testcase-020-bob-sell",
+      "seq": 20,
+      "repeat": 1,
+      "path": "full",
+      "ms": 289.427,
+      "outcome": "PASS",
+      "rssBytes": 725487616
+    },
+    {
+      "slug": "testcase-021-alice",
+      "seq": 21,
+      "repeat": 1,
+      "path": "full",
+      "ms": 292.089,
+      "outcome": "PASS",
+      "rssBytes": 746246144
+    },
+    {
+      "slug": "testcase-022-alice-sell",
+      "seq": 22,
+      "repeat": 1,
+      "path": "full",
+      "ms": 287.077,
+      "outcome": "PASS",
+      "rssBytes": 794546176
+    },
+    {
+      "slug": "testcase-023-alice-read-y",
+      "seq": 23,
+      "repeat": 1,
+      "path": "full",
+      "ms": 296.607,
+      "outcome": "PASS",
+      "rssBytes": 743669760
+    },
+    {
+      "slug": "testcase-024-alice-write-x",
+      "seq": 24,
+      "repeat": 1,
+      "path": "full",
+      "ms": 295.372,
+      "outcome": "PASS",
+      "rssBytes": 725241856
+    },
+    {
+      "slug": "testcase-025-bob-read-x",
+      "seq": 25,
+      "repeat": 1,
+      "path": "full",
+      "ms": 275.49,
+      "outcome": "PASS",
+      "rssBytes": 725229568
+    },
+    {
+      "slug": "testcase-026-alice-read-x",
+      "seq": 26,
+      "repeat": 1,
+      "path": "full",
+      "ms": 278.496,
+      "outcome": "PASS",
+      "rssBytes": 773349376
+    },
+    {
+      "slug": "testcase-027-alice-write-x",
+      "seq": 27,
+      "repeat": 1,
+      "path": "full",
+      "ms": 309.305,
+      "outcome": "PASS",
+      "rssBytes": 728125440
+    },
+    {
+      "slug": "testcase-028-alice-read-y",
+      "seq": 28,
+      "repeat": 1,
+      "path": "full",
+      "ms": 283.137,
+      "outcome": "PASS",
+      "rssBytes": 776245248
+    },
+    {
+      "slug": "testcase-029-bob-write-y",
+      "seq": 29,
+      "repeat": 1,
+      "path": "full",
+      "ms": 277.836,
+      "outcome": "PASS",
+      "rssBytes": 754987008
+    },
+    {
+      "slug": "testcase-030-alice-read-x",
+      "seq": 30,
+      "repeat": 1,
+      "path": "full",
+      "ms": 306.904,
+      "outcome": "PASS",
+      "rssBytes": 755318784
+    },
+    {
+      "slug": "testcase-031-alice-read-x-past",
+      "seq": 31,
+      "repeat": 1,
+      "path": "full",
+      "ms": 294.94,
+      "outcome": "PASS",
+      "rssBytes": 803438592
+    },
+    {
+      "slug": "testcase-032-alice-read-x-future",
+      "seq": 32,
+      "repeat": 1,
+      "path": "full",
+      "ms": 332.9,
+      "outcome": "PASS",
+      "rssBytes": 758161408
+    },
+    {
+      "slug": "testcase-033-alice-read-x",
+      "seq": 33,
+      "repeat": 1,
+      "path": "full",
+      "ms": 331.354,
+      "outcome": "PASS",
+      "rssBytes": 728424448
+    },
+    {
+      "slug": "testcase-034-alice-read-x-past",
+      "seq": 34,
+      "repeat": 1,
+      "path": "full",
+      "ms": 300.811,
+      "outcome": "PASS",
+      "rssBytes": 725516288
+    },
+    {
+      "slug": "testcase-035-alice-read-x-future",
+      "seq": 35,
+      "repeat": 1,
+      "path": "full",
+      "ms": 305.339,
+      "outcome": "PASS",
+      "rssBytes": 725454848
+    },
+    {
+      "slug": "testcase-036-alice-read-x",
+      "seq": 36,
+      "repeat": 1,
+      "path": "full",
+      "ms": 303.45,
+      "outcome": "PASS",
+      "rssBytes": 773574656
+    },
+    {
+      "slug": "testcase-037-alice-read-x-past",
+      "seq": 37,
+      "repeat": 1,
+      "path": "full",
+      "ms": 332.978,
+      "outcome": "PASS",
+      "rssBytes": 728367104
+    },
+    {
+      "slug": "testcase-038-alice-read-x-future",
+      "seq": 38,
+      "repeat": 1,
+      "path": "full",
+      "ms": 293.13,
+      "outcome": "PASS",
+      "rssBytes": 776667136
+    },
+    {
+      "slug": "testcase-039-alice-read-x",
+      "seq": 39,
+      "repeat": 1,
+      "path": "full",
+      "ms": 301.111,
+      "outcome": "PASS",
+      "rssBytes": 755273728
+    },
+    {
+      "slug": "testcase-040-alice-read-x-past",
+      "seq": 40,
+      "repeat": 1,
+      "path": "full",
+      "ms": 310.265,
+      "outcome": "PASS",
+      "rssBytes": 776060928
+    },
+    {
+      "slug": "testcase-041-alice-read-x-future",
+      "seq": 41,
+      "repeat": 1,
+      "path": "full",
+      "ms": 301.702,
+      "outcome": "PASS",
+      "rssBytes": 725618688
+    },
+    {
+      "slug": "testcase-042-alice-read-x",
+      "seq": 42,
+      "repeat": 1,
+      "path": "full",
+      "ms": 293.316,
+      "outcome": "PASS",
+      "rssBytes": 773738496
+    },
+    {
+      "slug": "testcase-043-alice-read-x-past",
+      "seq": 43,
+      "repeat": 1,
+      "path": "full",
+      "ms": 303.841,
+      "outcome": "PASS",
+      "rssBytes": 743747584
+    },
+    {
+      "slug": "testcase-044-alice-read-x-future",
+      "seq": 44,
+      "repeat": 1,
+      "path": "full",
+      "ms": 313.441,
+      "outcome": "PASS",
+      "rssBytes": 725471232
+    },
+    {
+      "slug": "testcase-045-alice-read-x",
+      "seq": 45,
+      "repeat": 1,
+      "path": "full",
+      "ms": 307.672,
+      "outcome": "PASS",
+      "rssBytes": 725123072
+    },
+    {
+      "slug": "testcase-046-alice-read-x-past",
+      "seq": 46,
+      "repeat": 1,
+      "path": "full",
+      "ms": 302.314,
+      "outcome": "PASS",
+      "rssBytes": 773242880
+    },
+    {
+      "slug": "testcase-047-alice-read-x-future",
+      "seq": 47,
+      "repeat": 1,
+      "path": "full",
+      "ms": 324.717,
+      "outcome": "PASS",
+      "rssBytes": 727986176
+    },
+    {
+      "slug": "testcase-048-alice-read-x",
+      "seq": 48,
+      "repeat": 1,
+      "path": "full",
+      "ms": 312.299,
+      "outcome": "PASS",
+      "rssBytes": 776286208
+    },
+    {
+      "slug": "testcase-049-alice-read-x-past",
+      "seq": 49,
+      "repeat": 1,
+      "path": "full",
+      "ms": 312.413,
+      "outcome": "PASS",
+      "rssBytes": 754778112
+    },
+    {
+      "slug": "testcase-050-alice-read-x-future",
+      "seq": 50,
+      "repeat": 1,
+      "path": "full",
+      "ms": 326.037,
+      "outcome": "PASS",
+      "rssBytes": 754741248
+    },
+    {
+      "slug": "testcase-051-alice",
+      "seq": 51,
+      "repeat": 1,
+      "path": "full",
+      "ms": 286.571,
+      "outcome": "PASS",
+      "rssBytes": 802861056
+    },
+    {
+      "slug": "testcase-052-bob-read-x",
+      "seq": 52,
+      "repeat": 1,
+      "path": "full",
+      "ms": 318.81,
+      "outcome": "PASS",
+      "rssBytes": 757628928
+    },
+    {
+      "slug": "testcase-053-alice-read-x",
+      "seq": 53,
+      "repeat": 1,
+      "path": "full",
+      "ms": 306.826,
+      "outcome": "PASS",
+      "rssBytes": 725004288
+    },
+    {
+      "slug": "testcase-054-alice-read-y",
+      "seq": 54,
+      "repeat": 1,
+      "path": "full",
+      "ms": 295.591,
+      "outcome": "PASS",
+      "rssBytes": 724885504
+    },
+    {
+      "slug": "testcase-055-alice-read-x",
+      "seq": 55,
+      "repeat": 1,
+      "path": "full",
+      "ms": 278.684,
+      "outcome": "PASS",
+      "rssBytes": 773185536
+    },
+    {
+      "slug": "testcase-056-alice-read-y",
+      "seq": 56,
+      "repeat": 1,
+      "path": "full",
+      "ms": 313.473,
+      "outcome": "PASS",
+      "rssBytes": 727916544
+    },
+    {
+      "slug": "testcase-057-bob-read-x",
+      "seq": 57,
+      "repeat": 1,
+      "path": "full",
+      "ms": 302.332,
+      "outcome": "PASS",
+      "rssBytes": 776216576
+    },
+    {
+      "slug": "testcase-058-bob-write-y",
+      "seq": 58,
+      "repeat": 1,
+      "path": "full",
+      "ms": 291.655,
+      "outcome": "PASS",
+      "rssBytes": 754974720
+    },
+    {
+      "slug": "testcase-059-nonset",
+      "seq": 59,
+      "repeat": 1,
+      "path": "full",
+      "ms": 301.267,
+      "outcome": "PASS",
+      "rssBytes": 755032064
+    },
+    {
+      "slug": "testcase-060-fulfilled",
+      "seq": 60,
+      "repeat": 1,
+      "path": "full",
+      "ms": 291.882,
+      "outcome": "PASS",
+      "rssBytes": 803151872
+    },
+    {
+      "slug": "testcase-061-violated",
+      "seq": 61,
+      "repeat": 1,
+      "path": "full",
+      "ms": 320.224,
+      "outcome": "FAIL",
+      "rssBytes": 757870592
+    },
+    {
+      "slug": "testcase-062-big-policy",
+      "seq": 62,
+      "repeat": 1,
+      "path": "full",
+      "ms": 6241.238,
+      "outcome": "PASS",
+      "rssBytes": 775880704,
+      "outlier": "high"
+    },
+    {
+      "slug": "testcase-063-big-policy-OoO",
+      "seq": 63,
+      "repeat": 1,
+      "path": "full",
+      "ms": 6518.066,
+      "outcome": "PASS",
+      "rssBytes": 775491584,
+      "outlier": "high"
+    },
+    {
+      "slug": "testcase-064-big-policy-past",
+      "seq": 64,
+      "repeat": 1,
+      "path": "full",
+      "ms": 6489.893,
+      "outcome": "PASS",
+      "rssBytes": 817651712,
+      "outlier": "high"
+    },
+    {
+      "slug": "testcase-065-alice",
+      "seq": 65,
+      "repeat": 1,
+      "path": "full",
+      "ms": 331.004,
+      "outcome": "PASS",
+      "rssBytes": 755027968
+    },
+    {
+      "slug": "testcase-066-bob-sell",
+      "seq": 66,
+      "repeat": 1,
+      "path": "full",
+      "ms": 324.965,
+      "outcome": "PASS",
+      "rssBytes": 725209088
+    },
+    {
+      "slug": "testcase-067-alice-past",
+      "seq": 67,
+      "repeat": 1,
+      "path": "full",
+      "ms": 317.12,
+      "outcome": "PASS",
+      "rssBytes": 773509120
+    },
+    {
+      "slug": "testcase-068-bob-write-y-past",
+      "seq": 68,
+      "repeat": 1,
+      "path": "full",
+      "ms": 344.732,
+      "outcome": "PASS",
+      "rssBytes": 743477248
+    },
+    {
+      "slug": "testcase-001-alice",
+      "seq": 1,
+      "repeat": 2,
+      "path": "full",
+      "ms": 275.296,
+      "outcome": "PASS",
+      "rssBytes": 725127168
+    },
+    {
+      "slug": "testcase-002-bob",
+      "seq": 2,
+      "repeat": 2,
+      "path": "full",
+      "ms": 276.795,
+      "outcome": "PASS",
+      "rssBytes": 725127168
+    },
+    {
+      "slug": "testcase-003-bob-write-y",
+      "seq": 3,
+      "repeat": 2,
+      "path": "full",
+      "ms": 259.602,
+      "outcome": "PASS",
+      "rssBytes": 773246976
+    },
+    {
+      "slug": "testcase-004-alice",
+      "seq": 4,
+      "repeat": 2,
+      "path": "full",
+      "ms": 295.669,
+      "outcome": "PASS",
+      "rssBytes": 728055808
+    },
+    {
+      "slug": "testcase-005-bob",
+      "seq": 5,
+      "repeat": 2,
+      "path": "full",
+      "ms": 266.469,
+      "outcome": "PASS",
+      "rssBytes": 776175616
+    },
+    {
+      "slug": "testcase-006-bob-write-y",
+      "seq": 6,
+      "repeat": 2,
+      "path": "full",
+      "ms": 277.946,
+      "outcome": "PASS",
+      "rssBytes": 754618368
+    },
+    {
+      "slug": "testcase-007-alice",
+      "seq": 7,
+      "repeat": 2,
+      "path": "full",
+      "ms": 277.757,
+      "outcome": "PASS",
+      "rssBytes": 754601984
+    },
+    {
+      "slug": "testcase-008-bob",
+      "seq": 8,
+      "repeat": 2,
+      "path": "full",
+      "ms": 260.574,
+      "outcome": "PASS",
+      "rssBytes": 802721792
+    },
+    {
+      "slug": "testcase-009-bob-write-y",
+      "seq": 9,
+      "repeat": 2,
+      "path": "full",
+      "ms": 298.675,
+      "outcome": "PASS",
+      "rssBytes": 757669888
+    },
+    {
+      "slug": "testcase-010-alice-sell",
+      "seq": 10,
+      "repeat": 2,
+      "path": "full",
+      "ms": 298.312,
+      "outcome": "PASS",
+      "rssBytes": 728084480
+    },
+    {
+      "slug": "testcase-011-alice",
+      "seq": 11,
+      "repeat": 2,
+      "path": "full",
+      "ms": 280.076,
+      "outcome": "PASS",
+      "rssBytes": 724992000
+    },
+    {
+      "slug": "testcase-012-bob",
+      "seq": 12,
+      "repeat": 2,
+      "path": "full",
+      "ms": 278.656,
+      "outcome": "PASS",
+      "rssBytes": 725069824
+    },
+    {
+      "slug": "testcase-013-bob-write-y",
+      "seq": 13,
+      "repeat": 2,
+      "path": "full",
+      "ms": 260.036,
+      "outcome": "PASS",
+      "rssBytes": 773369856
+    },
+    {
+      "slug": "testcase-014-alice-sell",
+      "seq": 14,
+      "repeat": 2,
+      "path": "full",
+      "ms": 290.903,
+      "outcome": "PASS",
+      "rssBytes": 727908352
+    },
+    {
+      "slug": "testcase-015-alice",
+      "seq": 15,
+      "repeat": 2,
+      "path": "full",
+      "ms": 280.395,
+      "outcome": "PASS",
+      "rssBytes": 776028160
+    },
+    {
+      "slug": "testcase-016-bob",
+      "seq": 16,
+      "repeat": 2,
+      "path": "full",
+      "ms": 276.141,
+      "outcome": "PASS",
+      "rssBytes": 754626560
+    },
+    {
+      "slug": "testcase-017-alice-sell",
+      "seq": 17,
+      "repeat": 2,
+      "path": "full",
+      "ms": 284.642,
+      "outcome": "PASS",
+      "rssBytes": 775507968
+    },
+    {
+      "slug": "testcase-018-alice",
+      "seq": 18,
+      "repeat": 2,
+      "path": "full",
+      "ms": 278.354,
+      "outcome": "PASS",
+      "rssBytes": 725000192
+    },
+    {
+      "slug": "testcase-019-bob",
+      "seq": 19,
+      "repeat": 2,
+      "path": "full",
+      "ms": 275.863,
+      "outcome": "PASS",
+      "rssBytes": 773300224
+    },
+    {
+      "slug": "testcase-020-bob-sell",
+      "seq": 20,
+      "repeat": 2,
+      "path": "full",
+      "ms": 290.603,
+      "outcome": "PASS",
+      "rssBytes": 743497728
+    },
+    {
+      "slug": "testcase-021-alice",
+      "seq": 21,
+      "repeat": 2,
+      "path": "full",
+      "ms": 289.482,
+      "outcome": "PASS",
+      "rssBytes": 791797760
+    },
+    {
+      "slug": "testcase-022-alice-sell",
+      "seq": 22,
+      "repeat": 2,
+      "path": "full",
+      "ms": 305.151,
+      "outcome": "PASS",
+      "rssBytes": 725348352
+    },
+    {
+      "slug": "testcase-023-alice-read-y",
+      "seq": 23,
+      "repeat": 2,
+      "path": "full",
+      "ms": 296.259,
+      "outcome": "PASS",
+      "rssBytes": 725094400
+    },
+    {
+      "slug": "testcase-024-alice-write-x",
+      "seq": 24,
+      "repeat": 2,
+      "path": "full",
+      "ms": 285.123,
+      "outcome": "PASS",
+      "rssBytes": 773214208
+    },
+    {
+      "slug": "testcase-025-bob-read-x",
+      "seq": 25,
+      "repeat": 2,
+      "path": "full",
+      "ms": 301.837,
+      "outcome": "PASS",
+      "rssBytes": 728039424
+    },
+    {
+      "slug": "testcase-026-alice-read-x",
+      "seq": 26,
+      "repeat": 2,
+      "path": "full",
+      "ms": 290.108,
+      "outcome": "PASS",
+      "rssBytes": 776339456
+    },
+    {
+      "slug": "testcase-027-alice-write-x",
+      "seq": 27,
+      "repeat": 2,
+      "path": "full",
+      "ms": 299.774,
+      "outcome": "PASS",
+      "rssBytes": 753770496
+    },
+    {
+      "slug": "testcase-028-alice-read-y",
+      "seq": 28,
+      "repeat": 2,
+      "path": "full",
+      "ms": 295.52,
+      "outcome": "PASS",
+      "rssBytes": 775684096
+    },
+    {
+      "slug": "testcase-029-bob-write-y",
+      "seq": 29,
+      "repeat": 2,
+      "path": "full",
+      "ms": 283.444,
+      "outcome": "PASS",
+      "rssBytes": 725110784
+    },
+    {
+      "slug": "testcase-030-alice-read-x",
+      "seq": 30,
+      "repeat": 2,
+      "path": "full",
+      "ms": 300.742,
+      "outcome": "PASS",
+      "rssBytes": 773230592
+    },
+    {
+      "slug": "testcase-031-alice-read-x-past",
+      "seq": 31,
+      "repeat": 2,
+      "path": "full",
+      "ms": 309.465,
+      "outcome": "PASS",
+      "rssBytes": 743317504
+    },
+    {
+      "slug": "testcase-032-alice-read-x-future",
+      "seq": 32,
+      "repeat": 2,
+      "path": "full",
+      "ms": 308.443,
+      "outcome": "PASS",
+      "rssBytes": 725118976
+    },
+    {
+      "slug": "testcase-033-alice-read-x",
+      "seq": 33,
+      "repeat": 2,
+      "path": "full",
+      "ms": 311.182,
+      "outcome": "PASS",
+      "rssBytes": 725237760
+    },
+    {
+      "slug": "testcase-034-alice-read-x-past",
+      "seq": 34,
+      "repeat": 2,
+      "path": "full",
+      "ms": 304.575,
+      "outcome": "PASS",
+      "rssBytes": 773357568
+    },
+    {
+      "slug": "testcase-035-alice-read-x-future",
+      "seq": 35,
+      "repeat": 2,
+      "path": "full",
+      "ms": 342.44,
+      "outcome": "PASS",
+      "rssBytes": 728088576
+    },
+    {
+      "slug": "testcase-036-alice-read-x",
+      "seq": 36,
+      "repeat": 2,
+      "path": "full",
+      "ms": 317.4,
+      "outcome": "PASS",
+      "rssBytes": 776028160
+    },
+    {
+      "slug": "testcase-037-alice-read-x-past",
+      "seq": 37,
+      "repeat": 2,
+      "path": "full",
+      "ms": 307.845,
+      "outcome": "PASS",
+      "rssBytes": 754589696
+    },
+    {
+      "slug": "testcase-038-alice-read-x-future",
+      "seq": 38,
+      "repeat": 2,
+      "path": "full",
+      "ms": 303.982,
+      "outcome": "PASS",
+      "rssBytes": 724926464
+    },
+    {
+      "slug": "testcase-039-alice-read-x",
+      "seq": 39,
+      "repeat": 2,
+      "path": "full",
+      "ms": 308.409,
+      "outcome": "PASS",
+      "rssBytes": 773046272
+    },
+    {
+      "slug": "testcase-040-alice-read-x-past",
+      "seq": 40,
+      "repeat": 2,
+      "path": "full",
+      "ms": 317.003,
+      "outcome": "PASS",
+      "rssBytes": 742977536
+    },
+    {
+      "slug": "testcase-041-alice-read-x-future",
+      "seq": 41,
+      "repeat": 2,
+      "path": "full",
+      "ms": 309.979,
+      "outcome": "PASS",
+      "rssBytes": 724844544
+    },
+    {
+      "slug": "testcase-042-alice-read-x",
+      "seq": 42,
+      "repeat": 2,
+      "path": "full",
+      "ms": 320.418,
+      "outcome": "PASS",
+      "rssBytes": 724824064
+    },
+    {
+      "slug": "testcase-043-alice-read-x-past",
+      "seq": 43,
+      "repeat": 2,
+      "path": "full",
+      "ms": 290.647,
+      "outcome": "PASS",
+      "rssBytes": 772943872
+    },
+    {
+      "slug": "testcase-044-alice-read-x-future",
+      "seq": 44,
+      "repeat": 2,
+      "path": "full",
+      "ms": 336.817,
+      "outcome": "PASS",
+      "rssBytes": 727535616
+    },
+    {
+      "slug": "testcase-045-alice-read-x",
+      "seq": 45,
+      "repeat": 2,
+      "path": "full",
+      "ms": 307.639,
+      "outcome": "PASS",
+      "rssBytes": 775835648
+    },
+    {
+      "slug": "testcase-046-alice-read-x-past",
+      "seq": 46,
+      "repeat": 2,
+      "path": "full",
+      "ms": 323.241,
+      "outcome": "PASS",
+      "rssBytes": 744857600
+    },
+    {
+      "slug": "testcase-047-alice-read-x-future",
+      "seq": 47,
+      "repeat": 2,
+      "path": "full",
+      "ms": 323.448,
+      "outcome": "PASS",
+      "rssBytes": 775241728
+    },
+    {
+      "slug": "testcase-048-alice-read-x",
+      "seq": 48,
+      "repeat": 2,
+      "path": "full",
+      "ms": 323.767,
+      "outcome": "PASS",
+      "rssBytes": 724750336
+    },
+    {
+      "slug": "testcase-049-alice-read-x-past",
+      "seq": 49,
+      "repeat": 2,
+      "path": "full",
+      "ms": 302.283,
+      "outcome": "PASS",
+      "rssBytes": 773230592
+    },
+    {
+      "slug": "testcase-050-alice-read-x-future",
+      "seq": 50,
+      "repeat": 2,
+      "path": "full",
+      "ms": 334.123,
+      "outcome": "PASS",
+      "rssBytes": 743100416
+    },
+    {
+      "slug": "testcase-051-alice",
+      "seq": 51,
+      "repeat": 2,
+      "path": "full",
+      "ms": 284.147,
+      "outcome": "PASS",
+      "rssBytes": 724979712
+    },
+    {
+      "slug": "testcase-052-bob-read-x",
+      "seq": 52,
+      "repeat": 2,
+      "path": "full",
+      "ms": 300.516,
+      "outcome": "PASS",
+      "rssBytes": 724963328
+    },
+    {
+      "slug": "testcase-053-alice-read-x",
+      "seq": 53,
+      "repeat": 2,
+      "path": "full",
+      "ms": 274.866,
+      "outcome": "PASS",
+      "rssBytes": 773263360
+    },
+    {
+      "slug": "testcase-054-alice-read-y",
+      "seq": 54,
+      "repeat": 2,
+      "path": "full",
+      "ms": 310.008,
+      "outcome": "PASS",
+      "rssBytes": 728031232
+    },
+    {
+      "slug": "testcase-055-alice-read-x",
+      "seq": 55,
+      "repeat": 2,
+      "path": "full",
+      "ms": 275.922,
+      "outcome": "PASS",
+      "rssBytes": 776331264
+    },
+    {
+      "slug": "testcase-056-alice-read-y",
+      "seq": 56,
+      "repeat": 2,
+      "path": "full",
+      "ms": 297.702,
+      "outcome": "PASS",
+      "rssBytes": 745439232
+    },
+    {
+      "slug": "testcase-057-bob-read-x",
+      "seq": 57,
+      "repeat": 2,
+      "path": "full",
+      "ms": 324.835,
+      "outcome": "PASS",
+      "rssBytes": 754647040
+    },
+    {
+      "slug": "testcase-058-bob-write-y",
+      "seq": 58,
+      "repeat": 2,
+      "path": "full",
+      "ms": 297.027,
+      "outcome": "PASS",
+      "rssBytes": 724738048
+    },
+    {
+      "slug": "testcase-059-nonset",
+      "seq": 59,
+      "repeat": 2,
+      "path": "full",
+      "ms": 279.397,
+      "outcome": "PASS",
+      "rssBytes": 773038080
+    },
+    {
+      "slug": "testcase-060-fulfilled",
+      "seq": 60,
+      "repeat": 2,
+      "path": "full",
+      "ms": 320.023,
+      "outcome": "PASS",
+      "rssBytes": 727752704
+    },
+    {
+      "slug": "testcase-061-violated",
+      "seq": 61,
+      "repeat": 2,
+      "path": "full",
+      "ms": 281.948,
+      "outcome": "FAIL",
+      "rssBytes": 775872512
+    },
+    {
+      "slug": "testcase-062-big-policy",
+      "seq": 62,
+      "repeat": 2,
+      "path": "full",
+      "ms": 6433.064,
+      "outcome": "PASS",
+      "rssBytes": 747900928,
+      "outlier": "high"
+    },
+    {
+      "slug": "testcase-063-big-policy-OoO",
+      "seq": 63,
+      "repeat": 2,
+      "path": "full",
+      "ms": 6343.769,
+      "outcome": "PASS",
+      "rssBytes": 817729536,
+      "outlier": "high"
+    },
+    {
+      "slug": "testcase-064-big-policy-past",
+      "seq": 64,
+      "repeat": 2,
+      "path": "full",
+      "ms": 6388.559,
+      "outcome": "PASS",
+      "rssBytes": 747913216,
+      "outlier": "high"
+    },
+    {
+      "slug": "testcase-065-alice",
+      "seq": 65,
+      "repeat": 2,
+      "path": "full",
+      "ms": 325.191,
+      "outcome": "PASS",
+      "rssBytes": 742957056
+    },
+    {
+      "slug": "testcase-066-bob-sell",
+      "seq": 66,
+      "repeat": 2,
+      "path": "full",
+      "ms": 301.815,
+      "outcome": "PASS",
+      "rssBytes": 791617536
+    },
+    {
+      "slug": "testcase-067-alice-past",
+      "seq": 67,
+      "repeat": 2,
+      "path": "full",
+      "ms": 330.667,
+      "outcome": "PASS",
+      "rssBytes": 757972992
+    },
+    {
+      "slug": "testcase-068-bob-write-y-past",
+      "seq": 68,
+      "repeat": 2,
+      "path": "full",
+      "ms": 321.688,
+      "outcome": "PASS",
+      "rssBytes": 754999296
+    },
+    {
+      "slug": "testcase-001-alice",
+      "seq": 1,
+      "repeat": 3,
+      "path": "full",
+      "ms": 286.868,
+      "outcome": "PASS",
+      "rssBytes": 754876416
+    },
+    {
+      "slug": "testcase-002-bob",
+      "seq": 2,
+      "repeat": 3,
+      "path": "full",
+      "ms": 282.113,
+      "outcome": "PASS",
+      "rssBytes": 803176448
+    },
+    {
+      "slug": "testcase-003-bob-write-y",
+      "seq": 3,
+      "repeat": 3,
+      "path": "full",
+      "ms": 299.387,
+      "outcome": "PASS",
+      "rssBytes": 757755904
+    },
+    {
+      "slug": "testcase-004-alice",
+      "seq": 4,
+      "repeat": 3,
+      "path": "full",
+      "ms": 287.847,
+      "outcome": "PASS",
+      "rssBytes": 728023040
+    },
+    {
+      "slug": "testcase-005-bob",
+      "seq": 5,
+      "repeat": 3,
+      "path": "full",
+      "ms": 271.407,
+      "outcome": "PASS",
+      "rssBytes": 724885504
+    },
+    {
+      "slug": "testcase-006-bob-write-y",
+      "seq": 6,
+      "repeat": 3,
+      "path": "full",
+      "ms": 280.089,
+      "outcome": "PASS",
+      "rssBytes": 724852736
+    },
+    {
+      "slug": "testcase-007-alice",
+      "seq": 7,
+      "repeat": 3,
+      "path": "full",
+      "ms": 269.283,
+      "outcome": "PASS",
+      "rssBytes": 772972544
+    },
+    {
+      "slug": "testcase-008-bob",
+      "seq": 8,
+      "repeat": 3,
+      "path": "full",
+      "ms": 293.623,
+      "outcome": "PASS",
+      "rssBytes": 727801856
+    },
+    {
+      "slug": "testcase-009-bob-write-y",
+      "seq": 9,
+      "repeat": 3,
+      "path": "full",
+      "ms": 271.572,
+      "outcome": "PASS",
+      "rssBytes": 775921664
+    },
+    {
+      "slug": "testcase-010-alice-sell",
+      "seq": 10,
+      "repeat": 3,
+      "path": "full",
+      "ms": 298.398,
+      "outcome": "PASS",
+      "rssBytes": 743886848
+    },
+    {
+      "slug": "testcase-011-alice",
+      "seq": 11,
+      "repeat": 3,
+      "path": "full",
+      "ms": 267.522,
+      "outcome": "PASS",
+      "rssBytes": 724910080
+    },
+    {
+      "slug": "testcase-012-bob",
+      "seq": 12,
+      "repeat": 3,
+      "path": "full",
+      "ms": 261.079,
+      "outcome": "PASS",
+      "rssBytes": 773029888
+    },
+    {
+      "slug": "testcase-013-bob-write-y",
+      "seq": 13,
+      "repeat": 3,
+      "path": "full",
+      "ms": 270.321,
+      "outcome": "PASS",
+      "rssBytes": 754671616
+    },
+    {
+      "slug": "testcase-014-alice-sell",
+      "seq": 14,
+      "repeat": 3,
+      "path": "full",
+      "ms": 261.54,
+      "outcome": "PASS",
+      "rssBytes": 802971648
+    },
+    {
+      "slug": "testcase-015-alice",
+      "seq": 15,
+      "repeat": 3,
+      "path": "full",
+      "ms": 304.291,
+      "outcome": "PASS",
+      "rssBytes": 757645312
+    },
+    {
+      "slug": "testcase-016-bob",
+      "seq": 16,
+      "repeat": 3,
+      "path": "full",
+      "ms": 288.347,
+      "outcome": "PASS",
+      "rssBytes": 727822336
+    },
+    {
+      "slug": "testcase-017-alice-sell",
+      "seq": 17,
+      "repeat": 3,
+      "path": "full",
+      "ms": 283.168,
+      "outcome": "PASS",
+      "rssBytes": 754585600
+    },
+    {
+      "slug": "testcase-018-alice",
+      "seq": 18,
+      "repeat": 3,
+      "path": "full",
+      "ms": 274.783,
+      "outcome": "PASS",
+      "rssBytes": 754761728
+    },
+    {
+      "slug": "testcase-019-bob",
+      "seq": 19,
+      "repeat": 3,
+      "path": "full",
+      "ms": 276.112,
+      "outcome": "PASS",
+      "rssBytes": 802881536
+    },
+    {
+      "slug": "testcase-020-bob-sell",
+      "seq": 20,
+      "repeat": 3,
+      "path": "full",
+      "ms": 311.463,
+      "outcome": "PASS",
+      "rssBytes": 757706752
+    },
+    {
+      "slug": "testcase-021-alice",
+      "seq": 21,
+      "repeat": 3,
+      "path": "full",
+      "ms": 279.632,
+      "outcome": "PASS",
+      "rssBytes": 724979712
+    },
+    {
+      "slug": "testcase-022-alice-sell",
+      "seq": 22,
+      "repeat": 3,
+      "path": "full",
+      "ms": 282.066,
+      "outcome": "PASS",
+      "rssBytes": 724893696
+    },
+    {
+      "slug": "testcase-023-alice-read-y",
+      "seq": 23,
+      "repeat": 3,
+      "path": "full",
+      "ms": 284.321,
+      "outcome": "PASS",
+      "rssBytes": 773193728
+    },
+    {
+      "slug": "testcase-024-alice-write-x",
+      "seq": 24,
+      "repeat": 3,
+      "path": "full",
+      "ms": 317.356,
+      "outcome": "PASS",
+      "rssBytes": 727867392
+    },
+    {
+      "slug": "testcase-025-bob-read-x",
+      "seq": 25,
+      "repeat": 3,
+      "path": "full",
+      "ms": 276.343,
+      "outcome": "PASS",
+      "rssBytes": 775987200
+    },
+    {
+      "slug": "testcase-026-alice-read-x",
+      "seq": 26,
+      "repeat": 3,
+      "path": "full",
+      "ms": 300.21,
+      "outcome": "PASS",
+      "rssBytes": 754659328
+    },
+    {
+      "slug": "testcase-027-alice-write-x",
+      "seq": 27,
+      "repeat": 3,
+      "path": "full",
+      "ms": 294.177,
+      "outcome": "PASS",
+      "rssBytes": 754733056
+    },
+    {
+      "slug": "testcase-028-alice-read-y",
+      "seq": 28,
+      "repeat": 3,
+      "path": "full",
+      "ms": 287.605,
+      "outcome": "PASS",
+      "rssBytes": 803033088
+    },
+    {
+      "slug": "testcase-029-bob-write-y",
+      "seq": 29,
+      "repeat": 3,
+      "path": "full",
+      "ms": 301.363,
+      "outcome": "PASS",
+      "rssBytes": 757706752
+    },
+    {
+      "slug": "testcase-030-alice-read-x",
+      "seq": 30,
+      "repeat": 3,
+      "path": "full",
+      "ms": 309.869,
+      "outcome": "PASS",
+      "rssBytes": 725057536
+    },
+    {
+      "slug": "testcase-031-alice-read-x-past",
+      "seq": 31,
+      "repeat": 3,
+      "path": "full",
+      "ms": 347.957,
+      "outcome": "PASS",
+      "rssBytes": 725020672
+    },
+    {
+      "slug": "testcase-032-alice-read-x-future",
+      "seq": 32,
+      "repeat": 3,
+      "path": "full",
+      "ms": 339.619,
+      "outcome": "PASS",
+      "rssBytes": 772960256
+    },
+    {
+      "slug": "testcase-033-alice-read-x",
+      "seq": 33,
+      "repeat": 3,
+      "path": "full",
+      "ms": 339.05,
+      "outcome": "PASS",
+      "rssBytes": 727781376
+    },
+    {
+      "slug": "testcase-034-alice-read-x-past",
+      "seq": 34,
+      "repeat": 3,
+      "path": "full",
+      "ms": 307.965,
+      "outcome": "PASS",
+      "rssBytes": 776081408
+    },
+    {
+      "slug": "testcase-035-alice-read-x-future",
+      "seq": 35,
+      "repeat": 3,
+      "path": "full",
+      "ms": 304.955,
+      "outcome": "PASS",
+      "rssBytes": 744054784
+    },
+    {
+      "slug": "testcase-036-alice-read-x",
+      "seq": 36,
+      "repeat": 3,
+      "path": "full",
+      "ms": 295.644,
+      "outcome": "PASS",
+      "rssBytes": 724754432
+    },
+    {
+      "slug": "testcase-037-alice-read-x-past",
+      "seq": 37,
+      "repeat": 3,
+      "path": "full",
+      "ms": 297.48,
+      "outcome": "PASS",
+      "rssBytes": 724733952
+    },
+    {
+      "slug": "testcase-038-alice-read-x-future",
+      "seq": 38,
+      "repeat": 3,
+      "path": "full",
+      "ms": 290.156,
+      "outcome": "PASS",
+      "rssBytes": 772853760
+    },
+    {
+      "slug": "testcase-039-alice-read-x",
+      "seq": 39,
+      "repeat": 3,
+      "path": "full",
+      "ms": 302.09,
+      "outcome": "PASS",
+      "rssBytes": 754458624
+    },
+    {
+      "slug": "testcase-040-alice-read-x-past",
+      "seq": 40,
+      "repeat": 3,
+      "path": "full",
+      "ms": 291.991,
+      "outcome": "PASS",
+      "rssBytes": 802758656
+    },
+    {
+      "slug": "testcase-041-alice-read-x-future",
+      "seq": 41,
+      "repeat": 3,
+      "path": "full",
+      "ms": 319.669,
+      "outcome": "PASS",
+      "rssBytes": 757719040
+    },
+    {
+      "slug": "testcase-042-alice-read-x",
+      "seq": 42,
+      "repeat": 3,
+      "path": "full",
+      "ms": 300.517,
+      "outcome": "PASS",
+      "rssBytes": 724885504
+    },
+    {
+      "slug": "testcase-043-alice-read-x-past",
+      "seq": 43,
+      "repeat": 3,
+      "path": "full",
+      "ms": 298.179,
+      "outcome": "PASS",
+      "rssBytes": 724918272
+    },
+    {
+      "slug": "testcase-044-alice-read-x-future",
+      "seq": 44,
+      "repeat": 3,
+      "path": "full",
+      "ms": 296.438,
+      "outcome": "PASS",
+      "rssBytes": 773939200
+    },
+    {
+      "slug": "testcase-045-alice-read-x",
+      "seq": 45,
+      "repeat": 3,
+      "path": "full",
+      "ms": 318.709,
+      "outcome": "PASS",
+      "rssBytes": 728612864
+    },
+    {
+      "slug": "testcase-046-alice-read-x-past",
+      "seq": 46,
+      "repeat": 3,
+      "path": "full",
+      "ms": 292.281,
+      "outcome": "PASS",
+      "rssBytes": 776912896
+    },
+    {
+      "slug": "testcase-047-alice-read-x-future",
+      "seq": 47,
+      "repeat": 3,
+      "path": "full",
+      "ms": 304.014,
+      "outcome": "PASS",
+      "rssBytes": 755527680
+    },
+    {
+      "slug": "testcase-048-alice-read-x",
+      "seq": 48,
+      "repeat": 3,
+      "path": "full",
+      "ms": 309.059,
+      "outcome": "PASS",
+      "rssBytes": 755396608
+    },
+    {
+      "slug": "testcase-049-alice-read-x-past",
+      "seq": 49,
+      "repeat": 3,
+      "path": "full",
+      "ms": 336.191,
+      "outcome": "PASS",
+      "rssBytes": 803696640
+    },
+    {
+      "slug": "testcase-050-alice-read-x-future",
+      "seq": 50,
+      "repeat": 3,
+      "path": "full",
+      "ms": 339.46,
+      "outcome": "PASS",
+      "rssBytes": 758464512
+    },
+    {
+      "slug": "testcase-051-alice",
+      "seq": 51,
+      "repeat": 3,
+      "path": "full",
+      "ms": 292.225,
+      "outcome": "PASS",
+      "rssBytes": 725757952
+    },
+    {
+      "slug": "testcase-052-bob-read-x",
+      "seq": 52,
+      "repeat": 3,
+      "path": "full",
+      "ms": 292.847,
+      "outcome": "PASS",
+      "rssBytes": 725651456
+    },
+    {
+      "slug": "testcase-053-alice-read-x",
+      "seq": 53,
+      "repeat": 3,
+      "path": "full",
+      "ms": 285.232,
+      "outcome": "PASS",
+      "rssBytes": 773951488
+    },
+    {
+      "slug": "testcase-054-alice-read-y",
+      "seq": 54,
+      "repeat": 3,
+      "path": "full",
+      "ms": 301.599,
+      "outcome": "PASS",
+      "rssBytes": 728702976
+    },
+    {
+      "slug": "testcase-055-alice-read-x",
+      "seq": 55,
+      "repeat": 3,
+      "path": "full",
+      "ms": 269.718,
+      "outcome": "PASS",
+      "rssBytes": 777003008
+    },
+    {
+      "slug": "testcase-056-alice-read-y",
+      "seq": 56,
+      "repeat": 3,
+      "path": "full",
+      "ms": 274.571,
+      "outcome": "PASS",
+      "rssBytes": 744906752
+    },
+    {
+      "slug": "testcase-057-bob-read-x",
+      "seq": 57,
+      "repeat": 3,
+      "path": "full",
+      "ms": 279.171,
+      "outcome": "PASS",
+      "rssBytes": 755478528
+    },
+    {
+      "slug": "testcase-058-bob-write-y",
+      "seq": 58,
+      "repeat": 3,
+      "path": "full",
+      "ms": 266.417,
+      "outcome": "PASS",
+      "rssBytes": 803598336
+    },
+    {
+      "slug": "testcase-059-nonset",
+      "seq": 59,
+      "repeat": 3,
+      "path": "full",
+      "ms": 314.439,
+      "outcome": "PASS",
+      "rssBytes": 758353920
+    },
+    {
+      "slug": "testcase-060-fulfilled",
+      "seq": 60,
+      "repeat": 3,
+      "path": "full",
+      "ms": 306.851,
+      "outcome": "PASS",
+      "rssBytes": 728735744
+    },
+    {
+      "slug": "testcase-061-violated",
+      "seq": 61,
+      "repeat": 3,
+      "path": "full",
+      "ms": 288.086,
+      "outcome": "FAIL",
+      "rssBytes": 755585024
+    },
+    {
+      "slug": "testcase-062-big-policy",
+      "seq": 62,
+      "repeat": 3,
+      "path": "full",
+      "ms": 6297.968,
+      "outcome": "PASS",
+      "rssBytes": 776380416,
+      "outlier": "high"
+    },
+    {
+      "slug": "testcase-063-big-policy-OoO",
+      "seq": 63,
+      "repeat": 3,
+      "path": "full",
+      "ms": 6436.08,
+      "outcome": "PASS",
+      "rssBytes": 814202880,
+      "outlier": "high"
+    },
+    {
+      "slug": "testcase-064-big-policy-past",
+      "seq": 64,
+      "repeat": 3,
+      "path": "full",
+      "ms": 6258.195,
+      "outcome": "PASS",
+      "rssBytes": 818483200,
+      "outlier": "high"
+    },
+    {
+      "slug": "testcase-065-alice",
+      "seq": 65,
+      "repeat": 3,
+      "path": "full",
+      "ms": 324.591,
+      "outcome": "PASS",
+      "rssBytes": 755798016
+    },
+    {
+      "slug": "testcase-066-bob-sell",
+      "seq": 66,
+      "repeat": 3,
+      "path": "full",
+      "ms": 321.997,
+      "outcome": "PASS",
+      "rssBytes": 726048768
+    },
+    {
+      "slug": "testcase-067-alice-past",
+      "seq": 67,
+      "repeat": 3,
+      "path": "full",
+      "ms": 313.458,
+      "outcome": "PASS",
+      "rssBytes": 774348800
+    },
+    {
+      "slug": "testcase-068-bob-write-y-past",
+      "seq": 68,
+      "repeat": 3,
+      "path": "full",
+      "ms": 318.537,
+      "outcome": "PASS",
+      "rssBytes": 744235008
+    },
+    {
+      "slug": "testcase-001-alice",
+      "seq": 1,
+      "repeat": 4,
+      "path": "full",
+      "ms": 272.849,
+      "outcome": "PASS",
+      "rssBytes": 725786624
+    },
+    {
+      "slug": "testcase-002-bob",
+      "seq": 2,
+      "repeat": 4,
+      "path": "full",
+      "ms": 277.69,
+      "outcome": "PASS",
+      "rssBytes": 725979136
+    },
+    {
+      "slug": "testcase-003-bob-write-y",
+      "seq": 3,
+      "repeat": 4,
+      "path": "full",
+      "ms": 257.357,
+      "outcome": "PASS",
+      "rssBytes": 774098944
+    },
+    {
+      "slug": "testcase-004-alice",
+      "seq": 4,
+      "repeat": 4,
+      "path": "full",
+      "ms": 286.363,
+      "outcome": "PASS",
+      "rssBytes": 728948736
+    },
+    {
+      "slug": "testcase-005-bob",
+      "seq": 5,
+      "repeat": 4,
+      "path": "full",
+      "ms": 265.813,
+      "outcome": "PASS",
+      "rssBytes": 777068544
+    },
+    {
+      "slug": "testcase-006-bob-write-y",
+      "seq": 6,
+      "repeat": 4,
+      "path": "full",
+      "ms": 279.043,
+      "outcome": "PASS",
+      "rssBytes": 755658752
+    },
+    {
+      "slug": "testcase-007-alice",
+      "seq": 7,
+      "repeat": 4,
+      "path": "full",
+      "ms": 293.885,
+      "outcome": "PASS",
+      "rssBytes": 776724480
+    },
+    {
+      "slug": "testcase-008-bob",
+      "seq": 8,
+      "repeat": 4,
+      "path": "full",
+      "ms": 277.135,
+      "outcome": "PASS",
+      "rssBytes": 726228992
+    },
+    {
+      "slug": "testcase-009-bob-write-y",
+      "seq": 9,
+      "repeat": 4,
+      "path": "full",
+      "ms": 260.394,
+      "outcome": "PASS",
+      "rssBytes": 774529024
+    },
+    {
+      "slug": "testcase-010-alice-sell",
+      "seq": 10,
+      "repeat": 4,
+      "path": "full",
+      "ms": 278.174,
+      "outcome": "PASS",
+      "rssBytes": 744558592
+    },
+    {
+      "slug": "testcase-011-alice",
+      "seq": 11,
+      "repeat": 4,
+      "path": "full",
+      "ms": 259.662,
+      "outcome": "PASS",
+      "rssBytes": 792678400
+    },
+    {
+      "slug": "testcase-012-bob",
+      "seq": 12,
+      "repeat": 4,
+      "path": "full",
+      "ms": 295.478,
+      "outcome": "PASS",
+      "rssBytes": 764825600
+    },
+    {
+      "slug": "testcase-013-bob-write-y",
+      "seq": 13,
+      "repeat": 4,
+      "path": "full",
+      "ms": 272.745,
+      "outcome": "PASS",
+      "rssBytes": 755847168
+    },
+    {
+      "slug": "testcase-014-alice-sell",
+      "seq": 14,
+      "repeat": 4,
+      "path": "full",
+      "ms": 272.567,
+      "outcome": "PASS",
+      "rssBytes": 755671040
+    },
+    {
+      "slug": "testcase-015-alice",
+      "seq": 15,
+      "repeat": 4,
+      "path": "full",
+      "ms": 278.386,
+      "outcome": "PASS",
+      "rssBytes": 804151296
+    },
+    {
+      "slug": "testcase-016-bob",
+      "seq": 16,
+      "repeat": 4,
+      "path": "full",
+      "ms": 294.228,
+      "outcome": "PASS",
+      "rssBytes": 758906880
+    },
+    {
+      "slug": "testcase-017-alice-sell",
+      "seq": 17,
+      "repeat": 4,
+      "path": "full",
+      "ms": 310.184,
+      "outcome": "PASS",
+      "rssBytes": 729112576
+    },
+    {
+      "slug": "testcase-018-alice",
+      "seq": 18,
+      "repeat": 4,
+      "path": "full",
+      "ms": 272.647,
+      "outcome": "PASS",
+      "rssBytes": 755896320
+    },
+    {
+      "slug": "testcase-019-bob",
+      "seq": 19,
+      "repeat": 4,
+      "path": "full",
+      "ms": 288.908,
+      "outcome": "PASS",
+      "rssBytes": 726048768
+    },
+    {
+      "slug": "testcase-020-bob-sell",
+      "seq": 20,
+      "repeat": 4,
+      "path": "full",
+      "ms": 277.612,
+      "outcome": "PASS",
+      "rssBytes": 774168576
+    },
+    {
+      "slug": "testcase-021-alice",
+      "seq": 21,
+      "repeat": 4,
+      "path": "full",
+      "ms": 288.249,
+      "outcome": "PASS",
+      "rssBytes": 744243200
+    },
+    {
+      "slug": "testcase-022-alice-sell",
+      "seq": 22,
+      "repeat": 4,
+      "path": "full",
+      "ms": 301.458,
+      "outcome": "PASS",
+      "rssBytes": 725708800
+    },
+    {
+      "slug": "testcase-023-alice-read-y",
+      "seq": 23,
+      "repeat": 4,
+      "path": "full",
+      "ms": 293.434,
+      "outcome": "PASS",
+      "rssBytes": 725860352
+    },
+    {
+      "slug": "testcase-024-alice-write-x",
+      "seq": 24,
+      "repeat": 4,
+      "path": "full",
+      "ms": 286.507,
+      "outcome": "PASS",
+      "rssBytes": 773980160
+    },
+    {
+      "slug": "testcase-025-bob-read-x",
+      "seq": 25,
+      "repeat": 4,
+      "path": "full",
+      "ms": 299.622,
+      "outcome": "PASS",
+      "rssBytes": 728961024
+    },
+    {
+      "slug": "testcase-026-alice-read-x",
+      "seq": 26,
+      "repeat": 4,
+      "path": "full",
+      "ms": 285.064,
+      "outcome": "PASS",
+      "rssBytes": 776892416
+    },
+    {
+      "slug": "testcase-027-alice-write-x",
+      "seq": 27,
+      "repeat": 4,
+      "path": "full",
+      "ms": 299.91,
+      "outcome": "PASS",
+      "rssBytes": 755511296
+    },
+    {
+      "slug": "testcase-028-alice-read-y",
+      "seq": 28,
+      "repeat": 4,
+      "path": "full",
+      "ms": 304.694,
+      "outcome": "PASS",
+      "rssBytes": 755642368
+    },
+    {
+      "slug": "testcase-029-bob-write-y",
+      "seq": 29,
+      "repeat": 4,
+      "path": "full",
+      "ms": 273.276,
+      "outcome": "PASS",
+      "rssBytes": 803762176
+    },
+    {
+      "slug": "testcase-030-alice-read-x",
+      "seq": 30,
+      "repeat": 4,
+      "path": "full",
+      "ms": 328.019,
+      "outcome": "PASS",
+      "rssBytes": 758378496
+    },
+    {
+      "slug": "testcase-031-alice-read-x-past",
+      "seq": 31,
+      "repeat": 4,
+      "path": "full",
+      "ms": 295.574,
+      "outcome": "PASS",
+      "rssBytes": 725594112
+    },
+    {
+      "slug": "testcase-032-alice-read-x-future",
+      "seq": 32,
+      "repeat": 4,
+      "path": "full",
+      "ms": 306.823,
+      "outcome": "PASS",
+      "rssBytes": 725561344
+    },
+    {
+      "slug": "testcase-033-alice-read-x",
+      "seq": 33,
+      "repeat": 4,
+      "path": "full",
+      "ms": 289.914,
+      "outcome": "PASS",
+      "rssBytes": 773681152
+    },
+    {
+      "slug": "testcase-034-alice-read-x-past",
+      "seq": 34,
+      "repeat": 4,
+      "path": "full",
+      "ms": 334.637,
+      "outcome": "PASS",
+      "rssBytes": 728256512
+    },
+    {
+      "slug": "testcase-035-alice-read-x-future",
+      "seq": 35,
+      "repeat": 4,
+      "path": "full",
+      "ms": 305.185,
+      "outcome": "PASS",
+      "rssBytes": 776556544
+    },
+    {
+      "slug": "testcase-036-alice-read-x",
+      "seq": 36,
+      "repeat": 4,
+      "path": "full",
+      "ms": 311.565,
+      "outcome": "PASS",
+      "rssBytes": 755089408
+    },
+    {
+      "slug": "testcase-037-alice-read-x-past",
+      "seq": 37,
+      "repeat": 4,
+      "path": "full",
+      "ms": 299.919,
+      "outcome": "PASS",
+      "rssBytes": 755265536
+    },
+    {
+      "slug": "testcase-038-alice-read-x-future",
+      "seq": 38,
+      "repeat": 4,
+      "path": "full",
+      "ms": 290.059,
+      "outcome": "PASS",
+      "rssBytes": 803565568
+    },
+    {
+      "slug": "testcase-039-alice-read-x",
+      "seq": 39,
+      "repeat": 4,
+      "path": "full",
+      "ms": 328.527,
+      "outcome": "PASS",
+      "rssBytes": 758190080
+    },
+    {
+      "slug": "testcase-040-alice-read-x-past",
+      "seq": 40,
+      "repeat": 4,
+      "path": "full",
+      "ms": 323.434,
+      "outcome": "PASS",
+      "rssBytes": 728453120
+    },
+    {
+      "slug": "testcase-041-alice-read-x-future",
+      "seq": 41,
+      "repeat": 4,
+      "path": "full",
+      "ms": 308.917,
+      "outcome": "PASS",
+      "rssBytes": 725504000
+    },
+    {
+      "slug": "testcase-042-alice-read-x",
+      "seq": 42,
+      "repeat": 4,
+      "path": "full",
+      "ms": 311.318,
+      "outcome": "PASS",
+      "rssBytes": 725368832
+    },
+    {
+      "slug": "testcase-043-alice-read-x-past",
+      "seq": 43,
+      "repeat": 4,
+      "path": "full",
+      "ms": 317.674,
+      "outcome": "PASS",
+      "rssBytes": 773668864
+    },
+    {
+      "slug": "testcase-044-alice-read-x-future",
+      "seq": 44,
+      "repeat": 4,
+      "path": "full",
+      "ms": 313.48,
+      "outcome": "PASS",
+      "rssBytes": 755240960
+    },
+    {
+      "slug": "testcase-045-alice-read-x",
+      "seq": 45,
+      "repeat": 4,
+      "path": "full",
+      "ms": 289.079,
+      "outcome": "PASS",
+      "rssBytes": 803360768
+    },
+    {
+      "slug": "testcase-046-alice-read-x-past",
+      "seq": 46,
+      "repeat": 4,
+      "path": "full",
+      "ms": 327.93,
+      "outcome": "PASS",
+      "rssBytes": 758145024
+    },
+    {
+      "slug": "testcase-047-alice-read-x-future",
+      "seq": 47,
+      "repeat": 4,
+      "path": "full",
+      "ms": 309.648,
+      "outcome": "PASS",
+      "rssBytes": 725426176
+    },
+    {
+      "slug": "testcase-048-alice-read-x",
+      "seq": 48,
+      "repeat": 4,
+      "path": "full",
+      "ms": 318.858,
+      "outcome": "PASS",
+      "rssBytes": 725577728
+    },
+    {
+      "slug": "testcase-049-alice-read-x-past",
+      "seq": 49,
+      "repeat": 4,
+      "path": "full",
+      "ms": 296.174,
+      "outcome": "PASS",
+      "rssBytes": 773877760
+    },
+    {
+      "slug": "testcase-050-alice-read-x-future",
+      "seq": 50,
+      "repeat": 4,
+      "path": "full",
+      "ms": 326.293,
+      "outcome": "PASS",
+      "rssBytes": 728510464
+    },
+    {
+      "slug": "testcase-051-alice",
+      "seq": 51,
+      "repeat": 4,
+      "path": "full",
+      "ms": 285.575,
+      "outcome": "PASS",
+      "rssBytes": 776810496
+    },
+    {
+      "slug": "testcase-052-bob-read-x",
+      "seq": 52,
+      "repeat": 4,
+      "path": "full",
+      "ms": 292.017,
+      "outcome": "PASS",
+      "rssBytes": 755458048
+    },
+    {
+      "slug": "testcase-053-alice-read-x",
+      "seq": 53,
+      "repeat": 4,
+      "path": "full",
+      "ms": 287.635,
+      "outcome": "PASS",
+      "rssBytes": 755355648
+    },
+    {
+      "slug": "testcase-054-alice-read-y",
+      "seq": 54,
+      "repeat": 4,
+      "path": "full",
+      "ms": 276.469,
+      "outcome": "PASS",
+      "rssBytes": 803655680
+    },
+    {
+      "slug": "testcase-055-alice-read-x",
+      "seq": 55,
+      "repeat": 4,
+      "path": "full",
+      "ms": 293.375,
+      "outcome": "PASS",
+      "rssBytes": 758325248
+    },
+    {
+      "slug": "testcase-056-alice-read-y",
+      "seq": 56,
+      "repeat": 4,
+      "path": "full",
+      "ms": 281.023,
+      "outcome": "PASS",
+      "rssBytes": 725524480
+    },
+    {
+      "slug": "testcase-057-bob-read-x",
+      "seq": 57,
+      "repeat": 4,
+      "path": "full",
+      "ms": 281.946,
+      "outcome": "PASS",
+      "rssBytes": 725618688
+    },
+    {
+      "slug": "testcase-058-bob-write-y",
+      "seq": 58,
+      "repeat": 4,
+      "path": "full",
+      "ms": 266.584,
+      "outcome": "PASS",
+      "rssBytes": 773918720
+    },
+    {
+      "slug": "testcase-059-nonset",
+      "seq": 59,
+      "repeat": 4,
+      "path": "full",
+      "ms": 305.504,
+      "outcome": "PASS",
+      "rssBytes": 728588288
+    },
+    {
+      "slug": "testcase-060-fulfilled",
+      "seq": 60,
+      "repeat": 4,
+      "path": "full",
+      "ms": 282.446,
+      "outcome": "PASS",
+      "rssBytes": 776888320
+    },
+    {
+      "slug": "testcase-061-violated",
+      "seq": 61,
+      "repeat": 4,
+      "path": "full",
+      "ms": 294.871,
+      "outcome": "FAIL",
+      "rssBytes": 745779200
+    },
+    {
+      "slug": "testcase-062-big-policy",
+      "seq": 62,
+      "repeat": 4,
+      "path": "full",
+      "ms": 6189.309,
+      "outcome": "PASS",
+      "rssBytes": 748773376,
+      "outlier": "high"
+    },
+    {
+      "slug": "testcase-063-big-policy-OoO",
+      "seq": 63,
+      "repeat": 4,
+      "path": "full",
+      "ms": 6203.726,
+      "outcome": "PASS",
+      "rssBytes": 779235328,
+      "outlier": "high"
+    },
+    {
+      "slug": "testcase-064-big-policy-past",
+      "seq": 64,
+      "repeat": 4,
+      "path": "full",
+      "ms": 6449.275,
+      "outcome": "PASS",
+      "rssBytes": 779612160,
+      "outlier": "high"
+    },
+    {
+      "slug": "testcase-065-alice",
+      "seq": 65,
+      "repeat": 4,
+      "path": "full",
+      "ms": 340.893,
+      "outcome": "PASS",
+      "rssBytes": 731971584
+    },
+    {
+      "slug": "testcase-066-bob-sell",
+      "seq": 66,
+      "repeat": 4,
+      "path": "full",
+      "ms": 300.312,
+      "outcome": "PASS",
+      "rssBytes": 780271616
+    },
+    {
+      "slug": "testcase-067-alice-past",
+      "seq": 67,
+      "repeat": 4,
+      "path": "full",
+      "ms": 310.674,
+      "outcome": "PASS",
+      "rssBytes": 758906880
+    },
+    {
+      "slug": "testcase-068-bob-write-y-past",
+      "seq": 68,
+      "repeat": 4,
+      "path": "full",
+      "ms": 311.542,
+      "outcome": "PASS",
+      "rssBytes": 729141248
+    },
+    {
+      "slug": "testcase-001-alice",
+      "seq": 1,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 266.806,
+      "outcome": "PASS",
+      "rssBytes": 777261056
+    },
+    {
+      "slug": "testcase-002-bob",
+      "seq": 2,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 276.44,
+      "outcome": "PASS",
+      "rssBytes": 747126784
+    },
+    {
+      "slug": "testcase-003-bob-write-y",
+      "seq": 3,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 268.322,
+      "outcome": "PASS",
+      "rssBytes": 728989696
+    },
+    {
+      "slug": "testcase-004-alice",
+      "seq": 4,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 278.716,
+      "outcome": "PASS",
+      "rssBytes": 728940544
+    },
+    {
+      "slug": "testcase-005-bob",
+      "seq": 5,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 270.955,
+      "outcome": "PASS",
+      "rssBytes": 777060352
+    },
+    {
+      "slug": "testcase-006-bob-write-y",
+      "seq": 6,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 297.763,
+      "outcome": "PASS",
+      "rssBytes": 732053504
+    },
+    {
+      "slug": "testcase-007-alice",
+      "seq": 7,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 272.141,
+      "outcome": "PASS",
+      "rssBytes": 780173312
+    },
+    {
+      "slug": "testcase-008-bob",
+      "seq": 8,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 278.716,
+      "outcome": "PASS",
+      "rssBytes": 758943744
+    },
+    {
+      "slug": "testcase-009-bob-write-y",
+      "seq": 9,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 281.161,
+      "outcome": "PASS",
+      "rssBytes": 758763520
+    },
+    {
+      "slug": "testcase-010-alice-sell",
+      "seq": 10,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 260.191,
+      "outcome": "PASS",
+      "rssBytes": 806883328
+    },
+    {
+      "slug": "testcase-011-alice",
+      "seq": 11,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 299.043,
+      "outcome": "PASS",
+      "rssBytes": 761683968
+    },
+    {
+      "slug": "testcase-012-bob",
+      "seq": 12,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 307.308,
+      "outcome": "PASS",
+      "rssBytes": 732073984
+    },
+    {
+      "slug": "testcase-013-bob-write-y",
+      "seq": 13,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 279.367,
+      "outcome": "PASS",
+      "rssBytes": 758767616
+    },
+    {
+      "slug": "testcase-014-alice-sell",
+      "seq": 14,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 273.279,
+      "outcome": "PASS",
+      "rssBytes": 758820864
+    },
+    {
+      "slug": "testcase-015-alice",
+      "seq": 15,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 276.486,
+      "outcome": "PASS",
+      "rssBytes": 807120896
+    },
+    {
+      "slug": "testcase-016-bob",
+      "seq": 16,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 300.307,
+      "outcome": "PASS",
+      "rssBytes": 761856000
+    },
+    {
+      "slug": "testcase-017-alice-sell",
+      "seq": 17,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 285.973,
+      "outcome": "PASS",
+      "rssBytes": 729190400
+    },
+    {
+      "slug": "testcase-018-alice",
+      "seq": 18,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 274.465,
+      "outcome": "PASS",
+      "rssBytes": 777490432
+    },
+    {
+      "slug": "testcase-019-bob",
+      "seq": 19,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 292.113,
+      "outcome": "PASS",
+      "rssBytes": 798294016
+    },
+    {
+      "slug": "testcase-020-bob-sell",
+      "seq": 20,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 291.504,
+      "outcome": "PASS",
+      "rssBytes": 747405312
+    },
+    {
+      "slug": "testcase-021-alice",
+      "seq": 21,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 282.768,
+      "outcome": "PASS",
+      "rssBytes": 729526272
+    },
+    {
+      "slug": "testcase-022-alice-sell",
+      "seq": 22,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 285.295,
+      "outcome": "PASS",
+      "rssBytes": 729243648
+    },
+    {
+      "slug": "testcase-023-alice-read-y",
+      "seq": 23,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 276.134,
+      "outcome": "PASS",
+      "rssBytes": 777363456
+    },
+    {
+      "slug": "testcase-024-alice-write-x",
+      "seq": 24,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 304.918,
+      "outcome": "PASS",
+      "rssBytes": 732184576
+    },
+    {
+      "slug": "testcase-025-bob-read-x",
+      "seq": 25,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 265.713,
+      "outcome": "PASS",
+      "rssBytes": 780304384
+    },
+    {
+      "slug": "testcase-026-alice-read-x",
+      "seq": 26,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 294.38,
+      "outcome": "PASS",
+      "rssBytes": 758652928
+    },
+    {
+      "slug": "testcase-027-alice-write-x",
+      "seq": 27,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 300.496,
+      "outcome": "PASS",
+      "rssBytes": 758689792
+    },
+    {
+      "slug": "testcase-028-alice-read-y",
+      "seq": 28,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 287.5,
+      "outcome": "PASS",
+      "rssBytes": 806989824
+    },
+    {
+      "slug": "testcase-029-bob-write-y",
+      "seq": 29,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 300.465,
+      "outcome": "PASS",
+      "rssBytes": 761659392
+    },
+    {
+      "slug": "testcase-030-alice-read-x",
+      "seq": 30,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 333.573,
+      "outcome": "PASS",
+      "rssBytes": 731922432
+    },
+    {
+      "slug": "testcase-031-alice-read-x-past",
+      "seq": 31,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 316.694,
+      "outcome": "PASS",
+      "rssBytes": 728858624
+    },
+    {
+      "slug": "testcase-032-alice-read-x-future",
+      "seq": 32,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 306.125,
+      "outcome": "PASS",
+      "rssBytes": 728952832
+    },
+    {
+      "slug": "testcase-033-alice-read-x",
+      "seq": 33,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 315.408,
+      "outcome": "PASS",
+      "rssBytes": 777072640
+    },
+    {
+      "slug": "testcase-034-alice-read-x-past",
+      "seq": 34,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 303.994,
+      "outcome": "PASS",
+      "rssBytes": 758599680
+    },
+    {
+      "slug": "testcase-035-alice-read-x-future",
+      "seq": 35,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 292.591,
+      "outcome": "PASS",
+      "rssBytes": 807079936
+    },
+    {
+      "slug": "testcase-036-alice-read-x",
+      "seq": 36,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 322.512,
+      "outcome": "PASS",
+      "rssBytes": 761700352
+    },
+    {
+      "slug": "testcase-037-alice-read-x-past",
+      "seq": 37,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 307.848,
+      "outcome": "PASS",
+      "rssBytes": 779632640
+    },
+    {
+      "slug": "testcase-038-alice-read-x-future",
+      "seq": 38,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 304.078,
+      "outcome": "PASS",
+      "rssBytes": 758861824
+    },
+    {
+      "slug": "testcase-039-alice-read-x",
+      "seq": 39,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 294.13,
+      "outcome": "PASS",
+      "rssBytes": 806981632
+    },
+    {
+      "slug": "testcase-040-alice-read-x-past",
+      "seq": 40,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 323.478,
+      "outcome": "PASS",
+      "rssBytes": 761700352
+    },
+    {
+      "slug": "testcase-041-alice-read-x-future",
+      "seq": 41,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 318.782,
+      "outcome": "PASS",
+      "rssBytes": 731967488
+    },
+    {
+      "slug": "testcase-042-alice-read-x",
+      "seq": 42,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 301.361,
+      "outcome": "PASS",
+      "rssBytes": 728997888
+    },
+    {
+      "slug": "testcase-043-alice-read-x-past",
+      "seq": 43,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 299.904,
+      "outcome": "PASS",
+      "rssBytes": 728997888
+    },
+    {
+      "slug": "testcase-044-alice-read-x-future",
+      "seq": 44,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 298.052,
+      "outcome": "PASS",
+      "rssBytes": 777297920
+    },
+    {
+      "slug": "testcase-045-alice-read-x",
+      "seq": 45,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 306.102,
+      "outcome": "PASS",
+      "rssBytes": 758730752
+    },
+    {
+      "slug": "testcase-046-alice-read-x-past",
+      "seq": 46,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 294.704,
+      "outcome": "PASS",
+      "rssBytes": 807030784
+    },
+    {
+      "slug": "testcase-047-alice-read-x-future",
+      "seq": 47,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 328.478,
+      "outcome": "PASS",
+      "rssBytes": 761704448
+    },
+    {
+      "slug": "testcase-048-alice-read-x",
+      "seq": 48,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 310.518,
+      "outcome": "PASS",
+      "rssBytes": 779771904
+    },
+    {
+      "slug": "testcase-049-alice-read-x-past",
+      "seq": 49,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 310.069,
+      "outcome": "PASS",
+      "rssBytes": 758734848
+    },
+    {
+      "slug": "testcase-050-alice-read-x-future",
+      "seq": 50,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 302.075,
+      "outcome": "PASS",
+      "rssBytes": 807034880
+    },
+    {
+      "slug": "testcase-051-alice",
+      "seq": 51,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 308.267,
+      "outcome": "PASS",
+      "rssBytes": 761704448
+    },
+    {
+      "slug": "testcase-052-bob-read-x",
+      "seq": 52,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 305.45,
+      "outcome": "PASS",
+      "rssBytes": 731967488
+    },
+    {
+      "slug": "testcase-053-alice-read-x",
+      "seq": 53,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 295.042,
+      "outcome": "PASS",
+      "rssBytes": 728752128
+    },
+    {
+      "slug": "testcase-054-alice-read-y",
+      "seq": 54,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 288.19,
+      "outcome": "PASS",
+      "rssBytes": 728997888
+    },
+    {
+      "slug": "testcase-055-alice-read-x",
+      "seq": 55,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 267.207,
+      "outcome": "PASS",
+      "rssBytes": 777297920
+    },
+    {
+      "slug": "testcase-056-alice-read-y",
+      "seq": 56,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 291.935,
+      "outcome": "PASS",
+      "rssBytes": 731971584
+    },
+    {
+      "slug": "testcase-057-bob-read-x",
+      "seq": 57,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 276.524,
+      "outcome": "PASS",
+      "rssBytes": 780271616
+    },
+    {
+      "slug": "testcase-058-bob-write-y",
+      "seq": 58,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 274.762,
+      "outcome": "PASS",
+      "rssBytes": 748195840
+    },
+    {
+      "slug": "testcase-059-nonset",
+      "seq": 59,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 288.629,
+      "outcome": "PASS",
+      "rssBytes": 778661888
+    },
+    {
+      "slug": "testcase-060-fulfilled",
+      "seq": 60,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 294.521,
+      "outcome": "PASS",
+      "rssBytes": 826961920
+    },
+    {
+      "slug": "testcase-061-violated",
+      "seq": 61,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 307.352,
+      "outcome": "FAIL",
+      "rssBytes": 777539584
+    },
+    {
+      "slug": "testcase-062-big-policy",
+      "seq": 62,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 6293.036,
+      "outcome": "PASS",
+      "rssBytes": 821825536,
+      "outlier": "high"
+    },
+    {
+      "slug": "testcase-063-big-policy-OoO",
+      "seq": 63,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 6373.37,
+      "outcome": "PASS",
+      "rssBytes": 751673344,
+      "outlier": "high"
+    },
+    {
+      "slug": "testcase-064-big-policy-past",
+      "seq": 64,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 6383.725,
+      "outcome": "PASS",
+      "rssBytes": 821022720,
+      "outlier": "high"
+    },
+    {
+      "slug": "testcase-065-alice",
+      "seq": 65,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 321.354,
+      "outcome": "PASS",
+      "rssBytes": 758169600
+    },
+    {
+      "slug": "testcase-066-bob-sell",
+      "seq": 66,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 321.354,
+      "outcome": "PASS",
+      "rssBytes": 728514560
+    },
+    {
+      "slug": "testcase-067-alice-past",
+      "seq": 67,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 310.633,
+      "outcome": "PASS",
+      "rssBytes": 776814592
+    },
+    {
+      "slug": "testcase-068-bob-write-y-past",
+      "seq": 68,
+      "repeat": 0,
+      "path": "engine",
+      "ms": 316.362,
+      "outcome": "PASS",
+      "rssBytes": 746893312
+    },
+    {
+      "slug": "testcase-001-alice",
+      "seq": 1,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 274.366,
+      "outcome": "PASS",
+      "rssBytes": 728563712
+    },
+    {
+      "slug": "testcase-002-bob",
+      "seq": 2,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 257.342,
+      "outcome": "PASS",
+      "rssBytes": 776683520
+    },
+    {
+      "slug": "testcase-003-bob-write-y",
+      "seq": 3,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 277.446,
+      "outcome": "PASS",
+      "rssBytes": 758181888
+    },
+    {
+      "slug": "testcase-004-alice",
+      "seq": 4,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 258.598,
+      "outcome": "PASS",
+      "rssBytes": 806481920
+    },
+    {
+      "slug": "testcase-005-bob",
+      "seq": 5,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 294.27,
+      "outcome": "PASS",
+      "rssBytes": 761331712
+    },
+    {
+      "slug": "testcase-006-bob-write-y",
+      "seq": 6,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 297.316,
+      "outcome": "PASS",
+      "rssBytes": 728522752
+    },
+    {
+      "slug": "testcase-007-alice",
+      "seq": 7,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 280.296,
+      "outcome": "PASS",
+      "rssBytes": 749449216
+    },
+    {
+      "slug": "testcase-008-bob",
+      "seq": 8,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 275.028,
+      "outcome": "PASS",
+      "rssBytes": 797569024
+    },
+    {
+      "slug": "testcase-009-bob-write-y",
+      "seq": 9,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 282.954,
+      "outcome": "PASS",
+      "rssBytes": 746737664
+    },
+    {
+      "slug": "testcase-010-alice-sell",
+      "seq": 10,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 275.77,
+      "outcome": "PASS",
+      "rssBytes": 733020160
+    },
+    {
+      "slug": "testcase-011-alice",
+      "seq": 11,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 277.215,
+      "outcome": "PASS",
+      "rssBytes": 767455232
+    },
+    {
+      "slug": "testcase-012-bob",
+      "seq": 12,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 277.765,
+      "outcome": "PASS",
+      "rssBytes": 758661120
+    },
+    {
+      "slug": "testcase-013-bob-write-y",
+      "seq": 13,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 271.444,
+      "outcome": "PASS",
+      "rssBytes": 758042624
+    },
+    {
+      "slug": "testcase-014-alice-sell",
+      "seq": 14,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 260.097,
+      "outcome": "PASS",
+      "rssBytes": 806342656
+    },
+    {
+      "slug": "testcase-015-alice",
+      "seq": 15,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 311.066,
+      "outcome": "PASS",
+      "rssBytes": 761212928
+    },
+    {
+      "slug": "testcase-016-bob",
+      "seq": 16,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 295.424,
+      "outcome": "PASS",
+      "rssBytes": 731549696
+    },
+    {
+      "slug": "testcase-017-alice-sell",
+      "seq": 17,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 283.027,
+      "outcome": "PASS",
+      "rssBytes": 757338112
+    },
+    {
+      "slug": "testcase-018-alice",
+      "seq": 18,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 272.365,
+      "outcome": "PASS",
+      "rssBytes": 758398976
+    },
+    {
+      "slug": "testcase-019-bob",
+      "seq": 19,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 276.447,
+      "outcome": "PASS",
+      "rssBytes": 806699008
+    },
+    {
+      "slug": "testcase-020-bob-sell",
+      "seq": 20,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 301.998,
+      "outcome": "PASS",
+      "rssBytes": 761536512
+    },
+    {
+      "slug": "testcase-021-alice",
+      "seq": 21,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 308.704,
+      "outcome": "PASS",
+      "rssBytes": 731811840
+    },
+    {
+      "slug": "testcase-022-alice-sell",
+      "seq": 22,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 294.045,
+      "outcome": "PASS",
+      "rssBytes": 749453312
+    },
+    {
+      "slug": "testcase-023-alice-read-y",
+      "seq": 23,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 283.762,
+      "outcome": "PASS",
+      "rssBytes": 728842240
+    },
+    {
+      "slug": "testcase-024-alice-write-x",
+      "seq": 24,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 274.309,
+      "outcome": "PASS",
+      "rssBytes": 776962048
+    },
+    {
+      "slug": "testcase-025-bob-read-x",
+      "seq": 25,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 286.988,
+      "outcome": "PASS",
+      "rssBytes": 731824128
+    },
+    {
+      "slug": "testcase-026-alice-read-x",
+      "seq": 26,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 278.366,
+      "outcome": "PASS",
+      "rssBytes": 780124160
+    },
+    {
+      "slug": "testcase-027-alice-write-x",
+      "seq": 27,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 290.908,
+      "outcome": "PASS",
+      "rssBytes": 758677504
+    },
+    {
+      "slug": "testcase-028-alice-read-y",
+      "seq": 28,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 285.241,
+      "outcome": "PASS",
+      "rssBytes": 758595584
+    },
+    {
+      "slug": "testcase-029-bob-write-y",
+      "seq": 29,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 265.616,
+      "outcome": "PASS",
+      "rssBytes": 806895616
+    },
+    {
+      "slug": "testcase-030-alice-read-x",
+      "seq": 30,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 325.094,
+      "outcome": "PASS",
+      "rssBytes": 761565184
+    },
+    {
+      "slug": "testcase-031-alice-read-x-past",
+      "seq": 31,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 298.193,
+      "outcome": "PASS",
+      "rssBytes": 728858624
+    },
+    {
+      "slug": "testcase-032-alice-read-x-future",
+      "seq": 32,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 299.244,
+      "outcome": "PASS",
+      "rssBytes": 728981504
+    },
+    {
+      "slug": "testcase-033-alice-read-x",
+      "seq": 33,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 291.859,
+      "outcome": "PASS",
+      "rssBytes": 777281536
+    },
+    {
+      "slug": "testcase-034-alice-read-x-past",
+      "seq": 34,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 318.623,
+      "outcome": "PASS",
+      "rssBytes": 732106752
+    },
+    {
+      "slug": "testcase-035-alice-read-x-future",
+      "seq": 35,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 293.572,
+      "outcome": "PASS",
+      "rssBytes": 780406784
+    },
+    {
+      "slug": "testcase-036-alice-read-x",
+      "seq": 36,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 315.922,
+      "outcome": "PASS",
+      "rssBytes": 748208128
+    },
+    {
+      "slug": "testcase-037-alice-read-x-past",
+      "seq": 37,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 311.796,
+      "outcome": "PASS",
+      "rssBytes": 758734848
+    },
+    {
+      "slug": "testcase-038-alice-read-x-future",
+      "seq": 38,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 305.858,
+      "outcome": "PASS",
+      "rssBytes": 729067520
+    },
+    {
+      "slug": "testcase-039-alice-read-x",
+      "seq": 39,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 300.744,
+      "outcome": "PASS",
+      "rssBytes": 777187328
+    },
+    {
+      "slug": "testcase-040-alice-read-x-past",
+      "seq": 40,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 337.351,
+      "outcome": "PASS",
+      "rssBytes": 731975680
+    },
+    {
+      "slug": "testcase-041-alice-read-x-future",
+      "seq": 41,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 302.237,
+      "outcome": "PASS",
+      "rssBytes": 780275712
+    },
+    {
+      "slug": "testcase-042-alice-read-x",
+      "seq": 42,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 311.39,
+      "outcome": "PASS",
+      "rssBytes": 758804480
+    },
+    {
+      "slug": "testcase-043-alice-read-x-past",
+      "seq": 43,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 323.007,
+      "outcome": "PASS",
+      "rssBytes": 779747328
+    },
+    {
+      "slug": "testcase-044-alice-read-x-future",
+      "seq": 44,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 327.909,
+      "outcome": "PASS",
+      "rssBytes": 729006080
+    },
+    {
+      "slug": "testcase-045-alice-read-x",
+      "seq": 45,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 302.299,
+      "outcome": "PASS",
+      "rssBytes": 777306112
+    },
+    {
+      "slug": "testcase-046-alice-read-x-past",
+      "seq": 46,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 326.561,
+      "outcome": "PASS",
+      "rssBytes": 747372544
+    },
+    {
+      "slug": "testcase-047-alice-read-x-future",
+      "seq": 47,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 305.638,
+      "outcome": "PASS",
+      "rssBytes": 729088000
+    },
+    {
+      "slug": "testcase-048-alice-read-x",
+      "seq": 48,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 306.743,
+      "outcome": "PASS",
+      "rssBytes": 728764416
+    },
+    {
+      "slug": "testcase-049-alice-read-x-past",
+      "seq": 49,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 296.207,
+      "outcome": "PASS",
+      "rssBytes": 777244672
+    },
+    {
+      "slug": "testcase-050-alice-read-x-future",
+      "seq": 50,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 325.189,
+      "outcome": "PASS",
+      "rssBytes": 731906048
+    },
+    {
+      "slug": "testcase-051-alice",
+      "seq": 51,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 276.9,
+      "outcome": "PASS",
+      "rssBytes": 780206080
+    },
+    {
+      "slug": "testcase-052-bob-read-x",
+      "seq": 52,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 285.459,
+      "outcome": "PASS",
+      "rssBytes": 748154880
+    },
+    {
+      "slug": "testcase-053-alice-read-x",
+      "seq": 53,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 284.542,
+      "outcome": "PASS",
+      "rssBytes": 758775808
+    },
+    {
+      "slug": "testcase-054-alice-read-y",
+      "seq": 54,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 287.474,
+      "outcome": "PASS",
+      "rssBytes": 728952832
+    },
+    {
+      "slug": "testcase-055-alice-read-x",
+      "seq": 55,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 265.679,
+      "outcome": "PASS",
+      "rssBytes": 777252864
+    },
+    {
+      "slug": "testcase-056-alice-read-y",
+      "seq": 56,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 291.766,
+      "outcome": "PASS",
+      "rssBytes": 732000256
+    },
+    {
+      "slug": "testcase-057-bob-read-x",
+      "seq": 57,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 271.762,
+      "outcome": "PASS",
+      "rssBytes": 780300288
+    },
+    {
+      "slug": "testcase-058-bob-write-y",
+      "seq": 58,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 288.828,
+      "outcome": "PASS",
+      "rssBytes": 748916736
+    },
+    {
+      "slug": "testcase-059-nonset",
+      "seq": 59,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 298.283,
+      "outcome": "PASS",
+      "rssBytes": 779374592
+    },
+    {
+      "slug": "testcase-060-fulfilled",
+      "seq": 60,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 295.708,
+      "outcome": "PASS",
+      "rssBytes": 728850432
+    },
+    {
+      "slug": "testcase-061-violated",
+      "seq": 61,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 292.814,
+      "outcome": "FAIL",
+      "rssBytes": 777150464
+    },
+    {
+      "slug": "testcase-062-big-policy",
+      "seq": 62,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 6379.227,
+      "outcome": "PASS",
+      "rssBytes": 821907456,
+      "outlier": "high"
+    },
+    {
+      "slug": "testcase-063-big-policy-OoO",
+      "seq": 63,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 6419.984,
+      "outcome": "PASS",
+      "rssBytes": 752033792,
+      "outlier": "high"
+    },
+    {
+      "slug": "testcase-064-big-policy-past",
+      "seq": 64,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 6339.12,
+      "outcome": "PASS",
+      "rssBytes": 779530240,
+      "outlier": "high"
+    },
+    {
+      "slug": "testcase-065-alice",
+      "seq": 65,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 342.188,
+      "outcome": "PASS",
+      "rssBytes": 731811840
+    },
+    {
+      "slug": "testcase-066-bob-sell",
+      "seq": 66,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 314.239,
+      "outcome": "PASS",
+      "rssBytes": 780111872
+    },
+    {
+      "slug": "testcase-067-alice-past",
+      "seq": 67,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 325.842,
+      "outcome": "PASS",
+      "rssBytes": 749068288
+    },
+    {
+      "slug": "testcase-068-bob-write-y-past",
+      "seq": 68,
+      "repeat": 1,
+      "path": "engine",
+      "ms": 320.547,
+      "outcome": "PASS",
+      "rssBytes": 758337536
+    }
+  ]
+}

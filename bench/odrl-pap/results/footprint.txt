@@ -1,0 +1,11 @@
+--- maven local repository (dependency tree) ---
+345M	/tmp/claude-1002/-home-coder-deepthought-solutions-dataspace/9a455f1e-9157-40f0-a70b-fc272472716d/scratchpad/perf-bench/odrl-pap/m2
+--- build output (target/) ---
+85M	/tmp/claude-1002/-home-coder-deepthought-solutions-dataspace/9a455f1e-9157-40f0-a70b-fc272472716d/scratchpad/perf-bench/odrl-pap/odrl-pap/target
+--- runnable artifact (target/quarkus-app/) ---
+77M	/tmp/claude-1002/-home-coder-deepthought-solutions-dataspace/9a455f1e-9157-40f0-a70b-fc272472716d/scratchpad/perf-bench/odrl-pap/odrl-pap/target/quarkus-app
+--- source checkout, excluding target/ ---
+7,7M	/tmp/claude-1002/-home-coder-deepthought-solutions-dataspace/9a455f1e-9157-40f0-a70b-fc272472716d/scratchpad/perf-bench/odrl-pap/odrl-pap
+--- container images ---
+postgres:16-alpine 294282098 bytes
+openpolicyagent/opa:1.2.0 79679627 bytes

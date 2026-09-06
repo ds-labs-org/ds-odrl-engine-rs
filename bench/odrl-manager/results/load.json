@@ -1,0 +1,4869 @@
+{
+ "engine": "odrl-manager (Prometheus-X-association/odrl-manager, develop)",
+ "commit": "8842b6b9ff9fa580f9400f426a5f361f526dbd9b",
+ "mode": "native",
+ "started": "2026-09-06T10:57:50.966Z",
+ "node": "v24.18.0",
+ "concurrency_unit": "one OS process (forked Node), not an async task -- see header",
+ "levels": [
+  1,
+  2,
+  4,
+  8,
+  16,
+  22,
+  32,
+  44
+ ],
+ "step_ms": 10000,
+ "ramps": 3,
+ "sample_ms": 250,
+ "spawn_stagger_ms": 150,
+ "min_free_mb": 8192,
+ "rule3_threshold": 0.15,
+ "nproc": 22,
+ "pools": [
+  {
+   "ramp": 0,
+   "spawn_ms": 9916.092,
+   "workers": 44,
+   "mem_available_kb_before": 74744288,
+   "worker_prepare_ms": [
+    173.775,
+    188.996,
+    246.05,
+    246.566,
+    253.631,
+    242.741,
+    305.69,
+    297.405,
+    253.511,
+    321.314,
+    354.8,
+    332.486,
+    484.838,
+    487.774,
+    397.054,
+    353.007,
+    448.199,
+    416.736,
+    393.739,
+    386.025,
+    506.274,
+    401.427,
+    393.608,
+    375.645,
+    420.711,
+    391.825,
+    694.221,
+    380.058,
+    459.404,
+    305.173,
+    351.243,
+    315.712,
+    261.563,
+    322.28,
+    261.548,
+    218.919,
+    217.183,
+    216.56,
+    178.891,
+    157.305,
+    160.017,
+    190.578,
+    181.89,
+    185.411
+   ],
+   "worker_warmup_ms": [
+    90.476,
+    99.347,
+    166.982,
+    161.698,
+    140.915,
+    155.917,
+    182.742,
+    127.801,
+    164.046,
+    130.498,
+    186.574,
+    188.277,
+    214.655,
+    213.162,
+    164.761,
+    154.061,
+    170.874,
+    216.902,
+    182.398,
+    178.703,
+    247.603,
+    227.683,
+    171.171,
+    181.055,
+    231.138,
+    171.647,
+    301.409,
+    160.985,
+    190.492,
+    208.28,
+    174.566,
+    182.134,
+    114.404,
+    149.797,
+    172.066,
+    88.675,
+    81.41,
+    81.505,
+    81.773,
+    66.891,
+    139.828,
+    60.549,
+    74.17,
+    64.097
+   ],
+   "worker_rss_after_warmup_kb": [
+    367192,
+    369676,
+    371276,
+    372888,
+    368436,
+    369908,
+    369940,
+    365100,
+    371352,
+    367916,
+    373060,
+    366788,
+    367564,
+    373648,
+    372256,
+    371596,
+    373256,
+    370412,
+    373932,
+    370208,
+    371088,
+    371848,
+    374356,
+    371140,
+    366280,
+    376452,
+    454456,
+    362948,
+    370564,
+    370268,
+    372196,
+    366908,
+    370016,
+    372944,
+    370860,
+    368320,
+    367840,
+    361900,
+    370596,
+    370448,
+    373064,
+    434396,
+    364044,
+    368024
+   ],
+   "host_rss_kb": 215580
+  },
+  {
+   "ramp": 1,
+   "spawn_ms": 13131.962,
+   "workers": 44,
+   "mem_available_kb_before": 74485468,
+   "worker_prepare_ms": [
+    265.301,
+    289.324,
+    356.065,
+    488.848,
+    431.657,
+    661.824,
+    580.565,
+    933.192,
+    826.299,
+    953.545,
+    881.217,
+    1030.652,
+    1007.25,
+    1027.575,
+    829.023,
+    863.709,
+    851.544,
+    651.926,
+    637.11,
+    756.623,
+    767.017,
+    600.215,
+    590.952,
+    741.217,
+    657.502,
+    513.307,
+    494.623,
+    572.731,
+    609.016,
+    492.64,
+    388.553,
+    437.703,
+    394.813,
+    375.972,
+    421.989,
+    325.378,
+    319.137,
+    336.449,
+    316.767,
+    309.871,
+    240.725,
+    299.862,
+    286.504,
+    162.607
+   ],
+   "worker_warmup_ms": [
+    156.502,
+    190.558,
+    204.715,
+    190.442,
+    198.153,
+    541.158,
+    547.685,
+    551.197,
+    383.391,
+    723.667,
+    587.644,
+    448.649,
+    791.891,
+    294.046,
+    317.482,
+    503.803,
+    416.698,
+    398.478,
+    301.118,
+    358.249,
+    388.268,
+    271.924,
+    315.818,
+    380.699,
+    356.704,
+    307.621,
+    212.941,
+    358.175,
+    286.186,
+    277.707,
+    168.81,
+    248.569,
+    209.379,
+    150.182,
+    206.482,
+    194.573,
+    185.599,
+    163.289,
+    121.64,
+    153.982,
+    108.949,
+    176.052,
+    84.185,
+    66.242
+   ],
+   "worker_rss_after_warmup_kb": [
+    369848,
+    369948,
+    373384,
+    373932,
+    367528,
+    372376,
+    372772,
+    378484,
+    371432,
+    369804,
+    370148,
+    371448,
+    374284,
+    369828,
+    365920,
+    366336,
+    364660,
+    371792,
+    364884,
+    369380,
+    373676,
+    368236,
+    370956,
+    371076,
+    363344,
+    371160,
+    366128,
+    370688,
+    367616,
+    365664,
+    364196,
+    372620,
+    370528,
+    370584,
+    369728,
+    364028,
+    366476,
+    366984,
+    367308,
+    367572,
+    371900,
+    370232,
+    367052,
+    366416
+   ],
+   "host_rss_kb": 363372
+  },
+  {
+   "ramp": 2,
+   "spawn_ms": 13006.316,
+   "workers": 44,
+   "mem_available_kb_before": 74513080,
+   "worker_prepare_ms": [
+    193.229,
+    241.089,
+    344.897,
+    350.917,
+    453.815,
+    471.069,
+    769.146,
+    869.142,
+    635.815,
+    836.87,
+    1217.856,
+    656.548,
+    1173.199,
+    788.508,
+    953.597,
+    837.67,
+    595.595,
+    862.463,
+    820.515,
+    923.235,
+    880.335,
+    684.034,
+    754.331,
+    629.089,
+    517.121,
+    471.054,
+    464.711,
+    410.466,
+    424.708,
+    556.347,
+    502.41,
+    458.153,
+    429.263,
+    336.724,
+    345.344,
+    449.196,
+    332.149,
+    335.708,
+    254.824,
+    237.277,
+    288.007,
+    196.404,
+    196.143,
+    192.595
+   ],
+   "worker_warmup_ms": [
+    115.32,
+    168.192,
+    234.187,
+    209.422,
+    249.201,
+    366.825,
+    273.965,
+    336.667,
+    513.938,
+    498.277,
+    601.424,
+    468.204,
+    510.545,
+    353.645,
+    394.707,
+    322.527,
+    319.241,
+    411.908,
+    491.036,
+    389.444,
+    281.217,
+    348.933,
+    372.08,
+    223.213,
+    205.813,
+    272.069,
+    291.043,
+    204.175,
+    183.59,
+    177.648,
+    251.048,
+    170.212,
+    195.715,
+    205.627,
+    206.645,
+    161.945,
+    157.242,
+    122.985,
+    109.044,
+    93.721,
+    183.081,
+    99.779,
+    86.545,
+    80.167
+   ],
+   "worker_rss_after_warmup_kb": [
+    367544,
+    367528,
+    374212,
+    371660,
+    369592,
+    371044,
+    369660,
+    368012,
+    371360,
+    375296,
+    372872,
+    367360,
+    369168,
+    370240,
+    367204,
+    371076,
+    367620,
+    374340,
+    369652,
+    366988,
+    367652,
+    367464,
+    371872,
+    368636,
+    365908,
+    366236,
+    368980,
+    371300,
+    370940,
+    372144,
+    366000,
+    368744,
+    370848,
+    370964,
+    365764,
+    366348,
+    365908,
+    370052,
+    364876,
+    367000,
+    366180,
+    374868,
+    368912,
+    364816
+   ],
+   "host_rss_kb": 378884
+  }
+ ],
+ "summary": [
+  {
+   "level": 1,
+   "ramps": 3,
+   "throughput_wall": 3358.402,
+   "throughput_per_worker": 3358.402,
+   "latency_median_ms": 0.043,
+   "latency_mean_ms": 0.286,
+   "latency_p95_ms": 0.216,
+   "latency_p99_ms": 5.294,
+   "latency_max_ms": 17.906,
+   "latency_light_median_ms": 0.042,
+   "latency_light_p95_ms": 0.081,
+   "latency_light_p99_ms": 0.187,
+   "latency_exact_worker_median_of_medians": 0.043,
+   "latency_exact_worker_median_of_p99": 5.62,
+   "busy_cores": 1.363,
+   "cpu_seconds": 13.72,
+   "rss_peak_kb": 890568,
+   "rss_steady_kb": 888308,
+   "rss_per_worker_steady_kb": 888308,
+   "evaluations": 100829,
+   "errors": 0,
+   "error_rate": 0,
+   "mismatch_slugs": [
+    "testcase-009-bob-write-y",
+    "testcase-016-bob",
+    "testcase-025-bob-read-x",
+    "testcase-052-bob-read-x",
+    "testcase-053-alice-read-x",
+    "testcase-055-alice-read-x",
+    "testcase-059-nonset"
+   ],
+   "throughput_rel_range": 0.032,
+   "unstable_across_repeats": false
+  },
+  {
+   "level": 2,
+   "ramps": 3,
+   "throughput_wall": 6392.793,
+   "throughput_per_worker": 3196.397,
+   "latency_median_ms": 0.044,
+   "latency_mean_ms": 0.293,
+   "latency_p95_ms": 0.181,
+   "latency_p99_ms": 5.701,
+   "latency_max_ms": 56.641,
+   "latency_light_median_ms": 0.043,
+   "latency_light_p95_ms": 0.078,
+   "latency_light_p99_ms": 0.178,
+   "latency_exact_worker_median_of_medians": 0.044,
+   "latency_exact_worker_median_of_p99": 5.692,
+   "busy_cores": 2.68,
+   "cpu_seconds": 27.5,
+   "rss_peak_kb": 1879476,
+   "rss_steady_kb": 1783144,
+   "rss_per_worker_steady_kb": 891572,
+   "evaluations": 197646,
+   "errors": 0,
+   "error_rate": 0,
+   "mismatch_slugs": [
+    "testcase-009-bob-write-y",
+    "testcase-016-bob",
+    "testcase-025-bob-read-x",
+    "testcase-052-bob-read-x",
+    "testcase-053-alice-read-x",
+    "testcase-055-alice-read-x",
+    "testcase-059-nonset"
+   ],
+   "throughput_rel_range": 0.042,
+   "unstable_across_repeats": false
+  },
+  {
+   "level": 4,
+   "ramps": 3,
+   "throughput_wall": 10363.091,
+   "throughput_per_worker": 2590.773,
+   "latency_median_ms": 0.051,
+   "latency_mean_ms": 0.369,
+   "latency_p95_ms": 0.245,
+   "latency_p99_ms": 7.54,
+   "latency_max_ms": 46.151,
+   "latency_light_median_ms": 0.05,
+   "latency_light_p95_ms": 0.095,
+   "latency_light_p99_ms": 0.227,
+   "latency_exact_worker_median_of_medians": 0.051,
+   "latency_exact_worker_median_of_p99": 7.666,
+   "busy_cores": 5.267,
+   "cpu_seconds": 54.11,
+   "rss_peak_kb": 4214516,
+   "rss_steady_kb": 4114264,
+   "rss_per_worker_steady_kb": 1028566,
+   "evaluations": 319829,
+   "errors": 0,
+   "error_rate": 0,
+   "mismatch_slugs": [
+    "testcase-009-bob-write-y",
+    "testcase-016-bob",
+    "testcase-025-bob-read-x",
+    "testcase-052-bob-read-x",
+    "testcase-053-alice-read-x",
+    "testcase-055-alice-read-x",
+    "testcase-059-nonset"
+   ],
+   "throughput_rel_range": 0.038,
+   "unstable_across_repeats": false
+  },
+  {
+   "level": 8,
+   "ramps": 3,
+   "throughput_wall": 13942.207,
+   "throughput_per_worker": 1742.776,
+   "latency_median_ms": 0.068,
+   "latency_mean_ms": 0.556,
+   "latency_p95_ms": 0.325,
+   "latency_p99_ms": 14.689,
+   "latency_max_ms": 79.546,
+   "latency_light_median_ms": 0.067,
+   "latency_light_p95_ms": 0.161,
+   "latency_light_p99_ms": 0.286,
+   "latency_exact_worker_median_of_medians": 0.067,
+   "latency_exact_worker_median_of_p99": 14.237,
+   "busy_cores": 10.322,
+   "cpu_seconds": 104.33,
+   "rss_peak_kb": 7946500,
+   "rss_steady_kb": 7409024,
+   "rss_per_worker_steady_kb": 926128,
+   "evaluations": 431991,
+   "errors": 0,
+   "error_rate": 0,
+   "mismatch_slugs": [
+    "testcase-009-bob-write-y",
+    "testcase-016-bob",
+    "testcase-025-bob-read-x",
+    "testcase-052-bob-read-x",
+    "testcase-053-alice-read-x",
+    "testcase-055-alice-read-x",
+    "testcase-059-nonset"
+   ],
+   "throughput_rel_range": 0.089,
+   "unstable_across_repeats": false
+  },
+  {
+   "level": 16,
+   "ramps": 3,
+   "throughput_wall": 16148.501,
+   "throughput_per_worker": 1009.281,
+   "latency_median_ms": 0.122,
+   "latency_mean_ms": 0.964,
+   "latency_p95_ms": 0.585,
+   "latency_p99_ms": 20.7,
+   "latency_max_ms": 217.703,
+   "latency_light_median_ms": 0.119,
+   "latency_light_p95_ms": 0.277,
+   "latency_light_p99_ms": 0.535,
+   "latency_exact_worker_median_of_medians": 0.123,
+   "latency_exact_worker_median_of_p99": 20.584,
+   "busy_cores": 18.195,
+   "cpu_seconds": 187.72,
+   "rss_peak_kb": 14990280,
+   "rss_steady_kb": 14303588,
+   "rss_per_worker_steady_kb": 893974,
+   "evaluations": 498635,
+   "errors": 0,
+   "error_rate": 0,
+   "mismatch_slugs": [
+    "testcase-009-bob-write-y",
+    "testcase-016-bob",
+    "testcase-025-bob-read-x",
+    "testcase-052-bob-read-x",
+    "testcase-053-alice-read-x",
+    "testcase-055-alice-read-x",
+    "testcase-059-nonset"
+   ],
+   "throughput_rel_range": 0.01,
+   "unstable_across_repeats": false
+  },
+  {
+   "level": 22,
+   "ramps": 3,
+   "throughput_wall": 17222.634,
+   "throughput_per_worker": 782.847,
+   "latency_median_ms": 0.137,
+   "latency_mean_ms": 1.274,
+   "latency_p95_ms": 3.283,
+   "latency_p99_ms": 29.522,
+   "latency_max_ms": 302.082,
+   "latency_light_median_ms": 0.133,
+   "latency_light_p95_ms": 0.312,
+   "latency_light_p99_ms": 1.967,
+   "latency_exact_worker_median_of_medians": 0.135,
+   "latency_exact_worker_median_of_p99": 29.431,
+   "busy_cores": 20.896,
+   "cpu_seconds": 211.29,
+   "rss_peak_kb": 19817588,
+   "rss_steady_kb": 19249406,
+   "rss_per_worker_steady_kb": 874973,
+   "evaluations": 519273,
+   "errors": 0,
+   "error_rate": 0,
+   "mismatch_slugs": [
+    "testcase-009-bob-write-y",
+    "testcase-016-bob",
+    "testcase-025-bob-read-x",
+    "testcase-052-bob-read-x",
+    "testcase-053-alice-read-x",
+    "testcase-055-alice-read-x",
+    "testcase-059-nonset"
+   ],
+   "throughput_rel_range": 0.023,
+   "unstable_across_repeats": false
+  },
+  {
+   "level": 32,
+   "ramps": 3,
+   "throughput_wall": 16571.638,
+   "throughput_per_worker": 517.864,
+   "latency_median_ms": 0.149,
+   "latency_mean_ms": 1.948,
+   "latency_p95_ms": 6.287,
+   "latency_p99_ms": 47.842,
+   "latency_max_ms": 421.586,
+   "latency_light_median_ms": 0.145,
+   "latency_light_p95_ms": 0.492,
+   "latency_light_p99_ms": 4.026,
+   "latency_exact_worker_median_of_medians": 0.147,
+   "latency_exact_worker_median_of_p99": 47.16,
+   "busy_cores": 21.294,
+   "cpu_seconds": 216.32,
+   "rss_peak_kb": 27686208,
+   "rss_steady_kb": 25525186,
+   "rss_per_worker_steady_kb": 797662,
+   "evaluations": 504155,
+   "errors": 0,
+   "error_rate": 0,
+   "mismatch_slugs": [
+    "testcase-009-bob-write-y",
+    "testcase-016-bob",
+    "testcase-025-bob-read-x",
+    "testcase-052-bob-read-x",
+    "testcase-053-alice-read-x",
+    "testcase-055-alice-read-x",
+    "testcase-059-nonset"
+   ],
+   "throughput_rel_range": 0.017,
+   "unstable_across_repeats": false
+  },
+  {
+   "level": 44,
+   "ramps": 3,
+   "throughput_wall": 16186.74,
+   "throughput_per_worker": 367.88,
+   "latency_median_ms": 0.153,
+   "latency_mean_ms": 2.674,
+   "latency_p95_ms": 9.267,
+   "latency_p99_ms": 64.511,
+   "latency_max_ms": 610.442,
+   "latency_light_median_ms": 0.149,
+   "latency_light_p95_ms": 1.508,
+   "latency_light_p99_ms": 6.626,
+   "latency_exact_worker_median_of_medians": 0.156,
+   "latency_exact_worker_median_of_p99": 65.234,
+   "busy_cores": 21.002,
+   "cpu_seconds": 217.24,
+   "rss_peak_kb": 35246932,
+   "rss_steady_kb": 33607268,
+   "rss_per_worker_steady_kb": 763802,
+   "evaluations": 499015,
+   "errors": 0,
+   "error_rate": 0,
+   "mismatch_slugs": [
+    "testcase-009-bob-write-y",
+    "testcase-016-bob",
+    "testcase-025-bob-read-x",
+    "testcase-052-bob-read-x",
+    "testcase-053-alice-read-x",
+    "testcase-055-alice-read-x",
+    "testcase-059-nonset"
+   ],
+   "throughput_rel_range": 0.011,
+   "unstable_across_repeats": false
+  }
+ ],
+ "steps": [
+  {
+   "level": 1,
+   "repeat": 0,
+   "wall_ms": 10022.551,
+   "evaluations": 33724,
+   "errors": 0,
+   "error_rate": 0,
+   "mismatches": 3472,
+   "mismatch_slugs": [
+    "testcase-009-bob-write-y",
+    "testcase-016-bob",
+    "testcase-025-bob-read-x",
+    "testcase-052-bob-read-x",
+    "testcase-053-alice-read-x",
+    "testcase-055-alice-read-x",
+    "testcase-059-nonset"
+   ],
+   "throughput_wall": 3364.812,
+   "throughput_per_worker": 3364.812,
+   "latency_ms": {
+    "n": 4000,
+    "mean": 0.321,
+    "median": 0.044,
+    "p95": 0.3,
+    "p99": 5.701,
+    "min": 0.025,
+    "max": 17.906,
+    "stdev": 1.282,
+    "q1": 0.033,
+    "q3": 0.054,
+    "iqr": 0.021
+   },
+   "latency_light_ms": {
+    "n": 3806,
+    "mean": 0.051,
+    "median": 0.043,
+    "p95": 0.081,
+    "p99": 0.187,
+    "min": 0.025,
+    "max": 4.214,
+    "stdev": 0.11,
+    "q1": 0.033,
+    "q3": 0.052,
+    "iqr": 0.019
+   },
+   "latency_pooled_n": 4000,
+   "latency_exact_worker_median_of_medians": 0.044,
+   "latency_exact_worker_median_of_p99": 5.564,
+   "per_worker_latency_ms": [
+    {
+     "pid": 942664,
+     "median": 0.044,
+     "p99": 5.564,
+     "n": 33724
+    }
+   ],
+   "heavy_fixture_latency_ms": [
+    {
+     "fixture": "062-big-policy",
+     "worker_median_of_medians": 4.802,
+     "workers": 1
+    },
+    {
+     "fixture": "063-big-policy",
+     "worker_median_of_medians": 4.814,
+     "workers": 1
+    },
+    {
+     "fixture": "064-big-policy",
+     "worker_median_of_medians": 4.779,
+     "workers": 1
+    }
+   ],
+   "cpu_seconds": 13.72,
+   "busy_cores": 1.369,
+   "rss_peak_kb": 889256,
+   "rss_steady_kb": 888308,
+   "rss_per_worker_steady_kb": 888308,
+   "mem_available_kb": 65356864,
+   "rss_samples": 40
+  },
+  {
+   "level": 2,
+   "repeat": 0,
+   "wall_ms": 10026.66,
+   "evaluations": 66563,
+   "errors": 0,
+   "error_rate": 0,
+   "mismatches": 6853,
+   "mismatch_slugs": [
+    "testcase-009-bob-write-y",
+    "testcase-016-bob",
+    "testcase-025-bob-read-x",
+    "testcase-052-bob-read-x",
+    "testcase-053-alice-read-x",
+    "testcase-055-alice-read-x",
+    "testcase-059-nonset"
+   ],
+   "throughput_wall": 6638.601,
+   "throughput_per_worker": 3319.301,
+   "latency_ms": {
+    "n": 8000,
+    "mean": 0.293,
+    "median": 0.043,
+    "p95": 0.181,
+    "p99": 5.515,
+    "min": 0.025,
+    "max": 18.329,
+    "stdev": 1.21,
+    "q1": 0.033,
+    "q3": 0.053,
+    "iqr": 0.02
+   },
+   "latency_light_ms": {
+    "n": 7649,
+    "mean": 0.048,
+    "median": 0.042,
+    "p95": 0.074,
+    "p99": 0.156,
+    "min": 0.025,
+    "max": 4.894,
+    "stdev": 0.096,
+    "q1": 0.033,
+    "q3": 0.051,
+    "iqr": 0.018
+   },
+   "latency_pooled_n": 8000,
+   "latency_exact_worker_median_of_medians": 0.044,
+   "latency_exact_worker_median_of_p99": 5.559,
+   "per_worker_latency_ms": [
+    {
+     "pid": 942664,
+     "median": 0.045,
+     "p99": 5.735,
+     "n": 32567
+    },
+    {
+     "pid": 942672,
+     "median": 0.043,
+     "p99": 5.383,
+     "n": 33996
+    }
+   ],
+   "heavy_fixture_latency_ms": [
+    {
+     "fixture": "062-big-policy",
+     "worker_median_of_medians": 4.869,
+     "workers": 2
+    },
+    {
+     "fixture": "063-big-policy",
+     "worker_median_of_medians": 4.85,
+     "workers": 2
+    },
+    {
+     "fixture": "064-big-policy",
+     "worker_median_of_medians": 4.842,
+     "workers": 2
+    }
+   ],
+   "cpu_seconds": 27.5,
+   "busy_cores": 2.743,
+   "rss_peak_kb": 1843208,
+   "rss_steady_kb": 1761970,
+   "rss_per_worker_steady_kb": 880985,
+   "mem_available_kb": 65661820,
+   "rss_samples": 40
+  },
+  {
+   "level": 4,
+   "repeat": 0,
+   "wall_ms": 10027.271,
+   "evaluations": 107351,
+   "errors": 0,
+   "error_rate": 0,
+   "mismatches": 11053,
+   "mismatch_slugs": [
+    "testcase-009-bob-write-y",
+    "testcase-016-bob",
+    "testcase-025-bob-read-x",
+    "testcase-052-bob-read-x",
+    "testcase-053-alice-read-x",
+    "testcase-055-alice-read-x",
+    "testcase-059-nonset"
+   ],
+   "throughput_wall": 10705.904,
+   "throughput_per_worker": 2676.476,
+   "latency_ms": {
+    "n": 16000,
+    "mean": 0.364,
+    "median": 0.049,
+    "p95": 0.244,
+    "p99": 7.653,
+    "min": 0.025,
+    "max": 26.127,
+    "stdev": 1.542,
+    "q1": 0.038,
+    "q3": 0.063,
+    "iqr": 0.025
+   },
+   "latency_light_ms": {
+    "n": 15310,
+    "mean": 0.058,
+    "median": 0.048,
+    "p95": 0.095,
+    "p99": 0.23,
+    "min": 0.025,
+    "max": 6.836,
+    "stdev": 0.138,
+    "q1": 0.038,
+    "q3": 0.06,
+    "iqr": 0.022
+   },
+   "latency_pooled_n": 16000,
+   "latency_exact_worker_median_of_medians": 0.049,
+   "latency_exact_worker_median_of_p99": 7.703,
+   "per_worker_latency_ms": [
+    {
+     "pid": 942664,
+     "median": 0.047,
+     "p99": 7.607,
+     "n": 27331
+    },
+    {
+     "pid": 942672,
+     "median": 0.048,
+     "p99": 7.799,
+     "n": 26991
+    },
+    {
+     "pid": 942679,
+     "median": 0.051,
+     "p99": 7.504,
+     "n": 26515
+    },
+    {
+     "pid": 942687,
+     "median": 0.05,
+     "p99": 7.946,
+     "n": 26514
+    }
+   ],
+   "heavy_fixture_latency_ms": [
+    {
+     "fixture": "062-big-policy",
+     "worker_median_of_medians": 6.246,
+     "workers": 4
+    },
+    {
+     "fixture": "063-big-policy",
+     "worker_median_of_medians": 6.188,
+     "workers": 4
+    },
+    {
+     "fixture": "064-big-policy",
+     "worker_median_of_medians": 6.039,
+     "workers": 4
+    }
+   ],
+   "cpu_seconds": 54.29,
+   "busy_cores": 5.414,
+   "rss_peak_kb": 5095548,
+   "rss_steady_kb": 4010608,
+   "rss_per_worker_steady_kb": 1002652,
+   "mem_available_kb": 63248868,
+   "rss_samples": 40
+  },
+  {
+   "level": 8,
+   "repeat": 0,
+   "wall_ms": 10033.8,
+   "evaluations": 150581,
+   "errors": 0,
+   "error_rate": 0,
+   "mismatches": 15505,
+   "mismatch_slugs": [
+    "testcase-009-bob-write-y",
+    "testcase-016-bob",
+    "testcase-025-bob-read-x",
+    "testcase-052-bob-read-x",
+    "testcase-053-alice-read-x",
+    "testcase-055-alice-read-x",
+    "testcase-059-nonset"
+   ],
+   "throughput_wall": 15007.375,
+   "throughput_per_worker": 1875.922,
+   "latency_ms": {
+    "n": 32000,
+    "mean": 0.537,
+    "median": 0.061,
+    "p95": 0.325,
+    "p99": 13.691,
+    "min": 0.027,
+    "max": 75.251,
+    "stdev": 2.394,
+    "q1": 0.045,
+    "q3": 0.087,
+    "iqr": 0.042
+   },
+   "latency_light_ms": {
+    "n": 30605,
+    "mean": 0.077,
+    "median": 0.06,
+    "p95": 0.145,
+    "p99": 0.271,
+    "min": 0.027,
+    "max": 7.093,
+    "stdev": 0.183,
+    "q1": 0.044,
+    "q3": 0.082,
+    "iqr": 0.038
+   },
+   "latency_pooled_n": 32000,
+   "latency_exact_worker_median_of_medians": 0.061,
+   "latency_exact_worker_median_of_p99": 13.312,
+   "per_worker_latency_ms": [
+    {
+     "pid": 942664,
+     "median": 0.059,
+     "p99": 13.118,
+     "n": 19511
+    },
+    {
+     "pid": 942672,
+     "median": 0.061,
+     "p99": 13.703,
+     "n": 18694
+    },
+    {
+     "pid": 942679,
+     "median": 0.054,
+     "p99": 10.922,
+     "n": 20599
+    },
+    {
+     "pid": 942687,
+     "median": 0.056,
+     "p99": 12.753,
+     "n": 19919
+    },
+    {
+     "pid": 942694,
+     "median": 0.067,
+     "p99": 14.139,
+     "n": 17676
+    },
+    {
+     "pid": 942702,
+     "median": 0.064,
+     "p99": 13.505,
+     "n": 18219
+    },
+    {
+     "pid": 942709,
+     "median": 0.076,
+     "p99": 14.574,
+     "n": 16112
+    },
+    {
+     "pid": 942716,
+     "median": 0.06,
+     "p99": 12.235,
+     "n": 19851
+    }
+   ],
+   "heavy_fixture_latency_ms": [
+    {
+     "fixture": "062-big-policy",
+     "worker_median_of_medians": 8.56,
+     "workers": 8
+    },
+    {
+     "fixture": "063-big-policy",
+     "worker_median_of_medians": 8.635,
+     "workers": 8
+    },
+    {
+     "fixture": "064-big-policy",
+     "worker_median_of_medians": 8.322,
+     "workers": 8
+    }
+   ],
+   "cpu_seconds": 104.33,
+   "busy_cores": 10.398,
+   "rss_peak_kb": 8732636,
+   "rss_steady_kb": 8282038,
+   "rss_per_worker_steady_kb": 1035255,
+   "mem_available_kb": 60220016,
+   "rss_samples": 40
+  },
+  {
+   "level": 16,
+   "repeat": 0,
+   "wall_ms": 10317.166,
+   "evaluations": 165233,
+   "errors": 0,
+   "error_rate": 0,
+   "mismatches": 17017,
+   "mismatch_slugs": [
+    "testcase-009-bob-write-y",
+    "testcase-016-bob",
+    "testcase-025-bob-read-x",
+    "testcase-052-bob-read-x",
+    "testcase-053-alice-read-x",
+    "testcase-055-alice-read-x",
+    "testcase-059-nonset"
+   ],
+   "throughput_wall": 16015.348,
+   "throughput_per_worker": 1000.959,
+   "latency_ms": {
+    "n": 64000,
+    "mean": 0.964,
+    "median": 0.123,
+    "p95": 0.585,
+    "p99": 20.68,
+    "min": 0.038,
+    "max": 234.305,
+    "stdev": 4.223,
+    "q1": 0.091,
+    "q3": 0.173,
+    "iqr": 0.082
+   },
+   "latency_light_ms": {
+    "n": 61205,
+    "mean": 0.155,
+    "median": 0.119,
+    "p95": 0.282,
+    "p99": 0.535,
+    "min": 0.038,
+    "max": 87.8,
+    "stdev": 0.531,
+    "q1": 0.09,
+    "q3": 0.164,
+    "iqr": 0.074
+   },
+   "latency_pooled_n": 64000,
+   "latency_exact_worker_median_of_medians": 0.124,
+   "latency_exact_worker_median_of_p99": 20.529,
+   "per_worker_latency_ms": [
+    {
+     "pid": 942664,
+     "median": 0.111,
+     "p99": 19.903,
+     "n": 10672
+    },
+    {
+     "pid": 942672,
+     "median": 0.111,
+     "p99": 19.392,
+     "n": 10944
+    },
+    {
+     "pid": 942679,
+     "median": 0.119,
+     "p99": 20.173,
+     "n": 10196
+    },
+    {
+     "pid": 942687,
+     "median": 0.103,
+     "p99": 19.044,
+     "n": 11759
+    },
+    {
+     "pid": 942694,
+     "median": 0.14,
+     "p99": 24.192,
+     "n": 9176
+    },
+    {
+     "pid": 942702,
+     "median": 0.123,
+     "p99": 21.49,
+     "n": 9856
+    },
+    {
+     "pid": 942709,
+     "median": 0.119,
+     "p99": 19.8,
+     "n": 10535
+    },
+    {
+     "pid": 942716,
+     "median": 0.114,
+     "p99": 19.32,
+     "n": 11148
+    },
+    {
+     "pid": 942723,
+     "median": 0.133,
+     "p99": 22.9,
+     "n": 9720
+    },
+    {
+     "pid": 942732,
+     "median": 0.11,
+     "p99": 19.635,
+     "n": 11419
+    },
+    {
+     "pid": 942739,
+     "median": 0.128,
+     "p99": 22.333,
+     "n": 10126
+    },
+    {
+     "pid": 942746,
+     "median": 0.124,
+     "p99": 20.489,
+     "n": 10534
+    },
+    {
+     "pid": 942753,
+     "median": 0.134,
+     "p99": 20.569,
+     "n": 9856
+    },
+    {
+     "pid": 942761,
+     "median": 0.136,
+     "p99": 21.886,
+     "n": 9650
+    },
+    {
+     "pid": 942770,
+     "median": 0.132,
+     "p99": 24.046,
+     "n": 9786
+    },
+    {
+     "pid": 942777,
+     "median": 0.132,
+     "p99": 22.026,
+     "n": 9856
+    }
+   ],
+   "heavy_fixture_latency_ms": [
+    {
+     "fixture": "062-big-policy",
+     "worker_median_of_medians": 18.328,
+     "workers": 16
+    },
+    {
+     "fixture": "063-big-policy",
+     "worker_median_of_medians": 18.67,
+     "workers": 16
+    },
+    {
+     "fixture": "064-big-policy",
+     "worker_median_of_medians": 18.338,
+     "workers": 16
+    }
+   ],
+   "cpu_seconds": 187.72,
+   "busy_cores": 18.195,
+   "rss_peak_kb": 15781292,
+   "rss_steady_kb": 15005960,
+   "rss_per_worker_steady_kb": 937873,
+   "mem_available_kb": 54638632,
+   "rss_samples": 41
+  },
+  {
+   "level": 22,
+   "repeat": 0,
+   "wall_ms": 10120.229,
+   "evaluations": 174297,
+   "errors": 0,
+   "error_rate": 0,
+   "mismatches": 17952,
+   "mismatch_slugs": [
+    "testcase-009-bob-write-y",
+    "testcase-016-bob",
+    "testcase-025-bob-read-x",
+    "testcase-052-bob-read-x",
+    "testcase-053-alice-read-x",
+    "testcase-055-alice-read-x",
+    "testcase-059-nonset"
+   ],
+   "throughput_wall": 17222.634,
+   "throughput_per_worker": 782.847,
+   "latency_ms": {
+    "n": 88000,
+    "mean": 1.274,
+    "median": 0.138,
+    "p95": 3.283,
+    "p99": 29.072,
+    "min": 0.036,
+    "max": 319.396,
+    "stdev": 6.018,
+    "q1": 0.106,
+    "q3": 0.187,
+    "iqr": 0.081
+   },
+   "latency_light_ms": {
+    "n": 84125,
+    "mean": 0.207,
+    "median": 0.134,
+    "p95": 0.318,
+    "p99": 1.512,
+    "min": 0.036,
+    "max": 99.137,
+    "stdev": 0.835,
+    "q1": 0.105,
+    "q3": 0.178,
+    "iqr": 0.073
+   },
+   "latency_pooled_n": 88000,
+   "latency_exact_worker_median_of_medians": 0.134,
+   "latency_exact_worker_median_of_p99": 28.548,
+   "per_worker_latency_ms": [
+    {
+     "pid": 942664,
+     "median": 0.119,
+     "p99": 23.721,
+     "n": 9175
+    },
+    {
+     "pid": 942672,
+     "median": 0.122,
+     "p99": 25.332,
+     "n": 8970
+    },
+    {
+     "pid": 942679,
+     "median": 0.131,
+     "p99": 31.936,
+     "n": 7747
+    },
+    {
+     "pid": 942687,
+     "median": 0.137,
+     "p99": 29.303,
+     "n": 7747
+    },
+    {
+     "pid": 942694,
+     "median": 0.117,
+     "p99": 24.036,
+     "n": 9448
+    },
+    {
+     "pid": 942702,
+     "median": 0.145,
+     "p99": 37.322,
+     "n": 6999
+    },
+    {
+     "pid": 942709,
+     "median": 0.139,
+     "p99": 36.504,
+     "n": 7310
+    },
+    {
+     "pid": 942716,
+     "median": 0.123,
+     "p99": 25.199,
+     "n": 8442
+    },
+    {
+     "pid": 942723,
+     "median": 0.132,
+     "p99": 26.676,
+     "n": 8289
+    },
+    {
+     "pid": 942732,
+     "median": 0.132,
+     "p99": 27.93,
+     "n": 7952
+    },
+    {
+     "pid": 942739,
+     "median": 0.129,
+     "p99": 27.787,
+     "n": 8156
+    },
+    {
+     "pid": 942746,
+     "median": 0.124,
+     "p99": 24.961,
+     "n": 8972
+    },
+    {
+     "pid": 942753,
+     "median": 0.136,
+     "p99": 27.121,
+     "n": 8292
+    },
+    {
+     "pid": 942761,
+     "median": 0.131,
+     "p99": 28.924,
+     "n": 8291
+    },
+    {
+     "pid": 942770,
+     "median": 0.13,
+     "p99": 25.345,
+     "n": 8359
+    },
+    {
+     "pid": 942777,
+     "median": 0.144,
+     "p99": 33.564,
+     "n": 7475
+    },
+    {
+     "pid": 942784,
+     "median": 0.154,
+     "p99": 31.731,
+     "n": 7270
+    },
+    {
+     "pid": 942791,
+     "median": 0.15,
+     "p99": 28.953,
+     "n": 7542
+    },
+    {
+     "pid": 942799,
+     "median": 0.198,
+     "p99": 37.003,
+     "n": 6115
+    },
+    {
+     "pid": 942807,
+     "median": 0.15,
+     "p99": 28.171,
+     "n": 7679
+    },
+    {
+     "pid": 942814,
+     "median": 0.162,
+     "p99": 33.29,
+     "n": 6863
+    },
+    {
+     "pid": 942823,
+     "median": 0.147,
+     "p99": 34.906,
+     "n": 7204
+    }
+   ],
+   "heavy_fixture_latency_ms": [
+    {
+     "fixture": "062-big-policy",
+     "worker_median_of_medians": 19.329,
+     "workers": 22
+    },
+    {
+     "fixture": "063-big-policy",
+     "worker_median_of_medians": 19.512,
+     "workers": 22
+    },
+    {
+     "fixture": "064-big-policy",
+     "worker_median_of_medians": 19.63,
+     "workers": 22
+    }
+   ],
+   "cpu_seconds": 211.59,
+   "busy_cores": 20.908,
+   "rss_peak_kb": 20590124,
+   "rss_steady_kb": 19986270,
+   "rss_per_worker_steady_kb": 908467,
+   "mem_available_kb": 50853540,
+   "rss_samples": 40
+  },
+  {
+   "level": 32,
+   "repeat": 0,
+   "wall_ms": 10197.846,
+   "evaluations": 166583,
+   "errors": 0,
+   "error_rate": 0,
+   "mismatches": 17159,
+   "mismatch_slugs": [
+    "testcase-009-bob-write-y",
+    "testcase-016-bob",
+    "testcase-025-bob-read-x",
+    "testcase-052-bob-read-x",
+    "testcase-053-alice-read-x",
+    "testcase-055-alice-read-x",
+    "testcase-059-nonset"
+   ],
+   "throughput_wall": 16335.116,
+   "throughput_per_worker": 510.472,
+   "latency_ms": {
+    "n": 127855,
+    "mean": 1.995,
+    "median": 0.151,
+    "p95": 6.298,
+    "p99": 49.126,
+    "min": 0.042,
+    "max": 421.063,
+    "stdev": 9.352,
+    "q1": 0.115,
+    "q3": 0.208,
+    "iqr": 0.093
+   },
+   "latency_light_ms": {
+    "n": 122208,
+    "mean": 0.335,
+    "median": 0.147,
+    "p95": 0.512,
+    "p99": 4.026,
+    "min": 0.042,
+    "max": 70.469,
+    "stdev": 1.302,
+    "q1": 0.114,
+    "q3": 0.196,
+    "iqr": 0.082
+   },
+   "latency_pooled_n": 127855,
+   "latency_exact_worker_median_of_medians": 0.152,
+   "latency_exact_worker_median_of_p99": 48.142,
+   "per_worker_latency_ms": [
+    {
+     "pid": 942664,
+     "median": 0.146,
+     "p99": 50.535,
+     "n": 4822
+    },
+    {
+     "pid": 942672,
+     "median": 0.121,
+     "p99": 37.568,
+     "n": 6727
+    },
+    {
+     "pid": 942679,
+     "median": 0.165,
+     "p99": 55.051,
+     "n": 4414
+    },
+    {
+     "pid": 942687,
+     "median": 0.126,
+     "p99": 42.833,
+     "n": 5707
+    },
+    {
+     "pid": 942694,
+     "median": 0.154,
+     "p99": 52.013,
+     "n": 4348
+    },
+    {
+     "pid": 942702,
+     "median": 0.139,
+     "p99": 43.384,
+     "n": 5775
+    },
+    {
+     "pid": 942709,
+     "median": 0.127,
+     "p99": 42.465,
+     "n": 6182
+    },
+    {
+     "pid": 942716,
+     "median": 0.167,
+     "p99": 56.008,
+     "n": 4483
+    },
+    {
+     "pid": 942723,
+     "median": 0.142,
+     "p99": 42.943,
+     "n": 5843
+    },
+    {
+     "pid": 942732,
+     "median": 0.143,
+     "p99": 48.221,
+     "n": 4960
+    },
+    {
+     "pid": 942739,
+     "median": 0.176,
+     "p99": 55.893,
+     "n": 4347
+    },
+    {
+     "pid": 942746,
+     "median": 0.154,
+     "p99": 55.035,
+     "n": 4211
+    },
+    {
+     "pid": 942753,
+     "median": 0.131,
+     "p99": 42.083,
+     "n": 6388
+    },
+    {
+     "pid": 942761,
+     "median": 0.13,
+     "p99": 29.549,
+     "n": 7731
+    },
+    {
+     "pid": 942770,
+     "median": 0.157,
+     "p99": 59.783,
+     "n": 4076
+    },
+    {
+     "pid": 942777,
+     "median": 0.135,
+     "p99": 41.938,
+     "n": 5638
+    },
+    {
+     "pid": 942784,
+     "median": 0.137,
+     "p99": 37.795,
+     "n": 6726
+    },
+    {
+     "pid": 942791,
+     "median": 0.173,
+     "p99": 56.855,
+     "n": 4416
+    },
+    {
+     "pid": 942799,
+     "median": 0.157,
+     "p99": 54.197,
+     "n": 4620
+    },
+    {
+     "pid": 942807,
+     "median": 0.127,
+     "p99": 38.758,
+     "n": 6591
+    },
+    {
+     "pid": 942814,
+     "median": 0.146,
+     "p99": 45.704,
+     "n": 5026
+    },
+    {
+     "pid": 942823,
+     "median": 0.14,
+     "p99": 42.035,
+     "n": 5300
+    },
+    {
+     "pid": 942830,
+     "median": 0.177,
+     "p99": 56.507,
+     "n": 4414
+    },
+    {
+     "pid": 942837,
+     "median": 0.17,
+     "p99": 50.41,
+     "n": 4754
+    },
+    {
+     "pid": 942844,
+     "median": 0.164,
+     "p99": 50.198,
+     "n": 4552
+    },
+    {
+     "pid": 942851,
+     "median": 0.159,
+     "p99": 43.286,
+     "n": 5639
+    },
+    {
+     "pid": 942858,
+     "median": 0.15,
+     "p99": 49.391,
+     "n": 5201
+    },
+    {
+     "pid": 942865,
+     "median": 0.18,
+     "p99": 63.227,
+     "n": 3855
+    },
+    {
+     "pid": 942872,
+     "median": 0.152,
+     "p99": 41.292,
+     "n": 5774
+    },
+    {
+     "pid": 942879,
+     "median": 0.189,
+     "p99": 61.377,
+     "n": 4008
+    },
+    {
+     "pid": 942886,
+     "median": 0.151,
+     "p99": 44.929,
+     "n": 5435
+    },
+    {
+     "pid": 942893,
+     "median": 0.166,
+     "p99": 48.063,
+     "n": 4620
+    }
+   ],
+   "heavy_fixture_latency_ms": [
+    {
+     "fixture": "062-big-policy",
+     "worker_median_of_medians": 36.032,
+     "workers": 32
+    },
+    {
+     "fixture": "063-big-policy",
+     "worker_median_of_medians": 37.237,
+     "workers": 32
+    },
+    {
+     "fixture": "064-big-policy",
+     "worker_median_of_medians": 35.383,
+     "workers": 32
+    }
+   ],
+   "cpu_seconds": 215.67,
+   "busy_cores": 21.149,
+   "rss_peak_kb": 28404684,
+   "rss_steady_kb": 26276960,
+   "rss_per_worker_steady_kb": 821155,
+   "mem_available_kb": 44828292,
+   "rss_samples": 40
+  },
+  {
+   "level": 44,
+   "repeat": 0,
+   "wall_ms": 10343.838,
+   "evaluations": 166067,
+   "errors": 0,
+   "error_rate": 0,
+   "mismatches": 17113,
+   "mismatch_slugs": [
+    "testcase-009-bob-write-y",
+    "testcase-016-bob",
+    "testcase-025-bob-read-x",
+    "testcase-052-bob-read-x",
+    "testcase-053-alice-read-x",
+    "testcase-055-alice-read-x",
+    "testcase-059-nonset"
+   ],
+   "throughput_wall": 16054.679,
+   "throughput_per_worker": 364.879,
+   "latency_ms": {
+    "n": 160693,
+    "mean": 2.674,
+    "median": 0.155,
+    "p95": 9.267,
+    "p99": 64.347,
+    "min": 0.043,
+    "max": 610.442,
+    "stdev": 12.124,
+    "q1": 0.117,
+    "q3": 0.218,
+    "iqr": 0.101
+   },
+   "latency_light_ms": {
+    "n": 153612,
+    "mean": 0.454,
+    "median": 0.151,
+    "p95": 1.508,
+    "p99": 6.601,
+    "min": 0.043,
+    "max": 207.453,
+    "stdev": 1.763,
+    "q1": 0.115,
+    "q3": 0.205,
+    "iqr": 0.09
+   },
+   "latency_pooled_n": 160693,
+   "latency_exact_worker_median_of_medians": 0.155,
+   "latency_exact_worker_median_of_p99": 63.349,
+   "per_worker_latency_ms": [
+    {
+     "pid": 942664,
+     "median": 0.155,
+     "p99": 58.536,
+     "n": 4074
+    },
+    {
+     "pid": 942672,
+     "median": 0.131,
+     "p99": 50.584,
+     "n": 4348
+    },
+    {
+     "pid": 942679,
+     "median": 0.151,
+     "p99": 65.106,
+     "n": 3912
+    },
+    {
+     "pid": 942687,
+     "median": 0.137,
+     "p99": 62.456,
+     "n": 3736
+    },
+    {
+     "pid": 942694,
+     "median": 0.148,
+     "p99": 60.259,
+     "n": 4076
+    },
+    {
+     "pid": 942702,
+     "median": 0.126,
+     "p99": 63.133,
+     "n": 3939
+    },
+    {
+     "pid": 942709,
+     "median": 0.223,
+     "p99": 63.993,
+     "n": 3629
+    },
+    {
+     "pid": 942716,
+     "median": 0.123,
+     "p99": 51.419,
+     "n": 4686
+    },
+    {
+     "pid": 942723,
+     "median": 0.128,
+     "p99": 54.72,
+     "n": 4482
+    },
+    {
+     "pid": 942732,
+     "median": 0.158,
+     "p99": 72.1,
+     "n": 3260
+    },
+    {
+     "pid": 942739,
+     "median": 0.17,
+     "p99": 73.807,
+     "n": 3141
+    },
+    {
+     "pid": 942746,
+     "median": 0.156,
+     "p99": 73.643,
+     "n": 3124
+    },
+    {
+     "pid": 942753,
+     "median": 0.159,
+     "p99": 63.632,
+     "n": 3667
+    },
+    {
+     "pid": 942761,
+     "median": 0.149,
+     "p99": 54.51,
+     "n": 4344
+    },
+    {
+     "pid": 942770,
+     "median": 0.155,
+     "p99": 72.52,
+     "n": 3463
+    },
+    {
+     "pid": 942777,
+     "median": 0.142,
+     "p99": 57.962,
+     "n": 4074
+    },
+    {
+     "pid": 942784,
+     "median": 0.14,
+     "p99": 56.777,
+     "n": 4347
+    },
+    {
+     "pid": 942791,
+     "median": 0.154,
+     "p99": 58.215,
+     "n": 3939
+    },
+    {
+     "pid": 942799,
+     "median": 0.124,
+     "p99": 52.749,
+     "n": 4619
+    },
+    {
+     "pid": 942807,
+     "median": 0.146,
+     "p99": 66.086,
+     "n": 3735
+    },
+    {
+     "pid": 942814,
+     "median": 0.151,
+     "p99": 64.302,
+     "n": 3395
+    },
+    {
+     "pid": 942823,
+     "median": 0.163,
+     "p99": 63.077,
+     "n": 3667
+    },
+    {
+     "pid": 942830,
+     "median": 0.178,
+     "p99": 77.144,
+     "n": 2988
+    },
+    {
+     "pid": 942837,
+     "median": 0.155,
+     "p99": 63.565,
+     "n": 3735
+    },
+    {
+     "pid": 942844,
+     "median": 0.167,
+     "p99": 58.72,
+     "n": 4008
+    },
+    {
+     "pid": 942851,
+     "median": 0.148,
+     "p99": 60.436,
+     "n": 3871
+    },
+    {
+     "pid": 942858,
+     "median": 0.188,
+     "p99": 68.039,
+     "n": 3463
+    },
+    {
+     "pid": 942865,
+     "median": 0.136,
+     "p99": 56.016,
+     "n": 4279
+    },
+    {
+     "pid": 942872,
+     "median": 0.173,
+     "p99": 75.045,
+     "n": 2987
+    },
+    {
+     "pid": 942879,
+     "median": 0.136,
+     "p99": 52.61,
+     "n": 4551
+    },
+    {
+     "pid": 942886,
+     "median": 0.158,
+     "p99": 66.57,
+     "n": 3463
+    },
+    {
+     "pid": 942893,
+     "median": 0.155,
+     "p99": 54.81,
+     "n": 4280
+    },
+    {
+     "pid": 942900,
+     "median": 0.166,
+     "p99": 60.692,
+     "n": 3871
+    },
+    {
+     "pid": 942907,
+     "median": 0.194,
+     "p99": 79.275,
+     "n": 3191
+    },
+    {
+     "pid": 942916,
+     "median": 0.183,
+     "p99": 72.232,
+     "n": 3258
+    },
+    {
+     "pid": 942923,
+     "median": 0.186,
+     "p99": 65.83,
+     "n": 3326
+    },
+    {
+     "pid": 942930,
+     "median": 0.18,
+     "p99": 72.269,
+     "n": 3363
+    },
+    {
+     "pid": 942937,
+     "median": 0.166,
+     "p99": 55.047,
+     "n": 4006
+    },
+    {
+     "pid": 942944,
+     "median": 0.152,
+     "p99": 64.446,
+     "n": 3668
+    },
+    {
+     "pid": 942951,
+     "median": 0.197,
+     "p99": 79.679,
+     "n": 2716
+    },
+    {
+     "pid": 942958,
+     "median": 0.195,
+     "p99": 72.9,
+     "n": 2987
+    },
+    {
+     "pid": 942965,
+     "median": 0.173,
+     "p99": 70.867,
+     "n": 3199
+    },
+    {
+     "pid": 942972,
+     "median": 0.14,
+     "p99": 52.222,
+     "n": 4348
+    },
+    {
+     "pid": 942980,
+     "median": 0.141,
+     "p99": 50.545,
+     "n": 4852
+    }
+   ],
+   "heavy_fixture_latency_ms": [
+    {
+     "fixture": "062-big-policy",
+     "worker_median_of_medians": 44.031,
+     "workers": 44
+    },
+    {
+     "fixture": "063-big-policy",
+     "worker_median_of_medians": 45.071,
+     "workers": 44
+    },
+    {
+     "fixture": "064-big-policy",
+     "worker_median_of_medians": 45.511,
+     "workers": 44
+    }
+   ],
+   "cpu_seconds": 217.24,
+   "busy_cores": 21.002,
+   "rss_peak_kb": 35959428,
+   "rss_steady_kb": 33995118,
+   "rss_per_worker_steady_kb": 772616,
+   "mem_available_kb": 39741700,
+   "rss_samples": 40
+  },
+  {
+   "level": 1,
+   "repeat": 1,
+   "wall_ms": 10270.931,
+   "evaluations": 33450,
+   "errors": 0,
+   "error_rate": 0,
+   "mismatches": 3444,
+   "mismatch_slugs": [
+    "testcase-009-bob-write-y",
+    "testcase-016-bob",
+    "testcase-025-bob-read-x",
+    "testcase-052-bob-read-x",
+    "testcase-053-alice-read-x",
+    "testcase-055-alice-read-x",
+    "testcase-059-nonset"
+   ],
+   "throughput_wall": 3256.764,
+   "throughput_per_worker": 3256.764,
+   "latency_ms": {
+    "n": 4000,
+    "mean": 0.284,
+    "median": 0.043,
+    "p95": 0.216,
+    "p99": 5.211,
+    "min": 0.024,
+    "max": 12.015,
+    "stdev": 1.138,
+    "q1": 0.033,
+    "q3": 0.054,
+    "iqr": 0.021
+   },
+   "latency_light_ms": {
+    "n": 3824,
+    "mean": 0.052,
+    "median": 0.042,
+    "p95": 0.082,
+    "p99": 0.184,
+    "min": 0.024,
+    "max": 4.379,
+    "stdev": 0.135,
+    "q1": 0.033,
+    "q3": 0.052,
+    "iqr": 0.019
+   },
+   "latency_pooled_n": 4000,
+   "latency_exact_worker_median_of_medians": 0.043,
+   "latency_exact_worker_median_of_p99": 5.76,
+   "per_worker_latency_ms": [
+    {
+     "pid": 943201,
+     "median": 0.043,
+     "p99": 5.76,
+     "n": 33450
+    }
+   ],
+   "heavy_fixture_latency_ms": [
+    {
+     "fixture": "062-big-policy",
+     "worker_median_of_medians": 4.82,
+     "workers": 1
+    },
+    {
+     "fixture": "063-big-policy",
+     "worker_median_of_medians": 4.743,
+     "workers": 1
+    },
+    {
+     "fixture": "064-big-policy",
+     "worker_median_of_medians": 4.766,
+     "workers": 1
+    }
+   ],
+   "cpu_seconds": 13.73,
+   "busy_cores": 1.337,
+   "rss_peak_kb": 890568,
+   "rss_steady_kb": 869696,
+   "rss_per_worker_steady_kb": 869696,
+   "mem_available_kb": 64834792,
+   "rss_samples": 41
+  },
+  {
+   "level": 2,
+   "repeat": 1,
+   "wall_ms": 10273.756,
+   "evaluations": 65678,
+   "errors": 0,
+   "error_rate": 0,
+   "mismatches": 6762,
+   "mismatch_slugs": [
+    "testcase-009-bob-write-y",
+    "testcase-016-bob",
+    "testcase-025-bob-read-x",
+    "testcase-052-bob-read-x",
+    "testcase-053-alice-read-x",
+    "testcase-055-alice-read-x",
+    "testcase-059-nonset"
+   ],
+   "throughput_wall": 6392.793,
+   "throughput_per_worker": 3196.397,
+   "latency_ms": {
+    "n": 8000,
+    "mean": 0.311,
+    "median": 0.044,
+    "p95": 0.218,
+    "p99": 5.798,
+    "min": 0.026,
+    "max": 58.425,
+    "stdev": 1.382,
+    "q1": 0.034,
+    "q3": 0.054,
+    "iqr": 0.02
+   },
+   "latency_light_ms": {
+    "n": 7641,
+    "mean": 0.052,
+    "median": 0.043,
+    "p95": 0.079,
+    "p99": 0.178,
+    "min": 0.026,
+    "max": 5.566,
+    "stdev": 0.147,
+    "q1": 0.034,
+    "q3": 0.052,
+    "iqr": 0.018
+   },
+   "latency_pooled_n": 8000,
+   "latency_exact_worker_median_of_medians": 0.044,
+   "latency_exact_worker_median_of_p99": 5.692,
+   "per_worker_latency_ms": [
+    {
+     "pid": 943201,
+     "median": 0.044,
+     "p99": 5.629,
+     "n": 33042
+    },
+    {
+     "pid": 943208,
+     "median": 0.044,
+     "p99": 5.754,
+     "n": 32636
+    }
+   ],
+   "heavy_fixture_latency_ms": [
+    {
+     "fixture": "062-big-policy",
+     "worker_median_of_medians": 5.031,
+     "workers": 2
+    },
+    {
+     "fixture": "063-big-policy",
+     "worker_median_of_medians": 5.01,
+     "workers": 2
+    },
+    {
+     "fixture": "064-big-policy",
+     "worker_median_of_medians": 4.988,
+     "workers": 2
+    }
+   ],
+   "cpu_seconds": 27.53,
+   "busy_cores": 2.68,
+   "rss_peak_kb": 1885980,
+   "rss_steady_kb": 1783144,
+   "rss_per_worker_steady_kb": 891572,
+   "mem_available_kb": 65339072,
+   "rss_samples": 41
+  },
+  {
+   "level": 4,
+   "repeat": 1,
+   "wall_ms": 10277.142,
+   "evaluations": 106009,
+   "errors": 0,
+   "error_rate": 0,
+   "mismatches": 10914,
+   "mismatch_slugs": [
+    "testcase-009-bob-write-y",
+    "testcase-016-bob",
+    "testcase-025-bob-read-x",
+    "testcase-052-bob-read-x",
+    "testcase-053-alice-read-x",
+    "testcase-055-alice-read-x",
+    "testcase-059-nonset"
+   ],
+   "throughput_wall": 10315.027,
+   "throughput_per_worker": 2578.757,
+   "latency_ms": {
+    "n": 16000,
+    "mean": 0.369,
+    "median": 0.051,
+    "p95": 0.247,
+    "p99": 7.356,
+    "min": 0.027,
+    "max": 46.151,
+    "stdev": 1.568,
+    "q1": 0.039,
+    "q3": 0.064,
+    "iqr": 0.025
+   },
+   "latency_light_ms": {
+    "n": 15301,
+    "mean": 0.063,
+    "median": 0.05,
+    "p95": 0.096,
+    "p99": 0.227,
+    "min": 0.027,
+    "max": 20.414,
+    "stdev": 0.234,
+    "q1": 0.039,
+    "q3": 0.061,
+    "iqr": 0.022
+   },
+   "latency_pooled_n": 16000,
+   "latency_exact_worker_median_of_medians": 0.051,
+   "latency_exact_worker_median_of_p99": 7.666,
+   "per_worker_latency_ms": [
+    {
+     "pid": 943201,
+     "median": 0.05,
+     "p99": 7.831,
+     "n": 26466
+    },
+    {
+     "pid": 943208,
+     "median": 0.05,
+     "p99": 7.016,
+     "n": 27534
+    },
+    {
+     "pid": 943215,
+     "median": 0.053,
+     "p99": 7.983,
+     "n": 25698
+    },
+    {
+     "pid": 943222,
+     "median": 0.052,
+     "p99": 7.5,
+     "n": 26311
+    }
+   ],
+   "heavy_fixture_latency_ms": [
+    {
+     "fixture": "062-big-policy",
+     "worker_median_of_medians": 6.214,
+     "workers": 4
+    },
+    {
+     "fixture": "063-big-policy",
+     "worker_median_of_medians": 6.259,
+     "workers": 4
+    },
+    {
+     "fixture": "064-big-policy",
+     "worker_median_of_medians": 6.153,
+     "workers": 4
+    }
+   ],
+   "cpu_seconds": 53.94,
+   "busy_cores": 5.249,
+   "rss_peak_kb": 4209072,
+   "rss_steady_kb": 4114264,
+   "rss_per_worker_steady_kb": 1028566,
+   "mem_available_kb": 63566720,
+   "rss_samples": 41
+  },
+  {
+   "level": 8,
+   "repeat": 1,
+   "wall_ms": 10279.919,
+   "evaluations": 141465,
+   "errors": 0,
+   "error_rate": 0,
+   "mismatches": 14567,
+   "mismatch_slugs": [
+    "testcase-009-bob-write-y",
+    "testcase-016-bob",
+    "testcase-025-bob-read-x",
+    "testcase-052-bob-read-x",
+    "testcase-053-alice-read-x",
+    "testcase-055-alice-read-x",
+    "testcase-059-nonset"
+   ],
+   "throughput_wall": 13761.295,
+   "throughput_per_worker": 1720.162,
+   "latency_ms": {
+    "n": 32000,
+    "mean": 0.571,
+    "median": 0.068,
+    "p95": 0.355,
+    "p99": 14.689,
+    "min": 0.029,
+    "max": 79.546,
+    "stdev": 2.484,
+    "q1": 0.05,
+    "q3": 0.098,
+    "iqr": 0.048
+   },
+   "latency_light_ms": {
+    "n": 30567,
+    "mean": 0.087,
+    "median": 0.067,
+    "p95": 0.161,
+    "p99": 0.286,
+    "min": 0.029,
+    "max": 23.106,
+    "stdev": 0.274,
+    "q1": 0.049,
+    "q3": 0.092,
+    "iqr": 0.043
+   },
+   "latency_pooled_n": 32000,
+   "latency_exact_worker_median_of_medians": 0.067,
+   "latency_exact_worker_median_of_p99": 14.237,
+   "per_worker_latency_ms": [
+    {
+     "pid": 943201,
+     "median": 0.063,
+     "p99": 13.747,
+     "n": 18628
+    },
+    {
+     "pid": 943208,
+     "median": 0.066,
+     "p99": 14.726,
+     "n": 17607
+    },
+    {
+     "pid": 943215,
+     "median": 0.062,
+     "p99": 13.051,
+     "n": 19306
+    },
+    {
+     "pid": 943222,
+     "median": 0.067,
+     "p99": 15.091,
+     "n": 17403
+    },
+    {
+     "pid": 943232,
+     "median": 0.073,
+     "p99": 15.531,
+     "n": 16586
+    },
+    {
+     "pid": 943244,
+     "median": 0.085,
+     "p99": 16.575,
+     "n": 15158
+    },
+    {
+     "pid": 943251,
+     "median": 0.067,
+     "p99": 13.099,
+     "n": 18287
+    },
+    {
+     "pid": 943258,
+     "median": 0.067,
+     "p99": 12.523,
+     "n": 18490
+    }
+   ],
+   "heavy_fixture_latency_ms": [
+    {
+     "fixture": "062-big-policy",
+     "worker_median_of_medians": 8.749,
+     "workers": 8
+    },
+    {
+     "fixture": "063-big-policy",
+     "worker_median_of_medians": 8.881,
+     "workers": 8
+    },
+    {
+     "fixture": "064-big-policy",
+     "worker_median_of_medians": 8.63,
+     "workers": 8
+    }
+   ],
+   "cpu_seconds": 104.36,
+   "busy_cores": 10.152,
+   "rss_peak_kb": 7946500,
+   "rss_steady_kb": 7409024,
+   "rss_per_worker_steady_kb": 926128,
+   "mem_available_kb": 60505724,
+   "rss_samples": 41
+  },
+  {
+   "level": 16,
+   "repeat": 1,
+   "wall_ms": 10323.061,
+   "evaluations": 166931,
+   "errors": 0,
+   "error_rate": 0,
+   "mismatches": 17188,
+   "mismatch_slugs": [
+    "testcase-009-bob-write-y",
+    "testcase-016-bob",
+    "testcase-025-bob-read-x",
+    "testcase-052-bob-read-x",
+    "testcase-053-alice-read-x",
+    "testcase-055-alice-read-x",
+    "testcase-059-nonset"
+   ],
+   "throughput_wall": 16170.688,
+   "throughput_per_worker": 1010.668,
+   "latency_ms": {
+    "n": 64000,
+    "mean": 0.971,
+    "median": 0.122,
+    "p95": 0.586,
+    "p99": 20.73,
+    "min": 0.029,
+    "max": 153.467,
+    "stdev": 4.236,
+    "q1": 0.091,
+    "q3": 0.171,
+    "iqr": 0.08
+   },
+   "latency_light_ms": {
+    "n": 61177,
+    "mean": 0.154,
+    "median": 0.119,
+    "p95": 0.275,
+    "p99": 0.525,
+    "min": 0.029,
+    "max": 116.813,
+    "stdev": 0.627,
+    "q1": 0.09,
+    "q3": 0.164,
+    "iqr": 0.074
+   },
+   "latency_pooled_n": 64000,
+   "latency_exact_worker_median_of_medians": 0.123,
+   "latency_exact_worker_median_of_p99": 20.584,
+   "per_worker_latency_ms": [
+    {
+     "pid": 943201,
+     "median": 0.107,
+     "p99": 18.985,
+     "n": 11563
+    },
+    {
+     "pid": 943208,
+     "median": 0.112,
+     "p99": 19.478,
+     "n": 10876
+    },
+    {
+     "pid": 943215,
+     "median": 0.113,
+     "p99": 20.046,
+     "n": 10739
+    },
+    {
+     "pid": 943222,
+     "median": 0.106,
+     "p99": 19.536,
+     "n": 11555
+    },
+    {
+     "pid": 943232,
+     "median": 0.105,
+     "p99": 19.213,
+     "n": 11488
+    },
+    {
+     "pid": 943244,
+     "median": 0.113,
+     "p99": 19.593,
+     "n": 11011
+    },
+    {
+     "pid": 943251,
+     "median": 0.114,
+     "p99": 19.766,
+     "n": 10467
+    },
+    {
+     "pid": 943258,
+     "median": 0.122,
+     "p99": 20.605,
+     "n": 10126
+    },
+    {
+     "pid": 943265,
+     "median": 0.127,
+     "p99": 20.563,
+     "n": 10194
+    },
+    {
+     "pid": 943272,
+     "median": 0.134,
+     "p99": 20.692,
+     "n": 9923
+    },
+    {
+     "pid": 943279,
+     "median": 0.139,
+     "p99": 25.481,
+     "n": 9310
+    },
+    {
+     "pid": 943287,
+     "median": 0.144,
+     "p99": 22.446,
+     "n": 9310
+    },
+    {
+     "pid": 943323,
+     "median": 0.124,
+     "p99": 20.617,
+     "n": 10400
+    },
+    {
+     "pid": 943330,
+     "median": 0.124,
+     "p99": 20.811,
+     "n": 10519
+    },
+    {
+     "pid": 943337,
+     "median": 0.136,
+     "p99": 22.794,
+     "n": 9584
+    },
+    {
+     "pid": 943344,
+     "median": 0.131,
+     "p99": 22.131,
+     "n": 9866
+    }
+   ],
+   "heavy_fixture_latency_ms": [
+    {
+     "fixture": "062-big-policy",
+     "worker_median_of_medians": 17.969,
+     "workers": 16
+    },
+    {
+     "fixture": "063-big-policy",
+     "worker_median_of_medians": 18.238,
+     "workers": 16
+    },
+    {
+     "fixture": "064-big-policy",
+     "worker_median_of_medians": 18.051,
+     "workers": 16
+    }
+   ],
+   "cpu_seconds": 187.09,
+   "busy_cores": 18.124,
+   "rss_peak_kb": 14603460,
+   "rss_steady_kb": 14183180,
+   "rss_per_worker_steady_kb": 886449,
+   "mem_available_kb": 55797044,
+   "rss_samples": 41
+  },
+  {
+   "level": 22,
+   "repeat": 1,
+   "wall_ms": 10130.924,
+   "evaluations": 170690,
+   "errors": 0,
+   "error_rate": 0,
+   "mismatches": 17581,
+   "mismatch_slugs": [
+    "testcase-009-bob-write-y",
+    "testcase-016-bob",
+    "testcase-025-bob-read-x",
+    "testcase-052-bob-read-x",
+    "testcase-053-alice-read-x",
+    "testcase-055-alice-read-x",
+    "testcase-059-nonset"
+   ],
+   "throughput_wall": 16848.414,
+   "throughput_per_worker": 765.837,
+   "latency_ms": {
+    "n": 88000,
+    "mean": 1.295,
+    "median": 0.137,
+    "p95": 3.321,
+    "p99": 29.855,
+    "min": 0.036,
+    "max": 266.105,
+    "stdev": 5.994,
+    "q1": 0.105,
+    "q3": 0.185,
+    "iqr": 0.08
+   },
+   "latency_light_ms": {
+    "n": 84073,
+    "mean": 0.209,
+    "median": 0.133,
+    "p95": 0.312,
+    "p99": 2.074,
+    "min": 0.036,
+    "max": 78.182,
+    "stdev": 0.845,
+    "q1": 0.104,
+    "q3": 0.176,
+    "iqr": 0.072
+   },
+   "latency_pooled_n": 88000,
+   "latency_exact_worker_median_of_medians": 0.137,
+   "latency_exact_worker_median_of_p99": 30.215,
+   "per_worker_latency_ms": [
+    {
+     "pid": 943201,
+     "median": 0.119,
+     "p99": 22.212,
+     "n": 9108
+    },
+    {
+     "pid": 943208,
+     "median": 0.12,
+     "p99": 25.445,
+     "n": 8767
+    },
+    {
+     "pid": 943215,
+     "median": 0.136,
+     "p99": 38.57,
+     "n": 7202
+    },
+    {
+     "pid": 943222,
+     "median": 0.138,
+     "p99": 32.606,
+     "n": 7475
+    },
+    {
+     "pid": 943232,
+     "median": 0.124,
+     "p99": 31.577,
+     "n": 8020
+    },
+    {
+     "pid": 943244,
+     "median": 0.138,
+     "p99": 26.943,
+     "n": 8019
+    },
+    {
+     "pid": 943251,
+     "median": 0.119,
+     "p99": 24.208,
+     "n": 9175
+    },
+    {
+     "pid": 943258,
+     "median": 0.135,
+     "p99": 30.062,
+     "n": 7680
+    },
+    {
+     "pid": 943265,
+     "median": 0.143,
+     "p99": 29.226,
+     "n": 7711
+    },
+    {
+     "pid": 943272,
+     "median": 0.134,
+     "p99": 32.522,
+     "n": 7291
+    },
+    {
+     "pid": 943279,
+     "median": 0.132,
+     "p99": 26.844,
+     "n": 7952
+    },
+    {
+     "pid": 943287,
+     "median": 0.135,
+     "p99": 30.368,
+     "n": 7747
+    },
+    {
+     "pid": 943323,
+     "median": 0.136,
+     "p99": 26.585,
+     "n": 8020
+    },
+    {
+     "pid": 943330,
+     "median": 0.133,
+     "p99": 32.919,
+     "n": 7542
+    },
+    {
+     "pid": 943337,
+     "median": 0.148,
+     "p99": 37.848,
+     "n": 6929
+    },
+    {
+     "pid": 943344,
+     "median": 0.137,
+     "p99": 26.335,
+     "n": 7746
+    },
+    {
+     "pid": 943354,
+     "median": 0.156,
+     "p99": 33.586,
+     "n": 6931
+    },
+    {
+     "pid": 943361,
+     "median": 0.147,
+     "p99": 29.458,
+     "n": 7746
+    },
+    {
+     "pid": 943368,
+     "median": 0.147,
+     "p99": 33.604,
+     "n": 7271
+    },
+    {
+     "pid": 943375,
+     "median": 0.141,
+     "p99": 28.441,
+     "n": 7678
+    },
+    {
+     "pid": 943382,
+     "median": 0.151,
+     "p99": 31.388,
+     "n": 7340
+    },
+    {
+     "pid": 943389,
+     "median": 0.148,
+     "p99": 31.175,
+     "n": 7340
+    }
+   ],
+   "heavy_fixture_latency_ms": [
+    {
+     "fixture": "062-big-policy",
+     "worker_median_of_medians": 19.279,
+     "workers": 22
+    },
+    {
+     "fixture": "063-big-policy",
+     "worker_median_of_medians": 19.783,
+     "workers": 22
+    },
+    {
+     "fixture": "064-big-policy",
+     "worker_median_of_medians": 19.393,
+     "workers": 22
+    }
+   ],
+   "cpu_seconds": 208.88,
+   "busy_cores": 20.618,
+   "rss_peak_kb": 19471588,
+   "rss_steady_kb": 18934122,
+   "rss_per_worker_steady_kb": 860642,
+   "mem_available_kb": 51907704,
+   "rss_samples": 40
+  },
+  {
+   "level": 32,
+   "repeat": 1,
+   "wall_ms": 10178.934,
+   "evaluations": 169223,
+   "errors": 0,
+   "error_rate": 0,
+   "mismatches": 17431,
+   "mismatch_slugs": [
+    "testcase-009-bob-write-y",
+    "testcase-016-bob",
+    "testcase-025-bob-read-x",
+    "testcase-052-bob-read-x",
+    "testcase-053-alice-read-x",
+    "testcase-055-alice-read-x",
+    "testcase-059-nonset"
+   ],
+   "throughput_wall": 16624.825,
+   "throughput_per_worker": 519.526,
+   "latency_ms": {
+    "n": 127938,
+    "mean": 1.928,
+    "median": 0.149,
+    "p95": 6.247,
+    "p99": 47.842,
+    "min": 0.042,
+    "max": 431.033,
+    "stdev": 9.075,
+    "q1": 0.114,
+    "q3": 0.205,
+    "iqr": 0.091
+   },
+   "latency_light_ms": {
+    "n": 122342,
+    "mean": 0.33,
+    "median": 0.145,
+    "p95": 0.489,
+    "p99": 4.096,
+    "min": 0.042,
+    "max": 155.818,
+    "stdev": 1.471,
+    "q1": 0.112,
+    "q3": 0.195,
+    "iqr": 0.083
+   },
+   "latency_pooled_n": 127938,
+   "latency_exact_worker_median_of_medians": 0.147,
+   "latency_exact_worker_median_of_p99": 47.16,
+   "per_worker_latency_ms": [
+    {
+     "pid": 943201,
+     "median": 0.132,
+     "p99": 43.378,
+     "n": 5367
+    },
+    {
+     "pid": 943208,
+     "median": 0.138,
+     "p99": 48.259,
+     "n": 4960
+    },
+    {
+     "pid": 943215,
+     "median": 0.133,
+     "p99": 42.385,
+     "n": 6116
+    },
+    {
+     "pid": 943222,
+     "median": 0.126,
+     "p99": 44.841,
+     "n": 5298
+    },
+    {
+     "pid": 943232,
+     "median": 0.134,
+     "p99": 38.272,
+     "n": 6523
+    },
+    {
+     "pid": 943244,
+     "median": 0.158,
+     "p99": 50.719,
+     "n": 5164
+    },
+    {
+     "pid": 943251,
+     "median": 0.141,
+     "p99": 48.478,
+     "n": 5164
+    },
+    {
+     "pid": 943258,
+     "median": 0.14,
+     "p99": 44.996,
+     "n": 5028
+    },
+    {
+     "pid": 943265,
+     "median": 0.154,
+     "p99": 46.875,
+     "n": 5004
+    },
+    {
+     "pid": 943272,
+     "median": 0.152,
+     "p99": 49.357,
+     "n": 4760
+    },
+    {
+     "pid": 943279,
+     "median": 0.132,
+     "p99": 42.052,
+     "n": 5796
+    },
+    {
+     "pid": 943287,
+     "median": 0.15,
+     "p99": 47.606,
+     "n": 4823
+    },
+    {
+     "pid": 943323,
+     "median": 0.146,
+     "p99": 52.223,
+     "n": 4895
+    },
+    {
+     "pid": 943330,
+     "median": 0.129,
+     "p99": 46.808,
+     "n": 5707
+    },
+    {
+     "pid": 943337,
+     "median": 0.148,
+     "p99": 45.05,
+     "n": 5299
+    },
+    {
+     "pid": 943344,
+     "median": 0.136,
+     "p99": 39.992,
+     "n": 6644
+    },
+    {
+     "pid": 943354,
+     "median": 0.139,
+     "p99": 44.872,
+     "n": 5231
+    },
+    {
+     "pid": 943361,
+     "median": 0.239,
+     "p99": 61.619,
+     "n": 3938
+    },
+    {
+     "pid": 943368,
+     "median": 0.138,
+     "p99": 44.292,
+     "n": 5366
+    },
+    {
+     "pid": 943375,
+     "median": 0.13,
+     "p99": 35.79,
+     "n": 7204
+    },
+    {
+     "pid": 943382,
+     "median": 0.125,
+     "p99": 41.427,
+     "n": 6456
+    },
+    {
+     "pid": 943389,
+     "median": 0.164,
+     "p99": 47.696,
+     "n": 4620
+    },
+    {
+     "pid": 943397,
+     "median": 0.166,
+     "p99": 47.816,
+     "n": 5162
+    },
+    {
+     "pid": 943404,
+     "median": 0.179,
+     "p99": 56.648,
+     "n": 4347
+    },
+    {
+     "pid": 943411,
+     "median": 0.158,
+     "p99": 41.15,
+     "n": 5843
+    },
+    {
+     "pid": 943418,
+     "median": 0.187,
+     "p99": 58.471,
+     "n": 4211
+    },
+    {
+     "pid": 943427,
+     "median": 0.149,
+     "p99": 47.445,
+     "n": 5366
+    },
+    {
+     "pid": 943434,
+     "median": 0.13,
+     "p99": 37.668,
+     "n": 6658
+    },
+    {
+     "pid": 943441,
+     "median": 0.166,
+     "p99": 54.198,
+     "n": 4756
+    },
+    {
+     "pid": 943448,
+     "median": 0.166,
+     "p99": 56.298,
+     "n": 4348
+    },
+    {
+     "pid": 943455,
+     "median": 0.162,
+     "p99": 52.641,
+     "n": 5026
+    },
+    {
+     "pid": 943462,
+     "median": 0.185,
+     "p99": 56.641,
+     "n": 4143
+    }
+   ],
+   "heavy_fixture_latency_ms": [
+    {
+     "fixture": "062-big-policy",
+     "worker_median_of_medians": 33.282,
+     "workers": 32
+    },
+    {
+     "fixture": "063-big-policy",
+     "worker_median_of_medians": 35.407,
+     "workers": 32
+    },
+    {
+     "fixture": "064-big-policy",
+     "worker_median_of_medians": 34.034,
+     "workers": 32
+    }
+   ],
+   "cpu_seconds": 218.07,
+   "busy_cores": 21.424,
+   "rss_peak_kb": 27116396,
+   "rss_steady_kb": 25190000,
+   "rss_per_worker_steady_kb": 787188,
+   "mem_available_kb": 46223376,
+   "rss_samples": 40
+  },
+  {
+   "level": 44,
+   "repeat": 1,
+   "wall_ms": 10324.809,
+   "evaluations": 167125,
+   "errors": 0,
+   "error_rate": 0,
+   "mismatches": 17219,
+   "mismatch_slugs": [
+    "testcase-009-bob-write-y",
+    "testcase-016-bob",
+    "testcase-025-bob-read-x",
+    "testcase-052-bob-read-x",
+    "testcase-053-alice-read-x",
+    "testcase-055-alice-read-x",
+    "testcase-059-nonset"
+   ],
+   "throughput_wall": 16186.74,
+   "throughput_per_worker": 367.88,
+   "latency_ms": {
+    "n": 160259,
+    "mean": 2.654,
+    "median": 0.153,
+    "p95": 9.238,
+    "p99": 64.511,
+    "min": 0.042,
+    "max": 536.262,
+    "stdev": 12.033,
+    "q1": 0.115,
+    "q3": 0.217,
+    "iqr": 0.102
+   },
+   "latency_light_ms": {
+    "n": 153226,
+    "mean": 0.452,
+    "median": 0.149,
+    "p95": 1.967,
+    "p99": 6.626,
+    "min": 0.042,
+    "max": 213.366,
+    "stdev": 1.736,
+    "q1": 0.114,
+    "q3": 0.204,
+    "iqr": 0.09
+   },
+   "latency_pooled_n": 160259,
+   "latency_exact_worker_median_of_medians": 0.156,
+   "latency_exact_worker_median_of_p99": 65.234,
+   "per_worker_latency_ms": [
+    {
+     "pid": 943201,
+     "median": 0.123,
+     "p99": 62.294,
+     "n": 3940
+    },
+    {
+     "pid": 943208,
+     "median": 0.117,
+     "p99": 48.954,
+     "n": 4755
+    },
+    {
+     "pid": 943215,
+     "median": 0.161,
+     "p99": 57.766,
+     "n": 4482
+    },
+    {
+     "pid": 943222,
+     "median": 0.139,
+     "p99": 62.776,
+     "n": 3690
+    },
+    {
+     "pid": 943232,
+     "median": 0.146,
+     "p99": 56.095,
+     "n": 4279
+    },
+    {
+     "pid": 943244,
+     "median": 0.162,
+     "p99": 71.024,
+     "n": 3259
+    },
+    {
+     "pid": 943251,
+     "median": 0.114,
+     "p99": 50.76,
+     "n": 4551
+    },
+    {
+     "pid": 943258,
+     "median": 0.153,
+     "p99": 66.452,
+     "n": 3531
+    },
+    {
+     "pid": 943265,
+     "median": 0.12,
+     "p99": 45.361,
+     "n": 5173
+    },
+    {
+     "pid": 943272,
+     "median": 0.157,
+     "p99": 71.379,
+     "n": 3394
+    },
+    {
+     "pid": 943279,
+     "median": 0.161,
+     "p99": 78.694,
+     "n": 2920
+    },
+    {
+     "pid": 943287,
+     "median": 0.127,
+     "p99": 59.391,
+     "n": 4550
+    },
+    {
+     "pid": 943323,
+     "median": 0.154,
+     "p99": 71.114,
+     "n": 3395
+    },
+    {
+     "pid": 943330,
+     "median": 0.155,
+     "p99": 60.649,
+     "n": 3871
+    },
+    {
+     "pid": 943337,
+     "median": 0.151,
+     "p99": 66.392,
+     "n": 3464
+    },
+    {
+     "pid": 943344,
+     "median": 0.143,
+     "p99": 67.99,
+     "n": 3598
+    },
+    {
+     "pid": 943354,
+     "median": 0.143,
+     "p99": 67.526,
+     "n": 3668
+    },
+    {
+     "pid": 943361,
+     "median": 0.14,
+     "p99": 56.831,
+     "n": 4007
+    },
+    {
+     "pid": 943368,
+     "median": 0.165,
+     "p99": 66.041,
+     "n": 3488
+    },
+    {
+     "pid": 943375,
+     "median": 0.143,
+     "p99": 59.178,
+     "n": 4619
+    },
+    {
+     "pid": 943382,
+     "median": 0.174,
+     "p99": 66.958,
+     "n": 3871
+    },
+    {
+     "pid": 943389,
+     "median": 0.138,
+     "p99": 58.288,
+     "n": 4007
+    },
+    {
+     "pid": 943397,
+     "median": 0.187,
+     "p99": 73.779,
+     "n": 3057
+    },
+    {
+     "pid": 943404,
+     "median": 0.148,
+     "p99": 51.211,
+     "n": 4976
+    },
+    {
+     "pid": 943411,
+     "median": 0.122,
+     "p99": 46.876,
+     "n": 4888
+    },
+    {
+     "pid": 943418,
+     "median": 0.142,
+     "p99": 65.685,
+     "n": 3938
+    },
+    {
+     "pid": 943427,
+     "median": 0.177,
+     "p99": 75.88,
+     "n": 3258
+    },
+    {
+     "pid": 943434,
+     "median": 0.171,
+     "p99": 72.4,
+     "n": 3055
+    },
+    {
+     "pid": 943441,
+     "median": 0.151,
+     "p99": 54.882,
+     "n": 4463
+    },
+    {
+     "pid": 943448,
+     "median": 0.164,
+     "p99": 61.832,
+     "n": 4008
+    },
+    {
+     "pid": 943455,
+     "median": 0.183,
+     "p99": 65.514,
+     "n": 3600
+    },
+    {
+     "pid": 943462,
+     "median": 0.151,
+     "p99": 60.501,
+     "n": 3859
+    },
+    {
+     "pid": 943469,
+     "median": 0.173,
+     "p99": 62.925,
+     "n": 3939
+    },
+    {
+     "pid": 943476,
+     "median": 0.199,
+     "p99": 83.961,
+     "n": 2714
+    },
+    {
+     "pid": 943483,
+     "median": 0.185,
+     "p99": 70.804,
+     "n": 3124
+    },
+    {
+     "pid": 943490,
+     "median": 0.192,
+     "p99": 81.793,
+     "n": 2918
+    },
+    {
+     "pid": 943497,
+     "median": 0.151,
+     "p99": 59.448,
+     "n": 4032
+    },
+    {
+     "pid": 943504,
+     "median": 0.164,
+     "p99": 58.621,
+     "n": 4076
+    },
+    {
+     "pid": 943511,
+     "median": 0.159,
+     "p99": 56.733,
+     "n": 3939
+    },
+    {
+     "pid": 943518,
+     "median": 0.205,
+     "p99": 76.683,
+     "n": 3122
+    },
+    {
+     "pid": 943526,
+     "median": 0.199,
+     "p99": 73.347,
+     "n": 3122
+    },
+    {
+     "pid": 943533,
+     "median": 0.163,
+     "p99": 69.69,
+     "n": 3599
+    },
+    {
+     "pid": 943539,
+     "median": 0.164,
+     "p99": 65.537,
+     "n": 3531
+    },
+    {
+     "pid": 943547,
+     "median": 0.165,
+     "p99": 64.954,
+     "n": 3395
+    }
+   ],
+   "heavy_fixture_latency_ms": [
+    {
+     "fixture": "062-big-policy",
+     "worker_median_of_medians": 45.329,
+     "workers": 44
+    },
+    {
+     "fixture": "063-big-policy",
+     "worker_median_of_medians": 48.835,
+     "workers": 44
+    },
+    {
+     "fixture": "064-big-policy",
+     "worker_median_of_medians": 46.236,
+     "workers": 44
+    }
+   ],
+   "cpu_seconds": 218.58,
+   "busy_cores": 21.17,
+   "rss_peak_kb": 34937124,
+   "rss_steady_kb": 32702982,
+   "rss_per_worker_steady_kb": 743250,
+   "mem_available_kb": 40738588,
+   "rss_samples": 40
+  },
+  {
+   "level": 1,
+   "repeat": 2,
+   "wall_ms": 10021.135,
+   "evaluations": 33655,
+   "errors": 0,
+   "error_rate": 0,
+   "mismatches": 3465,
+   "mismatch_slugs": [
+    "testcase-009-bob-write-y",
+    "testcase-016-bob",
+    "testcase-025-bob-read-x",
+    "testcase-052-bob-read-x",
+    "testcase-053-alice-read-x",
+    "testcase-055-alice-read-x",
+    "testcase-059-nonset"
+   ],
+   "throughput_wall": 3358.402,
+   "throughput_per_worker": 3358.402,
+   "latency_ms": {
+    "n": 4000,
+    "mean": 0.286,
+    "median": 0.043,
+    "p95": 0.192,
+    "p99": 5.294,
+    "min": 0.024,
+    "max": 31.553,
+    "stdev": 1.271,
+    "q1": 0.033,
+    "q3": 0.053,
+    "iqr": 0.02
+   },
+   "latency_light_ms": {
+    "n": 3834,
+    "mean": 0.052,
+    "median": 0.042,
+    "p95": 0.08,
+    "p99": 0.187,
+    "min": 0.024,
+    "max": 5.642,
+    "stdev": 0.16,
+    "q1": 0.033,
+    "q3": 0.051,
+    "iqr": 0.018
+   },
+   "latency_pooled_n": 4000,
+   "latency_exact_worker_median_of_medians": 0.043,
+   "latency_exact_worker_median_of_p99": 5.62,
+   "per_worker_latency_ms": [
+    {
+     "pid": 943832,
+     "median": 0.043,
+     "p99": 5.62,
+     "n": 33655
+    }
+   ],
+   "heavy_fixture_latency_ms": [
+    {
+     "fixture": "062-big-policy",
+     "worker_median_of_medians": 4.752,
+     "workers": 1
+    },
+    {
+     "fixture": "063-big-policy",
+     "worker_median_of_medians": 4.791,
+     "workers": 1
+    },
+    {
+     "fixture": "064-big-policy",
+     "worker_median_of_medians": 4.739,
+     "workers": 1
+    }
+   ],
+   "cpu_seconds": 13.66,
+   "busy_cores": 1.363,
+   "rss_peak_kb": 923360,
+   "rss_steady_kb": 922812,
+   "rss_per_worker_steady_kb": 922812,
+   "mem_available_kb": 64937496,
+   "rss_samples": 40
+  },
+  {
+   "level": 2,
+   "repeat": 2,
+   "wall_ms": 10272.23,
+   "evaluations": 65405,
+   "errors": 0,
+   "error_rate": 0,
+   "mismatches": 6734,
+   "mismatch_slugs": [
+    "testcase-009-bob-write-y",
+    "testcase-016-bob",
+    "testcase-025-bob-read-x",
+    "testcase-052-bob-read-x",
+    "testcase-053-alice-read-x",
+    "testcase-055-alice-read-x",
+    "testcase-059-nonset"
+   ],
+   "throughput_wall": 6367.167,
+   "throughput_per_worker": 3183.583,
+   "latency_ms": {
+    "n": 8000,
+    "mean": 0.289,
+    "median": 0.044,
+    "p95": 0.18,
+    "p99": 5.701,
+    "min": 0.024,
+    "max": 56.641,
+    "stdev": 1.435,
+    "q1": 0.034,
+    "q3": 0.054,
+    "iqr": 0.02
+   },
+   "latency_light_ms": {
+    "n": 7678,
+    "mean": 0.049,
+    "median": 0.043,
+    "p95": 0.078,
+    "p99": 0.18,
+    "min": 0.024,
+    "max": 4.503,
+    "stdev": 0.074,
+    "q1": 0.034,
+    "q3": 0.052,
+    "iqr": 0.018
+   },
+   "latency_pooled_n": 8000,
+   "latency_exact_worker_median_of_medians": 0.044,
+   "latency_exact_worker_median_of_p99": 5.82,
+   "per_worker_latency_ms": [
+    {
+     "pid": 943832,
+     "median": 0.042,
+     "p99": 5.527,
+     "n": 33723
+    },
+    {
+     "pid": 943839,
+     "median": 0.046,
+     "p99": 6.112,
+     "n": 31682
+    }
+   ],
+   "heavy_fixture_latency_ms": [
+    {
+     "fixture": "062-big-policy",
+     "worker_median_of_medians": 4.991,
+     "workers": 2
+    },
+    {
+     "fixture": "063-big-policy",
+     "worker_median_of_medians": 5.045,
+     "workers": 2
+    },
+    {
+     "fixture": "064-big-policy",
+     "worker_median_of_medians": 4.961,
+     "workers": 2
+    }
+   ],
+   "cpu_seconds": 27.34,
+   "busy_cores": 2.662,
+   "rss_peak_kb": 1879476,
+   "rss_steady_kb": 1844612,
+   "rss_per_worker_steady_kb": 922306,
+   "mem_available_kb": 65397908,
+   "rss_samples": 41
+  },
+  {
+   "level": 4,
+   "repeat": 2,
+   "wall_ms": 10273.865,
+   "evaluations": 106469,
+   "errors": 0,
+   "error_rate": 0,
+   "mismatches": 10962,
+   "mismatch_slugs": [
+    "testcase-009-bob-write-y",
+    "testcase-016-bob",
+    "testcase-025-bob-read-x",
+    "testcase-052-bob-read-x",
+    "testcase-053-alice-read-x",
+    "testcase-055-alice-read-x",
+    "testcase-059-nonset"
+   ],
+   "throughput_wall": 10363.091,
+   "throughput_per_worker": 2590.773,
+   "latency_ms": {
+    "n": 16000,
+    "mean": 0.386,
+    "median": 0.051,
+    "p95": 0.245,
+    "p99": 7.54,
+    "min": 0.028,
+    "max": 131.688,
+    "stdev": 1.97,
+    "q1": 0.039,
+    "q3": 0.063,
+    "iqr": 0.024
+   },
+   "latency_light_ms": {
+    "n": 15296,
+    "mean": 0.061,
+    "median": 0.05,
+    "p95": 0.094,
+    "p99": 0.226,
+    "min": 0.028,
+    "max": 15.69,
+    "stdev": 0.231,
+    "q1": 0.039,
+    "q3": 0.061,
+    "iqr": 0.022
+   },
+   "latency_pooled_n": 16000,
+   "latency_exact_worker_median_of_medians": 0.052,
+   "latency_exact_worker_median_of_p99": 7.455,
+   "per_worker_latency_ms": [
+    {
+     "pid": 943832,
+     "median": 0.049,
+     "p99": 7.108,
+     "n": 27875
+    },
+    {
+     "pid": 943839,
+     "median": 0.052,
+     "p99": 7.378,
+     "n": 25902
+    },
+    {
+     "pid": 943846,
+     "median": 0.052,
+     "p99": 7.715,
+     "n": 26176
+    },
+    {
+     "pid": 943853,
+     "median": 0.052,
+     "p99": 7.532,
+     "n": 26516
+    }
+   ],
+   "heavy_fixture_latency_ms": [
+    {
+     "fixture": "062-big-policy",
+     "worker_median_of_medians": 6.281,
+     "workers": 4
+    },
+    {
+     "fixture": "063-big-policy",
+     "worker_median_of_medians": 6.285,
+     "workers": 4
+    },
+    {
+     "fixture": "064-big-policy",
+     "worker_median_of_medians": 6.181,
+     "workers": 4
+    }
+   ],
+   "cpu_seconds": 54.11,
+   "busy_cores": 5.267,
+   "rss_peak_kb": 4214516,
+   "rss_steady_kb": 4151732,
+   "rss_per_worker_steady_kb": 1037933,
+   "mem_available_kb": 63794032,
+   "rss_samples": 41
+  },
+  {
+   "level": 8,
+   "repeat": 2,
+   "wall_ms": 10037.507,
+   "evaluations": 139945,
+   "errors": 0,
+   "error_rate": 0,
+   "mismatches": 14408,
+   "mismatch_slugs": [
+    "testcase-009-bob-write-y",
+    "testcase-016-bob",
+    "testcase-025-bob-read-x",
+    "testcase-052-bob-read-x",
+    "testcase-053-alice-read-x",
+    "testcase-055-alice-read-x",
+    "testcase-059-nonset"
+   ],
+   "throughput_wall": 13942.207,
+   "throughput_per_worker": 1742.776,
+   "latency_ms": {
+    "n": 32000,
+    "mean": 0.556,
+    "median": 0.069,
+    "p95": 0.32,
+    "p99": 14.874,
+    "min": 0.027,
+    "max": 88.536,
+    "stdev": 2.521,
+    "q1": 0.05,
+    "q3": 0.1,
+    "iqr": 0.05
+   },
+   "latency_light_ms": {
+    "n": 30634,
+    "mean": 0.087,
+    "median": 0.067,
+    "p95": 0.165,
+    "p99": 0.296,
+    "min": 0.027,
+    "max": 9.66,
+    "stdev": 0.204,
+    "q1": 0.049,
+    "q3": 0.094,
+    "iqr": 0.045
+   },
+   "latency_pooled_n": 32000,
+   "latency_exact_worker_median_of_medians": 0.072,
+   "latency_exact_worker_median_of_p99": 15.187,
+   "per_worker_latency_ms": [
+    {
+     "pid": 943832,
+     "median": 0.06,
+     "p99": 11.602,
+     "n": 19988
+    },
+    {
+     "pid": 943839,
+     "median": 0.073,
+     "p99": 15.671,
+     "n": 16382
+    },
+    {
+     "pid": 943846,
+     "median": 0.072,
+     "p99": 15.392,
+     "n": 16790
+    },
+    {
+     "pid": 943853,
+     "median": 0.065,
+     "p99": 13.483,
+     "n": 18622
+    },
+    {
+     "pid": 943860,
+     "median": 0.071,
+     "p99": 15.147,
+     "n": 17062
+    },
+    {
+     "pid": 943867,
+     "median": 0.074,
+     "p99": 15.227,
+     "n": 16723
+    },
+    {
+     "pid": 943874,
+     "median": 0.066,
+     "p99": 12.899,
+     "n": 17946
+    },
+    {
+     "pid": 943881,
+     "median": 0.077,
+     "p99": 15.435,
+     "n": 16432
+    }
+   ],
+   "heavy_fixture_latency_ms": [
+    {
+     "fixture": "062-big-policy",
+     "worker_median_of_medians": 9.174,
+     "workers": 8
+    },
+    {
+     "fixture": "063-big-policy",
+     "worker_median_of_medians": 9.16,
+     "workers": 8
+    },
+    {
+     "fixture": "064-big-policy",
+     "worker_median_of_medians": 9.043,
+     "workers": 8
+    }
+   ],
+   "cpu_seconds": 103.61,
+   "busy_cores": 10.322,
+   "rss_peak_kb": 7864472,
+   "rss_steady_kb": 7359554,
+   "rss_per_worker_steady_kb": 919944,
+   "mem_available_kb": 61148328,
+   "rss_samples": 40
+  },
+  {
+   "level": 16,
+   "repeat": 2,
+   "wall_ms": 10308.759,
+   "evaluations": 166471,
+   "errors": 0,
+   "error_rate": 0,
+   "mismatches": 17143,
+   "mismatch_slugs": [
+    "testcase-009-bob-write-y",
+    "testcase-016-bob",
+    "testcase-025-bob-read-x",
+    "testcase-052-bob-read-x",
+    "testcase-053-alice-read-x",
+    "testcase-055-alice-read-x",
+    "testcase-059-nonset"
+   ],
+   "throughput_wall": 16148.501,
+   "throughput_per_worker": 1009.281,
+   "latency_ms": {
+    "n": 64000,
+    "mean": 0.958,
+    "median": 0.122,
+    "p95": 0.585,
+    "p99": 20.7,
+    "min": 0.038,
+    "max": 217.703,
+    "stdev": 4.212,
+    "q1": 0.091,
+    "q3": 0.172,
+    "iqr": 0.081
+   },
+   "latency_light_ms": {
+    "n": 61186,
+    "mean": 0.158,
+    "median": 0.119,
+    "p95": 0.277,
+    "p99": 0.535,
+    "min": 0.038,
+    "max": 217.703,
+    "stdev": 1.07,
+    "q1": 0.09,
+    "q3": 0.164,
+    "iqr": 0.074
+   },
+   "latency_pooled_n": 64000,
+   "latency_exact_worker_median_of_medians": 0.123,
+   "latency_exact_worker_median_of_p99": 20.907,
+   "per_worker_latency_ms": [
+    {
+     "pid": 943832,
+     "median": 0.114,
+     "p99": 19.598,
+     "n": 10944
+    },
+    {
+     "pid": 943839,
+     "median": 0.11,
+     "p99": 19.438,
+     "n": 10876
+    },
+    {
+     "pid": 943846,
+     "median": 0.111,
+     "p99": 19.245,
+     "n": 11486
+    },
+    {
+     "pid": 943853,
+     "median": 0.127,
+     "p99": 21.628,
+     "n": 10062
+    },
+    {
+     "pid": 943860,
+     "median": 0.118,
+     "p99": 19.708,
+     "n": 10535
+    },
+    {
+     "pid": 943867,
+     "median": 0.125,
+     "p99": 24.225,
+     "n": 9923
+    },
+    {
+     "pid": 943874,
+     "median": 0.119,
+     "p99": 19.76,
+     "n": 10264
+    },
+    {
+     "pid": 943881,
+     "median": 0.116,
+     "p99": 19.784,
+     "n": 10943
+    },
+    {
+     "pid": 943889,
+     "median": 0.127,
+     "p99": 21.417,
+     "n": 10263
+    },
+    {
+     "pid": 943896,
+     "median": 0.119,
+     "p99": 20.515,
+     "n": 10671
+    },
+    {
+     "pid": 943903,
+     "median": 0.132,
+     "p99": 21.022,
+     "n": 10060
+    },
+    {
+     "pid": 943910,
+     "median": 0.121,
+     "p99": 21.059,
+     "n": 10671
+    },
+    {
+     "pid": 943917,
+     "median": 0.13,
+     "p99": 21.821,
+     "n": 9923
+    },
+    {
+     "pid": 943924,
+     "median": 0.126,
+     "p99": 21.249,
+     "n": 10399
+    },
+    {
+     "pid": 943931,
+     "median": 0.14,
+     "p99": 21.58,
+     "n": 9256
+    },
+    {
+     "pid": 943938,
+     "median": 0.128,
+     "p99": 20.791,
+     "n": 10195
+    }
+   ],
+   "heavy_fixture_latency_ms": [
+    {
+     "fixture": "062-big-policy",
+     "worker_median_of_medians": 17.959,
+     "workers": 16
+    },
+    {
+     "fixture": "063-big-policy",
+     "worker_median_of_medians": 18.388,
+     "workers": 16
+    },
+    {
+     "fixture": "064-big-policy",
+     "worker_median_of_medians": 18.208,
+     "workers": 16
+    }
+   ],
+   "cpu_seconds": 188.33,
+   "busy_cores": 18.269,
+   "rss_peak_kb": 14990280,
+   "rss_steady_kb": 14303588,
+   "rss_per_worker_steady_kb": 893974,
+   "mem_available_kb": 55450852,
+   "rss_samples": 41
+  },
+  {
+   "level": 22,
+   "repeat": 2,
+   "wall_ms": 10111.592,
+   "evaluations": 174286,
+   "errors": 0,
+   "error_rate": 0,
+   "mismatches": 17951,
+   "mismatch_slugs": [
+    "testcase-009-bob-write-y",
+    "testcase-016-bob",
+    "testcase-025-bob-read-x",
+    "testcase-052-bob-read-x",
+    "testcase-053-alice-read-x",
+    "testcase-055-alice-read-x",
+    "testcase-059-nonset"
+   ],
+   "throughput_wall": 17236.257,
+   "throughput_per_worker": 783.466,
+   "latency_ms": {
+    "n": 88000,
+    "mean": 1.268,
+    "median": 0.136,
+    "p95": 3.241,
+    "p99": 29.522,
+    "min": 0.034,
+    "max": 302.082,
+    "stdev": 5.853,
+    "q1": 0.105,
+    "q3": 0.183,
+    "iqr": 0.078
+   },
+   "latency_light_ms": {
+    "n": 84149,
+    "mean": 0.206,
+    "median": 0.132,
+    "p95": 0.306,
+    "p99": 1.967,
+    "min": 0.034,
+    "max": 135.744,
+    "stdev": 0.944,
+    "q1": 0.104,
+    "q3": 0.175,
+    "iqr": 0.071
+   },
+   "latency_pooled_n": 88000,
+   "latency_exact_worker_median_of_medians": 0.135,
+   "latency_exact_worker_median_of_p99": 29.431,
+   "per_worker_latency_ms": [
+    {
+     "pid": 943832,
+     "median": 0.142,
+     "p99": 34.807,
+     "n": 7203
+    },
+    {
+     "pid": 943839,
+     "median": 0.125,
+     "p99": 33.043,
+     "n": 7883
+    },
+    {
+     "pid": 943846,
+     "median": 0.134,
+     "p99": 33.427,
+     "n": 7680
+    },
+    {
+     "pid": 943853,
+     "median": 0.125,
+     "p99": 26.031,
+     "n": 8426
+    },
+    {
+     "pid": 943860,
+     "median": 0.118,
+     "p99": 26.023,
+     "n": 9038
+    },
+    {
+     "pid": 943867,
+     "median": 0.12,
+     "p99": 26.418,
+     "n": 8767
+    },
+    {
+     "pid": 943874,
+     "median": 0.121,
+     "p99": 26.086,
+     "n": 8834
+    },
+    {
+     "pid": 943881,
+     "median": 0.134,
+     "p99": 32.834,
+     "n": 7611
+    },
+    {
+     "pid": 943889,
+     "median": 0.134,
+     "p99": 29.191,
+     "n": 8155
+    },
+    {
+     "pid": 943896,
+     "median": 0.156,
+     "p99": 29.67,
+     "n": 7108
+    },
+    {
+     "pid": 943903,
+     "median": 0.137,
+     "p99": 29.786,
+     "n": 7748
+    },
+    {
+     "pid": 943910,
+     "median": 0.139,
+     "p99": 31.963,
+     "n": 7678
+    },
+    {
+     "pid": 943917,
+     "median": 0.134,
+     "p99": 26.03,
+     "n": 8564
+    },
+    {
+     "pid": 943924,
+     "median": 0.135,
+     "p99": 27.208,
+     "n": 8359
+    },
+    {
+     "pid": 943931,
+     "median": 0.126,
+     "p99": 25.924,
+     "n": 8428
+    },
+    {
+     "pid": 943938,
+     "median": 0.138,
+     "p99": 28.62,
+     "n": 7816
+    },
+    {
+     "pid": 943945,
+     "median": 0.148,
+     "p99": 31.864,
+     "n": 7340
+    },
+    {
+     "pid": 943952,
+     "median": 0.152,
+     "p99": 32.154,
+     "n": 6998
+    },
+    {
+     "pid": 943959,
+     "median": 0.149,
+     "p99": 29.709,
+     "n": 7339
+    },
+    {
+     "pid": 943967,
+     "median": 0.141,
+     "p99": 28.427,
+     "n": 7815
+    },
+    {
+     "pid": 943974,
+     "median": 0.165,
+     "p99": 34.546,
+     "n": 6728
+    },
+    {
+     "pid": 943983,
+     "median": 0.129,
+     "p99": 25.345,
+     "n": 8768
+    }
+   ],
+   "heavy_fixture_latency_ms": [
+    {
+     "fixture": "062-big-policy",
+     "worker_median_of_medians": 19.173,
+     "workers": 22
+    },
+    {
+     "fixture": "063-big-policy",
+     "worker_median_of_medians": 19.587,
+     "workers": 22
+    },
+    {
+     "fixture": "064-big-policy",
+     "worker_median_of_medians": 19.413,
+     "workers": 22
+    }
+   ],
+   "cpu_seconds": 211.29,
+   "busy_cores": 20.896,
+   "rss_peak_kb": 19817588,
+   "rss_steady_kb": 19249406,
+   "rss_per_worker_steady_kb": 874973,
+   "mem_available_kb": 51661420,
+   "rss_samples": 40
+  },
+  {
+   "level": 32,
+   "repeat": 2,
+   "wall_ms": 10158.863,
+   "evaluations": 168349,
+   "errors": 0,
+   "error_rate": 0,
+   "mismatches": 17339,
+   "mismatch_slugs": [
+    "testcase-009-bob-write-y",
+    "testcase-016-bob",
+    "testcase-025-bob-read-x",
+    "testcase-052-bob-read-x",
+    "testcase-053-alice-read-x",
+    "testcase-055-alice-read-x",
+    "testcase-059-nonset"
+   ],
+   "throughput_wall": 16571.638,
+   "throughput_per_worker": 517.864,
+   "latency_ms": {
+    "n": 128000,
+    "mean": 1.948,
+    "median": 0.149,
+    "p95": 6.287,
+    "p99": 47.668,
+    "min": 0.045,
+    "max": 421.586,
+    "stdev": 9.149,
+    "q1": 0.113,
+    "q3": 0.206,
+    "iqr": 0.093
+   },
+   "latency_light_ms": {
+    "n": 122344,
+    "mean": 0.33,
+    "median": 0.145,
+    "p95": 0.492,
+    "p99": 4.011,
+    "min": 0.045,
+    "max": 144.909,
+    "stdev": 1.396,
+    "q1": 0.112,
+    "q3": 0.195,
+    "iqr": 0.083
+   },
+   "latency_pooled_n": 128000,
+   "latency_exact_worker_median_of_medians": 0.144,
+   "latency_exact_worker_median_of_p99": 46.75,
+   "per_worker_latency_ms": [
+    {
+     "pid": 943832,
+     "median": 0.138,
+     "p99": 39.601,
+     "n": 6048
+    },
+    {
+     "pid": 943839,
+     "median": 0.144,
+     "p99": 46.528,
+     "n": 5523
+    },
+    {
+     "pid": 943846,
+     "median": 0.131,
+     "p99": 37.677,
+     "n": 6455
+    },
+    {
+     "pid": 943853,
+     "median": 0.151,
+     "p99": 50.909,
+     "n": 4756
+    },
+    {
+     "pid": 943860,
+     "median": 0.139,
+     "p99": 44.967,
+     "n": 5571
+    },
+    {
+     "pid": 943867,
+     "median": 0.139,
+     "p99": 55.094,
+     "n": 4347
+    },
+    {
+     "pid": 943874,
+     "median": 0.142,
+     "p99": 49.742,
+     "n": 5640
+    },
+    {
+     "pid": 943881,
+     "median": 0.123,
+     "p99": 38.248,
+     "n": 6454
+    },
+    {
+     "pid": 943889,
+     "median": 0.144,
+     "p99": 53.6,
+     "n": 5096
+    },
+    {
+     "pid": 943896,
+     "median": 0.12,
+     "p99": 39.1,
+     "n": 5978
+    },
+    {
+     "pid": 943903,
+     "median": 0.124,
+     "p99": 41.664,
+     "n": 5832
+    },
+    {
+     "pid": 943910,
+     "median": 0.133,
+     "p99": 41.678,
+     "n": 5975
+    },
+    {
+     "pid": 943917,
+     "median": 0.157,
+     "p99": 43.185,
+     "n": 5503
+    },
+    {
+     "pid": 943924,
+     "median": 0.154,
+     "p99": 51.39,
+     "n": 4620
+    },
+    {
+     "pid": 943931,
+     "median": 0.141,
+     "p99": 46.971,
+     "n": 5249
+    },
+    {
+     "pid": 943938,
+     "median": 0.158,
+     "p99": 48.399,
+     "n": 4824
+    },
+    {
+     "pid": 943945,
+     "median": 0.139,
+     "p99": 46.361,
+     "n": 5299
+    },
+    {
+     "pid": 943952,
+     "median": 0.138,
+     "p99": 38.468,
+     "n": 6514
+    },
+    {
+     "pid": 943959,
+     "median": 0.148,
+     "p99": 42.833,
+     "n": 5436
+    },
+    {
+     "pid": 943967,
+     "median": 0.137,
+     "p99": 46.519,
+     "n": 5435
+    },
+    {
+     "pid": 943974,
+     "median": 0.17,
+     "p99": 52.223,
+     "n": 4008
+    },
+    {
+     "pid": 943983,
+     "median": 0.171,
+     "p99": 49.907,
+     "n": 4686
+    },
+    {
+     "pid": 943990,
+     "median": 0.176,
+     "p99": 48.877,
+     "n": 4960
+    },
+    {
+     "pid": 943997,
+     "median": 0.137,
+     "p99": 42.638,
+     "n": 5706
+    },
+    {
+     "pid": 944004,
+     "median": 0.149,
+     "p99": 41.385,
+     "n": 5829
+    },
+    {
+     "pid": 944012,
+     "median": 0.189,
+     "p99": 61.438,
+     "n": 4007
+    },
+    {
+     "pid": 944019,
+     "median": 0.139,
+     "p99": 41.705,
+     "n": 5774
+    },
+    {
+     "pid": 944026,
+     "median": 0.173,
+     "p99": 50.705,
+     "n": 4892
+    },
+    {
+     "pid": 944034,
+     "median": 0.195,
+     "p99": 60.231,
+     "n": 4144
+    },
+    {
+     "pid": 944041,
+     "median": 0.186,
+     "p99": 59.058,
+     "n": 4823
+    },
+    {
+     "pid": 944048,
+     "median": 0.164,
+     "p99": 56.841,
+     "n": 4483
+    },
+    {
+     "pid": 944057,
+     "median": 0.171,
+     "p99": 54.048,
+     "n": 4482
+    }
+   ],
+   "heavy_fixture_latency_ms": [
+    {
+     "fixture": "062-big-policy",
+     "worker_median_of_medians": 33.275,
+     "workers": 32
+    },
+    {
+     "fixture": "063-big-policy",
+     "worker_median_of_medians": 32.797,
+     "workers": 32
+    },
+    {
+     "fixture": "064-big-policy",
+     "worker_median_of_medians": 31.175,
+     "workers": 32
+    }
+   ],
+   "cpu_seconds": 216.32,
+   "busy_cores": 21.294,
+   "rss_peak_kb": 27686208,
+   "rss_steady_kb": 25525186,
+   "rss_per_worker_steady_kb": 797662,
+   "mem_available_kb": 45723988,
+   "rss_samples": 40
+  },
+  {
+   "level": 44,
+   "repeat": 2,
+   "wall_ms": 10220.275,
+   "evaluations": 165823,
+   "errors": 0,
+   "error_rate": 0,
+   "mismatches": 17086,
+   "mismatch_slugs": [
+    "testcase-009-bob-write-y",
+    "testcase-016-bob",
+    "testcase-025-bob-read-x",
+    "testcase-052-bob-read-x",
+    "testcase-053-alice-read-x",
+    "testcase-055-alice-read-x",
+    "testcase-059-nonset"
+   ],
+   "throughput_wall": 16224.906,
+   "throughput_per_worker": 368.748,
+   "latency_ms": {
+    "n": 153696,
+    "mean": 2.711,
+    "median": 0.151,
+    "p95": 9.343,
+    "p99": 67.845,
+    "min": 0.036,
+    "max": 658.565,
+    "stdev": 12.477,
+    "q1": 0.114,
+    "q3": 0.214,
+    "iqr": 0.1
+   },
+   "latency_light_ms": {
+    "n": 146942,
+    "mean": 0.461,
+    "median": 0.147,
+    "p95": 1.224,
+    "p99": 7.259,
+    "min": 0.036,
+    "max": 79.586,
+    "stdev": 1.76,
+    "q1": 0.113,
+    "q3": 0.201,
+    "iqr": 0.088
+   },
+   "latency_pooled_n": 153696,
+   "latency_exact_worker_median_of_medians": 0.158,
+   "latency_exact_worker_median_of_p99": 67.957,
+   "per_worker_latency_ms": [
+    {
+     "pid": 943832,
+     "median": 0.155,
+     "p99": 80.18,
+     "n": 3120
+    },
+    {
+     "pid": 943839,
+     "median": 0.119,
+     "p99": 55.311,
+     "n": 4618
+    },
+    {
+     "pid": 943846,
+     "median": 0.131,
+     "p99": 50.246,
+     "n": 4618
+    },
+    {
+     "pid": 943853,
+     "median": 0.157,
+     "p99": 75.139,
+     "n": 3160
+    },
+    {
+     "pid": 943860,
+     "median": 0.131,
+     "p99": 52.718,
+     "n": 4687
+    },
+    {
+     "pid": 943867,
+     "median": 0.111,
+     "p99": 47.062,
+     "n": 5434
+    },
+    {
+     "pid": 943874,
+     "median": 0.155,
+     "p99": 80.407,
+     "n": 2852
+    },
+    {
+     "pid": 943881,
+     "median": 0.122,
+     "p99": 51.825,
+     "n": 4963
+    },
+    {
+     "pid": 943889,
+     "median": 0.164,
+     "p99": 72.923,
+     "n": 3259
+    },
+    {
+     "pid": 943896,
+     "median": 0.155,
+     "p99": 67.968,
+     "n": 3464
+    },
+    {
+     "pid": 943903,
+     "median": 0.115,
+     "p99": 47.575,
+     "n": 5027
+    },
+    {
+     "pid": 943910,
+     "median": 0.163,
+     "p99": 85.377,
+     "n": 2783
+    },
+    {
+     "pid": 943917,
+     "median": 0.122,
+     "p99": 42.987,
+     "n": 5300
+    },
+    {
+     "pid": 943924,
+     "median": 0.161,
+     "p99": 80.892,
+     "n": 2852
+    },
+    {
+     "pid": 943931,
+     "median": 0.161,
+     "p99": 84.697,
+     "n": 2688
+    },
+    {
+     "pid": 943938,
+     "median": 0.131,
+     "p99": 47.015,
+     "n": 5502
+    },
+    {
+     "pid": 943945,
+     "median": 0.115,
+     "p99": 45.597,
+     "n": 5232
+    },
+    {
+     "pid": 943952,
+     "median": 0.131,
+     "p99": 52.13,
+     "n": 4414
+    },
+    {
+     "pid": 943959,
+     "median": 0.172,
+     "p99": 82.412,
+     "n": 2716
+    },
+    {
+     "pid": 943967,
+     "median": 0.156,
+     "p99": 74.613,
+     "n": 3123
+    },
+    {
+     "pid": 943974,
+     "median": 0.163,
+     "p99": 79.454,
+     "n": 2784
+    },
+    {
+     "pid": 943983,
+     "median": 0.136,
+     "p99": 55.491,
+     "n": 4611
+    },
+    {
+     "pid": 943990,
+     "median": 0.175,
+     "p99": 71.407,
+     "n": 3258
+    },
+    {
+     "pid": 943997,
+     "median": 0.181,
+     "p99": 80.962,
+     "n": 3463
+    },
+    {
+     "pid": 944004,
+     "median": 0.128,
+     "p99": 45.701,
+     "n": 5026
+    },
+    {
+     "pid": 944012,
+     "median": 0.177,
+     "p99": 76.079,
+     "n": 2851
+    },
+    {
+     "pid": 944019,
+     "median": 0.172,
+     "p99": 84.235,
+     "n": 2836
+    },
+    {
+     "pid": 944026,
+     "median": 0.148,
+     "p99": 68.862,
+     "n": 3871
+    },
+    {
+     "pid": 944034,
+     "median": 0.155,
+     "p99": 67.945,
+     "n": 3802
+    },
+    {
+     "pid": 944041,
+     "median": 0.163,
+     "p99": 66.643,
+     "n": 3734
+    },
+    {
+     "pid": 944048,
+     "median": 0.178,
+     "p99": 71.103,
+     "n": 3437
+    },
+    {
+     "pid": 944057,
+     "median": 0.167,
+     "p99": 65.803,
+     "n": 3804
+    },
+    {
+     "pid": 944065,
+     "median": 0.177,
+     "p99": 66.995,
+     "n": 3466
+    },
+    {
+     "pid": 944072,
+     "median": 0.135,
+     "p99": 49.006,
+     "n": 4551
+    },
+    {
+     "pid": 944079,
+     "median": 0.148,
+     "p99": 64.021,
+     "n": 3734
+    },
+    {
+     "pid": 944086,
+     "median": 0.192,
+     "p99": 88.318,
+     "n": 2716
+    },
+    {
+     "pid": 944094,
+     "median": 0.155,
+     "p99": 72.711,
+     "n": 3260
+    },
+    {
+     "pid": 944101,
+     "median": 0.183,
+     "p99": 78.12,
+     "n": 3190
+    },
+    {
+     "pid": 944108,
+     "median": 0.169,
+     "p99": 59.658,
+     "n": 3872
+    },
+    {
+     "pid": 944115,
+     "median": 0.265,
+     "p99": 95.899,
+     "n": 2512
+    },
+    {
+     "pid": 944122,
+     "median": 0.187,
+     "p99": 74.944,
+     "n": 3527
+    },
+    {
+     "pid": 944129,
+     "median": 0.162,
+     "p99": 61.671,
+     "n": 3734
+    },
+    {
+     "pid": 944136,
+     "median": 0.166,
+     "p99": 65.378,
+     "n": 3828
+    },
+    {
+     "pid": 944143,
+     "median": 0.158,
+     "p99": 58.795,
+     "n": 4144
+    }
+   ],
+   "heavy_fixture_latency_ms": [
+    {
+     "fixture": "062-big-policy",
+     "worker_median_of_medians": 48.683,
+     "workers": 44
+    },
+    {
+     "fixture": "063-big-policy",
+     "worker_median_of_medians": 48.119,
+     "workers": 44
+    },
+    {
+     "fixture": "064-big-policy",
+     "worker_median_of_medians": 48.416,
+     "workers": 44
+    }
+   ],
+   "cpu_seconds": 213.58,
+   "busy_cores": 20.898,
+   "rss_peak_kb": 35246932,
+   "rss_steady_kb": 33607268,
+   "rss_per_worker_steady_kb": 763802,
+   "mem_available_kb": 40394024,
+   "rss_samples": 40
+  }
+ ],
+ "finished": "2026-09-06T11:02:35.632Z"
+}

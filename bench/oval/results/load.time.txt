@@ -1,0 +1,48 @@
+  rep0 c= 1 tput_wall=  16.18 tput_win=  16.10 med=   51.54 p99=   157.68 rss_peak= 0.15GiB cores=  1.00 err=0
+  rep0 c= 2 tput_wall=  30.69 tput_win=  31.30 med=   53.70 p99=   157.55 rss_peak= 0.31GiB cores=  1.96 err=0
+  rep0 c= 4 tput_wall=  55.13 tput_win=  56.20 med=   57.81 p99=   183.29 rss_peak= 0.61GiB cores=  3.91 err=0
+  rep0 c= 8 tput_wall=  81.40 tput_win=  82.90 med=   76.58 p99=   250.09 rss_peak= 1.22GiB cores=  7.81 err=0
+  rep0 c=16 tput_wall= 110.97 tput_win= 112.60 med=  125.90 p99=   421.47 rss_peak= 2.41GiB cores= 15.63 err=0
+  rep0 c=22 tput_wall= 107.74 tput_win= 109.20 med=  171.79 p99=   517.93 rss_peak= 3.32GiB cores= 20.75 err=0
+  rep0 c=32 tput_wall= 105.85 tput_win= 107.10 med=  267.35 p99=   865.80 rss_peak= 4.83GiB cores= 20.98 err=0
+  rep0 c=44 tput_wall= 105.05 tput_win= 105.60 med=  361.47 p99=  1107.00 rss_peak= 6.60GiB cores= 20.89 err=0
+  rep1 c= 1 tput_wall=  16.18 tput_win=  16.10 med=   51.28 p99=   153.95 rss_peak= 0.15GiB cores=  1.00 err=0
+  rep1 c= 2 tput_wall=  30.01 tput_win=  30.60 med=   54.92 p99=   161.80 rss_peak= 0.31GiB cores=  1.96 err=0
+  rep1 c= 4 tput_wall=  55.13 tput_win=  56.20 med=   58.82 p99=   180.57 rss_peak= 0.61GiB cores=  3.92 err=0
+  rep1 c= 8 tput_wall=  79.53 tput_win=  80.90 med=   76.20 p99=   246.90 rss_peak= 1.22GiB cores=  7.81 err=0
+  rep1 c=16 tput_wall= 110.47 tput_win= 112.10 med=  126.03 p99=   384.08 rss_peak= 2.42GiB cores= 15.65 err=0
+  rep1 c=22 tput_wall= 108.62 tput_win= 110.60 med=  175.26 p99=   489.79 rss_peak= 3.33GiB cores= 20.70 err=0
+  rep1 c=32 tput_wall= 105.17 tput_win= 106.70 med=  267.00 p99=   823.25 rss_peak= 4.82GiB cores= 20.82 err=0
+  rep1 c=44 tput_wall= 105.71 tput_win= 106.80 med=  355.99 p99=  1227.14 rss_peak= 6.61GiB cores= 20.77 err=0
+  rep2 c= 1 tput_wall=  15.98 tput_win=  16.30 med=   50.78 p99=   155.62 rss_peak= 0.15GiB cores=  0.98 err=0
+  rep2 c= 2 tput_wall=  30.01 tput_win=  30.60 med=   54.82 p99=   168.82 rss_peak= 0.31GiB cores=  1.96 err=0
+  rep2 c= 4 tput_wall=  53.56 tput_win=  54.60 med=   59.16 p99=   190.54 rss_peak= 0.61GiB cores=  3.91 err=0
+  rep2 c= 8 tput_wall=  80.89 tput_win=  82.30 med=   74.92 p99=   250.19 rss_peak= 1.21GiB cores=  7.84 err=0
+  rep2 c=16 tput_wall= 109.63 tput_win= 111.20 med=  126.65 p99=   397.51 rss_peak= 2.42GiB cores= 15.68 err=0
+  rep2 c=22 tput_wall= 108.80 tput_win= 111.20 med=  172.73 p99=   495.06 rss_peak= 3.32GiB cores= 20.32 err=0
+  rep2 c=32 tput_wall= 103.96 tput_win= 106.10 med=  261.00 p99=   926.14 rss_peak= 4.83GiB cores= 20.77 err=0
+  rep2 c=44 tput_wall= 108.74 tput_win= 109.70 med=  348.48 p99=  1127.28 rss_peak= 6.60GiB cores= 20.92 err=0
+-> /home/coder/deepthought-solutions/ds-odrl-engine-rs-work/bench/oval/results/load.json
+	Command being timed: "/tmp/claude-1002/-home-coder-deepthought-solutions-dataspace/9a455f1e-9157-40f0-a70b-fc272472716d/scratchpad/perf-bench/oval/odrl-Engine/venv/bin/python load_bench.py /home/coder/deepthought-solutions/ds-odrl-engine-rs-work/bench/oval/results/load.json --levels 1,2,4,8,16,22,32,44 --step-s 10 --repeats 3"
+	User time (seconds): 3176.59
+	System time (seconds): 17.86
+	Percent of CPU this job got: 1183%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 4:29.92
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 162044
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 3677920
+	Voluntary context switches: 5363
+	Involuntary context switches: 424234
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 6416
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

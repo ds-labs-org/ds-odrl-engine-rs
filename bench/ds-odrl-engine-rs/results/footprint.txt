@@ -1,0 +1,8 @@
+engine.wasm:                 276K
+wasm32 release build tree:   19M
+native release build tree:   108M
+repo target/ total:          126M
+perf-bench build tree:       131M
+fresh clone (source only):   7,7M
+cargo registry (deps cache): 1,5G
+rust toolchain (rustup):     1,5G

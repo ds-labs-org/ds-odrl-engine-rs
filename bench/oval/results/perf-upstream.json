@@ -1,0 +1,4434 @@
+{
+  "engine": "OVAL (DIPS-Tools/odrl-Engine)",
+  "commit": "a427e71b50bdd14027f2d5552d6ce03d089487f3",
+  "started": "2026-09-06T10:56:29+0200",
+  "python": "3.12.3 (main, Jul 15 2026, 23:46:41) [GCC 13.3.0]",
+  "isolate": false,
+  "gc_disabled": false,
+  "gc_thresholds": [
+    700,
+    10,
+    10
+  ],
+  "repeats": 5,
+  "warmup_iterations": 10,
+  "cases": 68,
+  "import_ms": 259.634,
+  "rss_after_import_kb": 119636,
+  "warmup_ms": [
+    56.671,
+    48.478,
+    68.05,
+    47.723,
+    48.833,
+    50.064,
+    80.608,
+    48.222,
+    48.371,
+    47.965
+  ],
+  "rss_after_warmup_kb": 150396,
+  "per_repeat": [
+    {
+      "repeat": 0,
+      "wall_ms": 4455.2,
+      "mismatches": 9,
+      "errors": 0,
+      "rss_end_kb": 167816
+    },
+    {
+      "repeat": 1,
+      "wall_ms": 8215.59,
+      "mismatches": 9,
+      "errors": 0,
+      "rss_end_kb": 178920
+    },
+    {
+      "repeat": 2,
+      "wall_ms": 11712.67,
+      "mismatches": 9,
+      "errors": 0,
+      "rss_end_kb": 195428
+    },
+    {
+      "repeat": 3,
+      "wall_ms": 15632.86,
+      "mismatches": 9,
+      "errors": 0,
+      "rss_end_kb": 205212
+    },
+    {
+      "repeat": 4,
+      "wall_ms": 19044.58,
+      "mismatches": 9,
+      "errors": 0,
+      "rss_end_kb": 223636
+    }
+  ],
+  "samples": [
+    {
+      "repeat": 0,
+      "slug": "testcase-001-alice",
+      "ms": 75.32,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-002-bob",
+      "ms": 47.687,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-003-bob-write-y",
+      "ms": 47.275,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-004-alice",
+      "ms": 47.287,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-005-bob",
+      "ms": 48.416,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-006-bob-write-y",
+      "ms": 76.471,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-007-alice",
+      "ms": 48.006,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-008-bob",
+      "ms": 48.51,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-009-bob-write-y",
+      "ms": 47.317,
+      "decision": "Deny",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-010-alice-sell",
+      "ms": 74.238,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-011-alice",
+      "ms": 52.244,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-012-bob",
+      "ms": 49.805,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-013-bob-write-y",
+      "ms": 49.502,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-014-alice-sell",
+      "ms": 79.249,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-015-alice",
+      "ms": 49.356,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-016-bob",
+      "ms": 49.409,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-017-alice-sell",
+      "ms": 49.801,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-018-alice",
+      "ms": 81.549,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-019-bob",
+      "ms": 49.654,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-020-bob-sell",
+      "ms": 51.134,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-021-alice",
+      "ms": 50.13,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-022-alice-sell",
+      "ms": 51.81,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-023-alice-read-y",
+      "ms": 82.834,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-024-alice-write-x",
+      "ms": 50.012,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-025-bob-read-x",
+      "ms": 50.166,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-026-alice-read-x",
+      "ms": 49.354,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-027-alice-write-x",
+      "ms": 79.585,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-028-alice-read-y",
+      "ms": 50.665,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-029-bob-write-y",
+      "ms": 50.497,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-030-alice-read-x",
+      "ms": 48.108,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-031-alice-read-x-past",
+      "ms": 79.047,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-032-alice-read-x-future",
+      "ms": 48.435,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-033-alice-read-x",
+      "ms": 49.504,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-034-alice-read-x-past",
+      "ms": 49.727,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-035-alice-read-x-future",
+      "ms": 49.206,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-036-alice-read-x",
+      "ms": 83.088,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-037-alice-read-x-past",
+      "ms": 48.413,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-038-alice-read-x-future",
+      "ms": 50.338,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-039-alice-read-x",
+      "ms": 49.597,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-040-alice-read-x-past",
+      "ms": 77.615,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-041-alice-read-x-future",
+      "ms": 49.318,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-042-alice-read-x",
+      "ms": 49.681,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-043-alice-read-x-past",
+      "ms": 49.266,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-044-alice-read-x-future",
+      "ms": 83.32,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-045-alice-read-x",
+      "ms": 49.095,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-046-alice-read-x-past",
+      "ms": 51.277,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-047-alice-read-x-future",
+      "ms": 50.554,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-048-alice-read-x",
+      "ms": 82.424,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-049-alice-read-x-past",
+      "ms": 49.347,
+      "decision": "Allow",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-050-alice-read-x-future",
+      "ms": 50.73,
+      "decision": "Allow",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-051-alice",
+      "ms": 49.934,
+      "decision": "Deny",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-052-bob-read-x",
+      "ms": 50.553,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-053-alice-read-x",
+      "ms": 85.353,
+      "decision": "Deny",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-054-alice-read-y",
+      "ms": 50.476,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-055-alice-read-x",
+      "ms": 50.011,
+      "decision": "Deny",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-056-alice-read-y",
+      "ms": 50.118,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-057-bob-read-x",
+      "ms": 79.805,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-058-bob-write-y",
+      "ms": 52.065,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-059-nonset",
+      "ms": 51.638,
+      "decision": "Deny",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-060-fulfilled",
+      "ms": 51.995,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-061-violated",
+      "ms": 86.65,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-062-big-policy",
+      "ms": 122.781,
+      "decision": "Deny",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-063-big-policy-OoO",
+      "ms": 165.835,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-064-big-policy-past",
+      "ms": 152.886,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-065-alice",
+      "ms": 140.326,
+      "decision": "Deny",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-066-bob-sell",
+      "ms": 100.163,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-067-alice-past",
+      "ms": 149.525,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 0,
+      "slug": "testcase-068-bob-write-y-past",
+      "ms": 124.65,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-001-alice",
+      "ms": 100.027,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-002-bob",
+      "ms": 160.831,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-003-bob-write-y",
+      "ms": 97.738,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-004-alice",
+      "ms": 98.638,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-005-bob",
+      "ms": 145.228,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-006-bob-write-y",
+      "ms": 95.748,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-007-alice",
+      "ms": 133.654,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-008-bob",
+      "ms": 92.893,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-009-bob-write-y",
+      "ms": 92.755,
+      "decision": "Deny",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-010-alice-sell",
+      "ms": 141.974,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-011-alice",
+      "ms": 95.647,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-012-bob",
+      "ms": 93.833,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-013-bob-write-y",
+      "ms": 139.216,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-014-alice-sell",
+      "ms": 94.281,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-015-alice",
+      "ms": 93.287,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-016-bob",
+      "ms": 156.566,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-017-alice-sell",
+      "ms": 98.049,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-018-alice",
+      "ms": 171.608,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-019-bob",
+      "ms": 93.528,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-020-bob-sell",
+      "ms": 92.836,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-021-alice",
+      "ms": 140.968,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-022-alice-sell",
+      "ms": 94.086,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-023-alice-read-y",
+      "ms": 94.62,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-024-alice-write-x",
+      "ms": 138.342,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-025-bob-read-x",
+      "ms": 96.201,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-026-alice-read-x",
+      "ms": 135.726,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-027-alice-write-x",
+      "ms": 93.602,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-028-alice-read-y",
+      "ms": 95.576,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-029-bob-write-y",
+      "ms": 148.33,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-030-alice-read-x",
+      "ms": 94.276,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-031-alice-read-x-past",
+      "ms": 93.535,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-032-alice-read-x-future",
+      "ms": 142.41,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-033-alice-read-x",
+      "ms": 94.953,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-034-alice-read-x-past",
+      "ms": 136.938,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-035-alice-read-x-future",
+      "ms": 99.873,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-036-alice-read-x",
+      "ms": 96.221,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-037-alice-read-x-past",
+      "ms": 147.698,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-038-alice-read-x-future",
+      "ms": 94.94,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-039-alice-read-x",
+      "ms": 96.128,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-040-alice-read-x-past",
+      "ms": 140.323,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-041-alice-read-x-future",
+      "ms": 97.161,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-042-alice-read-x",
+      "ms": 146.017,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-043-alice-read-x-past",
+      "ms": 95.464,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-044-alice-read-x-future",
+      "ms": 95.832,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-045-alice-read-x",
+      "ms": 145.444,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-046-alice-read-x-past",
+      "ms": 95.909,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-047-alice-read-x-future",
+      "ms": 97.191,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-048-alice-read-x",
+      "ms": 139.973,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-049-alice-read-x-past",
+      "ms": 96.738,
+      "decision": "Allow",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-050-alice-read-x-future",
+      "ms": 141.413,
+      "decision": "Allow",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-051-alice",
+      "ms": 96.499,
+      "decision": "Deny",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-052-bob-read-x",
+      "ms": 95.436,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-053-alice-read-x",
+      "ms": 144.399,
+      "decision": "Deny",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-054-alice-read-y",
+      "ms": 99.306,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-055-alice-read-x",
+      "ms": 96.228,
+      "decision": "Deny",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-056-alice-read-y",
+      "ms": 141.193,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-057-bob-read-x",
+      "ms": 97.412,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-058-bob-write-y",
+      "ms": 140.661,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-059-nonset",
+      "ms": 100.169,
+      "decision": "Deny",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-060-fulfilled",
+      "ms": 97.399,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-061-violated",
+      "ms": 146.162,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-062-big-policy",
+      "ms": 166.661,
+      "decision": "Deny",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-063-big-policy-OoO",
+      "ms": 221.496,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-064-big-policy-past",
+      "ms": 192.025,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-065-alice",
+      "ms": 184.276,
+      "decision": "Deny",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-066-bob-sell",
+      "ms": 143.289,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-067-alice-past",
+      "ms": 191.026,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 1,
+      "slug": "testcase-068-bob-write-y-past",
+      "ms": 142.334,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-001-alice",
+      "ms": 137.641,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-002-bob",
+      "ms": 205.054,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-003-bob-write-y",
+      "ms": 143.352,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-004-alice",
+      "ms": 142.331,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-005-bob",
+      "ms": 194.748,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-006-bob-write-y",
+      "ms": 140.374,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-007-alice",
+      "ms": 202.051,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-008-bob",
+      "ms": 140.159,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-009-bob-write-y",
+      "ms": 139.454,
+      "decision": "Deny",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-010-alice-sell",
+      "ms": 205.343,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-011-alice",
+      "ms": 139.405,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-012-bob",
+      "ms": 140.442,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-013-bob-write-y",
+      "ms": 193.047,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-014-alice-sell",
+      "ms": 138.965,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-015-alice",
+      "ms": 194.36,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-016-bob",
+      "ms": 144.969,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-017-alice-sell",
+      "ms": 139.11,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-018-alice",
+      "ms": 201.902,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-019-bob",
+      "ms": 138.882,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-020-bob-sell",
+      "ms": 138.809,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-021-alice",
+      "ms": 199.798,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-022-alice-sell",
+      "ms": 139.484,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-023-alice-read-y",
+      "ms": 191.857,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-024-alice-write-x",
+      "ms": 142.354,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-025-bob-read-x",
+      "ms": 142.582,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-026-alice-read-x",
+      "ms": 197.095,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-027-alice-write-x",
+      "ms": 139.279,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-028-alice-read-y",
+      "ms": 139.382,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-029-bob-write-y",
+      "ms": 207.485,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-030-alice-read-x",
+      "ms": 144.538,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-031-alice-read-x-past",
+      "ms": 199.633,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-032-alice-read-x-future",
+      "ms": 151.133,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-033-alice-read-x",
+      "ms": 166.057,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-034-alice-read-x-past",
+      "ms": 200.809,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-035-alice-read-x-future",
+      "ms": 142.286,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-036-alice-read-x",
+      "ms": 145.887,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-037-alice-read-x-past",
+      "ms": 197.404,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-038-alice-read-x-future",
+      "ms": 141.173,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-039-alice-read-x",
+      "ms": 195.531,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-040-alice-read-x-past",
+      "ms": 142.197,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-041-alice-read-x-future",
+      "ms": 146.871,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-042-alice-read-x",
+      "ms": 204.873,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-043-alice-read-x-past",
+      "ms": 142.32,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-044-alice-read-x-future",
+      "ms": 142.482,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-045-alice-read-x",
+      "ms": 196.451,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-046-alice-read-x-past",
+      "ms": 140.646,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-047-alice-read-x-future",
+      "ms": 239.542,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-048-alice-read-x",
+      "ms": 143.556,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-049-alice-read-x-past",
+      "ms": 143.221,
+      "decision": "Allow",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-050-alice-read-x-future",
+      "ms": 205.077,
+      "decision": "Allow",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-051-alice",
+      "ms": 142.216,
+      "decision": "Deny",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-052-bob-read-x",
+      "ms": 141.25,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-053-alice-read-x",
+      "ms": 200.708,
+      "decision": "Deny",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-054-alice-read-y",
+      "ms": 144.099,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-055-alice-read-x",
+      "ms": 215.696,
+      "decision": "Deny",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-056-alice-read-y",
+      "ms": 147.464,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-057-bob-read-x",
+      "ms": 142.649,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-058-bob-write-y",
+      "ms": 205.509,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-059-nonset",
+      "ms": 143.708,
+      "decision": "Deny",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-060-fulfilled",
+      "ms": 143.164,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-061-violated",
+      "ms": 206.208,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-062-big-policy",
+      "ms": 213.722,
+      "decision": "Deny",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-063-big-policy-OoO",
+      "ms": 287.185,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-064-big-policy-past",
+      "ms": 298.244,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-065-alice",
+      "ms": 189.648,
+      "decision": "Deny",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-066-bob-sell",
+      "ms": 186.6,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-067-alice-past",
+      "ms": 253.758,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 2,
+      "slug": "testcase-068-bob-write-y-past",
+      "ms": 193.882,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-001-alice",
+      "ms": 209.787,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-002-bob",
+      "ms": 253.289,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-003-bob-write-y",
+      "ms": 185.421,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-004-alice",
+      "ms": 248.426,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-005-bob",
+      "ms": 193.907,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-006-bob-write-y",
+      "ms": 188.88,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-007-alice",
+      "ms": 261.361,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-008-bob",
+      "ms": 195.581,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-009-bob-write-y",
+      "ms": 187.566,
+      "decision": "Deny",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-010-alice-sell",
+      "ms": 252.033,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-011-alice",
+      "ms": 190.844,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-012-bob",
+      "ms": 270.988,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-013-bob-write-y",
+      "ms": 193.62,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-014-alice-sell",
+      "ms": 195.622,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-015-alice",
+      "ms": 269.01,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-016-bob",
+      "ms": 190.797,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-017-alice-sell",
+      "ms": 192.267,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-018-alice",
+      "ms": 259.55,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-019-bob",
+      "ms": 197.379,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-020-bob-sell",
+      "ms": 281.99,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-021-alice",
+      "ms": 197.737,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-022-alice-sell",
+      "ms": 193.202,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-023-alice-read-y",
+      "ms": 268.426,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-024-alice-write-x",
+      "ms": 195.614,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-025-bob-read-x",
+      "ms": 203.643,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-026-alice-read-x",
+      "ms": 281.475,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-027-alice-write-x",
+      "ms": 199.517,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-028-alice-read-y",
+      "ms": 290.689,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-029-bob-write-y",
+      "ms": 199.646,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-030-alice-read-x",
+      "ms": 196.043,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-031-alice-read-x-past",
+      "ms": 267.316,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-032-alice-read-x-future",
+      "ms": 192.397,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-033-alice-read-x",
+      "ms": 196.979,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-034-alice-read-x-past",
+      "ms": 263.118,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-035-alice-read-x-future",
+      "ms": 194.218,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-036-alice-read-x",
+      "ms": 255.911,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-037-alice-read-x-past",
+      "ms": 201.603,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-038-alice-read-x-future",
+      "ms": 196.711,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-039-alice-read-x",
+      "ms": 267.234,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-040-alice-read-x-past",
+      "ms": 194.884,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-041-alice-read-x-future",
+      "ms": 194.323,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-042-alice-read-x",
+      "ms": 260.427,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-043-alice-read-x-past",
+      "ms": 203.854,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-044-alice-read-x-future",
+      "ms": 257.687,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-045-alice-read-x",
+      "ms": 198.418,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-046-alice-read-x-past",
+      "ms": 200.941,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-047-alice-read-x-future",
+      "ms": 281.137,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-048-alice-read-x",
+      "ms": 206.753,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-049-alice-read-x-past",
+      "ms": 197.206,
+      "decision": "Allow",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-050-alice-read-x-future",
+      "ms": 261.665,
+      "decision": "Allow",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-051-alice",
+      "ms": 195.009,
+      "decision": "Deny",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-052-bob-read-x",
+      "ms": 264.734,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-053-alice-read-x",
+      "ms": 195.888,
+      "decision": "Deny",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-054-alice-read-y",
+      "ms": 195.351,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-055-alice-read-x",
+      "ms": 272.097,
+      "decision": "Deny",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-056-alice-read-y",
+      "ms": 195.672,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-057-bob-read-x",
+      "ms": 192.364,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-058-bob-write-y",
+      "ms": 266.453,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-059-nonset",
+      "ms": 200.326,
+      "decision": "Deny",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-060-fulfilled",
+      "ms": 263.993,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-061-violated",
+      "ms": 197.06,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-062-big-policy",
+      "ms": 333.577,
+      "decision": "Deny",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-063-big-policy-OoO",
+      "ms": 282.507,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-064-big-policy-past",
+      "ms": 370.624,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-065-alice",
+      "ms": 256.993,
+      "decision": "Deny",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-066-bob-sell",
+      "ms": 247.228,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-067-alice-past",
+      "ms": 318.287,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 3,
+      "slug": "testcase-068-bob-write-y-past",
+      "ms": 242.106,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-001-alice",
+      "ms": 242.714,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-002-bob",
+      "ms": 314.895,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-003-bob-write-y",
+      "ms": 241.092,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-004-alice",
+      "ms": 244.489,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-005-bob",
+      "ms": 316.285,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-006-bob-write-y",
+      "ms": 253.215,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-007-alice",
+      "ms": 315.046,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-008-bob",
+      "ms": 239.143,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-009-bob-write-y",
+      "ms": 247.981,
+      "decision": "Deny",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-010-alice-sell",
+      "ms": 330.803,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-011-alice",
+      "ms": 242.179,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-012-bob",
+      "ms": 236.495,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-013-bob-write-y",
+      "ms": 326.658,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-014-alice-sell",
+      "ms": 260.188,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-015-alice",
+      "ms": 241.071,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-016-bob",
+      "ms": 323.62,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-017-alice-sell",
+      "ms": 244.554,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-018-alice",
+      "ms": 244.26,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-019-bob",
+      "ms": 316.549,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-020-bob-sell",
+      "ms": 244.754,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-021-alice",
+      "ms": 243.4,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-022-alice-sell",
+      "ms": 316.872,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-023-alice-read-y",
+      "ms": 241.44,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-024-alice-write-x",
+      "ms": 239.924,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-025-bob-read-x",
+      "ms": 323.38,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-026-alice-read-x",
+      "ms": 237.977,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-027-alice-write-x",
+      "ms": 242.709,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-028-alice-read-y",
+      "ms": 321.998,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-029-bob-write-y",
+      "ms": 239.611,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-030-alice-read-x",
+      "ms": 340.909,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-031-alice-read-x-past",
+      "ms": 241.106,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-032-alice-read-x-future",
+      "ms": 245.085,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-033-alice-read-x",
+      "ms": 327.521,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-034-alice-read-x-past",
+      "ms": 240.256,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-035-alice-read-x-future",
+      "ms": 244.88,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-036-alice-read-x",
+      "ms": 328.641,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-037-alice-read-x-past",
+      "ms": 242.041,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-038-alice-read-x-future",
+      "ms": 242.729,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-039-alice-read-x",
+      "ms": 323.858,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-040-alice-read-x-past",
+      "ms": 243.79,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-041-alice-read-x-future",
+      "ms": 240.203,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-042-alice-read-x",
+      "ms": 326.124,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-043-alice-read-x-past",
+      "ms": 244.786,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-044-alice-read-x-future",
+      "ms": 244.301,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-045-alice-read-x",
+      "ms": 327.313,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-046-alice-read-x-past",
+      "ms": 264.239,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-047-alice-read-x-future",
+      "ms": 246.011,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-048-alice-read-x",
+      "ms": 324.428,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-049-alice-read-x-past",
+      "ms": 243.093,
+      "decision": "Allow",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-050-alice-read-x-future",
+      "ms": 244.259,
+      "decision": "Allow",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-051-alice",
+      "ms": 328.996,
+      "decision": "Deny",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-052-bob-read-x",
+      "ms": 245.099,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-053-alice-read-x",
+      "ms": 245.357,
+      "decision": "Deny",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-054-alice-read-y",
+      "ms": 333.928,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-055-alice-read-x",
+      "ms": 239.934,
+      "decision": "Deny",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-056-alice-read-y",
+      "ms": 333.684,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-057-bob-read-x",
+      "ms": 245.615,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-058-bob-write-y",
+      "ms": 251.038,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-059-nonset",
+      "ms": 245.9,
+      "decision": "Deny",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-060-fulfilled",
+      "ms": 330.487,
+      "decision": "Allow",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-061-violated",
+      "ms": 252.935,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-062-big-policy",
+      "ms": 405.406,
+      "decision": "Deny",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-063-big-policy-OoO",
+      "ms": 330.755,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-064-big-policy-past",
+      "ms": 435.388,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-065-alice",
+      "ms": 288.145,
+      "decision": "Deny",
+      "expected": "Allow",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-066-bob-sell",
+      "ms": 289.036,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-067-alice-past",
+      "ms": 387.271,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    },
+    {
+      "repeat": 4,
+      "slug": "testcase-068-bob-write-y-past",
+      "ms": 291.202,
+      "decision": "Deny",
+      "expected": "Deny",
+      "error": null
+    }
+  ],
+  "gc": {
+    "disabled_for_timed_passes": false,
+    "enabled_at_end": true,
+    "collections_during_timed_passes": [
+      14781,
+      1343,
+      120
+    ],
+    "collected_during_timed_passes": [
+      48301,
+      20223,
+      10915753
+    ]
+  },
+  "latency_ms": {
+    "n": 340,
+    "mean": 173.629,
+    "median": 184.276,
+    "p95": 324.428,
+    "p99": 370.624,
+    "min": 47.275,
+    "max": 435.388,
+    "stddev": 84.946,
+    "q1": 96.228,
+    "q3": 242.709,
+    "iqr": 146.481
+  },
+  "memory_in_process": {
+    "tool": "/proc/self/status VmRSS, read after every timed evaluation",
+    "samples": 340,
+    "first_kb": 150312,
+    "median_kb": 184360,
+    "max_kb": 223636,
+    "last_kb": 223636,
+    "growth_kb": 73324,
+    "series_kb": [
+      150312,
+      150416,
+      150416,
+      150428,
+      152280,
+      152576,
+      152616,
+      152956,
+      152956,
+      152956,
+      152956,
+      152956,
+      152956,
+      152956,
+      152956,
+      152956,
+      152956,
+      152956,
+      152956,
+      152956,
+      152968,
+      153168,
+      154428,
+      154428,
+      154440,
+      154444,
+      155008,
+      155360,
+      155364,
+      155376,
+      155400,
+      155400,
+      155400,
+      155400,
+      155404,
+      155628,
+      155628,
+      155628,
+      155628,
+      155628,
+      155628,
+      155628,
+      155628,
+      155628,
+      155628,
+      155632,
+      155632,
+      155632,
+      155632,
+      155632,
+      155632,
+      155760,
+      155760,
+      155760,
+      155760,
+      155760,
+      155760,
+      155760,
+      155768,
+      156856,
+      156856,
+      157092,
+      157100,
+      160832,
+      160332,
+      162160,
+      167784,
+      167816,
+      168472,
+      167924,
+      168384,
+      168708,
+      169320,
+      169888,
+      168916,
+      168940,
+      168948,
+      168208,
+      169464,
+      170488,
+      168828,
+      168828,
+      168940,
+      165540,
+      166564,
+      166448,
+      167472,
+      168660,
+      168564,
+      169588,
+      171468,
+      169928,
+      169928,
+      169936,
+      169936,
+      169948,
+      171380,
+      171948,
+      171956,
+      171040,
+      171040,
+      171040,
+      171040,
+      171040,
+      171992,
+      172004,
+      172016,
+      169440,
+      170464,
+      170592,
+      170592,
+      171488,
+      172068,
+      172068,
+      172836,
+      169476,
+      170500,
+      170628,
+      170628,
+      171532,
+      170040,
+      171492,
+      172524,
+      172972,
+      172972,
+      170480,
+      171504,
+      172528,
+      170492,
+      171644,
+      172144,
+      173160,
+      174632,
+      174652,
+      178492,
+      178920,
+      180984,
+      180856,
+      181376,
+      181488,
+      179444,
+      179448,
+      180316,
+      180484,
+      181664,
+      182352,
+      182556,
+      182568,
+      182572,
+      182572,
+      182584,
+      182584,
+      182604,
+      184680,
+      184696,
+      185812,
+      181076,
+      181460,
+      181460,
+      181460,
+      182384,
+      182472,
+      184008,
+      185352,
+      183804,
+      183804,
+      181136,
+      182032,
+      183312,
+      185284,
+      185636,
+      185636,
+      184868,
+      184868,
+      182120,
+      183016,
+      184428,
+      185676,
+      185716,
+      185728,
+      186096,
+      186104,
+      184292,
+      184292,
+      185492,
+      186024,
+      186040,
+      186156,
+      187000,
+      187000,
+      184292,
+      185188,
+      186596,
+      187028,
+      187028,
+      187028,
+      187028,
+      187028,
+      187028,
+      187040,
+      187296,
+      194044,
+      195332,
+      195428,
+      195428,
+      193492,
+      193500,
+      194412,
+      194416,
+      194868,
+      197524,
+      197544,
+      198440,
+      196444,
+      196444,
+      196444,
+      196444,
+      196468,
+      197740,
+      198444,
+      198476,
+      196500,
+      196500,
+      196500,
+      196500,
+      196500,
+      197912,
+      198448,
+      198472,
+      196520,
+      196520,
+      196520,
+      196520,
+      196520,
+      198128,
+      198488,
+      198508,
+      197648,
+      197648,
+      197648,
+      197648,
+      197648,
+      198436,
+      198648,
+      198648,
+      197784,
+      197784,
+      196028,
+      196028,
+      197100,
+      198460,
+      198532,
+      198540,
+      198668,
+      198668,
+      198668,
+      198668,
+      198668,
+      198752,
+      198760,
+      198880,
+      197792,
+      197804,
+      197804,
+      197804,
+      198932,
+      198956,
+      201396,
+      201788,
+      207128,
+      205196,
+      205212,
+      207900,
+      206876,
+      207376,
+      208084,
+      207532,
+      207584,
+      205916,
+      205916,
+      207600,
+      211928,
+      212508,
+      212528,
+      210584,
+      210584,
+      210608,
+      210908,
+      211616,
+      211620,
+      210616,
+      210616,
+      210616,
+      210620,
+      210620,
+      210620,
+      210772,
+      210772,
+      210784,
+      210784,
+      210784,
+      210784,
+      210784,
+      210784,
+      213988,
+      214000,
+      214016,
+      214948,
+      214948,
+      214948,
+      213944,
+      213944,
+      213944,
+      213944,
+      213944,
+      213944,
+      212948,
+      212948,
+      212956,
+      212956,
+      212956,
+      212956,
+      212960,
+      212960,
+      212960,
+      212960,
+      212960,
+      212960,
+      212960,
+      212960,
+      217336,
+      217228,
+      217436,
+      217608,
+      217608,
+      218044,
+      218604,
+      221472,
+      223356,
+      223636
+    ]
+  },
+  "per_case": [
+    {
+      "slug": "testcase-001-alice",
+      "n": 5,
+      "median_ms": 137.641,
+      "min_ms": 75.32,
+      "max_ms": 242.714,
+      "rel_range": 1.2162,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        75.32,
+        100.027,
+        137.641,
+        209.787,
+        242.714
+      ]
+    },
+    {
+      "slug": "testcase-002-bob",
+      "n": 5,
+      "median_ms": 205.054,
+      "min_ms": 47.687,
+      "max_ms": 314.895,
+      "rel_range": 1.3031,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        47.687,
+        160.831,
+        205.054,
+        253.289,
+        314.895
+      ]
+    },
+    {
+      "slug": "testcase-003-bob-write-y",
+      "n": 5,
+      "median_ms": 143.352,
+      "min_ms": 47.275,
+      "max_ms": 241.092,
+      "rel_range": 1.352,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        47.275,
+        97.738,
+        143.352,
+        185.421,
+        241.092
+      ]
+    },
+    {
+      "slug": "testcase-004-alice",
+      "n": 5,
+      "median_ms": 142.331,
+      "min_ms": 47.287,
+      "max_ms": 248.426,
+      "rel_range": 1.4132,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        47.287,
+        98.638,
+        142.331,
+        248.426,
+        244.489
+      ]
+    },
+    {
+      "slug": "testcase-005-bob",
+      "n": 5,
+      "median_ms": 193.907,
+      "min_ms": 48.416,
+      "max_ms": 316.285,
+      "rel_range": 1.3814,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        48.416,
+        145.228,
+        194.748,
+        193.907,
+        316.285
+      ]
+    },
+    {
+      "slug": "testcase-006-bob-write-y",
+      "n": 5,
+      "median_ms": 140.374,
+      "min_ms": 76.471,
+      "max_ms": 253.215,
+      "rel_range": 1.2591,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        76.471,
+        95.748,
+        140.374,
+        188.88,
+        253.215
+      ]
+    },
+    {
+      "slug": "testcase-007-alice",
+      "n": 5,
+      "median_ms": 202.051,
+      "min_ms": 48.006,
+      "max_ms": 315.046,
+      "rel_range": 1.3216,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        48.006,
+        133.654,
+        202.051,
+        261.361,
+        315.046
+      ]
+    },
+    {
+      "slug": "testcase-008-bob",
+      "n": 5,
+      "median_ms": 140.159,
+      "min_ms": 48.51,
+      "max_ms": 239.143,
+      "rel_range": 1.3601,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        48.51,
+        92.893,
+        140.159,
+        195.581,
+        239.143
+      ]
+    },
+    {
+      "slug": "testcase-009-bob-write-y",
+      "n": 5,
+      "median_ms": 139.454,
+      "min_ms": 47.317,
+      "max_ms": 247.981,
+      "rel_range": 1.4389,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        47.317,
+        92.755,
+        139.454,
+        187.566,
+        247.981
+      ]
+    },
+    {
+      "slug": "testcase-010-alice-sell",
+      "n": 5,
+      "median_ms": 205.343,
+      "min_ms": 74.238,
+      "max_ms": 330.803,
+      "rel_range": 1.2494,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        74.238,
+        141.974,
+        205.343,
+        252.033,
+        330.803
+      ]
+    },
+    {
+      "slug": "testcase-011-alice",
+      "n": 5,
+      "median_ms": 139.405,
+      "min_ms": 52.244,
+      "max_ms": 242.179,
+      "rel_range": 1.3625,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        52.244,
+        95.647,
+        139.405,
+        190.844,
+        242.179
+      ]
+    },
+    {
+      "slug": "testcase-012-bob",
+      "n": 5,
+      "median_ms": 140.442,
+      "min_ms": 49.805,
+      "max_ms": 270.988,
+      "rel_range": 1.5749,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        49.805,
+        93.833,
+        140.442,
+        270.988,
+        236.495
+      ]
+    },
+    {
+      "slug": "testcase-013-bob-write-y",
+      "n": 5,
+      "median_ms": 193.047,
+      "min_ms": 49.502,
+      "max_ms": 326.658,
+      "rel_range": 1.4357,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        49.502,
+        139.216,
+        193.047,
+        193.62,
+        326.658
+      ]
+    },
+    {
+      "slug": "testcase-014-alice-sell",
+      "n": 5,
+      "median_ms": 138.965,
+      "min_ms": 79.249,
+      "max_ms": 260.188,
+      "rel_range": 1.302,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        79.249,
+        94.281,
+        138.965,
+        195.622,
+        260.188
+      ]
+    },
+    {
+      "slug": "testcase-015-alice",
+      "n": 5,
+      "median_ms": 194.36,
+      "min_ms": 49.356,
+      "max_ms": 269.01,
+      "rel_range": 1.1301,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        49.356,
+        93.287,
+        194.36,
+        269.01,
+        241.071
+      ]
+    },
+    {
+      "slug": "testcase-016-bob",
+      "n": 5,
+      "median_ms": 156.566,
+      "min_ms": 49.409,
+      "max_ms": 323.62,
+      "rel_range": 1.7514,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        49.409,
+        156.566,
+        144.969,
+        190.797,
+        323.62
+      ]
+    },
+    {
+      "slug": "testcase-017-alice-sell",
+      "n": 5,
+      "median_ms": 139.11,
+      "min_ms": 49.801,
+      "max_ms": 244.554,
+      "rel_range": 1.4,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        49.801,
+        98.049,
+        139.11,
+        192.267,
+        244.554
+      ]
+    },
+    {
+      "slug": "testcase-018-alice",
+      "n": 5,
+      "median_ms": 201.902,
+      "min_ms": 81.549,
+      "max_ms": 259.55,
+      "rel_range": 0.8816,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        81.549,
+        171.608,
+        201.902,
+        259.55,
+        244.26
+      ]
+    },
+    {
+      "slug": "testcase-019-bob",
+      "n": 5,
+      "median_ms": 138.882,
+      "min_ms": 49.654,
+      "max_ms": 316.549,
+      "rel_range": 1.9217,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        49.654,
+        93.528,
+        138.882,
+        197.379,
+        316.549
+      ]
+    },
+    {
+      "slug": "testcase-020-bob-sell",
+      "n": 5,
+      "median_ms": 138.809,
+      "min_ms": 51.134,
+      "max_ms": 281.99,
+      "rel_range": 1.6631,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        51.134,
+        92.836,
+        138.809,
+        281.99,
+        244.754
+      ]
+    },
+    {
+      "slug": "testcase-021-alice",
+      "n": 5,
+      "median_ms": 197.737,
+      "min_ms": 50.13,
+      "max_ms": 243.4,
+      "rel_range": 0.9774,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        50.13,
+        140.968,
+        199.798,
+        197.737,
+        243.4
+      ]
+    },
+    {
+      "slug": "testcase-022-alice-sell",
+      "n": 5,
+      "median_ms": 139.484,
+      "min_ms": 51.81,
+      "max_ms": 316.872,
+      "rel_range": 1.9003,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        51.81,
+        94.086,
+        139.484,
+        193.202,
+        316.872
+      ]
+    },
+    {
+      "slug": "testcase-023-alice-read-y",
+      "n": 5,
+      "median_ms": 191.857,
+      "min_ms": 82.834,
+      "max_ms": 268.426,
+      "rel_range": 0.9673,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        82.834,
+        94.62,
+        191.857,
+        268.426,
+        241.44
+      ]
+    },
+    {
+      "slug": "testcase-024-alice-write-x",
+      "n": 5,
+      "median_ms": 142.354,
+      "min_ms": 50.012,
+      "max_ms": 239.924,
+      "rel_range": 1.3341,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        50.012,
+        138.342,
+        142.354,
+        195.614,
+        239.924
+      ]
+    },
+    {
+      "slug": "testcase-025-bob-read-x",
+      "n": 5,
+      "median_ms": 142.582,
+      "min_ms": 50.166,
+      "max_ms": 323.38,
+      "rel_range": 1.9162,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        50.166,
+        96.201,
+        142.582,
+        203.643,
+        323.38
+      ]
+    },
+    {
+      "slug": "testcase-026-alice-read-x",
+      "n": 5,
+      "median_ms": 197.095,
+      "min_ms": 49.354,
+      "max_ms": 281.475,
+      "rel_range": 1.1777,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        49.354,
+        135.726,
+        197.095,
+        281.475,
+        237.977
+      ]
+    },
+    {
+      "slug": "testcase-027-alice-write-x",
+      "n": 5,
+      "median_ms": 139.279,
+      "min_ms": 79.585,
+      "max_ms": 242.709,
+      "rel_range": 1.1712,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        79.585,
+        93.602,
+        139.279,
+        199.517,
+        242.709
+      ]
+    },
+    {
+      "slug": "testcase-028-alice-read-y",
+      "n": 5,
+      "median_ms": 139.382,
+      "min_ms": 50.665,
+      "max_ms": 321.998,
+      "rel_range": 1.9467,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        50.665,
+        95.576,
+        139.382,
+        290.689,
+        321.998
+      ]
+    },
+    {
+      "slug": "testcase-029-bob-write-y",
+      "n": 5,
+      "median_ms": 199.646,
+      "min_ms": 50.497,
+      "max_ms": 239.611,
+      "rel_range": 0.9472,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        50.497,
+        148.33,
+        207.485,
+        199.646,
+        239.611
+      ]
+    },
+    {
+      "slug": "testcase-030-alice-read-x",
+      "n": 5,
+      "median_ms": 144.538,
+      "min_ms": 48.108,
+      "max_ms": 340.909,
+      "rel_range": 2.0258,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        48.108,
+        94.276,
+        144.538,
+        196.043,
+        340.909
+      ]
+    },
+    {
+      "slug": "testcase-031-alice-read-x-past",
+      "n": 5,
+      "median_ms": 199.633,
+      "min_ms": 79.047,
+      "max_ms": 267.316,
+      "rel_range": 0.9431,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        79.047,
+        93.535,
+        199.633,
+        267.316,
+        241.106
+      ]
+    },
+    {
+      "slug": "testcase-032-alice-read-x-future",
+      "n": 5,
+      "median_ms": 151.133,
+      "min_ms": 48.435,
+      "max_ms": 245.085,
+      "rel_range": 1.3012,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        48.435,
+        142.41,
+        151.133,
+        192.397,
+        245.085
+      ]
+    },
+    {
+      "slug": "testcase-033-alice-read-x",
+      "n": 5,
+      "median_ms": 166.057,
+      "min_ms": 49.504,
+      "max_ms": 327.521,
+      "rel_range": 1.6742,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        49.504,
+        94.953,
+        166.057,
+        196.979,
+        327.521
+      ]
+    },
+    {
+      "slug": "testcase-034-alice-read-x-past",
+      "n": 5,
+      "median_ms": 200.809,
+      "min_ms": 49.727,
+      "max_ms": 263.118,
+      "rel_range": 1.0627,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        49.727,
+        136.938,
+        200.809,
+        263.118,
+        240.256
+      ]
+    },
+    {
+      "slug": "testcase-035-alice-read-x-future",
+      "n": 5,
+      "median_ms": 142.286,
+      "min_ms": 49.206,
+      "max_ms": 244.88,
+      "rel_range": 1.3752,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        49.206,
+        99.873,
+        142.286,
+        194.218,
+        244.88
+      ]
+    },
+    {
+      "slug": "testcase-036-alice-read-x",
+      "n": 5,
+      "median_ms": 145.887,
+      "min_ms": 83.088,
+      "max_ms": 328.641,
+      "rel_range": 1.6832,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        83.088,
+        96.221,
+        145.887,
+        255.911,
+        328.641
+      ]
+    },
+    {
+      "slug": "testcase-037-alice-read-x-past",
+      "n": 5,
+      "median_ms": 197.404,
+      "min_ms": 48.413,
+      "max_ms": 242.041,
+      "rel_range": 0.9809,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        48.413,
+        147.698,
+        197.404,
+        201.603,
+        242.041
+      ]
+    },
+    {
+      "slug": "testcase-038-alice-read-x-future",
+      "n": 5,
+      "median_ms": 141.173,
+      "min_ms": 50.338,
+      "max_ms": 242.729,
+      "rel_range": 1.3628,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        50.338,
+        94.94,
+        141.173,
+        196.711,
+        242.729
+      ]
+    },
+    {
+      "slug": "testcase-039-alice-read-x",
+      "n": 5,
+      "median_ms": 195.531,
+      "min_ms": 49.597,
+      "max_ms": 323.858,
+      "rel_range": 1.4026,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        49.597,
+        96.128,
+        195.531,
+        267.234,
+        323.858
+      ]
+    },
+    {
+      "slug": "testcase-040-alice-read-x-past",
+      "n": 5,
+      "median_ms": 142.197,
+      "min_ms": 77.615,
+      "max_ms": 243.79,
+      "rel_range": 1.1686,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        77.615,
+        140.323,
+        142.197,
+        194.884,
+        243.79
+      ]
+    },
+    {
+      "slug": "testcase-041-alice-read-x-future",
+      "n": 5,
+      "median_ms": 146.871,
+      "min_ms": 49.318,
+      "max_ms": 240.203,
+      "rel_range": 1.2997,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        49.318,
+        97.161,
+        146.871,
+        194.323,
+        240.203
+      ]
+    },
+    {
+      "slug": "testcase-042-alice-read-x",
+      "n": 5,
+      "median_ms": 204.873,
+      "min_ms": 49.681,
+      "max_ms": 326.124,
+      "rel_range": 1.3493,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        49.681,
+        146.017,
+        204.873,
+        260.427,
+        326.124
+      ]
+    },
+    {
+      "slug": "testcase-043-alice-read-x-past",
+      "n": 5,
+      "median_ms": 142.32,
+      "min_ms": 49.266,
+      "max_ms": 244.786,
+      "rel_range": 1.3738,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        49.266,
+        95.464,
+        142.32,
+        203.854,
+        244.786
+      ]
+    },
+    {
+      "slug": "testcase-044-alice-read-x-future",
+      "n": 5,
+      "median_ms": 142.482,
+      "min_ms": 83.32,
+      "max_ms": 257.687,
+      "rel_range": 1.2238,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        83.32,
+        95.832,
+        142.482,
+        257.687,
+        244.301
+      ]
+    },
+    {
+      "slug": "testcase-045-alice-read-x",
+      "n": 5,
+      "median_ms": 196.451,
+      "min_ms": 49.095,
+      "max_ms": 327.313,
+      "rel_range": 1.4162,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        49.095,
+        145.444,
+        196.451,
+        198.418,
+        327.313
+      ]
+    },
+    {
+      "slug": "testcase-046-alice-read-x-past",
+      "n": 5,
+      "median_ms": 140.646,
+      "min_ms": 51.277,
+      "max_ms": 264.239,
+      "rel_range": 1.5142,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        51.277,
+        95.909,
+        140.646,
+        200.941,
+        264.239
+      ]
+    },
+    {
+      "slug": "testcase-047-alice-read-x-future",
+      "n": 5,
+      "median_ms": 239.542,
+      "min_ms": 50.554,
+      "max_ms": 281.137,
+      "rel_range": 0.9626,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        50.554,
+        97.191,
+        239.542,
+        281.137,
+        246.011
+      ]
+    },
+    {
+      "slug": "testcase-048-alice-read-x",
+      "n": 5,
+      "median_ms": 143.556,
+      "min_ms": 82.424,
+      "max_ms": 324.428,
+      "rel_range": 1.6858,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        82.424,
+        139.973,
+        143.556,
+        206.753,
+        324.428
+      ]
+    },
+    {
+      "slug": "testcase-049-alice-read-x-past",
+      "n": 5,
+      "median_ms": 143.221,
+      "min_ms": 49.347,
+      "max_ms": 243.093,
+      "rel_range": 1.3528,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        49.347,
+        96.738,
+        143.221,
+        197.206,
+        243.093
+      ]
+    },
+    {
+      "slug": "testcase-050-alice-read-x-future",
+      "n": 5,
+      "median_ms": 205.077,
+      "min_ms": 50.73,
+      "max_ms": 261.665,
+      "rel_range": 1.0286,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        50.73,
+        141.413,
+        205.077,
+        261.665,
+        244.259
+      ]
+    },
+    {
+      "slug": "testcase-051-alice",
+      "n": 5,
+      "median_ms": 142.216,
+      "min_ms": 49.934,
+      "max_ms": 328.996,
+      "rel_range": 1.9622,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        49.934,
+        96.499,
+        142.216,
+        195.009,
+        328.996
+      ]
+    },
+    {
+      "slug": "testcase-052-bob-read-x",
+      "n": 5,
+      "median_ms": 141.25,
+      "min_ms": 50.553,
+      "max_ms": 264.734,
+      "rel_range": 1.5163,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        50.553,
+        95.436,
+        141.25,
+        264.734,
+        245.099
+      ]
+    },
+    {
+      "slug": "testcase-053-alice-read-x",
+      "n": 5,
+      "median_ms": 195.888,
+      "min_ms": 85.353,
+      "max_ms": 245.357,
+      "rel_range": 0.8168,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        85.353,
+        144.399,
+        200.708,
+        195.888,
+        245.357
+      ]
+    },
+    {
+      "slug": "testcase-054-alice-read-y",
+      "n": 5,
+      "median_ms": 144.099,
+      "min_ms": 50.476,
+      "max_ms": 333.928,
+      "rel_range": 1.9671,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        50.476,
+        99.306,
+        144.099,
+        195.351,
+        333.928
+      ]
+    },
+    {
+      "slug": "testcase-055-alice-read-x",
+      "n": 5,
+      "median_ms": 215.696,
+      "min_ms": 50.011,
+      "max_ms": 272.097,
+      "rel_range": 1.0296,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        50.011,
+        96.228,
+        215.696,
+        272.097,
+        239.934
+      ]
+    },
+    {
+      "slug": "testcase-056-alice-read-y",
+      "n": 5,
+      "median_ms": 147.464,
+      "min_ms": 50.118,
+      "max_ms": 333.684,
+      "rel_range": 1.923,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        50.118,
+        141.193,
+        147.464,
+        195.672,
+        333.684
+      ]
+    },
+    {
+      "slug": "testcase-057-bob-read-x",
+      "n": 5,
+      "median_ms": 142.649,
+      "min_ms": 79.805,
+      "max_ms": 245.615,
+      "rel_range": 1.1624,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        79.805,
+        97.412,
+        142.649,
+        192.364,
+        245.615
+      ]
+    },
+    {
+      "slug": "testcase-058-bob-write-y",
+      "n": 5,
+      "median_ms": 205.509,
+      "min_ms": 52.065,
+      "max_ms": 266.453,
+      "rel_range": 1.0432,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        52.065,
+        140.661,
+        205.509,
+        266.453,
+        251.038
+      ]
+    },
+    {
+      "slug": "testcase-059-nonset",
+      "n": 5,
+      "median_ms": 143.708,
+      "min_ms": 51.638,
+      "max_ms": 245.9,
+      "rel_range": 1.3518,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        51.638,
+        100.169,
+        143.708,
+        200.326,
+        245.9
+      ]
+    },
+    {
+      "slug": "testcase-060-fulfilled",
+      "n": 5,
+      "median_ms": 143.164,
+      "min_ms": 51.995,
+      "max_ms": 330.487,
+      "rel_range": 1.9453,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        51.995,
+        97.399,
+        143.164,
+        263.993,
+        330.487
+      ]
+    },
+    {
+      "slug": "testcase-061-violated",
+      "n": 5,
+      "median_ms": 197.06,
+      "min_ms": 86.65,
+      "max_ms": 252.935,
+      "rel_range": 0.8438,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        86.65,
+        146.162,
+        206.208,
+        197.06,
+        252.935
+      ]
+    },
+    {
+      "slug": "testcase-062-big-policy",
+      "n": 5,
+      "median_ms": 213.722,
+      "min_ms": 122.781,
+      "max_ms": 405.406,
+      "rel_range": 1.3224,
+      "unstable": true,
+      "heavy": true,
+      "ms": [
+        122.781,
+        166.661,
+        213.722,
+        333.577,
+        405.406
+      ]
+    },
+    {
+      "slug": "testcase-063-big-policy-OoO",
+      "n": 5,
+      "median_ms": 282.507,
+      "min_ms": 165.835,
+      "max_ms": 330.755,
+      "rel_range": 0.5838,
+      "unstable": true,
+      "heavy": true,
+      "ms": [
+        165.835,
+        221.496,
+        287.185,
+        282.507,
+        330.755
+      ]
+    },
+    {
+      "slug": "testcase-064-big-policy-past",
+      "n": 5,
+      "median_ms": 298.244,
+      "min_ms": 152.886,
+      "max_ms": 435.388,
+      "rel_range": 0.9472,
+      "unstable": true,
+      "heavy": true,
+      "ms": [
+        152.886,
+        192.025,
+        298.244,
+        370.624,
+        435.388
+      ]
+    },
+    {
+      "slug": "testcase-065-alice",
+      "n": 5,
+      "median_ms": 189.648,
+      "min_ms": 140.326,
+      "max_ms": 288.145,
+      "rel_range": 0.7794,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        140.326,
+        184.276,
+        189.648,
+        256.993,
+        288.145
+      ]
+    },
+    {
+      "slug": "testcase-066-bob-sell",
+      "n": 5,
+      "median_ms": 186.6,
+      "min_ms": 100.163,
+      "max_ms": 289.036,
+      "rel_range": 1.0122,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        100.163,
+        143.289,
+        186.6,
+        247.228,
+        289.036
+      ]
+    },
+    {
+      "slug": "testcase-067-alice-past",
+      "n": 5,
+      "median_ms": 253.758,
+      "min_ms": 149.525,
+      "max_ms": 387.271,
+      "rel_range": 0.9369,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        149.525,
+        191.026,
+        253.758,
+        318.287,
+        387.271
+      ]
+    },
+    {
+      "slug": "testcase-068-bob-write-y-past",
+      "n": 5,
+      "median_ms": 193.882,
+      "min_ms": 124.65,
+      "max_ms": 291.202,
+      "rel_range": 0.859,
+      "unstable": true,
+      "heavy": false,
+      "ms": [
+        124.65,
+        142.334,
+        193.882,
+        242.106,
+        291.202
+      ]
+    }
+  ],
+  "bimodality": {
+    "rule": "light measurement is slow-band when ms > 1.4 * light median",
+    "light_n": 325,
+    "light_median_ms": 156.566,
+    "cut_ms": 219.192,
+    "slow_band_n": 94,
+    "slow_band_share": 0.2892,
+    "fast_band_median_ms": 139.484,
+    "slow_band_median_ms": 257.34,
+    "ratio": 1.845,
+    "gap_median": 1,
+    "gap_min": 1,
+    "gap_max": 20
+  },
+  "gates": {
+    "rule_1_tukey": {
+      "k": 1.5,
+      "fence_ms": [
+        -123.493,
+        462.43
+      ],
+      "flagged": 0,
+      "of": 340,
+      "measurements": []
+    },
+    "rule_2_case_instability": {
+      "threshold_rel_range": 0.25,
+      "unstable_cases": [
+        "testcase-001-alice",
+        "testcase-002-bob",
+        "testcase-003-bob-write-y",
+        "testcase-004-alice",
+        "testcase-005-bob",
+        "testcase-006-bob-write-y",
+        "testcase-007-alice",
+        "testcase-008-bob",
+        "testcase-009-bob-write-y",
+        "testcase-010-alice-sell",
+        "testcase-011-alice",
+        "testcase-012-bob",
+        "testcase-013-bob-write-y",
+        "testcase-014-alice-sell",
+        "testcase-015-alice",
+        "testcase-016-bob",
+        "testcase-017-alice-sell",
+        "testcase-018-alice",
+        "testcase-019-bob",
+        "testcase-020-bob-sell",
+        "testcase-021-alice",
+        "testcase-022-alice-sell",
+        "testcase-023-alice-read-y",
+        "testcase-024-alice-write-x",
+        "testcase-025-bob-read-x",
+        "testcase-026-alice-read-x",
+        "testcase-027-alice-write-x",
+        "testcase-028-alice-read-y",
+        "testcase-029-bob-write-y",
+        "testcase-030-alice-read-x",
+        "testcase-031-alice-read-x-past",
+        "testcase-032-alice-read-x-future",
+        "testcase-033-alice-read-x",
+        "testcase-034-alice-read-x-past",
+        "testcase-035-alice-read-x-future",
+        "testcase-036-alice-read-x",
+        "testcase-037-alice-read-x-past",
+        "testcase-038-alice-read-x-future",
+        "testcase-039-alice-read-x",
+        "testcase-040-alice-read-x-past",
+        "testcase-041-alice-read-x-future",
+        "testcase-042-alice-read-x",
+        "testcase-043-alice-read-x-past",
+        "testcase-044-alice-read-x-future",
+        "testcase-045-alice-read-x",
+        "testcase-046-alice-read-x-past",
+        "testcase-047-alice-read-x-future",
+        "testcase-048-alice-read-x",
+        "testcase-049-alice-read-x-past",
+        "testcase-050-alice-read-x-future",
+        "testcase-051-alice",
+        "testcase-052-bob-read-x",
+        "testcase-053-alice-read-x",
+        "testcase-054-alice-read-y",
+        "testcase-055-alice-read-x",
+        "testcase-056-alice-read-y",
+        "testcase-057-bob-read-x",
+        "testcase-058-bob-write-y",
+        "testcase-059-nonset",
+        "testcase-060-fulfilled",
+        "testcase-061-violated",
+        "testcase-062-big-policy",
+        "testcase-063-big-policy-OoO",
+        "testcase-064-big-policy-past",
+        "testcase-065-alice",
+        "testcase-066-bob-sell",
+        "testcase-067-alice-past",
+        "testcase-068-bob-write-y-past"
+      ],
+      "worst_rel_range": 2.0258
+    }
+  },
+  "gil_probe": {
+    "n": 4,
+    "sequential_ms": 1248.43,
+    "threadpool_ms": 1391.18,
+    "speedup": 0.897,
+    "note": "isolate=False; a speedup near 1.0 is the GIL, not a measurement error"
+  },
+  "finished": "2026-09-06T10:57:31+0200"
+}

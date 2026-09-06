@@ -1,0 +1,533 @@
+{
+  "engine": "ODRL-PAP (SEAMWARE/odrl-pap)",
+  "commit": "59e45474c910b97f537b8f39c68e2e17ec4243ef",
+  "tag": "1.7.0",
+  "endpoint": "http://localhost:8091/validate",
+  "started": "2026-09-06T11:26:48+0200",
+  "concurrency_means": "N simultaneous HTTP client connections issuing /validate; server-side parallelism is Quarkus's own worker pool, not something this harness sets",
+  "client": "ThreadPoolExecutor of blocking urllib callers (GIL released during socket I/O, so N threads = N requests genuinely in flight)",
+  "cases_evaluable": 31,
+  "levels": [
+    1,
+    2,
+    4,
+    8,
+    16,
+    32,
+    64,
+    96
+  ],
+  "requests_per_step": 310,
+  "repeats": 3,
+  "per_step_warmup": 31,
+  "ceiling": {
+    "max_concurrency": 96,
+    "error_stop_rate": 0.02,
+    "latency_stop_factor": 25.0
+  },
+  "resources_whole_ramp": {
+    "interval_s": 0.25,
+    "missing": [],
+    "trees": {
+      "quarkus": {
+        "samples": 11811,
+        "rss_first_kb": 880328,
+        "rss_median_kb": 524184,
+        "rss_peak_kb": 903376,
+        "rss_last_kb": 542896,
+        "rss_growth_kb": -337432,
+        "cpu_start_s": 14.17,
+        "cpu_end_s": 54.83,
+        "cpu_consumed_s": 40.66,
+        "max_procs_in_tree": 1
+      },
+      "opa": {
+        "samples": 11811,
+        "rss_first_kb": 1941304,
+        "rss_median_kb": 244900,
+        "rss_peak_kb": 2147908,
+        "rss_last_kb": 118300,
+        "rss_growth_kb": -1823004,
+        "cpu_start_s": 325.33,
+        "cpu_end_s": 7950.24,
+        "cpu_consumed_s": 7624.91,
+        "max_procs_in_tree": 1
+      },
+      "postgres": {
+        "samples": 11811,
+        "rss_first_kb": 79432,
+        "rss_median_kb": 83864,
+        "rss_peak_kb": 83864,
+        "rss_last_kb": 83864,
+        "rss_growth_kb": 4432,
+        "cpu_start_s": 0.09,
+        "cpu_end_s": 0.31,
+        "cpu_consumed_s": 0.22,
+        "max_procs_in_tree": 7
+      }
+    },
+    "tool": "psutil 5.9.8 Sampler (perf_corpus.Sampler), 0.25s interval, watching the Quarkus JVM / OPA / Postgres trees from outside for the whole ramp"
+  },
+  "steps_raw": [
+    {
+      "concurrency": 1,
+      "repeat": 0,
+      "requests": 310,
+      "completed": 310,
+      "errors": 0,
+      "error_rate": 0.0,
+      "wrong_decisions": 10,
+      "wall_s": 233.0417,
+      "throughput_rps": 1.33,
+      "latency_ms": {
+        "n": 310,
+        "mean": 751.577,
+        "median": 32.443,
+        "p95": 7152.394,
+        "p99": 8676.937,
+        "min": 23.445,
+        "max": 8992.139,
+        "stddev": 2208.434,
+        "q1": 28.156,
+        "q3": 36.546,
+        "iqr": 8.39
+      },
+      "client_cpu_s": 21.68,
+      "server_cpu_s": {
+        "quarkus": 5.77,
+        "opa": 536.94,
+        "postgres": 0.01
+      },
+      "server_rss_peak_mb": {
+        "quarkus": 882,
+        "opa": 2035,
+        "postgres": 81
+      },
+      "error_samples": []
+    },
+    {
+      "concurrency": 1,
+      "repeat": 1,
+      "requests": 310,
+      "completed": 310,
+      "errors": 0,
+      "error_rate": 0.0,
+      "wrong_decisions": 10,
+      "wall_s": 231.9984,
+      "throughput_rps": 1.34,
+      "latency_ms": {
+        "n": 310,
+        "mean": 748.223,
+        "median": 30.776,
+        "p95": 7125.468,
+        "p99": 8810.542,
+        "min": 21.897,
+        "max": 8878.499,
+        "stddev": 2208.423,
+        "q1": 25.177,
+        "q3": 34.357,
+        "iqr": 9.18
+      },
+      "client_cpu_s": 21.26,
+      "server_cpu_s": {
+        "quarkus": 3.75,
+        "opa": 541.71,
+        "postgres": 0.02
+      },
+      "server_rss_peak_mb": {
+        "quarkus": 882,
+        "opa": 2083,
+        "postgres": 81
+      },
+      "error_samples": []
+    },
+    {
+      "concurrency": 1,
+      "repeat": 2,
+      "requests": 310,
+      "completed": 310,
+      "errors": 0,
+      "error_rate": 0.0,
+      "wrong_decisions": 10,
+      "wall_s": 230.4908,
+      "throughput_rps": 1.34,
+      "latency_ms": {
+        "n": 310,
+        "mean": 743.341,
+        "median": 33.139,
+        "p95": 7058.839,
+        "p99": 8665.007,
+        "min": 22.227,
+        "max": 9030.788,
+        "stddev": 2188.603,
+        "q1": 30.405,
+        "q3": 36.321,
+        "iqr": 5.916
+      },
+      "client_cpu_s": 21.16,
+      "server_cpu_s": {
+        "quarkus": 2.99,
+        "opa": 541.77,
+        "postgres": 0.02
+      },
+      "server_rss_peak_mb": {
+        "quarkus": 882,
+        "opa": 2097,
+        "postgres": 81
+      },
+      "error_samples": []
+    },
+    {
+      "concurrency": 2,
+      "repeat": 0,
+      "requests": 310,
+      "completed": 310,
+      "errors": 0,
+      "error_rate": 0.0,
+      "wrong_decisions": 10,
+      "wall_s": 296.6564,
+      "throughput_rps": 1.04,
+      "latency_ms": {
+        "n": 310,
+        "mean": 1890.862,
+        "median": 57.95,
+        "p95": 20179.739,
+        "p99": 20466.915,
+        "min": 35.434,
+        "max": 20601.514,
+        "stddev": 5221.136,
+        "q1": 54.257,
+        "q3": 63.269,
+        "iqr": 9.012
+      },
+      "client_cpu_s": 27.21,
+      "server_cpu_s": {
+        "quarkus": 4.88,
+        "opa": 692.97,
+        "postgres": 0.02
+      },
+      "server_rss_peak_mb": {
+        "quarkus": 882,
+        "opa": 2068,
+        "postgres": 81
+      },
+      "error_samples": []
+    },
+    {
+      "concurrency": 2,
+      "repeat": 1,
+      "requests": 310,
+      "completed": 310,
+      "errors": 0,
+      "error_rate": 0.0,
+      "wrong_decisions": 10,
+      "wall_s": 303.8454,
+      "throughput_rps": 1.02,
+      "latency_ms": {
+        "n": 310,
+        "mean": 1937.465,
+        "median": 58.464,
+        "p95": 20087.576,
+        "p99": 20935.72,
+        "min": 37.698,
+        "max": 25890.762,
+        "stddev": 5337.732,
+        "q1": 53.891,
+        "q3": 67.511,
+        "iqr": 13.62
+      },
+      "client_cpu_s": 27.61,
+      "server_cpu_s": {
+        "quarkus": 3.69,
+        "opa": 713.51,
+        "postgres": 0.01
+      },
+      "server_rss_peak_mb": {
+        "quarkus": 882,
+        "opa": 2083,
+        "postgres": 81
+      },
+      "error_samples": []
+    },
+    {
+      "concurrency": 2,
+      "repeat": 2,
+      "requests": 310,
+      "completed": 310,
+      "errors": 0,
+      "error_rate": 0.0,
+      "wrong_decisions": 10,
+      "wall_s": 303.8771,
+      "throughput_rps": 1.02,
+      "latency_ms": {
+        "n": 310,
+        "mean": 1937.626,
+        "median": 57.353,
+        "p95": 19977.327,
+        "p99": 20520.338,
+        "min": 38.374,
+        "max": 20623.275,
+        "stddev": 5278.871,
+        "q1": 54.603,
+        "q3": 62.82,
+        "iqr": 8.217
+      },
+      "client_cpu_s": 28.39,
+      "server_cpu_s": {
+        "quarkus": 3.31,
+        "opa": 716.5,
+        "postgres": 0.01
+      },
+      "server_rss_peak_mb": {
+        "quarkus": 882,
+        "opa": 2097,
+        "postgres": 81
+      },
+      "error_samples": []
+    },
+    {
+      "concurrency": 4,
+      "repeat": 0,
+      "requests": 310,
+      "completed": 301,
+      "errors": 9,
+      "error_rate": 0.02903,
+      "wrong_decisions": 10,
+      "wall_s": 457.9091,
+      "throughput_rps": 0.66,
+      "latency_ms": {
+        "n": 301,
+        "mean": 4815.828,
+        "median": 118.986,
+        "p95": 39832.12,
+        "p99": 45563.908,
+        "min": 89.252,
+        "max": 46245.036,
+        "stddev": 12049.101,
+        "q1": 114.385,
+        "q3": 131.185,
+        "iqr": 16.8
+      },
+      "client_cpu_s": 41.65,
+      "server_cpu_s": {
+        "quarkus": 4.8,
+        "opa": 1080.0,
+        "postgres": 0.01
+      },
+      "server_rss_peak_mb": {
+        "quarkus": 882,
+        "opa": 2083,
+        "postgres": 81
+      },
+      "error_samples": [
+        "HTTP Error 500: Internal Server Error {\"details\":\"Error id 466fd894-7ef6-4fe2-8d24-428ace09f76d-2\",\"stack\":\"\"}",
+        "HTTP Error 500: Internal Server Error {\"details\":\"Error id 466fd894-7ef6-4fe2-8d24-428ace09f76d-3\",\"stack\":\"\"}",
+        "HTTP Error 500: Internal Server Error {\"details\":\"Error id 466fd894-7ef6-4fe2-8d24-428ace09f76d-4\",\"stack\":\"\"}",
+        "HTTP Error 500: Internal Server Error {\"details\":\"Error id 466fd894-7ef6-4fe2-8d24-428ace09f76d-5\",\"stack\":\"\"}",
+        "HTTP Error 500: Internal Server Error {\"details\":\"Error id 466fd894-7ef6-4fe2-8d24-428ace09f76d-6\",\"stack\":\"\"}"
+      ]
+    },
+    {
+      "concurrency": 4,
+      "repeat": 1,
+      "requests": 310,
+      "completed": 301,
+      "errors": 9,
+      "error_rate": 0.02903,
+      "wrong_decisions": 10,
+      "wall_s": 460.122,
+      "throughput_rps": 0.65,
+      "latency_ms": {
+        "n": 301,
+        "mean": 4836.68,
+        "median": 119.315,
+        "p95": 39042.249,
+        "p99": 45271.411,
+        "min": 90.26,
+        "max": 49440.072,
+        "stddev": 12037.987,
+        "q1": 113.77,
+        "q3": 133.348,
+        "iqr": 19.578
+      },
+      "client_cpu_s": 41.84,
+      "server_cpu_s": {
+        "quarkus": 4.16,
+        "opa": 1081.66,
+        "postgres": 0.05
+      },
+      "server_rss_peak_mb": {
+        "quarkus": 882,
+        "opa": 2097,
+        "postgres": 81
+      },
+      "error_samples": [
+        "HTTP Error 500: Internal Server Error {\"details\":\"Error id 466fd894-7ef6-4fe2-8d24-428ace09f76d-12\",\"stack\":\"\"}",
+        "HTTP Error 500: Internal Server Error {\"details\":\"Error id 466fd894-7ef6-4fe2-8d24-428ace09f76d-13\",\"stack\":\"\"}",
+        "HTTP Error 500: Internal Server Error {\"details\":\"Error id 466fd894-7ef6-4fe2-8d24-428ace09f76d-14\",\"stack\":\"\"}",
+        "HTTP Error 500: Internal Server Error {\"details\":\"Error id 466fd894-7ef6-4fe2-8d24-428ace09f76d-15\",\"stack\":\"\"}",
+        "HTTP Error 500: Internal Server Error {\"details\":\"Error id 466fd894-7ef6-4fe2-8d24-428ace09f76d-16\",\"stack\":\"\"}"
+      ]
+    },
+    {
+      "concurrency": 4,
+      "repeat": 2,
+      "requests": 310,
+      "completed": 301,
+      "errors": 9,
+      "error_rate": 0.02903,
+      "wrong_decisions": 10,
+      "wall_s": 455.1435,
+      "throughput_rps": 0.66,
+      "latency_ms": {
+        "n": 301,
+        "mean": 4751.498,
+        "median": 121.396,
+        "p95": 39178.262,
+        "p99": 45169.101,
+        "min": 79.925,
+        "max": 49403.508,
+        "stddev": 11854.158,
+        "q1": 115.246,
+        "q3": 132.227,
+        "iqr": 16.981
+      },
+      "client_cpu_s": 41.28,
+      "server_cpu_s": {
+        "quarkus": 3.63,
+        "opa": 1076.64,
+        "postgres": 0.02
+      },
+      "server_rss_peak_mb": {
+        "quarkus": 882,
+        "opa": 2097,
+        "postgres": 81
+      },
+      "error_samples": [
+        "HTTP Error 500: Internal Server Error {\"details\":\"Error id 466fd894-7ef6-4fe2-8d24-428ace09f76d-22\",\"stack\":\"\"}",
+        "HTTP Error 500: Internal Server Error {\"details\":\"Error id 466fd894-7ef6-4fe2-8d24-428ace09f76d-23\",\"stack\":\"\"}",
+        "HTTP Error 500: Internal Server Error {\"details\":\"Error id 466fd894-7ef6-4fe2-8d24-428ace09f76d-24\",\"stack\":\"\"}",
+        "HTTP Error 500: Internal Server Error {\"details\":\"Error id 466fd894-7ef6-4fe2-8d24-428ace09f76d-25\",\"stack\":\"\"}",
+        "HTTP Error 500: Internal Server Error {\"details\":\"Error id 466fd894-7ef6-4fe2-8d24-428ace09f76d-26\",\"stack\":\"\"}"
+      ]
+    }
+  ],
+  "table": [
+    {
+      "concurrency": 1,
+      "repeats": 3,
+      "throughput_rps_median": 1.34,
+      "throughput_rps_per_repeat": [
+        1.33,
+        1.34,
+        1.34
+      ],
+      "latency_median_ms": 32.443,
+      "latency_p95_ms": 7125.468,
+      "latency_p99_ms": 8676.937,
+      "latency_max_ms": 9030.788,
+      "error_rate": 0.0,
+      "wrong_decisions": 30,
+      "client_cpu_s_median": 21.26,
+      "server_cpu_s_median": {
+        "quarkus": 3.75,
+        "opa": 541.71,
+        "postgres": 0.02
+      },
+      "server_rss_peak_mb": {
+        "quarkus": 882,
+        "opa": 2097,
+        "postgres": 81
+      },
+      "rule_3_p99_over_median": 267.452,
+      "rule_3_unstable": true,
+      "rule_4_rps_repeat_spread": 0.0075,
+      "rule_4_unstable": false
+    },
+    {
+      "concurrency": 2,
+      "repeats": 3,
+      "throughput_rps_median": 1.02,
+      "throughput_rps_per_repeat": [
+        1.04,
+        1.02,
+        1.02
+      ],
+      "latency_median_ms": 57.95,
+      "latency_p95_ms": 20087.576,
+      "latency_p99_ms": 20520.338,
+      "latency_max_ms": 25890.762,
+      "error_rate": 0.0,
+      "wrong_decisions": 30,
+      "client_cpu_s_median": 27.61,
+      "server_cpu_s_median": {
+        "quarkus": 3.69,
+        "opa": 713.51,
+        "postgres": 0.01
+      },
+      "server_rss_peak_mb": {
+        "quarkus": 882,
+        "opa": 2097,
+        "postgres": 81
+      },
+      "rule_3_p99_over_median": 354.104,
+      "rule_3_unstable": true,
+      "rule_4_rps_repeat_spread": 0.0196,
+      "rule_4_unstable": false
+    },
+    {
+      "concurrency": 4,
+      "repeats": 3,
+      "throughput_rps_median": 0.66,
+      "throughput_rps_per_repeat": [
+        0.66,
+        0.65,
+        0.66
+      ],
+      "latency_median_ms": 119.315,
+      "latency_p95_ms": 39178.262,
+      "latency_p99_ms": 45271.411,
+      "latency_max_ms": 49440.072,
+      "error_rate": 0.02903,
+      "wrong_decisions": 30,
+      "client_cpu_s_median": 41.65,
+      "server_cpu_s_median": {
+        "quarkus": 4.16,
+        "opa": 1080.0,
+        "postgres": 0.02
+      },
+      "server_rss_peak_mb": {
+        "quarkus": 882,
+        "opa": 2097,
+        "postgres": 81
+      },
+      "rule_3_p99_over_median": 379.428,
+      "rule_3_unstable": true,
+      "rule_4_rps_repeat_spread": 0.0152,
+      "rule_4_unstable": false
+    }
+  ],
+  "stopped_at": 4,
+  "stop_reason": "error rate 0.0290 > 0.0200 at concurrency 4",
+  "peak": {
+    "concurrency": 1,
+    "throughput_rps": 1.34,
+    "latency_median_ms": 32.443,
+    "latency_p99_ms": 8676.937
+  },
+  "gates": {
+    "rule_3_step_instability": {
+      "threshold_p99_over_median": 4.0,
+      "unstable_levels": [
+        1,
+        2,
+        4
+      ]
+    },
+    "rule_4_repeat_spread": {
+      "threshold_rel_range_of_rps": 0.25,
+      "unstable_levels": []
+    }
+  },
+  "finished": "2026-09-06T12:20:57+0200"
+}

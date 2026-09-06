@@ -1,0 +1,23 @@
+	Command being timed: "python3 perf_bench.py /home/coder/deepthought-solutions/ds-odrl-engine-rs-work/bench/odrl-pap/results/perf.json --repeats 5 --warmup 20 --opa-probe 200 --pid-file /tmp/claude-1002/-home-coder-deepthought-solutions-dataspace/9a455f1e-9157-40f0-a70b-fc272472716d/scratchpad/perf-bench/odrl-pap/run/pap.pid"
+	User time (seconds): 4.14
+	System time (seconds): 7.17
+	Percent of CPU this job got: 9%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 1:59.89
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 30816
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 16199
+	Voluntary context switches: 1669
+	Involuntary context switches: 223
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 400
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

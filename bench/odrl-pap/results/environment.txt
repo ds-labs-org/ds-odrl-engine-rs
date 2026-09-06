@@ -1,0 +1,60 @@
+date:            2026-09-06T11:24:21+02:00
+uname:           Linux 6.8.0-138-generic x86_64
+nproc:           22
+loadavg (pre):   0.31 0.62 2.19
+
+--- free -h ---
+               total       utilisé      libre     partagé tamp/cache   disponible
+Mem:            93Gi        21Gi        24Gi       3,4Gi        51Gi        71Gi
+Échange:          0B          0B          0B
+--- java -version ---
+openjdk version "21.0.12" 2026-07-21
+OpenJDK Runtime Environment (build 21.0.12+8-1-24.04-Ubuntu)
+OpenJDK 64-Bit Server VM (build 21.0.12+8-1-24.04-Ubuntu, mixed mode, sharing)
+--- python3 ---
+Python 3.12.3
+--- psutil ---
+5.9.8
+--- docker ---
+Docker version 29.1.3, build 29.1.3-0ubuntu3~24.04.2
+--- images ---
+postgres:16-alpine sha256:75f5a96988cdf694a215073c3e9c001b706b371e2f94df3967f2efdec2787f6b
+openpolicyagent/opa:1.2.0 sha256:8c84474411d2a1f7af9fac0c657321355bfc19af31f3d9af589a782f95e1baa4
+--- other load on the box (top 8 by cpu) ---
+%CPU   RSS COMMAND
+ 8.3  6984 bash
+ 8.0 1199916 Isolated Web Co
+ 3.8 1941148 Isolated Web Co
+ 3.4 1184384 firefox-bin
+ 3.0 749456 claude
+ 2.4 997304 firefox-bin
+ 2.3 177680 Isolated Web Co
+ 1.2 975084 Isolated Web Co
+loadavg (post):  3.11 3.33 3.07
+--- pap log: errors/warnings during the measured run ---
+count: 49
+2026-09-06 11:55:09,646 ERROR [io.quarkus.vertx.http.runtime.QuarkusErrorHandler] (executor-thread-2) HTTP Request to /validate failed, error id: 466fd894-7ef6-4fe2-8d24-428ace09f76d-11: jakarta.ws.rs.ProcessingException: The timeout period of 30000ms has been exceeded while executing DELETE /v1/policies/ftkojoefbj?pretty=false for server localhost:8181
+2026-09-06 11:55:50,874 ERROR [io.quarkus.vertx.http.runtime.QuarkusErrorHandler] (executor-thread-3) HTTP Request to /validate failed, error id: 466fd894-7ef6-4fe2-8d24-428ace09f76d-12: jakarta.ws.rs.ProcessingException: The timeout period of 30000ms has been exceeded while executing DELETE /v1/policies/ylhibtcqkj?pretty=false for server localhost:8181
+2026-09-06 11:55:57,408 ERROR [io.quarkus.vertx.http.runtime.QuarkusErrorHandler] (executor-thread-2) HTTP Request to /validate failed, error id: 466fd894-7ef6-4fe2-8d24-428ace09f76d-13: jakarta.ws.rs.ProcessingException: The timeout period of 30000ms has been exceeded while executing DELETE /v1/policies/oxhgfnnzhr?pretty=false for server localhost:8181
+2026-09-06 11:57:37,757 ERROR [io.quarkus.vertx.http.runtime.QuarkusErrorHandler] (executor-thread-2) HTTP Request to /validate failed, error id: 466fd894-7ef6-4fe2-8d24-428ace09f76d-14: java.lang.RuntimeException: jakarta.ws.rs.ProcessingException: The timeout period of 30000ms has been exceeded while executing PUT /v1/policies/jfuouxvpgv?pretty=false&metrics=false for server localhost:8181
+2026-09-06 11:59:09,776 ERROR [io.quarkus.vertx.http.runtime.QuarkusErrorHandler] (executor-thread-19) HTTP Request to /validate failed, error id: 466fd894-7ef6-4fe2-8d24-428ace09f76d-15: java.lang.RuntimeException: jakarta.ws.rs.ProcessingException: The timeout period of 30000ms has been exceeded while executing PUT /v1/policies/dleqbfctds?pretty=false&metrics=false for server localhost:8181
+2026-09-06 12:00:42,878 ERROR [io.quarkus.vertx.http.runtime.QuarkusErrorHandler] (executor-thread-2) HTTP Request to /validate failed, error id: 466fd894-7ef6-4fe2-8d24-428ace09f76d-16: java.lang.RuntimeException: jakarta.ws.rs.ProcessingException: The timeout period of 30000ms has been exceeded while executing PUT /v1/policies/fqzaxxlkrd?pretty=false&metrics=false for server localhost:8181
+2026-09-06 12:01:28,735 ERROR [io.quarkus.vertx.http.runtime.QuarkusErrorHandler] (executor-thread-3) HTTP Request to /validate failed, error id: 466fd894-7ef6-4fe2-8d24-428ace09f76d-17: java.lang.RuntimeException: jakarta.ws.rs.ProcessingException: The timeout period of 30000ms has been exceeded while executing PUT /v1/policies/urjjdptwiu?pretty=false&metrics=false for server localhost:8181
+2026-09-06 12:02:05,001 ERROR [io.quarkus.vertx.http.runtime.QuarkusErrorHandler] (executor-thread-3) HTTP Request to /validate failed, error id: 466fd894-7ef6-4fe2-8d24-428ace09f76d-18: jakarta.ws.rs.ProcessingException: The timeout period of 30000ms has been exceeded while executing DELETE /v1/policies/pxazjkwnyl?pretty=false for server localhost:8181
+2026-09-06 12:02:15,179 ERROR [io.quarkus.vertx.http.runtime.QuarkusErrorHandler] (executor-thread-2) HTTP Request to /validate failed, error id: 466fd894-7ef6-4fe2-8d24-428ace09f76d-19: jakarta.ws.rs.ProcessingException: The timeout period of 30000ms has been exceeded while executing DELETE /v1/policies/sftuygicre?pretty=false for server localhost:8181
+2026-09-06 12:02:15,533 ERROR [io.quarkus.vertx.http.runtime.QuarkusErrorHandler] (executor-thread-19) HTTP Request to /validate failed, error id: 466fd894-7ef6-4fe2-8d24-428ace09f76d-20: java.lang.RuntimeException: jakarta.ws.rs.ProcessingException: The timeout period of 30000ms has been exceeded while executing PUT /v1/policies/tjewtxwsof?pretty=false&metrics=false for server localhost:8181
+2026-09-06 12:13:17,811 ERROR [io.quarkus.vertx.http.runtime.QuarkusErrorHandler] (executor-thread-19) HTTP Request to /validate failed, error id: 466fd894-7ef6-4fe2-8d24-428ace09f76d-21: jakarta.ws.rs.ProcessingException: The timeout period of 30000ms has been exceeded while executing DELETE /v1/policies/vyfvekcyhb?pretty=false for server localhost:8181
+2026-09-06 12:13:58,058 ERROR [io.quarkus.vertx.http.runtime.QuarkusErrorHandler] (executor-thread-2) HTTP Request to /validate failed, error id: 466fd894-7ef6-4fe2-8d24-428ace09f76d-22: jakarta.ws.rs.ProcessingException: The timeout period of 30000ms has been exceeded while executing DELETE /v1/policies/vdjygbjofz?pretty=false for server localhost:8181
+2026-09-06 12:14:04,347 ERROR [io.quarkus.vertx.http.runtime.QuarkusErrorHandler] (executor-thread-35) HTTP Request to /validate failed, error id: 466fd894-7ef6-4fe2-8d24-428ace09f76d-23: jakarta.ws.rs.ProcessingException: The timeout period of 30000ms has been exceeded while executing DELETE /v1/policies/pzllqjfysg?pretty=false for server localhost:8181
+2026-09-06 12:14:09,174 ERROR [io.quarkus.vertx.http.runtime.QuarkusErrorHandler] (executor-thread-36) HTTP Request to /validate failed, error id: 466fd894-7ef6-4fe2-8d24-428ace09f76d-24: jakarta.ws.rs.ProcessingException: The timeout period of 30000ms has been exceeded while executing DELETE /v1/policies/tofhbhhkmu?pretty=false for server localhost:8181
+2026-09-06 12:16:32,523 ERROR [io.quarkus.vertx.http.runtime.QuarkusErrorHandler] (executor-thread-2) HTTP Request to /validate failed, error id: 466fd894-7ef6-4fe2-8d24-428ace09f76d-25: java.lang.RuntimeException: jakarta.ws.rs.ProcessingException: The timeout period of 30000ms has been exceeded while executing PUT /v1/policies/cigcnhjaya?pretty=false&metrics=false for server localhost:8181
+2026-09-06 12:17:17,725 ERROR [io.quarkus.vertx.http.runtime.QuarkusErrorHandler] (executor-thread-19) HTTP Request to /validate failed, error id: 466fd894-7ef6-4fe2-8d24-428ace09f76d-26: java.lang.RuntimeException: jakarta.ws.rs.ProcessingException: The timeout period of 30000ms has been exceeded while executing PUT /v1/policies/fcfsequmnn?pretty=false&metrics=false for server localhost:8181
+2026-09-06 12:18:03,699 ERROR [io.quarkus.vertx.http.runtime.QuarkusErrorHandler] (executor-thread-36) HTTP Request to /validate failed, error id: 466fd894-7ef6-4fe2-8d24-428ace09f76d-27: java.lang.RuntimeException: jakarta.ws.rs.ProcessingException: The timeout period of 30000ms has been exceeded while executing PUT /v1/policies/elnvjmmwks?pretty=false&metrics=false for server localhost:8181
+2026-09-06 12:18:49,073 ERROR [io.quarkus.vertx.http.runtime.QuarkusErrorHandler] (executor-thread-35) HTTP Request to /validate failed, error id: 466fd894-7ef6-4fe2-8d24-428ace09f76d-28: java.lang.RuntimeException: jakarta.ws.rs.ProcessingException: The timeout period of 30000ms has been exceeded while executing PUT /v1/policies/ksideazvxz?pretty=false&metrics=false for server localhost:8181
+2026-09-06 12:19:34,500 ERROR [io.quarkus.vertx.http.runtime.QuarkusErrorHandler] (executor-thread-2) HTTP Request to /validate failed, error id: 466fd894-7ef6-4fe2-8d24-428ace09f76d-29: java.lang.RuntimeException: jakarta.ws.rs.ProcessingException: The timeout period of 30000ms has been exceeded while executing PUT /v1/policies/wtthfxwaps?pretty=false&metrics=false for server localhost:8181
+2026-09-06 12:20:20,056 ERROR [io.quarkus.vertx.http.runtime.QuarkusErrorHandler] (executor-thread-19) HTTP Request to /validate failed, error id: 466fd894-7ef6-4fe2-8d24-428ace09f76d-30: java.lang.RuntimeException: jakarta.ws.rs.ProcessingException: The timeout period of 30000ms has been exceeded while executing PUT /v1/policies/nwkjvfafum?pretty=false&metrics=false for server localhost:8181
+
+--- ramp B (fastband) pap log: OPA call errors ---
+error lines: 0
+=== teardown ===
+pap containers left: 0

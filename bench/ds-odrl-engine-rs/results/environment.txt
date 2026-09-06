@@ -1,0 +1,32 @@
+date:      2026-09-06T08:45:06+02:00
+host:      Linux 6.8.0-138-generic x86_64 GNU/Linux
+nproc:     22
+uptime:     08:45:06 up 2 days, 17 min,  1 user,  load average: 0,50, 3,33, 2,77
+cargo:     cargo 1.96.1 (356927216 2026-06-26)
+rustc:     rustc 1.96.1 (31fca3adb 2026-06-26)
+commit:    7068ebae83557a2cfda4d55fc1f2d585f5fc724b
+
+               total       utilisé      libre     partagé tamp/cache   disponible
+Mem:            93Gi        21Gi        25Gi       3,4Gi        50Gi        71Gi
+Échange:          0B          0B          0B
+
+Architecture :                            x86_64
+Mode(s) opératoire(s) des processeurs :   32-bit, 64-bit
+Tailles des adresses:                     46 bits physical, 48 bits virtual
+Boutisme :                                Little Endian
+Processeur(s) :                           22
+Liste de processeur(s) en ligne :         0-21
+Identifiant constructeur :                GenuineIntel
+Nom de modèle :                           Intel(R) Core(TM) Ultra 9 185H
+Famille de processeur :                   6
+Modèle :                                  170
+Thread(s) par cœur :                      2
+Cœur(s) par socket :                      16
+Socket(s) :                               1
+Révision :                                4
+multiplication des MHz du/des CPU(s) :    20%
+Vitesse maximale du processeur en MHz :   5100,0000
+Vitesse minimale du processeur en MHz :   400,0000
+BogoMIPS :                                6144,00
+Drapeaux :                                fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc art arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf tsc_known_freq pni pclmulqdq dtes64 monitor ds_cpl vmx smx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm 3dnowprefetch cpuid_fault epb ssbd ibrs ibpb stibp ibrs_enhanced tpr_shadow flexpriority ept vpid ept_ad fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb intel_pt sha_ni xsaveopt xsavec xgetbv1 xsaves split_lock_detect user_shstk avx_vnni dtherm ida arat pln pts hwp hwp_notify hwp_act_window hwp_epp hwp_pkg_req hfi vnmi umip pku ospke waitpkg gfni vaes vpclmulqdq tme rdpid bus_lock_detect movdiri movdir64b fsrm md_clear serialize pconfig arch_lbr ibt flush_l1d arch_capabilities ibpb_exit_to_user
+Virtualisation :                          VT-x

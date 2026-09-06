@@ -7,11 +7,19 @@ engine scored against the identical 68-fixture `SolidLabResearch/ODRL-Test-Suite
 corpus this repo already vendors at `compliance/vendor/odrl-test-suite`, reduced
 to Allow/Deny by the same rule `compliance-runner/src/ground_truth.rs` uses.
 
-This is conformance/coverage reproducibility only — the harnesses reproduce a
-pass/fail tally against the fixture corpus, not performance, resource
-consumption, or load/peak behavior. Those dimensions were scoped out of this
-pass; extending the harnesses here to measure them is a real, separate
-follow-up, not implied by anything below.
+Each subdirectory now covers **two** passes. The first reproduces a pass/fail
+tally against the fixture corpus. The second — added later, and published as
+[`docs/benchmarks/2026-09-06-odrl-engine-performance-load.md`](https://github.com/Deepthought-Solutions/dataspace/blob/main/docs/benchmarks/2026-09-06-odrl-engine-performance-load.md)
+— measures per-decision latency percentiles, system requirements, resource
+consumption and load/peak behavior for the same pinned commit. **Every engine
+was measured alone on the machine, one after another, never concurrently**, so
+that no engine's numbers are contaminated by another's resource use; each
+subdirectory's README states its own baseline machine state and gates. Read
+those before quoting a number: the five engines have fundamentally different
+invocation models (in-process Rust call, in-process Node/Python call, a real
+HTTP service, wasm-in-a-runtime) and different concurrency semantics, and the
+comparative report's "how fair is this comparison" section is not optional
+context.
 
 ## What's here, and what deliberately isn't
 
@@ -28,14 +36,19 @@ checkout).
 
 | Directory | Engine | Language / runtime | Result reproduced |
 |---|---|---|---|
+| [`ds-odrl-engine-rs/`](ds-odrl-engine-rs/) | this repo's own engine, native and over the `engine.wasm` ABI | Rust → `wasm32-unknown-unknown` | 68/68 (conformance stays `compliance/reports/latest.json`); this directory holds the **performance** harness only |
 | [`solidlab-evaluator/`](solidlab-evaluator/) | `SolidLabResearch/odrl-evaluator` (the vendored suite's own reference implementation) | TypeScript / npm | 63/68 (`0.4.0`, the version the suite itself pins), 67/68 (`0.6.0`) |
 | [`oval/`](oval/) | `DIPS-Tools/odrl-Engine` | Python | 59/68 |
 | [`odrl-pap/`](odrl-pap/) | `SEAMWARE/odrl-pap` (FIWARE's own ODRL→Rego→OPA component) | Java/Quarkus → Rego → OPA | 30/1/37 with a mapping overlay, 20/11/37 stock |
 | [`odrl-manager/`](odrl-manager/) | `Prometheus-X-association/odrl-manager` (`develop` branch) | TypeScript / Node | 61/68 native, 67/68 with adapter assistance |
 
-`ds-odrl-engine-rs` itself is the fifth row of that comparison and needs no
-harness here — its own number is `compliance/reports/latest.json`, produced by
-`cargo run -p compliance-runner --release` in this same repo.
+`ds-odrl-engine-rs`'s conformance number still needs no harness here — it is
+`compliance/reports/latest.json`, produced by
+`cargo run -p compliance-runner --release` in this same repo. Its
+**performance** number does need one, which is why
+[`ds-odrl-engine-rs/`](ds-odrl-engine-rs/) exists: it carries its own
+`perf/Cargo.toml` declaring a separate cargo workspace, so `wasmi` and the
+bench binary never enter `cargo test/clippy --workspace`.
 
 ## Reproduced, for real, in this pass
 

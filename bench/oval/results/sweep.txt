@@ -1,0 +1,10 @@
+=== date ===
+2026-09-06T11:02:23+02:00
+=== stragglers (expect 0) ===
+0
+=== uptime after ===
+ 11:02:23 up 2 days,  2:34,  1 user,  load average: 21,77, 11,95, 7,65
+=== free -h after ===
+               total       utilisé      libre     partagé tamp/cache   disponible
+Mem:            93Gi        21Gi        25Gi       3,4Gi        51Gi        71Gi
+Échange:          0B          0B          0B

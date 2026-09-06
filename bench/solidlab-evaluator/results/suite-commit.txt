@@ -1,0 +1,1 @@
+7958238e72511059478e43ec9e57b053504cfd2c 2025-10-15 11:58:08 +0200 feat: fix asset collection identifier (see ODRL Evaluator issue 8)

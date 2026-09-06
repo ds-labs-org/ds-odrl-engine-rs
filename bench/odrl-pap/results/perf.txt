@@ -1,0 +1,10 @@
+cases=31 repeats=5 measurements=155 errors=0 mismatches=5
+  warmup: first=49.1ms last5_median=29.6ms (JIT + JSON-LD context cache)
+  latency ms: mean=766.807 median=34.169 p95=7193.695 p99=8891.444 min=24.295 max=8956.998 stddev=2258.507
+  tukey[1.5] fence=[12.142,54.654] flagged=19/155
+  unstable cases (rel_range>0.5): ['testcase-026-alice-read-x', 'testcase-027-alice-write-x', 'testcase-028-alice-read-y', 'testcase-029-bob-write-y', 'testcase-030-alice-read-x', 'testcase-031-alice-read-x-past', 'testcase-037-alice-read-x-past', 'testcase-038-alice-read-x-future', 'testcase-039-alice-read-x', 'testcase-040-alice-read-x-past', 'testcase-041-alice-read-x-future', 'testcase-042-alice-read-x', 'testcase-060-fulfilled', 'testcase-061-violated']
+  rss quarkus   first=493MB median=850MB peak=859MB cpu_consumed=4.41s
+  rss opa       first=1865MB median=675MB peak=2055MB cpu_consumed=272.07s
+  rss postgres  first=76MB median=77MB peak=77MB cpu_consumed=0.01s
+  opa floor: median=0.64ms x3=1.91ms = 5.6% of a /validate
+-> /home/coder/deepthought-solutions/ds-odrl-engine-rs-work/bench/odrl-pap/results/perf.json

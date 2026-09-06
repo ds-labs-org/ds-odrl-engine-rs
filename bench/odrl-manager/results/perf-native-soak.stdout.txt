@@ -1,0 +1,16 @@
+
+===== odrl-manager perf (native) =====
+node v24.18.0  cases 68  repeats 400  warmup 5 passes
+startup(import) 789.67 ms   corpus prepare 115.457 ms
+warmup pass walls (ms): 28.421, 19.383, 17.768, 21.669, 18.537
+engine-only  mean 0.275  median 0.042  p95 0.183  p99 4.805  min 0.024  max 44.62  (n=27200)
+end-to-end   mean 0.958  median 0.145  p95 0.434  p99 18.608  min 0.101  max 54.392  (n=27200)
+RSS import 343004 -> warmup 385740 -> peak(in-process) 1081688 kB
+async probe (in-process Promise.all vs sequential):
+  width  2  seq 0.113 ms  all 3.411 ms  speedup 0.033x  wrong-answers 1  errors 0
+  width  4  seq 0.216 ms  all 0.557 ms  speedup 0.388x  wrong-answers 3  errors 0
+  width  8  seq 0.336 ms  all 1.011 ms  speedup 0.332x  wrong-answers 4  errors 0
+  width 16  seq 0.591 ms  all 1.487 ms  speedup 0.397x  wrong-answers 6  errors 0
+  width 68  seq 16.739 ms  all 11.921 ms  speedup 1.404x  wrong-answers 26  errors 0
+gates: engine rule1 2172/27200 flagged, rule2 68/68 unstable
+wrote /home/coder/deepthought-solutions/ds-odrl-engine-rs-work/bench/odrl-manager/results/perf-native-soak.json

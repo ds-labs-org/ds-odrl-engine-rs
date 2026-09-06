@@ -1,0 +1,285 @@
+{
+  "schema": "ds-odrl-engine-rs/perf-bench@1",
+  "phase": "load-native",
+  "corpus": "/tmp/claude-1002/-home-coder-deepthought-solutions-dataspace/9a455f1e-9157-40f0-a70b-fc272472716d/scratchpad/perf-bench/ds-odrl-engine-rs/repo/compliance/reports/latest-cases.json",
+  "corpus_cases": 68,
+  "engine_commit": "7068ebae83557a2cfda4d55fc1f2d585f5fc724b",
+  "resources_at_start": {
+    "rss_bytes": 2629632,
+    "peak_rss_bytes": 2629632,
+    "cpu_user_seconds": 0.0,
+    "cpu_system_seconds": 0.0
+  },
+  "result": {
+    "path": "native",
+    "concurrency_means": "N real OS threads, each evaluating its own private copy of the 68-case corpus in a loop. The engine is a pure, stateless function -- no shared mutable state, no lock, no connection pool, no interpreter instance -- so these are genuinely independent evaluations running in parallel, not interleaved work on one runtime. This is a structural property of the engine, not a tuning result: no other engine in this comparison can be driven this way in-process.",
+    "step_seconds": 3,
+    "ramp_repeats": 3,
+    "latency_sampling": "every evaluation of every 8th whole 68-case pass, per thread, capped at 65536 samples per thread (whole passes, not every Nth evaluation -- see RAMP_SAMPLE_PASS_STRIDE's comment for the aliasing bug that rule replaces)",
+    "nproc": 22,
+    "steps": [
+      {
+        "concurrency": 1,
+        "throughput_evals_per_sec": 46528.89665530531,
+        "throughput_per_repeat": [
+          46528.89665530531,
+          46650.59168859748,
+          45446.00193159101
+        ],
+        "throughput_relative_range": 0.025889067732043896,
+        "unstable_across_repeats": false,
+        "latency_ns": {
+          "n": 17476,
+          "mean": 21423.229285877776,
+          "median": 1062.0,
+          "p95": 9356.0,
+          "p99": 570851.0,
+          "min": 260.0,
+          "max": 1408781.0,
+          "q1": 733.0,
+          "q3": 1705.0,
+          "iqr": 972.0
+        },
+        "latency_samples": 17476,
+        "evaluations": 139672,
+        "errors": 0,
+        "error_rate": 0.0,
+        "wall_seconds": 3.001833485,
+        "cpu_seconds": 3.0,
+        "cores_busy": 0.9993892116237753,
+        "rss_bytes_after": 9437184,
+        "peak_rss_bytes_after": 14389248
+      },
+      {
+        "concurrency": 2,
+        "throughput_evals_per_sec": 88874.3863176174,
+        "throughput_per_repeat": [
+          88874.3863176174,
+          89077.29587624848,
+          88799.0343222279
+        ],
+        "throughput_relative_range": 0.0031309533100586273,
+        "unstable_across_repeats": false,
+        "latency_ns": {
+          "n": 33456,
+          "mean": 22166.15106408417,
+          "median": 1104.0,
+          "p95": 9651.0,
+          "p99": 591086.0,
+          "min": 256.0,
+          "max": 1014962.0,
+          "q1": 763.0,
+          "q3": 1754.0,
+          "iqr": 991.0
+        },
+        "latency_samples": 33456,
+        "evaluations": 266900,
+        "errors": 0,
+        "error_rate": 0.0,
+        "wall_seconds": 3.00311497,
+        "cpu_seconds": 6.01,
+        "cores_busy": 2.0012553831730258,
+        "rss_bytes_after": 9584640,
+        "peak_rss_bytes_after": 19988480
+      },
+      {
+        "concurrency": 4,
+        "throughput_evals_per_sec": 169602.51666352837,
+        "throughput_per_repeat": [
+          171260.27388331763,
+          169602.51666352837,
+          158020.2157544147
+        ],
+        "throughput_relative_range": 0.07806522208140139,
+        "unstable_across_repeats": false,
+        "latency_ns": {
+          "n": 63784,
+          "mean": 23532.184529035494,
+          "median": 1177.0,
+          "p95": 10161.0,
+          "p99": 627676.0,
+          "min": 267.0,
+          "max": 1302786.0,
+          "q1": 812.0,
+          "q3": 1853.0,
+          "iqr": 1041.0
+        },
+        "latency_samples": 63784,
+        "evaluations": 509252,
+        "errors": 0,
+        "error_rate": 0.0,
+        "wall_seconds": 3.002620539,
+        "cpu_seconds": 12.0,
+        "cores_busy": 3.9965089974361225,
+        "rss_bytes_after": 12406784,
+        "peak_rss_bytes_after": 31600640
+      },
+      {
+        "concurrency": 8,
+        "throughput_evals_per_sec": 276422.9774628894,
+        "throughput_per_repeat": [
+          284633.06865692255,
+          276422.9774628894,
+          274582.60100845754
+        ],
+        "throughput_relative_range": 0.03635901668056635,
+        "unstable_across_repeats": false,
+        "latency_ns": {
+          "n": 104108,
+          "mean": 28816.85541937219,
+          "median": 1414.0,
+          "p95": 12883.0,
+          "p99": 805243.0,
+          "min": 284.0,
+          "max": 2833208.0,
+          "q1": 990.0,
+          "q3": 2068.0,
+          "iqr": 1078.0
+        },
+        "latency_samples": 104108,
+        "evaluations": 830620,
+        "errors": 0,
+        "error_rate": 0.0,
+        "wall_seconds": 3.004887682,
+        "cpu_seconds": 24.01,
+        "cores_busy": 7.99031529325561,
+        "rss_bytes_after": 13123584,
+        "peak_rss_bytes_after": 54464512
+      },
+      {
+        "concurrency": 16,
+        "throughput_evals_per_sec": 387093.22214351856,
+        "throughput_per_repeat": [
+          400201.3540549677,
+          387093.22214351856,
+          381617.1483608489
+        ],
+        "throughput_relative_range": 0.048009638585788855,
+        "unstable_across_repeats": false,
+        "latency_ns": {
+          "n": 145928,
+          "mean": 41097.15274655995,
+          "median": 1844.0,
+          "p95": 48276.0,
+          "p99": 1188223.0,
+          "min": 292.0,
+          "max": 2054133.0,
+          "q1": 1226.0,
+          "q3": 2850.0,
+          "iqr": 1624.0
+        },
+        "latency_samples": 145928,
+        "evaluations": 1164160,
+        "errors": 0,
+        "error_rate": 0.0,
+        "wall_seconds": 3.00744093,
+        "cpu_seconds": 48.01999999999998,
+        "cores_busy": 15.967063399645886,
+        "rss_bytes_after": 48717824,
+        "peak_rss_bytes_after": 100773888
+      },
+      {
+        "concurrency": 22,
+        "throughput_evals_per_sec": 358101.4888036078,
+        "throughput_per_repeat": [
+          361301.9998406572,
+          358101.4888036078,
+          322219.8293944078
+        ],
+        "throughput_relative_range": 0.10913713477377666,
+        "unstable_across_repeats": false,
+        "latency_ns": {
+          "n": 135388,
+          "mean": 61167.96162141401,
+          "median": 3324.0,
+          "p95": 53047.0,
+          "p99": 1651978.0,
+          "min": 294.0,
+          "max": 36248513.0,
+          "q1": 2076.0,
+          "q3": 4847.0,
+          "iqr": 2771.0
+        },
+        "latency_samples": 135388,
+        "evaluations": 1078004,
+        "errors": 0,
+        "error_rate": 0.0,
+        "wall_seconds": 3.010330964,
+        "cpu_seconds": 64.14,
+        "cores_busy": 21.306627333352573,
+        "rss_bytes_after": 41484288,
+        "peak_rss_bytes_after": 133660672
+      },
+      {
+        "concurrency": 32,
+        "throughput_evals_per_sec": 285439.13955629943,
+        "throughput_per_repeat": [
+          288562.5909960681,
+          282741.29360642243,
+          285439.13955629943
+        ],
+        "throughput_relative_range": 0.02039418069538243,
+        "unstable_across_repeats": false,
+        "latency_ns": {
+          "n": 108324,
+          "mean": 113004.58677670691,
+          "median": 4489.0,
+          "p95": 47737.0,
+          "p99": 3023514.0,
+          "min": 484.0,
+          "max": 80608080.0,
+          "q1": 3203.0,
+          "q3": 6195.0,
+          "iqr": 2992.0
+        },
+        "latency_samples": 108324,
+        "evaluations": 859928,
+        "errors": 0,
+        "error_rate": 0.0,
+        "wall_seconds": 3.012649216,
+        "cpu_seconds": 64.30999999999997,
+        "cores_busy": 21.346660493512957,
+        "rss_bytes_after": 51372032,
+        "peak_rss_bytes_after": 189472768
+      },
+      {
+        "concurrency": 44,
+        "throughput_evals_per_sec": 260743.18134283385,
+        "throughput_per_repeat": [
+          271648.4968935583,
+          260743.18134283385,
+          254679.1288271688
+        ],
+        "throughput_relative_range": 0.06508077403595686,
+        "unstable_across_repeats": false,
+        "latency_ns": {
+          "n": 99892,
+          "mean": 162631.7225603652,
+          "median": 4321.0,
+          "p95": 47284.0,
+          "p99": 5375243.0,
+          "min": 562.0,
+          "max": 59729055.0,
+          "q1": 3228.0,
+          "q3": 5887.0,
+          "iqr": 2659.0
+        },
+        "latency_samples": 99892,
+        "evaluations": 788460,
+        "errors": 0,
+        "error_rate": 0.0,
+        "wall_seconds": 3.023894991,
+        "cpu_seconds": 61.700000000000074,
+        "cores_busy": 20.404147691516208,
+        "rss_bytes_after": 65093632,
+        "peak_rss_bytes_after": 257998848
+      }
+    ],
+    "resources_after": {
+      "rss_bytes": 61272064,
+      "peak_rss_bytes": 257998848,
+      "cpu_user_seconds": 857.91,
+      "cpu_system_seconds": 1.46
+    }
+  }
+}

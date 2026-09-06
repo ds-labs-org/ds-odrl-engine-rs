@@ -1,0 +1,20 @@
+corpus=force  isolate=False
+total=68 FAIL=9 PASS=59
+  FAIL  testcase-009-bob-write-y               expected=Allow actual=Deny
+        Any request to use results into yes (Bob Request Write).
+  FAIL  testcase-049-alice-read-x-past         expected=Deny  actual=Allow
+        Read request from Alice to resource X returns into yes (temporal + And (year 2024)) (Alice Request Read X - past).
+  FAIL  testcase-050-alice-read-x-future       expected=Deny  actual=Allow
+        Read request from Alice to resource X returns into yes (temporal + And (year 2024)) (Alice Request Read X - future).
+  FAIL  testcase-051-alice                     expected=Allow actual=Deny
+        Read request from people in party collection to resource X returns into yes (Alice Request Read X).
+  FAIL  testcase-053-alice-read-x              expected=Allow actual=Deny
+        Read request from Alice to resource in asset collection returns into yes (Alice Request Read X).
+  FAIL  testcase-055-alice-read-x              expected=Allow actual=Deny
+        Read request from people in party collection to resource in asset collection returns into yes (Alice Request Read X).
+  FAIL  testcase-059-nonset                    expected=Allow actual=Deny
+        Read request from Alice to resource X returns into yes, if duty is not violated (Alice Request Read X - duty unknown).
+  FAIL  testcase-062-big-policy                expected=Allow actual=Deny
+        Read request from Alice to resource X on weekdays from 9-17 in 2024 returns into yes (Alice Request Read X).
+  FAIL  testcase-065-alice                     expected=Allow actual=Deny
+        Read request from people in party collection to resource X in 2024 returns into yes (Alice Request Read X).

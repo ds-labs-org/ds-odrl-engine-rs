@@ -1,0 +1,47 @@
+npm notice run odrl-test-suite@0.2.0 npx
+npm notice run 'ts-node' bench/perf-bench.ts
+cases from index.ttl: 68
+warmup 1/10 testcase-001-alice 615ms PASS
+warmup 2/10 testcase-002-bob 640ms PASS
+warmup 3/10 testcase-003-bob-write-y 625ms PASS
+warmup 4/10 testcase-004-alice 664ms PASS
+warmup 5/10 testcase-005-bob 658ms PASS
+warmup 6/10 testcase-006-bob-write-y 658ms PASS
+warmup 7/10 testcase-007-alice 658ms PASS
+warmup 8/10 testcase-008-bob 662ms PASS
+warmup 9/10 testcase-009-bob-write-y 660ms PASS
+warmup 10/10 testcase-010-alice-sell 656ms PASS
+full repeat 1/5: 86787ms wall, median 711ms
+full repeat 2/5: 86656ms wall, median 716ms
+full repeat 3/5: 86560ms wall, median 716ms
+full repeat 4/5: 86563ms wall, median 705ms
+full repeat 5/5: 84548ms wall, median 700ms
+engine repeat 1/2: 85344ms wall, median 694ms
+engine repeat 2/2: 83736ms wall, median 690ms
+wrote /home/coder/deepthought-solutions/ds-odrl-engine-rs-work/bench/solidlab-evaluator/results/perf-040.json
+full: median 706.591ms p95 797.566ms p99 13759.268ms  outliers 15/340
+unstable cases: 0/68
+concurrency probe speedup: 1.016x
+	Command being timed: "npx ts-node bench/perf-bench.ts"
+	User time (seconds): 663.50
+	System time (seconds): 8.47
+	Percent of CPU this job got: 109%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 10:12.78
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 759200
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 6048777
+	Voluntary context switches: 205007
+	Involuntary context switches: 5892
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 5336
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

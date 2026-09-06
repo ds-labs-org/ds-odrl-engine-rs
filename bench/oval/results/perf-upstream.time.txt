@@ -1,0 +1,33 @@
+isolate=False gc_off=False cases=68 repeats=5 measurements=340
+  bimodality: slow band 94/325 (0.2892) fast=139.484ms slow=257.34ms ratio=1.845 gap median/min/max=1/1/20
+  gc collections during timed passes: [14781, 1343, 120]
+  latency ms: mean=173.629 median=184.276 p95=324.428 p99=370.624 min=47.275 max=435.388 stddev=84.946
+  tukey[1.5] fence=[-123.5,462.4] flagged=0/340
+  unstable cases (rel_range>0.25): ['testcase-001-alice', 'testcase-002-bob', 'testcase-003-bob-write-y', 'testcase-004-alice', 'testcase-005-bob', 'testcase-006-bob-write-y', 'testcase-007-alice', 'testcase-008-bob', 'testcase-009-bob-write-y', 'testcase-010-alice-sell', 'testcase-011-alice', 'testcase-012-bob', 'testcase-013-bob-write-y', 'testcase-014-alice-sell', 'testcase-015-alice', 'testcase-016-bob', 'testcase-017-alice-sell', 'testcase-018-alice', 'testcase-019-bob', 'testcase-020-bob-sell', 'testcase-021-alice', 'testcase-022-alice-sell', 'testcase-023-alice-read-y', 'testcase-024-alice-write-x', 'testcase-025-bob-read-x', 'testcase-026-alice-read-x', 'testcase-027-alice-write-x', 'testcase-028-alice-read-y', 'testcase-029-bob-write-y', 'testcase-030-alice-read-x', 'testcase-031-alice-read-x-past', 'testcase-032-alice-read-x-future', 'testcase-033-alice-read-x', 'testcase-034-alice-read-x-past', 'testcase-035-alice-read-x-future', 'testcase-036-alice-read-x', 'testcase-037-alice-read-x-past', 'testcase-038-alice-read-x-future', 'testcase-039-alice-read-x', 'testcase-040-alice-read-x-past', 'testcase-041-alice-read-x-future', 'testcase-042-alice-read-x', 'testcase-043-alice-read-x-past', 'testcase-044-alice-read-x-future', 'testcase-045-alice-read-x', 'testcase-046-alice-read-x-past', 'testcase-047-alice-read-x-future', 'testcase-048-alice-read-x', 'testcase-049-alice-read-x-past', 'testcase-050-alice-read-x-future', 'testcase-051-alice', 'testcase-052-bob-read-x', 'testcase-053-alice-read-x', 'testcase-054-alice-read-y', 'testcase-055-alice-read-x', 'testcase-056-alice-read-y', 'testcase-057-bob-read-x', 'testcase-058-bob-write-y', 'testcase-059-nonset', 'testcase-060-fulfilled', 'testcase-061-violated', 'testcase-062-big-policy', 'testcase-063-big-policy-OoO', 'testcase-064-big-policy-past', 'testcase-065-alice', 'testcase-066-bob-sell', 'testcase-067-alice-past', 'testcase-068-bob-write-y-past']
+  rss kb first=150312 median=184360 last=223636
+  gil probe 4 seq=1248.4ms threads=1391.2ms speedup=0.897
+  mismatches/repeat=[9, 9, 9, 9, 9] errors/repeat=[0, 0, 0, 0, 0]
+-> /home/coder/deepthought-solutions/ds-odrl-engine-rs-work/bench/oval/results/perf-upstream.json
+	Command being timed: "/tmp/claude-1002/-home-coder-deepthought-solutions-dataspace/9a455f1e-9157-40f0-a70b-fc272472716d/scratchpad/perf-bench/oval/odrl-Engine/venv/bin/python perf_bench.py /home/coder/deepthought-solutions/ds-odrl-engine-rs-work/bench/oval/results/perf-upstream.json --repeats 5 --warmup 10 --no-isolate"
+	User time (seconds): 64.54
+	System time (seconds): 0.18
+	Percent of CPU this job got: 102%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 1:02.90
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 237020
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 75136
+	Voluntary context switches: 2123
+	Involuntary context switches: 693
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 184
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

@@ -1,0 +1,25 @@
+  rep0 conc=1   rps=1.33     median=32.443   p95=7152.394 p99=8676.937 err=0.0 wrong=10
+  rep0 conc=2   rps=1.04     median=57.95    p95=20179.739 p99=20466.915 err=0.0 wrong=10
+  rep0 conc=4   rps=0.66     median=118.986  p95=39832.12 p99=45563.908 err=0.02903 wrong=10
+  STOP RULE FIRED: error rate 0.0290 > 0.0200 at concurrency 4
+  rep1 conc=1   rps=1.34     median=30.776   p95=7125.468 p99=8810.542 err=0.0 wrong=10
+  STOP RULE FIRED: error rate 0.0290 > 0.0200 at concurrency 4
+  rep1 conc=2   rps=1.02     median=58.464   p95=20087.576 p99=20935.72 err=0.0 wrong=10
+  STOP RULE FIRED: error rate 0.0290 > 0.0200 at concurrency 4
+  rep1 conc=4   rps=0.65     median=119.315  p95=39042.249 p99=45271.411 err=0.02903 wrong=10
+  STOP RULE FIRED: error rate 0.0290 > 0.0200 at concurrency 4
+  rep2 conc=1   rps=1.34     median=33.139   p95=7058.839 p99=8665.007 err=0.0 wrong=10
+  STOP RULE FIRED: error rate 0.0290 > 0.0200 at concurrency 4
+  rep2 conc=2   rps=1.02     median=57.353   p95=19977.327 p99=20520.338 err=0.0 wrong=10
+  STOP RULE FIRED: error rate 0.0290 > 0.0200 at concurrency 4
+  rep2 conc=4   rps=0.66     median=121.396  p95=39178.262 p99=45169.101 err=0.02903 wrong=10
+  STOP RULE FIRED: error rate 0.0290 > 0.0200 at concurrency 4
+
+ conc |    rps | median |    p95 |    p99 |  err | jvm cpu s | jvm rss MB | flags
+    1 |   1.34 | 32.443 | 7125.468 | 8676.937 |  0.0 |      3.75 |        882 | p99
+    2 |   1.02 |  57.95 | 20087.576 | 20520.338 |  0.0 |      3.69 |        882 | p99
+    4 |   0.66 | 119.315 | 39178.262 | 45271.411 | 0.02903 |      4.16 |        882 | p99
+
+peak throughput: 1.34 rps at concurrency 1 (median 32.443ms, p99 8676.937ms)
+stop rule: error rate 0.0290 > 0.0200 at concurrency 4
+-> /home/coder/deepthought-solutions/ds-odrl-engine-rs-work/bench/odrl-pap/results/load.json

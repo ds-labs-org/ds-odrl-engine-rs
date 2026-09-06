@@ -1,0 +1,37 @@
+npm warn deprecated git-raw-commits@3.0.0: Deprecated and no longer maintained. Use @conventional-changelog/git-client instead.
+npm warn deprecated conventional-changelog-express@3.0.0: This preset is deprecated. Please use conventional-changelog-conventionalcommits or conventional-changelog-angular instead.
+npm warn deprecated conventional-changelog-jquery@4.0.0: This preset is deprecated. Please use conventional-changelog-conventionalcommits or conventional-changelog-angular instead.
+npm warn deprecated conventional-changelog-ember@3.0.0: This preset is deprecated. Please use conventional-changelog-conventionalcommits or conventional-changelog-angular instead.
+npm warn deprecated conventional-changelog-jshint@3.0.0: This preset is deprecated. Please use conventional-changelog-conventionalcommits or conventional-changelog-angular instead.
+npm warn deprecated conventional-changelog-codemirror@3.0.0: This preset is deprecated. Please use conventional-changelog-conventionalcommits or conventional-changelog-angular instead.
+npm warn deprecated conventional-changelog-atom@3.0.0: This preset is deprecated. Please use conventional-changelog-conventionalcommits or conventional-changelog-angular instead.
+npm warn deprecated conventional-changelog-eslint@4.0.0: This preset is deprecated. Please use conventional-changelog-conventionalcommits or conventional-changelog-angular instead.
+npm warn deprecated git-semver-tags@5.0.1: Deprecated and no longer maintained. Use @conventional-changelog/git-client instead.
+npm warn deprecated conventional-changelog-core@5.0.2: Deprecated and no longer maintained. Please use conventional-changelog instead.
+npm warn install-scripts 1 package had install scripts blocked because they are not covered by allowScripts:
+npm warn install-scripts   classic-level@3.0.0 (install: node-gyp-build)
+npm warn install-scripts
+npm warn install-scripts Run `npm install-scripts ls` to review, or `npm install-scripts approve <pkg>` to allow.
+	Command being timed: "npm install --no-audit --no-fund odrl-evaluator@0.6.0"
+	User time (seconds): 2.73
+	System time (seconds): 0.72
+	Percent of CPU this job got: 35%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:09.62
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 300308
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 73845
+	Voluntary context switches: 64641
+	Involuntary context switches: 311
+	Swaps: 0
+	File system inputs: 352
+	File system outputs: 173800
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

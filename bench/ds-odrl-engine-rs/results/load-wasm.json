@@ -1,0 +1,227 @@
+{
+  "schema": "ds-odrl-engine-rs/perf-bench@1",
+  "phase": "load-wasm",
+  "corpus": "/tmp/claude-1002/-home-coder-deepthought-solutions-dataspace/9a455f1e-9157-40f0-a70b-fc272472716d/scratchpad/perf-bench/ds-odrl-engine-rs/repo/compliance/reports/latest-cases.json",
+  "corpus_cases": 68,
+  "engine_commit": "7068ebae83557a2cfda4d55fc1f2d585f5fc724b",
+  "resources_at_start": {
+    "rss_bytes": 2568192,
+    "peak_rss_bytes": 2568192,
+    "cpu_user_seconds": 0.0,
+    "cpu_system_seconds": 0.0
+  },
+  "result": {
+    "path": "wasm-abi-fuel-metered",
+    "concurrency_means": "N real OS threads, each owning its OWN wasmi Engine + Module + Store + engine.wasm instance and driving its own private copy of the 68-case corpus through the alloc/evaluate/dealloc ABI. A wasmi Store is not Sync, so unlike the native path this concurrency is not free: each thread pays a full instantiation and a full guest linear memory, both reported per step.",
+    "step_seconds": 3,
+    "ramp_repeats": 3,
+    "latency_sampling": "every evaluation of every 8th whole 68-case pass, per thread, capped at 65536 samples per thread (whole passes, not every Nth evaluation -- see RAMP_SAMPLE_PASS_STRIDE's comment for the aliasing bug that rule replaces)",
+    "nproc": 22,
+    "steps": [
+      {
+        "concurrency": 1,
+        "throughput_evals_per_sec": 2348.441640890989,
+        "throughput_per_repeat": [
+          2287.0147463484113,
+          2448.024320155886,
+          2348.441640890989
+        ],
+        "throughput_relative_range": 0.06856017667374877,
+        "unstable_across_repeats": false,
+        "latency_ns": {
+          "n": 884,
+          "mean": 426881.83484162897,
+          "median": 72016.0,
+          "p95": 179070.0,
+          "p99": 10017579.0,
+          "min": 36637.0,
+          "max": 11141303.0,
+          "q1": 61031.0,
+          "q3": 91997.0,
+          "iqr": 30966.0
+        },
+        "latency_samples": 884,
+        "evaluations": 7072,
+        "errors": 0,
+        "error_rate": 0.0,
+        "wall_seconds": 3.011358629,
+        "cpu_seconds": 3.0100000000000007,
+        "cores_busy": 0.9995488318837499,
+        "rss_bytes_after": 10637312,
+        "peak_rss_bytes_after": 18235392,
+        "guest_memory_bytes_total": 1507328
+      },
+      {
+        "concurrency": 2,
+        "throughput_evals_per_sec": 4758.5593955327895,
+        "throughput_per_repeat": [
+          4767.4706456165395,
+          4741.871046043021,
+          4758.5593955327895
+        ],
+        "throughput_relative_range": 0.0053796952912998465,
+        "unstable_across_repeats": false,
+        "latency_ns": {
+          "n": 1836,
+          "mean": 417947.9923747277,
+          "median": 71110.0,
+          "p95": 120452.0,
+          "p99": 9892707.0,
+          "min": 36518.0,
+          "max": 10534064.0,
+          "q1": 61603.0,
+          "q3": 88671.0,
+          "iqr": 27068.0
+        },
+        "latency_samples": 1836,
+        "evaluations": 14348,
+        "errors": 0,
+        "error_rate": 0.0,
+        "wall_seconds": 3.015198258,
+        "cpu_seconds": 6.02,
+        "cores_busy": 1.996551962720058,
+        "rss_bytes_after": 10792960,
+        "peak_rss_bytes_after": 26259456,
+        "guest_memory_bytes_total": 3014656
+      },
+      {
+        "concurrency": 4,
+        "throughput_evals_per_sec": 8764.896563879158,
+        "throughput_per_repeat": [
+          8653.230691722752,
+          8765.073989669243,
+          8764.896563879158
+        ],
+        "throughput_relative_range": 0.012760367122574586,
+        "unstable_across_repeats": false,
+        "latency_ns": {
+          "n": 3468,
+          "mean": 458543.6110149942,
+          "median": 77583.0,
+          "p95": 139981.0,
+          "p99": 11218785.0,
+          "min": 36036.0,
+          "max": 12988053.0,
+          "q1": 65031.0,
+          "q3": 93761.0,
+          "iqr": 28730.0
+        },
+        "latency_samples": 3468,
+        "evaluations": 26520,
+        "errors": 0,
+        "error_rate": 0.0,
+        "wall_seconds": 3.025705986,
+        "cpu_seconds": 12.069999999999995,
+        "cores_busy": 3.989151641252692,
+        "rss_bytes_after": 11104256,
+        "peak_rss_bytes_after": 42553344,
+        "guest_memory_bytes_total": 6029312
+      },
+      {
+        "concurrency": 8,
+        "throughput_evals_per_sec": 13804.464107495114,
+        "throughput_per_repeat": [
+          14762.436600828874,
+          13804.464107495114,
+          13432.20445053876
+        ],
+        "throughput_relative_range": 0.09636246216670348,
+        "unstable_across_repeats": false,
+        "latency_ns": {
+          "n": 5508,
+          "mean": 576859.7790486565,
+          "median": 93916.0,
+          "p95": 217334.0,
+          "p99": 12888010.0,
+          "min": 42224.0,
+          "max": 20977259.0,
+          "q1": 77984.0,
+          "q3": 121663.0,
+          "iqr": 43679.0
+        },
+        "latency_samples": 5508,
+        "evaluations": 41888,
+        "errors": 0,
+        "error_rate": 0.0,
+        "wall_seconds": 3.034380739,
+        "cpu_seconds": 24.149999999999995,
+        "cores_busy": 7.958790302616667,
+        "rss_bytes_after": 11726848,
+        "peak_rss_bytes_after": 76140544,
+        "guest_memory_bytes_total": 12058624
+      },
+      {
+        "concurrency": 16,
+        "throughput_evals_per_sec": 18555.792274198993,
+        "throughput_per_repeat": [
+          18724.868758819543,
+          18181.527859543985,
+          18555.792274198993
+        ],
+        "throughput_relative_range": 0.029281471318853308,
+        "unstable_across_repeats": false,
+        "latency_ns": {
+          "n": 7548,
+          "mean": 860346.408055114,
+          "median": 136678.0,
+          "p95": 401269.0,
+          "p99": 23177040.0,
+          "min": 50801.0,
+          "max": 36636059.0,
+          "q1": 97245.0,
+          "q3": 170493.0,
+          "iqr": 73248.0
+        },
+        "latency_samples": 7548,
+        "evaluations": 56916,
+        "errors": 0,
+        "error_rate": 0.0,
+        "wall_seconds": 3.067290211,
+        "cpu_seconds": 48.48999999999998,
+        "cores_busy": 15.808742135355766,
+        "rss_bytes_after": 12972032,
+        "peak_rss_bytes_after": 141901824,
+        "guest_memory_bytes_total": 24117248
+      },
+      {
+        "concurrency": 22,
+        "throughput_evals_per_sec": 15977.191958750036,
+        "throughput_per_repeat": [
+          15977.191958750036,
+          15746.189861224964,
+          16041.855449482993
+        ],
+        "throughput_relative_range": 0.01850547887397105,
+        "unstable_across_repeats": false,
+        "latency_ns": {
+          "n": 7004,
+          "mean": 1367827.9688749285,
+          "median": 173330.0,
+          "p95": 713579.0,
+          "p99": 39318730.0,
+          "min": 56139.0,
+          "max": 80932564.0,
+          "q1": 136304.0,
+          "q3": 226198.0,
+          "iqr": 89894.0
+        },
+        "latency_samples": 7004,
+        "evaluations": 49232,
+        "errors": 0,
+        "error_rate": 0.0,
+        "wall_seconds": 3.081392533,
+        "cpu_seconds": 64.49999999999999,
+        "cores_busy": 20.9320945998411,
+        "rss_bytes_after": 13844480,
+        "peak_rss_bytes_after": 191389696,
+        "guest_memory_bytes_total": 33161216
+      }
+    ],
+    "resources_after": {
+      "rss_bytes": 13910016,
+      "peak_rss_bytes": 191389696,
+      "cpu_user_seconds": 475.84,
+      "cpu_system_seconds": 0.84
+    }
+  }
+}

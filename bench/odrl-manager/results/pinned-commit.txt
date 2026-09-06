@@ -1,0 +1,4 @@
+8842b6b9ff9fa580f9400f426a5f361f526dbd9b
+8842b6b9ff9fa580f9400f426a5f361f526dbd9b
+Mon Jan 20 18:14:53 2025 +0100
+doc: update, refactor: fix addConsequences, chore: v2.0.2

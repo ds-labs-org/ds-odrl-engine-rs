@@ -1,0 +1,31 @@
+  rep0 conc=1   rps=28.42    median=34.609   p95=41.431   p99=48.668   err=0.0 wrong=20
+  rep0 conc=2   rps=35.26    median=55.032   p95=67.719   p99=77.002   err=0.0 wrong=20
+  rep0 conc=4   rps=34.0     median=115.34   p95=136.538  p99=149.542  err=0.0 wrong=20
+  rep0 conc=8   rps=33.07    median=238.148  p95=271.69   p99=296.495  err=0.0 wrong=20
+  rep0 conc=16  rps=30.55    median=520.807  p95=572.255  p99=580.49   err=0.0 wrong=20
+  rep0 conc=32  rps=26.64    median=1203.391 p95=1283.121 p99=1289.172 err=0.0 wrong=20
+  STOP RULE FIRED: median 1203.4ms > 25.0x level-1 median 34.6ms at concurrency 32 -- ceiling for the remaining repeats
+  rep1 conc=1   rps=30.77    median=31.861   p95=39.362   p99=44.18    err=0.0 wrong=20
+  rep1 conc=2   rps=35.91    median=53.667   p95=69.71    p99=78.249   err=0.0 wrong=20
+  rep1 conc=4   rps=35.11    median=111.929  p95=131.034  p99=136.526  err=0.0 wrong=20
+  rep1 conc=8   rps=33.29    median=236.849  p95=272.363  p99=291.887  err=0.0 wrong=20
+  rep1 conc=16  rps=30.7     median=515.411  p95=585.475  p99=604.577  err=0.0 wrong=20
+  rep1 conc=32  rps=26.56    median=1213.986 p95=1300.486 p99=1319.738 err=0.0 wrong=20
+  rep2 conc=1   rps=32.33    median=30.182   p95=36.823   p99=40.975   err=0.0 wrong=20
+  rep2 conc=2   rps=35.55    median=54.338   p95=70.341   p99=77.183   err=0.0 wrong=20
+  rep2 conc=4   rps=35.71    median=110.607  p95=130.042  p99=140.769  err=0.0 wrong=20
+  rep2 conc=8   rps=34.46    median=232.302  p95=258.54   p99=268.761  err=0.0 wrong=20
+  rep2 conc=16  rps=31.28    median=509.367  p95=545.765  p99=562.411  err=0.0 wrong=20
+  rep2 conc=32  rps=26.79    median=1196.399 p95=1276.349 p99=1292.764 err=0.0 wrong=20
+
+ conc |    rps | median |    p95 |    p99 |  err | jvm cpu s | jvm rss MB | flags
+    1 |  30.77 | 31.861 | 39.362 |  44.18 |  0.0 |      2.02 |        491 | -
+    2 |  35.55 | 54.338 |  69.71 | 77.183 |  0.0 |      1.97 |        491 | -
+    4 |  35.11 | 111.929 | 131.034 | 140.769 |  0.0 |      2.77 |        492 | -
+    8 |  33.29 | 236.849 | 271.69 | 291.887 |  0.0 |      2.92 |        492 | -
+   16 |   30.7 | 515.411 | 572.255 | 580.49 |  0.0 |      2.64 |        493 | -
+   32 |  26.64 | 1203.391 | 1283.121 | 1292.764 |  0.0 |      1.85 |        495 | -
+
+peak throughput: 35.55 rps at concurrency 2 (median 54.338ms, p99 77.183ms)
+stop rule: median 1203.4ms > 25.0x level-1 median 34.6ms at concurrency 32
+-> /home/coder/deepthought-solutions/ds-odrl-engine-rs-work/bench/odrl-pap/results/load-fastband.json

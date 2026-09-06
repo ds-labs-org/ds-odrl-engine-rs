@@ -1,0 +1,25 @@
+npm notice run json-odrl-manager@v2.0.2 npx
+npm notice run 'ts-node' -r tsconfig-paths/register src/bench/load_bench.ts native --levels 1,2,4,8,16,22,32,44 --step-ms 10000 --ramps 3
+	Command being timed: "npx ts-node -r tsconfig-paths/register src/bench/load_bench.ts native --levels 1,2,4,8,16,22,32,44 --step-ms 10000 --ramps 3"
+	User time (seconds): 3716.18
+	System time (seconds): 133.20
+	Percent of CPU this job got: 1347%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 4:45.63
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 1446104
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 32759569
+	Voluntary context switches: 1178204
+	Involuntary context switches: 1211632
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 350464
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
