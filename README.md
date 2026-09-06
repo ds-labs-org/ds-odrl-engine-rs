@@ -1745,7 +1745,7 @@ cargo test --workspace --features dsp-odrl-adapter/dsp-ingest
 ```
 
 Both runs are expected to pass; the second additionally runs that crate's
-24 tests.
+32 tests.
 
 WebAssembly guest module (no WASI — pure JSON-in/JSON-out, no filesystem,
 clock, or network):
