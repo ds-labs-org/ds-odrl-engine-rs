@@ -2379,19 +2379,19 @@
       "title": "event has no period ordering: lt over two event IRIs is a miss"
     },
     {
-      "asserts": "The spec's own metering example. Read against lo-duration-control-numeric, which is the same left operand and the same operator with plain numbers and Allows -- so the failure is isolated to the xsd:duration lexical form, not to the key or the operator.",
+      "asserts": "The spec's own metering example (ODRL 2.2 Vocabulary Section 4.5). Read against lo-duration-malformed-miss, which is the same left operand and operator with a malformed duration and Denies -- so this is genuine ISO-8601 duration parsing, not a lexical accident.",
       "expect": {
         "dataset_id": null,
-        "decision": "Deny",
+        "decision": "Allow",
         "duties": null,
         "reason_contains": [
-          "no permission of policy 'probe' covered and matched requested action 'use' (closed default)"
+          "permission[0] of policy 'probe' matched: action 'use': meteredTime lteq PT60M"
         ],
         "reason_excludes": []
       },
-      "falsified_by": "Allow -- which would mean a duration parser exists",
-      "id": "lo-duration-not-parsed",
-      "kind": "negative",
+      "falsified_by": "Deny -- which would mean the duration parser regressed",
+      "id": "lo-duration-metering-example",
+      "kind": "positive",
       "request": {
         "action": "use",
         "claims": {
@@ -2432,26 +2432,26 @@
           }
         ]
       },
-      "title": "xsd:duration is not parsed: PT30M lteq PT60M misses"
+      "title": "xsd:duration is parsed by magnitude: PT30M lteq PT60M allows"
     },
     {
-      "asserts": "The control for lo-duration-not-parsed: same left operand, same operator, numeric lexical form instead of ISO-8601 duration.",
+      "asserts": "The control for lo-duration-metering-example: same left operand and operator, but the claim is not a well-formed ISO-8601 duration (no unit letters at all), so it satisfies neither the temporal, duration, nor numeric fallback and correctly misses.",
       "expect": {
         "dataset_id": null,
-        "decision": "Allow",
+        "decision": "Deny",
         "duties": null,
         "reason_contains": [
-          "permission[0] of policy 'probe' matched: action 'use': meteredTime lteq 60"
+          "no permission of policy 'probe' covered and matched requested action 'use' (closed default)"
         ],
         "reason_excludes": []
       },
-      "falsified_by": "Deny -- which would mean the pair proves nothing about durations specifically",
-      "id": "lo-duration-control-numeric",
-      "kind": "positive",
+      "falsified_by": "Allow -- which would mean an unparseable value is silently accepted somewhere",
+      "id": "lo-duration-malformed-miss",
+      "kind": "negative",
       "request": {
         "action": "use",
         "claims": {
-          "meteredTime": "30"
+          "meteredTime": "thirty minutes"
         },
         "config": {
           "@id": "https://ds42.org/profiles/coverage-probe",
@@ -2479,7 +2479,7 @@
                   {
                     "left_operand": "meteredTime",
                     "operator": "lteq",
-                    "right_operand": "60"
+                    "right_operand": "PT60M"
                   }
                 ]
               }
@@ -2488,7 +2488,7 @@
           }
         ]
       },
-      "title": "the same metering constraint works when both sides are plain numbers"
+      "title": "a malformed duration still misses rather than silently matching"
     },
     {
       "asserts": "A coordinate pair is carried faithfully and compared as text.",
@@ -8333,19 +8333,19 @@
       "why": "Closest to lossless under an opaque-key design -- but language needs BCP-47 range handling and event needs period ordering, neither of which exists."
     },
     {
-      "asserts": "The pair isolates the failure to the xsd:duration lexical form: the same left operand and operator work with plain numbers.",
+      "asserts": "The spec's own metering example allows; a malformed duration still misses rather than being silently accepted.",
       "category": "left-operands",
-      "caveat": null,
+      "caveat": "Y/M components use a fixed nominal length (365/30 days), not XSD's own partial-order duration comparison -- see parse_xsd_duration_nanos's own doc comment.",
       "documented_because": null,
-      "evidence": "engine/src/temporal.rs (dateTime/date only)",
+      "evidence": "engine/src/temporal.rs::parse_xsd_duration_nanos, engine/src/constraint.rs::ordering_matches",
       "id": "left-operands.durations",
       "probe_ids": [
-        "lo-duration-not-parsed",
-        "lo-duration-control-numeric"
+        "lo-duration-metering-example",
+        "lo-duration-malformed-miss"
       ],
-      "status": "NotImplemented",
+      "status": "Partial",
       "term": "elapsedTime, meteredTime, delayPeriod, timeInterval",
-      "why": "No xsd:duration parsing anywhere; a duration-valued constraint is a silent miss."
+      "why": "xsd:duration is now parsed to a total magnitude and ordered by lt/lteq/gt/gteq -- but Y/M components are converted at a fixed nominal length (365/30 days) rather than XSD's own genuinely partial-order semantics for calendar durations."
     },
     {
       "asserts": "An exact coordinate string matches; coordinates ten metres apart do not; and ordering over positions is a miss.",
@@ -8480,7 +8480,7 @@
       ],
       "status": "Partial",
       "term": "lt, lteq, gt, gteq",
-      "why": "Real chronological ordering over xsd:dateTime and xsd:date (offsets included), with a numeric fallback -- but no coercion between the two kinds, and no duration form."
+      "why": "Real chronological ordering over xsd:dateTime and xsd:date (offsets included), an xsd:duration reading (see left-operands.durations for its own caveat), and a numeric fallback -- but no coercion between any of the three kinds."
     },
     {
       "asserts": "Both tokens fail to parse, while the byte-identical request with a supported operator succeeds -- so the Error is the token, not the request.",

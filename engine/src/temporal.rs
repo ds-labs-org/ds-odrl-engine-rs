@@ -176,6 +176,158 @@ fn parse_date_only_nanos(s: &str) -> Option<i128> {
     Some(days as i128 * 86_400 * 1_000_000_000)
 }
 
+/// Consumes an optional `<digits>UNIT` (or, when `allow_fraction`,
+/// `<digits>.<digits>UNIT`) prefix naming `unit` from the front of
+/// `*cursor`, worth `nanos_per_unit` nanoseconds per whole unit. Three
+/// outcomes: `Some(Some(nanos))` — present, matched, `*cursor` advanced
+/// past it; `Some(None)` — this component is simply absent here (the
+/// digit run, if any, is not immediately followed by `unit`), `*cursor`
+/// untouched, so the caller tries the next unit in sequence; `None` — the
+/// leading digits (or the fractional part, when present) are themselves
+/// malformed. This function alone cannot detect ordering mistakes like
+/// `"1M1Y"` (`M` before `Y`) — that falls out of `parse_xsd_duration_nanos`
+/// itself later finding unconsumed characters once every unit in the
+/// grammar's fixed order has had its turn.
+fn eat_duration_component(cursor: &mut &str, unit: u8, nanos_per_unit: i128, allow_fraction: bool) -> Option<Option<i128>> {
+    let bytes = cursor.as_bytes();
+    let mut int_end = 0;
+    while int_end < bytes.len() && bytes[int_end].is_ascii_digit() {
+        int_end += 1;
+    }
+    if int_end == 0 {
+        // No leading digits at all: this component is not here, not
+        // malformed -- e.g. cursor is "8H" while looking for `Y`.
+        return Some(None);
+    }
+
+    let mut unit_at = int_end;
+    let mut frac_start = None;
+    if allow_fraction && bytes.get(unit_at) == Some(&b'.') {
+        let start = unit_at + 1;
+        let mut frac_end = start;
+        while frac_end < bytes.len() && bytes[frac_end].is_ascii_digit() {
+            frac_end += 1;
+        }
+        if frac_end == start {
+            return None; // a bare "." with no digits after it
+        }
+        frac_start = Some(start);
+        unit_at = frac_end;
+    }
+
+    if bytes.get(unit_at) != Some(&unit) {
+        // Digits are here, but they belong to a different unit letter
+        // (or none at all) -- this component is absent, not malformed.
+        return Some(None);
+    }
+
+    let int_part: i128 = cursor[..int_end].parse().ok()?;
+    let mut nanos = int_part.checked_mul(nanos_per_unit)?;
+    if let Some(start) = frac_start {
+        // Only ever reached for seconds, where nanos_per_unit is exactly
+        // 1_000_000_000 -- pad/truncate the fraction to nanosecond
+        // precision the same way parse_utc_datetime_nanos's own fractional
+        // field already does.
+        let mut padded = cursor[start..unit_at].to_string();
+        padded.truncate(9);
+        while padded.len() < 9 {
+            padded.push('0');
+        }
+        let frac_nanos: i128 = padded.parse().ok()?;
+        nanos += frac_nanos;
+    }
+
+    *cursor = &cursor[unit_at + 1..];
+    Some(Some(nanos))
+}
+
+const NANOS_PER_SECOND: i128 = 1_000_000_000;
+const NANOS_PER_MINUTE: i128 = 60 * NANOS_PER_SECOND;
+const NANOS_PER_HOUR: i128 = 60 * NANOS_PER_MINUTE;
+const NANOS_PER_DAY: i128 = 24 * NANOS_PER_HOUR;
+
+/// Parses an ISO-8601 / `xsd:duration` lexical form
+/// `[-]P[nY][nM][nD][T[nH][nM][nS]]` — the type ODRL 2.2 Vocabulary
+/// Section 4.5 gives `odrl:delayPeriod`, `odrl:elapsedTime`,
+/// `odrl:meteredTime` and `odrl:timeInterval` — into a **total, signed
+/// magnitude in nanoseconds**, for `constraint.rs::ordering_matches`'
+/// third fallback. At least one component must be present (`"P"` and
+/// `"PT"` alone are both rejected), every present component's unit letter
+/// must appear in the fixed `Y`, `M`, `D`, `T`, `H`, `M`, `S` order with no
+/// repeats, and only the seconds component may carry a decimal fraction
+/// (`"PT1.5S"`) — XSD's own duration grammar reserves fractional literals
+/// to the smallest, right-most field.
+///
+/// **This is not `xsd:duration`'s own comparison semantics.** XSD defines
+/// duration ordering as a *partial* order specifically because a calendar
+/// `Y` or `M` component has no fixed length (February is not always 28
+/// days) — some pairs of durations are, by XSD's own definition,
+/// genuinely incomparable. This function instead converts `Y` to a fixed
+/// 365 days and `M` to a fixed 30 days, so every two durations this
+/// engine parses always compare as a *total* order. That is wrong for the
+/// small minority of `Y`/`M`-bearing pairs XSD itself calls
+/// indeterminate, and is a deliberate, comparison-purposes convention
+/// this module chooses — the same posture `parse_date_only_nanos` above
+/// already takes for anchoring a bare `xsd:date` to midnight UTC — rather
+/// than a literal reading of the spec. It is exactly right for every
+/// duration this engine's own four leftOperand terms are actually used
+/// for in practice: `delayPeriod`, `elapsedTime`, `meteredTime` and
+/// `timeInterval` are overwhelmingly expressed in `D`/`H`/`M`/`S`, not
+/// calendar years or months.
+pub fn parse_xsd_duration_nanos(s: &str) -> Option<i128> {
+    let (sign, rest) = match s.strip_prefix('-') {
+        Some(r) => (-1i128, r),
+        None => (1i128, s),
+    };
+    let rest = rest.strip_prefix('P')?;
+    if rest.is_empty() {
+        return None;
+    }
+
+    let (date_part, time_part) = match rest.split_once('T') {
+        Some((d, t)) => (d, Some(t)),
+        None => (rest, None),
+    };
+
+    let mut total: i128 = 0;
+    let mut any_component = false;
+
+    let mut cursor = date_part;
+    for (unit, nanos_per_unit) in [(b'Y', 365 * NANOS_PER_DAY), (b'M', 30 * NANOS_PER_DAY), (b'D', NANOS_PER_DAY)] {
+        if let Some(nanos) = eat_duration_component(&mut cursor, unit, nanos_per_unit, false)? {
+            total = total.checked_add(nanos)?;
+            any_component = true;
+        }
+    }
+    if !cursor.is_empty() {
+        return None; // leftover: wrong order, an unknown unit, or a repeat
+    }
+
+    if let Some(t) = time_part {
+        if t.is_empty() {
+            return None; // "T" present with nothing following it
+        }
+        let mut cursor = t;
+        for (unit, nanos_per_unit, allow_fraction) in
+            [(b'H', NANOS_PER_HOUR, false), (b'M', NANOS_PER_MINUTE, false), (b'S', NANOS_PER_SECOND, true)]
+        {
+            if let Some(nanos) = eat_duration_component(&mut cursor, unit, nanos_per_unit, allow_fraction)? {
+                total = total.checked_add(nanos)?;
+                any_component = true;
+            }
+        }
+        if !cursor.is_empty() {
+            return None;
+        }
+    }
+
+    if !any_component {
+        return None; // "P" or "PT" alone name no actual duration
+    }
+
+    Some(sign * total)
+}
+
 /// The widened temporal parse the `lt`/`lteq`/`gt`/`gteq` operators
 /// (`constraint.rs`) actually use: tries, in order, the original strict
 /// UTC `...Z` form (`parse_utc_datetime_nanos`, entirely unchanged — every
@@ -440,5 +592,69 @@ mod tests {
         assert_eq!(parse_xsd_temporal_nanos("not-a-date"), None);
         assert_eq!(parse_xsd_temporal_nanos(""), None);
         assert_eq!(parse_xsd_temporal_nanos("42"), None);
+    }
+
+    // -- parse_xsd_duration_nanos: xsd:duration ---------------------------
+
+    #[test]
+    fn orders_two_simple_hour_durations_correctly() {
+        let eight = parse_xsd_duration_nanos("PT8H").unwrap();
+        let ten = parse_xsd_duration_nanos("PT10H").unwrap();
+        assert!(eight < ten);
+    }
+
+    #[test]
+    fn a_one_day_duration_equals_twenty_four_hours() {
+        assert_eq!(parse_xsd_duration_nanos("P1D"), parse_xsd_duration_nanos("PT24H"));
+    }
+
+    #[test]
+    fn combines_date_and_time_components_in_one_literal() {
+        // 1 day, 2 hours, 3 minutes, 4 seconds.
+        let combined = parse_xsd_duration_nanos("P1DT2H3M4S").unwrap();
+        let expected = 86_400 + 2 * 3_600 + 3 * 60 + 4;
+        assert_eq!(combined, expected as i128 * 1_000_000_000);
+    }
+
+    #[test]
+    fn parses_fractional_seconds() {
+        assert_eq!(
+            parse_xsd_duration_nanos("PT1.5S"),
+            Some(1_500_000_000)
+        );
+    }
+
+    #[test]
+    fn a_leading_minus_sign_negates_the_whole_duration() {
+        let positive = parse_xsd_duration_nanos("P1D").unwrap();
+        let negative = parse_xsd_duration_nanos("-P1D").unwrap();
+        assert_eq!(negative, -positive);
+    }
+
+    #[test]
+    fn zero_duration_parses_to_zero_not_none() {
+        assert_eq!(parse_xsd_duration_nanos("PT0S"), Some(0));
+    }
+
+    #[test]
+    fn rejects_malformed_duration_literals() {
+        for s in [
+            "",
+            "P",           // no components at all
+            "PT",          // T with nothing following
+            "1Y",          // missing the leading P
+            "P1D1Y",       // wrong order (D before Y)
+            "P1Q",         // unknown unit
+            "+P1D",        // XSD only allows a leading '-', never '+'
+            "P1D2D",       // repeated unit
+        ] {
+            assert_eq!(parse_xsd_duration_nanos(s), None, "{s} must be rejected");
+        }
+    }
+
+    #[test]
+    fn a_plain_number_is_not_mistaken_for_a_duration() {
+        assert_eq!(parse_xsd_duration_nanos("42"), None);
+        assert_eq!(parse_xsd_duration_nanos("2024-01-01T00:00:00Z"), None);
     }
 }

@@ -18,20 +18,30 @@ comparison) over a flat string/string-array claims model. `lt`/`lteq`/
 as a recognized `xsd:dateTime`/`xsd:date` — the strict UTC `...Z` form,
 a `dateTime` with a numeric UTC offset (`+02:00`/`-05:30`, converted to
 the equivalent UTC instant), or a bare `xsd:date` (`YYYY-MM-DD`, treated
-as midnight UTC of that date for comparison purposes) — and only if
-either side isn't one of those falls back to comparing both sides as a
-plain, *finite* `f64` number, closing Section 7's "no age predicate is
-expressible" gap for a numeric claim without adding an operator. Either
-dispatch still misses (not errors) when neither reading applies to both
-sides — this now includes `NaN` and `inf`/`-inf`/`infinity` (every case
-spelling Rust's `str::parse::<f64>` itself accepts) on either side,
-rejected deliberately rather than left to silently compare: an
-unrejected `"inf"` would make `gt`/`gteq` match every finite number and
-`lt`/`lteq` match none, in either direction, for a claim or
-right_operand of exactly that lexical form (found by an adversarial
-review before release). See `engine/src/constraint.rs`'s
-`ordering_matches` and `engine/src/temporal.rs`'s
-`parse_xsd_temporal_nanos` for the exact rules. The three
+as midnight UTC of that date for comparison purposes); if neither side
+parses that way, tries both sides as an ISO-8601 `xsd:duration`
+(`PnYnMnDTnHnMnS`, the type ODRL 2.2 Vocabulary Section 4.5 gives
+`odrl:delayPeriod`/`elapsedTime`/`meteredTime`/`timeInterval`) — **not**
+XSD's own duration ordering, which is only a partial order because a
+calendar `Y`/`M` component has no fixed length; this engine instead
+converts `Y` to a fixed 365 days and `M` to a fixed 30 days so every two
+durations it parses always compare as a total order, wrong for the small
+minority of `Y`/`M`-bearing pairs XSD itself calls indeterminate, right
+for the overwhelmingly `D`/`H`/`M`/`S`-shaped durations those four
+leftOperand terms are actually used with; and only if none of those
+readings apply falls back to comparing both sides as a plain, *finite*
+`f64` number, closing Section 7's "no age predicate is expressible" gap
+for a numeric claim without adding an operator. Every dispatch still
+misses (not errors) when no reading applies to both sides — this now
+includes `NaN` and `inf`/`-inf`/`infinity` (every case spelling Rust's
+`str::parse::<f64>` itself accepts) on either side, rejected deliberately
+rather than left to silently compare: an unrejected `"inf"` would make
+`gt`/`gteq` match every finite number and `lt`/`lteq` match none, in
+either direction, for a claim or right_operand of exactly that lexical
+form (found by an adversarial review before release). See
+`engine/src/constraint.rs`'s `ordering_matches` and
+`engine/src/temporal.rs`'s `parse_xsd_temporal_nanos` and
+`parse_xsd_duration_nanos` for the exact rules. The three
 set-based operators `isAllOf`, `isNoneOf`, `isPartOf` all reuse `isAnyOf`'s own
 established adaptation of treating `right_operand` as a comma-delimited
 list rather than a JSON-LD array (`Constraint::right_operand` is a single

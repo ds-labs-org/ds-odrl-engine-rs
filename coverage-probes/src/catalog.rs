@@ -674,28 +674,30 @@ fn left_operand_probes() -> Vec<Probe> {
     }));
 
     probes.push(build(Spec {
-        id: "lo-duration-not-parsed",
-        kind: NEGATIVE,
-        title: "xsd:duration is not parsed: PT30M lteq PT60M misses",
-        asserts: "The spec's own metering example. Read against lo-duration-control-numeric, which is the \
-                  same left operand and the same operator with plain numbers and Allows -- so the failure \
-                  is isolated to the xsd:duration lexical form, not to the key or the operator.",
-        falsified_by: "Allow -- which would mean a duration parser exists",
+        id: "lo-duration-metering-example",
+        kind: POSITIVE,
+        title: "xsd:duration is parsed by magnitude: PT30M lteq PT60M allows",
+        asserts: "The spec's own metering example (ODRL 2.2 Vocabulary Section 4.5). Read against \
+                  lo-duration-malformed-miss, which is the same left operand and operator with a \
+                  malformed duration and Denies -- so this is genuine ISO-8601 duration parsing, not \
+                  a lexical accident.",
+        falsified_by: "Deny -- which would mean the duration parser regressed",
         request: one(c("meteredTime", Operator::Lteq, "PT60M"), claims(&[("meteredTime", s("PT30M"))])),
         patches: vec![],
-        expect: deny(&closed_deny("use")),
+        expect: allow_constrained("meteredTime lteq PT60M"),
     }));
 
     probes.push(build(Spec {
-        id: "lo-duration-control-numeric",
-        kind: POSITIVE,
-        title: "the same metering constraint works when both sides are plain numbers",
-        asserts: "The control for lo-duration-not-parsed: same left operand, same operator, numeric \
-                  lexical form instead of ISO-8601 duration.",
-        falsified_by: "Deny -- which would mean the pair proves nothing about durations specifically",
-        request: one(c("meteredTime", Operator::Lteq, "60"), claims(&[("meteredTime", s("30"))])),
+        id: "lo-duration-malformed-miss",
+        kind: NEGATIVE,
+        title: "a malformed duration still misses rather than silently matching",
+        asserts: "The control for lo-duration-metering-example: same left operand and operator, but the \
+                  claim is not a well-formed ISO-8601 duration (no unit letters at all), so it satisfies \
+                  neither the temporal, duration, nor numeric fallback and correctly misses.",
+        falsified_by: "Allow -- which would mean an unparseable value is silently accepted somewhere",
+        request: one(c("meteredTime", Operator::Lteq, "PT60M"), claims(&[("meteredTime", s("thirty minutes"))])),
         patches: vec![],
-        expect: allow_constrained("meteredTime lteq 60"),
+        expect: deny(&closed_deny("use")),
     }));
 
     probes.push(build(Spec {
@@ -2590,14 +2592,19 @@ pub fn rows() -> Vec<Row> {
             id: "left-operands.durations",
             category: "left-operands",
             term: "elapsedTime, meteredTime, delayPeriod, timeInterval",
-            status: NOT_IMPLEMENTED,
-            why: "No xsd:duration parsing anywhere; a duration-valued constraint is a silent miss.",
-            evidence: "engine/src/temporal.rs (dateTime/date only)",
-            asserts: "The pair isolates the failure to the xsd:duration lexical form: the same left \
-                      operand and operator work with plain numbers.",
-            probe_ids: &["lo-duration-not-parsed", "lo-duration-control-numeric"],
+            status: PARTIAL,
+            why: "xsd:duration is now parsed to a total magnitude and ordered by lt/lteq/gt/gteq -- but \
+                  Y/M components are converted at a fixed nominal length (365/30 days) rather than XSD's \
+                  own genuinely partial-order semantics for calendar durations.",
+            evidence: "engine/src/temporal.rs::parse_xsd_duration_nanos, engine/src/constraint.rs::ordering_matches",
+            asserts: "The spec's own metering example allows; a malformed duration still misses rather \
+                      than being silently accepted.",
+            probe_ids: &["lo-duration-metering-example", "lo-duration-malformed-miss"],
             documented_because: None,
-            caveat: None,
+            caveat: Some(
+                "Y/M components use a fixed nominal length (365/30 days), not XSD's own partial-order \
+                 duration comparison -- see parse_xsd_duration_nanos's own doc comment.",
+            ),
         }),
         row(RowSpec {
             id: "left-operands.coordinates",
@@ -2716,8 +2723,9 @@ pub fn rows() -> Vec<Row> {
             category: "operators",
             term: "lt, lteq, gt, gteq",
             status: PARTIAL,
-            why: "Real chronological ordering over xsd:dateTime and xsd:date (offsets included), with a \
-                  numeric fallback -- but no coercion between the two kinds, and no duration form.",
+            why: "Real chronological ordering over xsd:dateTime and xsd:date (offsets included), an \
+                  xsd:duration reading (see left-operands.durations for its own caveat), and a numeric \
+                  fallback -- but no coercion between any of the three kinds.",
             evidence: "engine/src/temporal.rs, engine/src/constraint.rs::ordering_matches",
             asserts: "Fractional seconds order chronologically rather than lexically; a bare date and a \
                       numeric offset are both accepted; the strict/non-strict boundary pair differ; and a \
@@ -3472,7 +3480,7 @@ mod tests {
             ("lo-extension-hit", "lo-extension-miss"),
             ("lo-datetime-hit", "lo-datetime-miss"),
             ("lo-count-hit", "lo-count-miss"),
-            ("lo-duration-control-numeric", "lo-duration-not-parsed"),
+            ("lo-duration-metering-example", "lo-duration-malformed-miss"),
             ("lo-coordinates-string-eq", "lo-coordinates-no-geometry"),
             ("lo-spatial-flat-hit", "lo-spatial-no-containment"),
             ("op-eq-multi-membership", "op-eq-no-concat"),

@@ -3517,4 +3517,62 @@ mod tests {
             "a void policy performs nothing"
         );
     }
+
+    // -- xsd:duration comparison (lt/lteq/gt/gteq) --------------------------
+
+    #[test]
+    fn a_prohibition_keyed_on_a_duration_left_operand_denies_once_duration_literals_compare() {
+        // The exact distinguishing example from the backlog item: an
+        // odrl:meteredTime prohibition, both sides genuine xsd:duration
+        // literals (the type ODRL 2.2 Vocabulary Section 4.5 actually
+        // prescribes for delayPeriod/elapsedTime/meteredTime/timeInterval),
+        // under the engine's own default Behaviour::Open with an empty
+        // permissions list. Before a duration parser existed, PT10H and
+        // PT8H matched neither the temporal (dateTime/date) reading nor the
+        // plain-f64 reading, so `ordering_matches` returned `false`
+        // unconditionally, the prohibition never fired, and the empty
+        // permissions list under Open resolved to a silent Allow -- wrong,
+        // since PT10H is genuinely greater than PT8H.
+        let policy = Policy {
+            permissions: vec![],
+            prohibitions: vec![Rule::new(
+                "use",
+                vec![Constraint::new("meteredTime", Operator::Gt, "PT8H")],
+            )],
+            obligations: vec![],
+            conflict: ConflictStrategy::default(),
+        };
+        let config = config_recognizing(&["use"]);
+        let claims = claims_with(&[("meteredTime", ClaimValue::Single("PT10H".into()))]);
+
+        assert_eq!(
+            decide(&policy, &claims, &config, "use", ASSET).decision,
+            Decision::Deny,
+            "PT10H > PT8H: the prohibition must fire rather than silently missing"
+        );
+    }
+
+    #[test]
+    fn the_same_prohibition_does_not_fire_when_the_duration_claim_is_not_actually_greater() {
+        // The control for the test above: same policy, same operator, a
+        // claim that genuinely does not exceed the threshold.
+        let policy = Policy {
+            permissions: vec![],
+            prohibitions: vec![Rule::new(
+                "use",
+                vec![Constraint::new("meteredTime", Operator::Gt, "PT8H")],
+            )],
+            obligations: vec![],
+            conflict: ConflictStrategy::default(),
+        };
+        let config = config_recognizing(&["use"]);
+        let claims = claims_with(&[("meteredTime", ClaimValue::Single("PT8H".into()))]);
+
+        assert_eq!(
+            decide(&policy, &claims, &config, "use", ASSET).decision,
+            Decision::Allow,
+            "PT8H is not > PT8H: the prohibition's own constraint correctly misses, \
+             and the empty permissions list under Open allows"
+        );
+    }
 }

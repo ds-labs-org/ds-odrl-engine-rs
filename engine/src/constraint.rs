@@ -8,26 +8,32 @@ use std::collections::BTreeSet;
 use serde::{Deserialize, Serialize};
 
 use crate::claims::{ClaimValue, Claims};
-use crate::temporal::parse_xsd_temporal_nanos;
+use crate::temporal::{parse_xsd_duration_nanos, parse_xsd_temporal_nanos};
 
 /// The operators the Default Profile supports. `Eq`/`Neq`/`IsAnyOf` are
 /// Section 4.2's original three, generic over any string-valued claim.
 /// `Lt`/`Lteq`/`Gt`/`Gteq` are a later addition, closing both halves of
 /// Section 7's "Numeric and date/time comparison operators ... remain
-/// unimplemented" limitation. Each one dispatches per comparison
-/// (`ordering_matches`, below) in a fixed order: first try both sides as a
-/// recognized `xsd:dateTime`/`xsd:date` (`temporal::parse_xsd_temporal_nanos`
-/// — the strict UTC `...Z` form, a numeric-UTC-offset `dateTime`, or a bare
-/// `xsd:date` treated as midnight UTC), and only if that pairing fails —
-/// either side not itself a recognized temporal value — fall back to
-/// parsing both sides as a plain `f64` number. Temporal is tried first
-/// because its lexical grammar (`-`/`:`/`T` separators, a trailing `Z` or
-/// numeric offset) is strictly more specific than "looks like a number"
-/// and is never itself ambiguous with one, so trying it first never steals
-/// a genuine date away from the numeric path or vice versa. A value that
-/// is neither a recognized temporal value nor a number on both sides is a
-/// miss for these four operators, the same posture an absent claim key
-/// already has for the original three.
+/// unimplemented" limitation, plus `xsd:duration` (Section 4.5's type for
+/// `odrl:delayPeriod`/`elapsedTime`/`meteredTime`/`timeInterval`), added
+/// after those. Each one dispatches per comparison (`ordering_matches`,
+/// below) in a fixed order: first try both sides as a recognized
+/// `xsd:dateTime`/`xsd:date` (`temporal::parse_xsd_temporal_nanos` — the
+/// strict UTC `...Z` form, a numeric-UTC-offset `dateTime`, or a bare
+/// `xsd:date` treated as midnight UTC); if that pairing fails, try both
+/// sides as an ISO-8601 `xsd:duration` (`temporal::parse_xsd_duration_nanos`
+/// — see its own doc comment for the fixed-nominal-month/year caveat); and
+/// only if that also fails — either side not itself a recognized temporal
+/// or duration value — fall back to parsing both sides as a plain `f64`
+/// number. Temporal is tried first, then duration, then numeric, because
+/// each lexical grammar is strictly more specific than the next (a
+/// `dateTime`'s `-`/`:`/`T` separators, a duration's leading `P`) and none
+/// is ever ambiguous with either of the others, so trying the more
+/// specific grammars first never steals a genuine value away from a later
+/// path or vice versa. A value that is neither a recognized temporal
+/// value, nor a duration, nor a number on both sides is a miss for these
+/// four operators, the same posture an absent claim key already has for
+/// the original three.
 ///
 /// `IsAllOf`/`IsNoneOf`/`IsPartOf` are a still later addition, closing out
 /// the remaining set-based operators from the W3C ODRL 2.2 Vocabulary
@@ -119,10 +125,13 @@ pub enum Operator {
 
 /// `true` if `left` and `right` both parse as a recognized temporal value
 /// (`temporal::parse_xsd_temporal_nanos`) and, ordered, satisfy
-/// `satisfies` — or, only when that pairing fails (either side is not
-/// itself a recognized temporal value), both parse as a plain, *finite*
-/// `f64` and satisfy it that way instead. See `Operator`'s own doc comment
-/// above for why temporal is tried first. Two lexical forms Rust's plain
+/// `satisfies` — or, when that pairing fails, both parse as an
+/// `xsd:duration` (`temporal::parse_xsd_duration_nanos`) and satisfy it
+/// that way — or, only when *both* of those pairings fail (neither side is
+/// itself a recognized temporal or duration value), both parse as a plain,
+/// *finite* `f64` and satisfy it that way instead. See `Operator`'s own doc
+/// comment above for why temporal is tried first, then duration. Two
+/// lexical forms Rust's plain
 /// `str::parse::<f64>` accepts are deliberately rejected here rather than
 /// silently compared, both via the `is_finite()` guard: `NaN` (no
 /// ordering relative to anything, itself included — `partial_cmp`
@@ -137,6 +146,9 @@ pub enum Operator {
 /// offset) rather than tolerating it, and this fallback now matches that.
 fn ordering_matches(left: &str, right: &str, satisfies: impl Fn(std::cmp::Ordering) -> bool) -> bool {
     if let (Some(l), Some(r)) = (parse_xsd_temporal_nanos(left), parse_xsd_temporal_nanos(right)) {
+        return satisfies(l.cmp(&r));
+    }
+    if let (Some(l), Some(r)) = (parse_xsd_duration_nanos(left), parse_xsd_duration_nanos(right)) {
         return satisfies(l.cmp(&r));
     }
     if let (Ok(l), Ok(r)) = (left.parse::<f64>(), right.parse::<f64>()) {
@@ -775,6 +787,48 @@ mod tests {
         // succeeding on genuinely unparseable input via the numeric path.
         let claims = claims_with(&[("dateTime", ClaimValue::Single("2024-01-01T00:00:00Z".into()))]);
         assert!(!Constraint::new("dateTime", Operator::Gt, "not-a-date").evaluate(&claims));
+    }
+
+    // -- xsd:duration comparison (delayPeriod/elapsedTime/meteredTime/timeInterval) --
+
+    #[test]
+    fn ordering_operators_compare_xsd_duration_literals_by_magnitude() {
+        // ODRL 2.2 Vocabulary Section 4.5's own metering example.
+        let claims = claims_with(&[("meteredTime", ClaimValue::Single("PT10H".into()))]);
+        assert!(Constraint::new("meteredTime", Operator::Gt, "PT8H").evaluate(&claims));
+        assert!(!Constraint::new("meteredTime", Operator::Lt, "PT8H").evaluate(&claims));
+        assert!(Constraint::new("meteredTime", Operator::Gteq, "PT10H").evaluate(&claims));
+        assert!(Constraint::new("meteredTime", Operator::Lteq, "PT10H").evaluate(&claims));
+    }
+
+    #[test]
+    fn ordering_operators_treat_one_day_and_twenty_four_hours_as_equal_durations() {
+        let claims = claims_with(&[("delayPeriod", ClaimValue::Single("P1D".into()))]);
+        assert!(Constraint::new("delayPeriod", Operator::Lteq, "PT24H").evaluate(&claims));
+        assert!(Constraint::new("delayPeriod", Operator::Gteq, "PT24H").evaluate(&claims));
+        assert!(!Constraint::new("delayPeriod", Operator::Lt, "PT24H").evaluate(&claims));
+    }
+
+    #[test]
+    fn a_malformed_duration_misses_rather_than_falling_through_to_the_numeric_path() {
+        // "PT8H" is not a valid f64 either, so before a duration parser
+        // existed this pairing silently missed with no error at all --
+        // exactly the bug this widening closes. Confirms a genuinely
+        // malformed duration on one side still misses cleanly rather than
+        // being accidentally accepted by some other path.
+        let claims = claims_with(&[("meteredTime", ClaimValue::Single("not-a-duration".into()))]);
+        assert!(!Constraint::new("meteredTime", Operator::Gt, "PT8H").evaluate(&claims));
+        assert!(!Constraint::new("meteredTime", Operator::Lt, "PT8H").evaluate(&claims));
+    }
+
+    #[test]
+    fn duration_comparison_matches_any_element_of_a_multi_valued_claim() {
+        let claims = claims_with(&[(
+            "elapsedTime",
+            ClaimValue::Multi(vec!["PT1H".into(), "PT20H".into()]),
+        )]);
+        assert!(Constraint::new("elapsedTime", Operator::Gt, "PT10H").evaluate(&claims));
+        assert!(!Constraint::new("elapsedTime", Operator::Gt, "PT23H").evaluate(&claims));
     }
 
     #[test]
