@@ -70,17 +70,21 @@ pub fn render(results: &[CaseResult]) -> (String, String) {
          longer pre-filters a policy's rules by action at all — every rule survives translation \
          with its own declared action (or, absent one, the request's own — see that module's doc \
          comment), and `engine::decide` alone decides whether a rule's action covers the \
-         request's. Two vendored fixtures (`testcase-014-alice-sell`, `testcase-020-bob-sell`) \
-         now fail as a direct, honest consequence: each policy's *only* rule is a prohibition on \
-         `use` that does not cover the fixture's `sell` request, leaving that policy's \
-         `permissions` list empty — which `decide`'s own Section 4.3 departure treats as *open* \
-         regardless of an unrelated, non-covering prohibition being present, producing Allow where \
-         this suite's closed-world ground truth expects Deny. Earlier revisions never surfaced this: \
-         a translate-time action pre-filter used to discard such a policy's sole rule outright, \
-         which happened to route the request through Section 5.2's *different* empty-policies \
-         default (closed), masking the divergence rather than resolving it. See `README.md`'s \
-         compliance summary for the fuller account; this is a property of the vendored engine's own \
-         decision algorithm, not a translation bug, and is not silently worked around here."
+         request's. This once regressed two vendored fixtures (`testcase-014-alice-sell`, \
+         `testcase-020-bob-sell`): each policy's *only* rule is a prohibition on `use` that does \
+         not cover the fixture's `sell` request, leaving that policy's `permissions` list empty — \
+         which `decide`'s own Section 4.3 departure treated as *open* regardless of an unrelated, \
+         non-covering prohibition being present, producing Allow where this suite's closed-world \
+         ground truth expects Deny. Earlier revisions never surfaced this: a translate-time action \
+         pre-filter used to discard such a policy's sole rule outright, which happened to route the \
+         request through Section 5.2's *different* empty-policies default (closed), masking the \
+         divergence rather than resolving it. Both fixtures pass again as of the `Behaviour` \
+         parameter (Section 4.3's empty-permissions departure is now a real, host-configurable \
+         setting rather than an algorithmic constant; this runner sets it to `Closed`, matching this \
+         suite's own closed-world assumption): see `README.md`'s compliance summary for the fuller \
+         account. This was a property of the vendored engine's own decision algorithm, fixed by \
+         giving hosts the choice it always claimed to be making, not a translation bug and not \
+         silently worked around."
     );
     let _ = writeln!(md);
 
