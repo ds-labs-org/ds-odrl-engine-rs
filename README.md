@@ -1549,7 +1549,7 @@ compliance-report vocabulary.
 
 ## Documentation and demonstrator site
 
-`site/` is a Yew + Trunk single-page app with three pages: a landing page
+`site/` is a Yew + Trunk single-page app with five pages: a landing page
 explaining what this engine is and is not, an in-browser demonstrator
 that lets you edit a Section 5.2 request by hand and evaluate it against
 a *real* compiled `engine.wasm` (fetched and driven over its raw C ABI —
@@ -1566,7 +1566,15 @@ cross-checks its live result against it per case — a real native-vs-wasm
 consistency check over one corpus and one engine source. The page is
 explicit about the boundary: the Turtle→request translation and the
 `report:*` ground truth were computed natively and travel in the
-artifact; what runs in the browser is the engine and its ABI. It
+artifact; what runs in the browser is the engine and its ABI. A fourth
+page, **ODRL 2.2 Coverage**, does the same thing for this study's
+vocabulary claims: it executes all 125 probes of
+`compliance/reports/latest-coverage.json` against that same
+`engine.wasm`, live, and derives a per-row verdict that can come back
+*Contradicted*. The fifth, **Release History**, is the one page here that
+is computed at build time rather than in your browser, and says so —
+see "Release history dashboard" below for what it shows and why it is
+the exception. It
 shares its visual identity (teal brand ramp, monospace heading/code
 stack, mesh logo) with the [ds42.org dataspace
 study](https://github.com/Deepthought-Solutions/dataspace)'s own docs
@@ -1604,6 +1612,200 @@ The repository's GitHub Actions workflow
 Pages on every push to `main` that touches `site/`, `engine/`, or
 `compliance/reports/`. Live at
 <https://ds-labs-org.github.io/ds-odrl-engine-rs/>.
+
+## Release history dashboard
+
+The site's fifth page, **Release History** (`/history`), is a per-release
+record of what every tagged version of this engine *actually did* —
+measured by re-running this repo's two instruments against each tag, not
+by copying numbers out of commit messages.
+
+For each of the 19 tags from `v0.1.0` to `v0.12.1`:
+
+* **ODRL-Test-Suite** — that tag is checked out, and **that tag's own
+  `compliance-runner`** is built and run against **the suite revision that
+  tag pinned**. The pass rate shown is the one that release genuinely
+  recorded, including the releases where it was not 68/68.
+* **ODRL 2.2 coverage** — that tag's `engine.wasm` is built for
+  `wasm32-unknown-unknown --release`, and **today's** 125-probe catalog
+  (`compliance/reports/latest-coverage.json`) is replayed against it
+  through its own four-export C ABI (`alloc`/`dealloc`/`evaluate` over
+  `memory`) in a [`wasmi`](https://crates.io/crates/wasmi) interpreter.
+  A row that comes back *contradicted* names a capability that release
+  did not have yet.
+
+This works because the request wire shape has been **additive** since
+v0.6.0: every field added after it arrived with `#[serde(default)]`, so an
+older engine simply ignores the keys it does not model and answers the
+request anyway. Driving the compiled artifact rather than recompiling each
+tag's Rust source is what makes it a re-execution of history rather than a
+rebuild of history against today's toolchain — and the row's engine
+`reason` string comes back with it, so "this release lacked X" is
+readable, not inferred.
+
+### Where the additive premise breaks, and what the dashboard does about it
+
+The premise was tested rather than assumed, and it does **not** hold
+before v0.6.0. That release reshaped `config` from the bare
+`{"recognized_actions": [...]}` object into real JSON-LD
+(`@type`/`@id`/`odrl:action`/`odrl:includedIn`) — a rename, not an
+addition, and `RequestConfig::recognized_actions` had no
+`#[serde(default)]` to fall back on. Every one of today's 125 requests is
+therefore refused by a `v0.5.0`-or-earlier engine with
+
+```text
+request did not parse as the documented Section 5.2 JSON shape:
+missing field `recognized_actions` at line 14 column 9
+```
+
+before a single line of policy logic runs. The generator detects this
+rather than papering over it: a release whose deserializer refuses
+*every* request is recorded with `coverage: null` plus the engine's own
+rejection message, and the page renders "not addressable" — never 49
+contradictions that would only restate one envelope mismatch, and never a
+zero that would read as "this release supported nothing". Its historical
+compliance number is still shown, because the wire break stops the
+coverage replay, not the suite run that release actually performed.
+
+*Partial* rejection is the opposite case and is kept as real signal: a
+release whose `Operator` enum has no `isAllOf` variant refuses exactly the
+`isAllOf` probes and answers the other 124 normally. Every release carries
+its own `envelope_rejected` count so the two are distinguishable. (The
+current engine rejects 4 probes this way and still agrees with all 125 —
+four probes *expect* an `Error` decision.)
+
+### The real historical numbers
+
+Rows are verified/contradicted/inconclusive out of the 49 probeable
+vocabulary rows (3 of the catalog's 52 rows carry no probe at all);
+probes are agreed/disagreed/errored out of 125.
+
+| tag | cut | ODRL-Test-Suite | rows V/C/I | probes A/D/E | what shipped |
+|---|---|---|---|---|---|
+| `v0.1.0` | 09:56 | 20/68 (48 skipped) | not addressable | — | rewrite README for v0.1.0 release |
+| `v0.1.1` | 10:08 | 32/68 (36 skipped) | not addressable | — | recognize `odrl:use` as covering read/write/distribute |
+| `v0.1.2` | 10:09 | 32/68 (36 skipped) | not addressable | — | update README compliance numbers |
+| `v0.2.0` | 10:34 | 68/68 | not addressable | — | close the remaining 36 compliance skips |
+| `v0.2.1` | 10:42 | 68/68 | not addressable | — | reject out-of-range and signed datetime fields |
+| `v0.2.2` | 10:45 | 68/68 | not addressable | — | record adapter fragility found by independent review |
+| `v0.3.0` | 12:34 | 68/68 | not addressable | — | document the site and the ABI-bridge rationale |
+| `v0.4.0` | 14:45 | 68/68 | not addressable | — | `profile-interpreter`: read a real ODRL Profile document |
+| `v0.5.0` | 15:17 | 68/68 | not addressable | — | load a real ODRL Profile into the Demonstrator form |
+| `v0.6.0` | 16:58 | **66/68** (2 failed) | 30 / 19 / 0 | 84 / 41 / 0 | `odrl:includedIn` action-coverage revision (JSON-LD `config`) |
+| `v0.7.0` | 18:06 | 68/68 | 30 / 19 / 0 | 84 / 41 / 0 | the `Behaviour` parameter |
+| `v0.8.0` | 19:41 | 68/68 | 39 / 10 / 0 | 105 / 20 / 0 | 4 low-risk gaps: taxonomy, set operators, numeric/date comparison, native logical constraints |
+| `v0.8.1` | 19:54 | 68/68 | 40 / 9 / 0 | 106 / 19 / 0 | fix a fail-open regression in v0.8.0's logical-constraint parsing |
+| `v0.9.0` | 21:07 | 68/68 | 40 / 9 / 0 | 106 / 19 / 0 | live in-browser compliance runner (site only) |
+| `v0.10.0` | 22:32 | 68/68 | 41 / 8 / 0 | 108 / 17 / 0 | live in-browser ODRL 2.2 coverage report (site only) |
+| `v0.10.1` | 22:43 | 68/68 | 41 / 8 / 0 | 108 / 17 / 0 | fix direct-hit/reload 404s on Pages sub-routes (site only) |
+| `v0.11.0` | 01:00 | 68/68 | 42 / 7 / 0 | 111 / 14 / 0 | 4 additive ODRL gaps + feature-flagged DSP/IDSA ingestion |
+| `v0.12.0` | 02:35 | 68/68 | 49 / 0 / 0 | 125 / 0 / 0 | per-permission duty/consequence/remedy, party-role evaluation, real `odrl:conflict` |
+| `v0.12.1` | 05:15 | 68/68 | 49 / 0 / 0 | 125 / 0 / 0 | note `dsp-odrl-adapter` on the Coverage page |
+
+Three things in that table are worth reading twice, because none of them
+came from a changelog:
+
+* **v0.6.0 really was 66/68.** The `odrl:includedIn` action-coverage
+  revision regressed two vendored fixtures, and v0.7.0 fixed them. The
+  dashboard found that by re-running the suite at each tag, not by being
+  told.
+* **v0.8.0 → v0.8.1 shows up as one row flipping back.** Probe
+  `lo-count-infinity-rejected` expected `Deny` and v0.8.0 answered
+  `Allow` — exactly the `inf`/`infinity` fail-open in the `lt`/`lteq`/
+  `gt`/`gteq` numeric fallback that v0.8.1's commit message describes
+  fixing. The replay re-detected a historical regression from the binary
+  alone.
+* **v0.11.0's 7 contradicted rows are precisely v0.12.0's changelog**:
+  `party.assigner-assignee`, `duty.per-permission`, `duty.consequence`,
+  `duty.remedy`, `conflict.property`, `conflict.fixed-strategy`,
+  `conflict.profile-strategies`. `git show v0.11.0:engine/src/wire.rs`
+  contains none of `odrl:assignee`, `odrl:conflict`, `odrl:duty`,
+  `odrl:remedy` or `odrl:consequence` — those wire keys arrive at v0.12.0,
+  so a v0.11.0 engine ignores them (additively) and answers `Allow` where
+  the current catalog expects `Deny`. Genuinely absent capability, not a
+  harness artefact.
+
+### Why this page is not live in your browser
+
+The Compliance Results and ODRL 2.2 Coverage pages both re-execute their
+whole corpus against `engine.wasm` in the visitor's browser, and say so.
+This one cannot: its subject is **nineteen different historical
+`engine.wasm` binaries**, 3.9 MB of them, which would have to be shipped
+and instantiated to recompute 2,375 probe evaluations on page load — for
+figures that can only change when someone cuts a new tag. The page states
+this in an Alert above the dashboard, and carries each release's
+`engine.wasm` SHA-256 so the claim is checkable rather than asserted:
+rebuild any tag and compare.
+
+Two things keep the artifact honest anyway. The verdicts are derived by
+**`site/src/coverage_catalog.rs` itself** — the very module the live
+Coverage page runs in the browser — pulled into the generator with
+`#[path]` rather than reimplemented, so the two cannot drift into
+disagreeing about what "contradicted" means. And a workspace test asserts
+that the newest release's row agrees with the catalog it was generated
+from, so a stale regeneration fails `cargo test` instead of quietly
+showing an old dashboard. (Confirmed empirically here: the live Coverage
+page reports 49 verified / 0 contradicted / 0 inconclusive / 3 documented
+in a headless browser, matching this dashboard's `v0.12.1` row exactly.)
+
+### Regenerating it
+
+Two stages, both checked in — this is a repeatable procedure, not a
+one-off.
+
+```sh
+# Stage 1: build every tag's engine.wasm and run every tag's own
+# compliance-runner, in a detached, isolated git worktree.
+scripts/build-release-history.sh [STAGE_DIR] [WORKTREE_DIR]
+
+# Stage 2: replay the current probe catalog against each staged
+# engine.wasm and write compliance/reports/release-history.json.
+cargo run -p release-history --release -- [STAGE_DIR]
+```
+
+Both arguments default under `target/release-history/` (git-ignored).
+The script never touches your own working tree: it adds its own detached
+worktree, checks each tag out there, re-syncs the ODRL-Test-Suite
+submodule per tag (the pin is part of the tag), and removes the worktree
+when it finishes unless `KEEP_WORKTREE=1`. Re-running is cheap — a tag
+already staged is skipped, so an interrupted sweep resumes; `FORCE=1`
+rebuilds everything. The whole sweep takes a couple of minutes on a warm
+Cargo cache, because a shared `CARGO_TARGET_DIR` means the second tag
+onward mostly relinks.
+
+Deliberately **not** part of the ordinary CI loop. `.github/workflows/ci.yml`
+regenerates `latest.json`/`latest-cases.json`/`latest-coverage.json` and
+fails on `git diff --exit-code compliance/reports/` — those are
+per-commit artifacts. `release-history.json` is a *tag-time* artifact:
+regenerating it means rebuilding nineteen historical engines, and its
+content cannot change on a commit that does not add a tag or change the
+probe catalog. Regenerate it by hand when you cut a release, and commit
+it with the tag.
+
+**Determinism, measured rather than argued.** `release-history` renders
+through `serde_json::to_value` before `to_string_pretty`, for the same
+reason `coverage-probes/src/render.rs` documents at length: `Value::Object`
+is a `BTreeMap` here, so every object's keys are canonically sorted and no
+`HashMap`-backed input can leak iteration-order noise into a committed
+file. `--check-determinism` renders the whole artifact and prints only its
+SHA-256, so the property can be measured across independent processes
+rather than asserted:
+
+```sh
+for i in $(seq 8); do
+  cargo run -q -p release-history --release -- STAGE_DIR --check-determinism
+done
+# 8 × sha256 7522ff1f57f3121bc97a7633c50b6ad6acfa5dabfe3b9f36e808f97ce7d67768
+# ... identical to sha256sum compliance/reports/release-history.json
+```
+
+A second, unplanned reproducibility result fell out of the sweep: tags
+whose `engine/` tree is byte-identical produce a **byte-identical**
+`engine.wasm`. `v0.1.0`/`v0.1.1`/`v0.1.2`, `v0.2.1`–`v0.5.0`,
+`v0.8.1`/`v0.9.0`, `v0.10.0`/`v0.10.1` and `v0.12.0`/`v0.12.1` each share
+one SHA-256, and `git diff <a> <b> -- engine` is empty for every one of
+those pairs. The engine build is reproducible across checkouts on this
+toolchain.
 
 ## Current compliance summary
 

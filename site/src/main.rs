@@ -44,6 +44,21 @@ mod demo_widgets;
 mod engine_bridge;
 #[cfg(target_arch = "wasm32")]
 mod engine_module;
+// Ungated, for the third time and for the sharpest version of the reason:
+// this is the Release History page's whole pure half -- the artifact's
+// parsing, its rejection paths, and the derived per-release quantities
+// the chart is drawn from. It is also the only page on this site whose
+// numbers are *not* recomputed in the visitor's browser, which makes its
+// committed-artifact guards (does the newest release still agree with the
+// catalog it was generated from? do the per-release tallies add up? are
+// the releases in version order?) the only thing standing between a stale
+// regeneration and a dashboard that looks fine and is wrong.
+#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+mod history_catalog;
+#[cfg(target_arch = "wasm32")]
+mod history_page;
+#[cfg(target_arch = "wasm32")]
+mod history_run;
 #[cfg(target_arch = "wasm32")]
 mod main_view;
 #[cfg(target_arch = "wasm32")]

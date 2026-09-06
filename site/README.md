@@ -249,6 +249,53 @@ make a site build mutate tracked files outside `site/`, add a native
 is missing, which is the right failure mode — this site must not deploy
 without the corpus its Compliance page executes.
 
+## Release History page
+
+The one page on this site whose numbers are **not** computed in your
+browser, and the only one that has to explain why.
+
+Its subject is every tagged release of this engine: for each tag, the
+ODRL-Test-Suite result *that release's own `compliance-runner`* recorded
+against *the suite revision that tag pinned*, and the current 125-probe
+ODRL 2.2 catalog replayed against *that tag's* compiled `engine.wasm`
+through the same four-export C ABI this site drives for everything else.
+Reproducing that live would mean fetching and instantiating nineteen
+different historical `engine.wasm` binaries — several megabytes — and
+running well over two thousand evaluations on page load, to recompute a
+figure that changes only when someone cuts a tag. So it is computed at
+build time by `../scripts/build-release-history.sh` plus the
+`../release-history` crate, and the page says so in an `Alert` above the
+dashboard rather than letting a reader assume otherwise.
+
+Three things keep that honest:
+
+* **The verdicts come from this crate's own `src/coverage_catalog.rs`.**
+  The generator pulls that module in with `#[path]` rather than
+  reimplementing `classify_probe`/`derive_verdict`, so the historical
+  dashboard and the live Coverage page cannot drift into disagreeing
+  about what "contradicted" means.
+* **Every row carries its release's `engine.wasm` SHA-256**, so the claim
+  is checkable: rebuild the tag and compare.
+* **`src/history_catalog.rs` guards the committed artifact.** It rejects a
+  foreign `schema`, a release claiming both a coverage tally and a reason
+  it has none, a tally whose probe outcomes do not add up, and a
+  contradicted count that disagrees with the rows listed — and one test
+  asserts the newest release's row still agrees with the catalog it was
+  generated from, so a stale regeneration fails `cargo test --workspace`
+  instead of quietly rendering an old dashboard. All of it native, none
+  of it behind a `wasm32` gate, for the reason `coverage_catalog.rs`'s own
+  header gives.
+
+Releases before v0.6.0 render as **not addressable** rather than as zeroes.
+That release renamed the request's `config.recognized_actions` into
+JSON-LD `odrl:action`, which is the one non-additive wire change in this
+engine's history, so an earlier engine refuses all 125 of today's requests
+at its own deserializer before any policy logic runs. The generator
+detects that case specifically and records the engine's own rejection
+message instead of 49 contradictions that would restate one envelope
+mismatch. See the root README's "Release history dashboard" section for
+the full finding and the regeneration procedure.
+
 ## Known limitations
 
 - Cross-doc/page links are client-side SPA routes resolved against the

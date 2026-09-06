@@ -1,0 +1,1251 @@
+{
+  "catalog": {
+    "generated_by": "coverage-probes (cargo run -p coverage-probes --release)",
+    "implemented": 11,
+    "not_implemented": 16,
+    "out_of_scope": 7,
+    "partial": 18,
+    "probes": 125,
+    "rows": 52,
+    "source_analysis": "docs/spikes/2026-09-05-odrl-2.2-vocabulary-gap-analysis.md (Deepthought-Solutions/dataspace)",
+    "spec": "W3C ODRL 2.2 Vocabulary & Expression, https://www.w3.org/TR/odrl-vocab/"
+  },
+  "generated_by": "release-history (scripts/build-release-history.sh, then cargo run -p release-history --release)",
+  "method": "One detached git worktree per tag: build engine.wasm for wasm32-unknown-unknown --release, run compliance-runner --release, then replay the current latest-coverage.json catalog against that binary in a wasmi interpreter. The verdicts are derived by site/src/coverage_catalog.rs itself -- the same module the Coverage page runs in the browser -- included here by path, not reimplemented.",
+  "note": "Build-time historical record, not a live in-browser run. Every compliance figure is what that tag's own compliance-runner printed when re-executed against the ODRL-Test-Suite revision that tag pinned; every coverage figure comes from driving that tag's compiled engine.wasm through its own alloc/dealloc/evaluate ABI with the current probe catalog.",
+  "releases": [
+    {
+      "commit": "6b6a5bae07bf4cc2a0146a1781466e44d5eca5c4",
+      "compliance": {
+        "failed": 0,
+        "passed": 20,
+        "skipped": 48,
+        "total": 68
+      },
+      "contradicted_rows": [],
+      "coverage": null,
+      "coverage_error": "this release's own deserializer refused all 125 of the current catalog's requests before any policy logic ran, so the catalog cannot address it: request did not parse as the documented Section 5.2 JSON shape: missing field `recognized_actions` at line 14 column 9",
+      "date": "2026-09-05T09:56:59+02:00",
+      "engine_wasm_bytes": 198862,
+      "engine_wasm_sha256": "fe03b1350620f9c4bb822230900257a053ca04d5039b0e740d6a8f90ab59e0c2",
+      "summary": "docs: rewrite README for v0.1.0 release",
+      "tag": "v0.1.0"
+    },
+    {
+      "commit": "996d49970cc81bbe924f42d89501a07ceeb501f8",
+      "compliance": {
+        "failed": 0,
+        "passed": 32,
+        "skipped": 36,
+        "total": 68
+      },
+      "contradicted_rows": [],
+      "coverage": null,
+      "coverage_error": "this release's own deserializer refused all 125 of the current catalog's requests before any policy logic ran, so the catalog cannot address it: request did not parse as the documented Section 5.2 JSON shape: missing field `recognized_actions` at line 14 column 9",
+      "date": "2026-09-05T10:08:54+02:00",
+      "engine_wasm_bytes": 198862,
+      "engine_wasm_sha256": "fe03b1350620f9c4bb822230900257a053ca04d5039b0e740d6a8f90ab59e0c2",
+      "summary": "compliance-runner: recognize odrl:use as covering read/write/distribute",
+      "tag": "v0.1.1"
+    },
+    {
+      "commit": "63c1cfde740f2ddcd56be4b9318b36377745cb99",
+      "compliance": {
+        "failed": 0,
+        "passed": 32,
+        "skipped": 36,
+        "total": 68
+      },
+      "contradicted_rows": [],
+      "coverage": null,
+      "coverage_error": "this release's own deserializer refused all 125 of the current catalog's requests before any policy logic ran, so the catalog cannot address it: request did not parse as the documented Section 5.2 JSON shape: missing field `recognized_actions` at line 14 column 9",
+      "date": "2026-09-05T10:09:35+02:00",
+      "engine_wasm_bytes": 198862,
+      "engine_wasm_sha256": "fe03b1350620f9c4bb822230900257a053ca04d5039b0e740d6a8f90ab59e0c2",
+      "summary": "docs: update README compliance numbers for v0.1.1's use-action fix",
+      "tag": "v0.1.2"
+    },
+    {
+      "commit": "8a0df88691ee6195c36beab792ca9b7c3bbaaad1",
+      "compliance": {
+        "failed": 0,
+        "passed": 68,
+        "skipped": 0,
+        "total": 68
+      },
+      "contradicted_rows": [],
+      "coverage": null,
+      "coverage_error": "this release's own deserializer refused all 125 of the current catalog's requests before any policy logic ran, so the catalog cannot address it: request did not parse as the documented Section 5.2 JSON shape: missing field `recognized_actions` at line 14 column 9",
+      "date": "2026-09-05T10:34:36+02:00",
+      "engine_wasm_bytes": 202996,
+      "engine_wasm_sha256": "15fd175d37bc2c6b8ef432a91a8200f89ad9e128318554cacd9806e9d4aefe4d",
+      "summary": "engine+compliance-runner: close the remaining 36 compliance skips",
+      "tag": "v0.2.0"
+    },
+    {
+      "commit": "07fd3a5d6458cf98848f13bad58c2e12a71f8443",
+      "compliance": {
+        "failed": 0,
+        "passed": 68,
+        "skipped": 0,
+        "total": 68
+      },
+      "contradicted_rows": [],
+      "coverage": null,
+      "coverage_error": "this release's own deserializer refused all 125 of the current catalog's requests before any policy logic ran, so the catalog cannot address it: request did not parse as the documented Section 5.2 JSON shape: missing field `recognized_actions` at line 14 column 9",
+      "date": "2026-09-05T10:42:54+02:00",
+      "engine_wasm_bytes": 203598,
+      "engine_wasm_sha256": "43b947101d9c12a0c77036a4f42bfea6e45e861c4b4fd2309cb0c12795d09638",
+      "summary": "engine/temporal: reject out-of-range and signed datetime fields; harden tests",
+      "tag": "v0.2.1"
+    },
+    {
+      "commit": "eef143286f94766db65207c1b91169041bf38623",
+      "compliance": {
+        "failed": 0,
+        "passed": 68,
+        "skipped": 0,
+        "total": 68
+      },
+      "contradicted_rows": [],
+      "coverage": null,
+      "coverage_error": "this release's own deserializer refused all 125 of the current catalog's requests before any policy logic ran, so the catalog cannot address it: request did not parse as the documented Section 5.2 JSON shape: missing field `recognized_actions` at line 14 column 9",
+      "date": "2026-09-05T10:45:44+02:00",
+      "engine_wasm_bytes": 203598,
+      "engine_wasm_sha256": "43b947101d9c12a0c77036a4f42bfea6e45e861c4b4fd2309cb0c12795d09638",
+      "summary": "README: record adapter fragility found by v0.2.0's independent review",
+      "tag": "v0.2.2"
+    },
+    {
+      "commit": "e30be61620634ae697ba30523619de2190932525",
+      "compliance": {
+        "failed": 0,
+        "passed": 68,
+        "skipped": 0,
+        "total": 68
+      },
+      "contradicted_rows": [],
+      "coverage": null,
+      "coverage_error": "this release's own deserializer refused all 125 of the current catalog's requests before any policy logic ran, so the catalog cannot address it: request did not parse as the documented Section 5.2 JSON shape: missing field `recognized_actions` at line 14 column 9",
+      "date": "2026-09-05T12:34:49+02:00",
+      "engine_wasm_bytes": 203598,
+      "engine_wasm_sha256": "43b947101d9c12a0c77036a4f42bfea6e45e861c4b4fd2309cb0c12795d09638",
+      "summary": "docs: document the site, its local run, and the ABI-bridge rationale",
+      "tag": "v0.3.0"
+    },
+    {
+      "commit": "4f17c5675748c678e3a7ce1a50db260f325f0ace",
+      "compliance": {
+        "failed": 0,
+        "passed": 68,
+        "skipped": 0,
+        "total": 68
+      },
+      "contradicted_rows": [],
+      "coverage": null,
+      "coverage_error": "this release's own deserializer refused all 125 of the current catalog's requests before any policy logic ran, so the catalog cannot address it: request did not parse as the documented Section 5.2 JSON shape: missing field `recognized_actions` at line 14 column 9",
+      "date": "2026-09-05T14:45:44+02:00",
+      "engine_wasm_bytes": 203598,
+      "engine_wasm_sha256": "43b947101d9c12a0c77036a4f42bfea6e45e861c4b4fd2309cb0c12795d09638",
+      "summary": "profile-interpreter: read a real ODRL Profile document into engine::Profile",
+      "tag": "v0.4.0"
+    },
+    {
+      "commit": "2deb1a020e2d46f5b147c485e5b6dee094d9e017",
+      "compliance": {
+        "failed": 0,
+        "passed": 68,
+        "skipped": 0,
+        "total": 68
+      },
+      "contradicted_rows": [],
+      "coverage": null,
+      "coverage_error": "this release's own deserializer refused all 125 of the current catalog's requests before any policy logic ran, so the catalog cannot address it: request did not parse as the documented Section 5.2 JSON shape: missing field `recognized_actions` at line 14 column 9",
+      "date": "2026-09-05T15:17:37+02:00",
+      "engine_wasm_bytes": 203598,
+      "engine_wasm_sha256": "43b947101d9c12a0c77036a4f42bfea6e45e861c4b4fd2309cb0c12795d09638",
+      "summary": "site: load a real ODRL Profile document into the Demonstrator form",
+      "tag": "v0.5.0"
+    },
+    {
+      "commit": "7161064393fd0b76d7e549b4bce4dd5e85c91326",
+      "compliance": {
+        "failed": 2,
+        "passed": 66,
+        "skipped": 0,
+        "total": 68
+      },
+      "contradicted_rows": [
+        {
+          "category": "left-operands",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "left-operands.numeric",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lo-count-hit",
+          "term": "count, percentage, payAmount, absoluteSize, relativeSize, resolution"
+        },
+        {
+          "category": "left-operands",
+          "documented_status": "NotImplemented",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "left-operands.durations",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lo-duration-control-numeric",
+          "term": "elapsedTime, meteredTime, delayPeriod, timeInterval"
+        },
+        {
+          "category": "left-operands",
+          "documented_status": "NotImplemented",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "left-operands.unit-of-count",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lo-unitofcount-page",
+          "term": "unitOfCount"
+        },
+        {
+          "category": "operators",
+          "documented_status": "Implemented",
+          "engine_reason": "request did not parse as the documented Section 5.2 JSON shape: unknown variant `isAllOf`, expected one of `eq`, `neq`, `isAnyOf`, `lt`, `lteq`, `gt`, `gteq` at line 35 column 41",
+          "id": "operators.set-operators",
+          "mismatch": "expected Allow, observed Error",
+          "probe_id": "op-isallof-hit",
+          "term": "isAnyOf, isAllOf, isNoneOf"
+        },
+        {
+          "category": "operators",
+          "documented_status": "Partial",
+          "engine_reason": "request did not parse as the documented Section 5.2 JSON shape: unknown variant `isPartOf`, expected one of `eq`, `neq`, `isAnyOf`, `lt`, `lteq`, `gt`, `gteq` at line 31 column 42",
+          "id": "operators.is-part-of",
+          "mismatch": "expected Allow, observed Error",
+          "probe_id": "op-ispartof-hit",
+          "term": "isPartOf"
+        },
+        {
+          "category": "operators",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "operators.ordering",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "op-lteq-xsd-date",
+          "term": "lt, lteq, gt, gteq"
+        },
+        {
+          "category": "logical",
+          "documented_status": "Implemented",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "logical.and",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lc-and-both",
+          "term": "odrl:and"
+        },
+        {
+          "category": "logical",
+          "documented_status": "Implemented",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "logical.or",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lc-or-second",
+          "term": "odrl:or"
+        },
+        {
+          "category": "logical",
+          "documented_status": "Implemented",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "logical.xone",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lc-xone-exactly-one",
+          "term": "odrl:xone"
+        },
+        {
+          "category": "logical",
+          "documented_status": "NotImplemented",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "logical.and-sequence",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lc-and-control-honored",
+          "term": "odrl:andSequence"
+        },
+        {
+          "category": "party",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "party.assigner-assignee",
+          "mismatch": "expected Deny, observed Allow",
+          "probe_id": "pf-assignee-scoped-miss",
+          "term": "assigner, assignee"
+        },
+        {
+          "category": "duty",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "duty.per-permission",
+          "mismatch": "expected Deny, observed Allow",
+          "probe_id": "duty-per-permission-unresolved-deny",
+          "term": "odrl:duty (per-permission pre-condition)"
+        },
+        {
+          "category": "duty",
+          "documented_status": "Partial",
+          "engine_reason": "duty[0] 'notify' of policy 'probe' is unresolved under duty_mode: deny",
+          "id": "duty.consequence",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "duty-consequence-resolves-where-the-primary-did-not",
+          "term": "odrl:consequence"
+        },
+        {
+          "category": "duty",
+          "documented_status": "Partial",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use': nationality eq US",
+          "id": "duty.remedy",
+          "mismatch": "reason missing `prohibition[0] of policy 'probe' matched: action 'use': nationality eq US; its odrl:remedy[0] 'anonymize' is unresolved and does not lift the prohibition; odrl:conflict 'prohibit' resolves the conflict with permission[0] in the prohibition's favour`",
+          "probe_id": "duty-remedy-unresolved-does-not-drop-the-prohibition",
+          "term": "odrl:remedy"
+        },
+        {
+          "category": "assets",
+          "documented_status": "Partial",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "assets.target",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "asset-per-rule-target-hit",
+          "term": "odrl:target (per-rule)"
+        },
+        {
+          "category": "conflict",
+          "documented_status": "Implemented",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "conflict.property",
+          "mismatch": "reason missing `policy 'probe' is void: permission[0] and prohibition[0] both matched requested action 'use', and the policy's odrl:conflict strategy is 'invalid' (ODRL's own default), which voids a conflicting policy rather than resolving it`",
+          "probe_id": "conflict-default-invalid-voids",
+          "term": "odrl:conflict (perm, prohibit, invalid)"
+        },
+        {
+          "category": "conflict",
+          "documented_status": "Implemented",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "conflict.fixed-strategy",
+          "mismatch": "reason missing `policy 'probe' is void: permission[0] and prohibition[0] both matched requested action 'use', and the policy's odrl:conflict strategy is 'invalid' (ODRL's own default), which voids a conflicting policy rather than resolving it`",
+          "probe_id": "conflict-default-invalid-voids",
+          "term": "Default for a policy that declares no odrl:conflict"
+        },
+        {
+          "category": "conflict",
+          "documented_status": "OutOfScope",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "conflict.profile-strategies",
+          "mismatch": "expected Error, observed Deny",
+          "probe_id": "conflict-profile-strategy-unparseable",
+          "term": "Profile-declared conflict strategies"
+        },
+        {
+          "category": "other",
+          "documented_status": "Implemented",
+          "engine_reason": "policy 'probe' has no permissions (open default)",
+          "id": "other.behaviour",
+          "mismatch": "expected Deny, observed Allow",
+          "probe_id": "beh-closed-empty",
+          "term": "Community Group Formal Semantics `Behaviour`"
+        }
+      ],
+      "coverage": {
+        "agreed": 84,
+        "contradicted": 19,
+        "disagreed": 41,
+        "documented": 3,
+        "envelope_rejected": 11,
+        "errored": 0,
+        "inconclusive": 0,
+        "probes_total": 125,
+        "verified": 30
+      },
+      "coverage_error": null,
+      "date": "2026-09-05T16:58:21+02:00",
+      "engine_wasm_bytes": 210880,
+      "engine_wasm_sha256": "7a823c18e48a8574b978a4f1d675b2e4a090c81c448d966d8d6a68810e396a57",
+      "summary": "docs: update README for the odrl:includedIn action-coverage revision",
+      "tag": "v0.6.0"
+    },
+    {
+      "commit": "071e5c94cc003e684ab197379ac725ff1295eee7",
+      "compliance": {
+        "failed": 0,
+        "passed": 68,
+        "skipped": 0,
+        "total": 68
+      },
+      "contradicted_rows": [
+        {
+          "category": "left-operands",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "left-operands.numeric",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lo-count-hit",
+          "term": "count, percentage, payAmount, absoluteSize, relativeSize, resolution"
+        },
+        {
+          "category": "left-operands",
+          "documented_status": "NotImplemented",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "left-operands.durations",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lo-duration-control-numeric",
+          "term": "elapsedTime, meteredTime, delayPeriod, timeInterval"
+        },
+        {
+          "category": "left-operands",
+          "documented_status": "NotImplemented",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "left-operands.unit-of-count",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lo-unitofcount-page",
+          "term": "unitOfCount"
+        },
+        {
+          "category": "operators",
+          "documented_status": "Implemented",
+          "engine_reason": "request did not parse as the documented Section 5.2 JSON shape: unknown variant `isAllOf`, expected one of `eq`, `neq`, `isAnyOf`, `lt`, `lteq`, `gt`, `gteq` at line 35 column 41",
+          "id": "operators.set-operators",
+          "mismatch": "expected Allow, observed Error",
+          "probe_id": "op-isallof-hit",
+          "term": "isAnyOf, isAllOf, isNoneOf"
+        },
+        {
+          "category": "operators",
+          "documented_status": "Partial",
+          "engine_reason": "request did not parse as the documented Section 5.2 JSON shape: unknown variant `isPartOf`, expected one of `eq`, `neq`, `isAnyOf`, `lt`, `lteq`, `gt`, `gteq` at line 31 column 42",
+          "id": "operators.is-part-of",
+          "mismatch": "expected Allow, observed Error",
+          "probe_id": "op-ispartof-hit",
+          "term": "isPartOf"
+        },
+        {
+          "category": "operators",
+          "documented_status": "Partial",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "operators.ordering",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "op-lteq-xsd-date",
+          "term": "lt, lteq, gt, gteq"
+        },
+        {
+          "category": "logical",
+          "documented_status": "Implemented",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "logical.and",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lc-and-both",
+          "term": "odrl:and"
+        },
+        {
+          "category": "logical",
+          "documented_status": "Implemented",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "logical.or",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lc-or-second",
+          "term": "odrl:or"
+        },
+        {
+          "category": "logical",
+          "documented_status": "Implemented",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "logical.xone",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lc-xone-exactly-one",
+          "term": "odrl:xone"
+        },
+        {
+          "category": "logical",
+          "documented_status": "NotImplemented",
+          "engine_reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default)",
+          "id": "logical.and-sequence",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "lc-and-control-honored",
+          "term": "odrl:andSequence"
+        },
+        {
+          "category": "party",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "party.assigner-assignee",
+          "mismatch": "expected Deny, observed Allow",
+          "probe_id": "pf-assignee-scoped-miss",
+          "term": "assigner, assignee"
+        },
+        {
+          "category": "duty",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "duty.per-permission",
+          "mismatch": "expected Deny, observed Allow",
+          "probe_id": "duty-per-permission-unresolved-deny",
+          "term": "odrl:duty (per-permission pre-condition)"
+        },
+        {
+          "category": "duty",
+          "documented_status": "Partial",
+          "engine_reason": "duty[0] 'notify' of policy 'probe' is unresolved under duty_mode: deny",
+          "id": "duty.consequence",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "duty-consequence-resolves-where-the-primary-did-not",
+          "term": "odrl:consequence"
+        },
+        {
+          "category": "duty",
+          "documented_status": "Partial",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use': nationality eq US",
+          "id": "duty.remedy",
+          "mismatch": "reason missing `prohibition[0] of policy 'probe' matched: action 'use': nationality eq US; its odrl:remedy[0] 'anonymize' is unresolved and does not lift the prohibition; odrl:conflict 'prohibit' resolves the conflict with permission[0] in the prohibition's favour`",
+          "probe_id": "duty-remedy-unresolved-does-not-drop-the-prohibition",
+          "term": "odrl:remedy"
+        },
+        {
+          "category": "assets",
+          "documented_status": "Partial",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "assets.target",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "asset-per-rule-target-hit",
+          "term": "odrl:target (per-rule)"
+        },
+        {
+          "category": "conflict",
+          "documented_status": "Implemented",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "conflict.property",
+          "mismatch": "reason missing `policy 'probe' is void: permission[0] and prohibition[0] both matched requested action 'use', and the policy's odrl:conflict strategy is 'invalid' (ODRL's own default), which voids a conflicting policy rather than resolving it`",
+          "probe_id": "conflict-default-invalid-voids",
+          "term": "odrl:conflict (perm, prohibit, invalid)"
+        },
+        {
+          "category": "conflict",
+          "documented_status": "Implemented",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "conflict.fixed-strategy",
+          "mismatch": "reason missing `policy 'probe' is void: permission[0] and prohibition[0] both matched requested action 'use', and the policy's odrl:conflict strategy is 'invalid' (ODRL's own default), which voids a conflicting policy rather than resolving it`",
+          "probe_id": "conflict-default-invalid-voids",
+          "term": "Default for a policy that declares no odrl:conflict"
+        },
+        {
+          "category": "conflict",
+          "documented_status": "OutOfScope",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "conflict.profile-strategies",
+          "mismatch": "expected Error, observed Deny",
+          "probe_id": "conflict-profile-strategy-unparseable",
+          "term": "Profile-declared conflict strategies"
+        },
+        {
+          "category": "other",
+          "documented_status": "Implemented",
+          "engine_reason": "policy 'probe' denied for a reason this trace could not reconstruct",
+          "id": "other.behaviour",
+          "mismatch": "reason missing `no permission of policy 'probe' covered and matched requested action 'use' (closed default)`",
+          "probe_id": "beh-closed-empty",
+          "term": "Community Group Formal Semantics `Behaviour`"
+        }
+      ],
+      "coverage": {
+        "agreed": 84,
+        "contradicted": 19,
+        "disagreed": 41,
+        "documented": 3,
+        "envelope_rejected": 11,
+        "errored": 0,
+        "inconclusive": 0,
+        "probes_total": 125,
+        "verified": 30
+      },
+      "coverage_error": null,
+      "date": "2026-09-05T18:06:56+02:00",
+      "engine_wasm_bytes": 213480,
+      "engine_wasm_sha256": "37f1e04a778c959f0c2890284501f7ed32afbeee9dba7832f5b66e284ee447c2",
+      "summary": "docs: document the Behaviour parameter in README and profile-interpreter",
+      "tag": "v0.7.0"
+    },
+    {
+      "commit": "f6a94b37efe5dcf433e675ead543434d5e5e5b75",
+      "compliance": {
+        "failed": 0,
+        "passed": 68,
+        "skipped": 0,
+        "total": 68
+      },
+      "contradicted_rows": [
+        {
+          "category": "left-operands",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use': count gt 0",
+          "id": "left-operands.numeric",
+          "mismatch": "expected Deny, observed Allow",
+          "probe_id": "lo-count-infinity-rejected",
+          "term": "count, percentage, payAmount, absoluteSize, relativeSize, resolution"
+        },
+        {
+          "category": "party",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "party.assigner-assignee",
+          "mismatch": "expected Deny, observed Allow",
+          "probe_id": "pf-assignee-scoped-miss",
+          "term": "assigner, assignee"
+        },
+        {
+          "category": "duty",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "duty.per-permission",
+          "mismatch": "expected Deny, observed Allow",
+          "probe_id": "duty-per-permission-unresolved-deny",
+          "term": "odrl:duty (per-permission pre-condition)"
+        },
+        {
+          "category": "duty",
+          "documented_status": "Partial",
+          "engine_reason": "duty[0] 'notify' of policy 'probe' is unresolved under duty_mode: deny",
+          "id": "duty.consequence",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "duty-consequence-resolves-where-the-primary-did-not",
+          "term": "odrl:consequence"
+        },
+        {
+          "category": "duty",
+          "documented_status": "Partial",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use': nationality eq US",
+          "id": "duty.remedy",
+          "mismatch": "reason missing `prohibition[0] of policy 'probe' matched: action 'use': nationality eq US; its odrl:remedy[0] 'anonymize' is unresolved and does not lift the prohibition; odrl:conflict 'prohibit' resolves the conflict with permission[0] in the prohibition's favour`",
+          "probe_id": "duty-remedy-unresolved-does-not-drop-the-prohibition",
+          "term": "odrl:remedy"
+        },
+        {
+          "category": "assets",
+          "documented_status": "Partial",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "assets.target",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "asset-per-rule-target-hit",
+          "term": "odrl:target (per-rule)"
+        },
+        {
+          "category": "conflict",
+          "documented_status": "Implemented",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "conflict.property",
+          "mismatch": "reason missing `policy 'probe' is void: permission[0] and prohibition[0] both matched requested action 'use', and the policy's odrl:conflict strategy is 'invalid' (ODRL's own default), which voids a conflicting policy rather than resolving it`",
+          "probe_id": "conflict-default-invalid-voids",
+          "term": "odrl:conflict (perm, prohibit, invalid)"
+        },
+        {
+          "category": "conflict",
+          "documented_status": "Implemented",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "conflict.fixed-strategy",
+          "mismatch": "reason missing `policy 'probe' is void: permission[0] and prohibition[0] both matched requested action 'use', and the policy's odrl:conflict strategy is 'invalid' (ODRL's own default), which voids a conflicting policy rather than resolving it`",
+          "probe_id": "conflict-default-invalid-voids",
+          "term": "Default for a policy that declares no odrl:conflict"
+        },
+        {
+          "category": "conflict",
+          "documented_status": "OutOfScope",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "conflict.profile-strategies",
+          "mismatch": "expected Error, observed Deny",
+          "probe_id": "conflict-profile-strategy-unparseable",
+          "term": "Profile-declared conflict strategies"
+        },
+        {
+          "category": "other",
+          "documented_status": "Implemented",
+          "engine_reason": "policy 'probe' denied for a reason this trace could not reconstruct",
+          "id": "other.behaviour",
+          "mismatch": "reason missing `no permission of policy 'probe' covered and matched requested action 'use' (closed default)`",
+          "probe_id": "beh-closed-empty",
+          "term": "Community Group Formal Semantics `Behaviour`"
+        }
+      ],
+      "coverage": {
+        "agreed": 105,
+        "contradicted": 10,
+        "disagreed": 20,
+        "documented": 3,
+        "envelope_rejected": 3,
+        "errored": 0,
+        "inconclusive": 0,
+        "probes_total": 125,
+        "verified": 39
+      },
+      "coverage_error": null,
+      "date": "2026-09-05T19:41:35+02:00",
+      "engine_wasm_bytes": 243424,
+      "engine_wasm_sha256": "05cdfe97e55edc1f07eb689cc58d861d36c35b26cc72983f582f80a9ee1922b3",
+      "summary": "Close 4 low-risk ODRL 2.2 vocabulary gaps: actions taxonomy, set operators, numeric/date comparison, native logical constraints",
+      "tag": "v0.8.0"
+    },
+    {
+      "commit": "42ebe2500013616bb4becd0bdc12318413696a5f",
+      "compliance": {
+        "failed": 0,
+        "passed": 68,
+        "skipped": 0,
+        "total": 68
+      },
+      "contradicted_rows": [
+        {
+          "category": "party",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "party.assigner-assignee",
+          "mismatch": "expected Deny, observed Allow",
+          "probe_id": "pf-assignee-scoped-miss",
+          "term": "assigner, assignee"
+        },
+        {
+          "category": "duty",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "duty.per-permission",
+          "mismatch": "expected Deny, observed Allow",
+          "probe_id": "duty-per-permission-unresolved-deny",
+          "term": "odrl:duty (per-permission pre-condition)"
+        },
+        {
+          "category": "duty",
+          "documented_status": "Partial",
+          "engine_reason": "duty[0] 'notify' of policy 'probe' is unresolved under duty_mode: deny",
+          "id": "duty.consequence",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "duty-consequence-resolves-where-the-primary-did-not",
+          "term": "odrl:consequence"
+        },
+        {
+          "category": "duty",
+          "documented_status": "Partial",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use': nationality eq US",
+          "id": "duty.remedy",
+          "mismatch": "reason missing `prohibition[0] of policy 'probe' matched: action 'use': nationality eq US; its odrl:remedy[0] 'anonymize' is unresolved and does not lift the prohibition; odrl:conflict 'prohibit' resolves the conflict with permission[0] in the prohibition's favour`",
+          "probe_id": "duty-remedy-unresolved-does-not-drop-the-prohibition",
+          "term": "odrl:remedy"
+        },
+        {
+          "category": "assets",
+          "documented_status": "Partial",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "assets.target",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "asset-per-rule-target-hit",
+          "term": "odrl:target (per-rule)"
+        },
+        {
+          "category": "conflict",
+          "documented_status": "Implemented",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "conflict.property",
+          "mismatch": "reason missing `policy 'probe' is void: permission[0] and prohibition[0] both matched requested action 'use', and the policy's odrl:conflict strategy is 'invalid' (ODRL's own default), which voids a conflicting policy rather than resolving it`",
+          "probe_id": "conflict-default-invalid-voids",
+          "term": "odrl:conflict (perm, prohibit, invalid)"
+        },
+        {
+          "category": "conflict",
+          "documented_status": "Implemented",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "conflict.fixed-strategy",
+          "mismatch": "reason missing `policy 'probe' is void: permission[0] and prohibition[0] both matched requested action 'use', and the policy's odrl:conflict strategy is 'invalid' (ODRL's own default), which voids a conflicting policy rather than resolving it`",
+          "probe_id": "conflict-default-invalid-voids",
+          "term": "Default for a policy that declares no odrl:conflict"
+        },
+        {
+          "category": "conflict",
+          "documented_status": "OutOfScope",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "conflict.profile-strategies",
+          "mismatch": "expected Error, observed Deny",
+          "probe_id": "conflict-profile-strategy-unparseable",
+          "term": "Profile-declared conflict strategies"
+        },
+        {
+          "category": "other",
+          "documented_status": "Implemented",
+          "engine_reason": "policy 'probe' denied for a reason this trace could not reconstruct",
+          "id": "other.behaviour",
+          "mismatch": "reason missing `no permission of policy 'probe' covered and matched requested action 'use' (closed default)`",
+          "probe_id": "beh-closed-empty",
+          "term": "Community Group Formal Semantics `Behaviour`"
+        }
+      ],
+      "coverage": {
+        "agreed": 106,
+        "contradicted": 9,
+        "disagreed": 19,
+        "documented": 3,
+        "envelope_rejected": 3,
+        "errored": 0,
+        "inconclusive": 0,
+        "probes_total": 125,
+        "verified": 40
+      },
+      "coverage_error": null,
+      "date": "2026-09-05T19:54:14+02:00",
+      "engine_wasm_bytes": 244039,
+      "engine_wasm_sha256": "1c7381a5bf2339229f641420dbb3972d9be4c30c3a03a6c4523db94ed96b13b5",
+      "summary": "constraint: fix a fail-open regression in v0.8.0's logical-constraint parsing",
+      "tag": "v0.8.1"
+    },
+    {
+      "commit": "9312f58f91db218ae68c9c4ab49f550fc123c410",
+      "compliance": {
+        "failed": 0,
+        "passed": 68,
+        "skipped": 0,
+        "total": 68
+      },
+      "contradicted_rows": [
+        {
+          "category": "party",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "party.assigner-assignee",
+          "mismatch": "expected Deny, observed Allow",
+          "probe_id": "pf-assignee-scoped-miss",
+          "term": "assigner, assignee"
+        },
+        {
+          "category": "duty",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "duty.per-permission",
+          "mismatch": "expected Deny, observed Allow",
+          "probe_id": "duty-per-permission-unresolved-deny",
+          "term": "odrl:duty (per-permission pre-condition)"
+        },
+        {
+          "category": "duty",
+          "documented_status": "Partial",
+          "engine_reason": "duty[0] 'notify' of policy 'probe' is unresolved under duty_mode: deny",
+          "id": "duty.consequence",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "duty-consequence-resolves-where-the-primary-did-not",
+          "term": "odrl:consequence"
+        },
+        {
+          "category": "duty",
+          "documented_status": "Partial",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use': nationality eq US",
+          "id": "duty.remedy",
+          "mismatch": "reason missing `prohibition[0] of policy 'probe' matched: action 'use': nationality eq US; its odrl:remedy[0] 'anonymize' is unresolved and does not lift the prohibition; odrl:conflict 'prohibit' resolves the conflict with permission[0] in the prohibition's favour`",
+          "probe_id": "duty-remedy-unresolved-does-not-drop-the-prohibition",
+          "term": "odrl:remedy"
+        },
+        {
+          "category": "assets",
+          "documented_status": "Partial",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "assets.target",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "asset-per-rule-target-hit",
+          "term": "odrl:target (per-rule)"
+        },
+        {
+          "category": "conflict",
+          "documented_status": "Implemented",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "conflict.property",
+          "mismatch": "reason missing `policy 'probe' is void: permission[0] and prohibition[0] both matched requested action 'use', and the policy's odrl:conflict strategy is 'invalid' (ODRL's own default), which voids a conflicting policy rather than resolving it`",
+          "probe_id": "conflict-default-invalid-voids",
+          "term": "odrl:conflict (perm, prohibit, invalid)"
+        },
+        {
+          "category": "conflict",
+          "documented_status": "Implemented",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "conflict.fixed-strategy",
+          "mismatch": "reason missing `policy 'probe' is void: permission[0] and prohibition[0] both matched requested action 'use', and the policy's odrl:conflict strategy is 'invalid' (ODRL's own default), which voids a conflicting policy rather than resolving it`",
+          "probe_id": "conflict-default-invalid-voids",
+          "term": "Default for a policy that declares no odrl:conflict"
+        },
+        {
+          "category": "conflict",
+          "documented_status": "OutOfScope",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "conflict.profile-strategies",
+          "mismatch": "expected Error, observed Deny",
+          "probe_id": "conflict-profile-strategy-unparseable",
+          "term": "Profile-declared conflict strategies"
+        },
+        {
+          "category": "other",
+          "documented_status": "Implemented",
+          "engine_reason": "policy 'probe' denied for a reason this trace could not reconstruct",
+          "id": "other.behaviour",
+          "mismatch": "reason missing `no permission of policy 'probe' covered and matched requested action 'use' (closed default)`",
+          "probe_id": "beh-closed-empty",
+          "term": "Community Group Formal Semantics `Behaviour`"
+        }
+      ],
+      "coverage": {
+        "agreed": 106,
+        "contradicted": 9,
+        "disagreed": 19,
+        "documented": 3,
+        "envelope_rejected": 3,
+        "errored": 0,
+        "inconclusive": 0,
+        "probes_total": 125,
+        "verified": 40
+      },
+      "coverage_error": null,
+      "date": "2026-09-05T21:07:49+02:00",
+      "engine_wasm_bytes": 244039,
+      "engine_wasm_sha256": "1c7381a5bf2339229f641420dbb3972d9be4c30c3a03a6c4523db94ed96b13b5",
+      "summary": "site: live, in-browser ODRL compliance runner against real engine.wasm",
+      "tag": "v0.9.0"
+    },
+    {
+      "commit": "7dafdbaa19c47b142576bc58426d8d613be3807a",
+      "compliance": {
+        "failed": 0,
+        "passed": 68,
+        "skipped": 0,
+        "total": 68
+      },
+      "contradicted_rows": [
+        {
+          "category": "party",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "party.assigner-assignee",
+          "mismatch": "expected Deny, observed Allow",
+          "probe_id": "pf-assignee-scoped-miss",
+          "term": "assigner, assignee"
+        },
+        {
+          "category": "duty",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "duty.per-permission",
+          "mismatch": "expected Deny, observed Allow",
+          "probe_id": "duty-per-permission-unresolved-deny",
+          "term": "odrl:duty (per-permission pre-condition)"
+        },
+        {
+          "category": "duty",
+          "documented_status": "Partial",
+          "engine_reason": "duty[0] 'notify' of policy 'probe' is unresolved under duty_mode: deny",
+          "id": "duty.consequence",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "duty-consequence-resolves-where-the-primary-did-not",
+          "term": "odrl:consequence"
+        },
+        {
+          "category": "duty",
+          "documented_status": "Partial",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use': nationality eq US",
+          "id": "duty.remedy",
+          "mismatch": "reason missing `prohibition[0] of policy 'probe' matched: action 'use': nationality eq US; its odrl:remedy[0] 'anonymize' is unresolved and does not lift the prohibition; odrl:conflict 'prohibit' resolves the conflict with permission[0] in the prohibition's favour`",
+          "probe_id": "duty-remedy-unresolved-does-not-drop-the-prohibition",
+          "term": "odrl:remedy"
+        },
+        {
+          "category": "assets",
+          "documented_status": "Partial",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "assets.target",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "asset-per-rule-target-hit",
+          "term": "odrl:target (per-rule)"
+        },
+        {
+          "category": "conflict",
+          "documented_status": "Implemented",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "conflict.property",
+          "mismatch": "reason missing `policy 'probe' is void: permission[0] and prohibition[0] both matched requested action 'use', and the policy's odrl:conflict strategy is 'invalid' (ODRL's own default), which voids a conflicting policy rather than resolving it`",
+          "probe_id": "conflict-default-invalid-voids",
+          "term": "odrl:conflict (perm, prohibit, invalid)"
+        },
+        {
+          "category": "conflict",
+          "documented_status": "Implemented",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "conflict.fixed-strategy",
+          "mismatch": "reason missing `policy 'probe' is void: permission[0] and prohibition[0] both matched requested action 'use', and the policy's odrl:conflict strategy is 'invalid' (ODRL's own default), which voids a conflicting policy rather than resolving it`",
+          "probe_id": "conflict-default-invalid-voids",
+          "term": "Default for a policy that declares no odrl:conflict"
+        },
+        {
+          "category": "conflict",
+          "documented_status": "OutOfScope",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "conflict.profile-strategies",
+          "mismatch": "expected Error, observed Deny",
+          "probe_id": "conflict-profile-strategy-unparseable",
+          "term": "Profile-declared conflict strategies"
+        }
+      ],
+      "coverage": {
+        "agreed": 108,
+        "contradicted": 8,
+        "disagreed": 17,
+        "documented": 3,
+        "envelope_rejected": 3,
+        "errored": 0,
+        "inconclusive": 0,
+        "probes_total": 125,
+        "verified": 41
+      },
+      "coverage_error": null,
+      "date": "2026-09-05T22:32:27+02:00",
+      "engine_wasm_bytes": 244055,
+      "engine_wasm_sha256": "3a0b13108b24274ecb7f2a2b1631b6f23bcb7e22f8bb2c039b2031dc9f2e2ae9",
+      "summary": "site: live, in-browser ODRL 2.2 vocabulary coverage report against real engine.wasm",
+      "tag": "v0.10.0"
+    },
+    {
+      "commit": "659d8cf0c444e8d493d1c092cb5d57f48b40a8af",
+      "compliance": {
+        "failed": 0,
+        "passed": 68,
+        "skipped": 0,
+        "total": 68
+      },
+      "contradicted_rows": [
+        {
+          "category": "party",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "party.assigner-assignee",
+          "mismatch": "expected Deny, observed Allow",
+          "probe_id": "pf-assignee-scoped-miss",
+          "term": "assigner, assignee"
+        },
+        {
+          "category": "duty",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "duty.per-permission",
+          "mismatch": "expected Deny, observed Allow",
+          "probe_id": "duty-per-permission-unresolved-deny",
+          "term": "odrl:duty (per-permission pre-condition)"
+        },
+        {
+          "category": "duty",
+          "documented_status": "Partial",
+          "engine_reason": "duty[0] 'notify' of policy 'probe' is unresolved under duty_mode: deny",
+          "id": "duty.consequence",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "duty-consequence-resolves-where-the-primary-did-not",
+          "term": "odrl:consequence"
+        },
+        {
+          "category": "duty",
+          "documented_status": "Partial",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use': nationality eq US",
+          "id": "duty.remedy",
+          "mismatch": "reason missing `prohibition[0] of policy 'probe' matched: action 'use': nationality eq US; its odrl:remedy[0] 'anonymize' is unresolved and does not lift the prohibition; odrl:conflict 'prohibit' resolves the conflict with permission[0] in the prohibition's favour`",
+          "probe_id": "duty-remedy-unresolved-does-not-drop-the-prohibition",
+          "term": "odrl:remedy"
+        },
+        {
+          "category": "assets",
+          "documented_status": "Partial",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "assets.target",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "asset-per-rule-target-hit",
+          "term": "odrl:target (per-rule)"
+        },
+        {
+          "category": "conflict",
+          "documented_status": "Implemented",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "conflict.property",
+          "mismatch": "reason missing `policy 'probe' is void: permission[0] and prohibition[0] both matched requested action 'use', and the policy's odrl:conflict strategy is 'invalid' (ODRL's own default), which voids a conflicting policy rather than resolving it`",
+          "probe_id": "conflict-default-invalid-voids",
+          "term": "odrl:conflict (perm, prohibit, invalid)"
+        },
+        {
+          "category": "conflict",
+          "documented_status": "Implemented",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "conflict.fixed-strategy",
+          "mismatch": "reason missing `policy 'probe' is void: permission[0] and prohibition[0] both matched requested action 'use', and the policy's odrl:conflict strategy is 'invalid' (ODRL's own default), which voids a conflicting policy rather than resolving it`",
+          "probe_id": "conflict-default-invalid-voids",
+          "term": "Default for a policy that declares no odrl:conflict"
+        },
+        {
+          "category": "conflict",
+          "documented_status": "OutOfScope",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "conflict.profile-strategies",
+          "mismatch": "expected Error, observed Deny",
+          "probe_id": "conflict-profile-strategy-unparseable",
+          "term": "Profile-declared conflict strategies"
+        }
+      ],
+      "coverage": {
+        "agreed": 108,
+        "contradicted": 8,
+        "disagreed": 17,
+        "documented": 3,
+        "envelope_rejected": 3,
+        "errored": 0,
+        "inconclusive": 0,
+        "probes_total": 125,
+        "verified": 41
+      },
+      "coverage_error": null,
+      "date": "2026-09-05T22:43:02+02:00",
+      "engine_wasm_bytes": 244055,
+      "engine_wasm_sha256": "3a0b13108b24274ecb7f2a2b1631b6f23bcb7e22f8bb2c039b2031dc9f2e2ae9",
+      "summary": "site: fix direct-hit/reload 404s on GitHub Pages sub-routes",
+      "tag": "v0.10.1"
+    },
+    {
+      "commit": "fc4ac17f7f8e54708b004bf2faee6c75a22acd69",
+      "compliance": {
+        "failed": 0,
+        "passed": 68,
+        "skipped": 0,
+        "total": 68
+      },
+      "contradicted_rows": [
+        {
+          "category": "party",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "party.assigner-assignee",
+          "mismatch": "expected Deny, observed Allow",
+          "probe_id": "pf-assignee-scoped-miss",
+          "term": "assigner, assignee"
+        },
+        {
+          "category": "duty",
+          "documented_status": "Partial",
+          "engine_reason": "permission[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "duty.per-permission",
+          "mismatch": "expected Deny, observed Allow",
+          "probe_id": "duty-per-permission-unresolved-deny",
+          "term": "odrl:duty (per-permission pre-condition)"
+        },
+        {
+          "category": "duty",
+          "documented_status": "Partial",
+          "engine_reason": "duty[0] 'notify' of policy 'probe' is unresolved under duty_mode: deny",
+          "id": "duty.consequence",
+          "mismatch": "expected Allow, observed Deny",
+          "probe_id": "duty-consequence-resolves-where-the-primary-did-not",
+          "term": "odrl:consequence"
+        },
+        {
+          "category": "duty",
+          "documented_status": "Partial",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use': nationality eq US",
+          "id": "duty.remedy",
+          "mismatch": "reason missing `prohibition[0] of policy 'probe' matched: action 'use': nationality eq US; its odrl:remedy[0] 'anonymize' is unresolved and does not lift the prohibition; odrl:conflict 'prohibit' resolves the conflict with permission[0] in the prohibition's favour`",
+          "probe_id": "duty-remedy-unresolved-does-not-drop-the-prohibition",
+          "term": "odrl:remedy"
+        },
+        {
+          "category": "conflict",
+          "documented_status": "Implemented",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "conflict.property",
+          "mismatch": "reason missing `policy 'probe' is void: permission[0] and prohibition[0] both matched requested action 'use', and the policy's odrl:conflict strategy is 'invalid' (ODRL's own default), which voids a conflicting policy rather than resolving it`",
+          "probe_id": "conflict-default-invalid-voids",
+          "term": "odrl:conflict (perm, prohibit, invalid)"
+        },
+        {
+          "category": "conflict",
+          "documented_status": "Implemented",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "conflict.fixed-strategy",
+          "mismatch": "reason missing `policy 'probe' is void: permission[0] and prohibition[0] both matched requested action 'use', and the policy's odrl:conflict strategy is 'invalid' (ODRL's own default), which voids a conflicting policy rather than resolving it`",
+          "probe_id": "conflict-default-invalid-voids",
+          "term": "Default for a policy that declares no odrl:conflict"
+        },
+        {
+          "category": "conflict",
+          "documented_status": "OutOfScope",
+          "engine_reason": "prohibition[0] of policy 'probe' matched: action 'use', unconstrained",
+          "id": "conflict.profile-strategies",
+          "mismatch": "expected Error, observed Deny",
+          "probe_id": "conflict-profile-strategy-unparseable",
+          "term": "Profile-declared conflict strategies"
+        }
+      ],
+      "coverage": {
+        "agreed": 111,
+        "contradicted": 7,
+        "disagreed": 14,
+        "documented": 3,
+        "envelope_rejected": 3,
+        "errored": 0,
+        "inconclusive": 0,
+        "probes_total": 125,
+        "verified": 42
+      },
+      "coverage_error": null,
+      "date": "2026-09-06T01:00:06+02:00",
+      "engine_wasm_bytes": 251133,
+      "engine_wasm_sha256": "86074c18ddb58a836168c0fdd9ba3d5aa32484abb10f4243395a9dc5238c0321",
+      "summary": "Close 4 additive ODRL gaps and add feature-flagged DSP/IDSA ingestion",
+      "tag": "v0.11.0"
+    },
+    {
+      "commit": "81c41a1c0fd86f8d8658c5eb656bf02bafc5ec58",
+      "compliance": {
+        "failed": 0,
+        "passed": 68,
+        "skipped": 0,
+        "total": 68
+      },
+      "contradicted_rows": [],
+      "coverage": {
+        "agreed": 125,
+        "contradicted": 0,
+        "disagreed": 0,
+        "documented": 3,
+        "envelope_rejected": 4,
+        "errored": 0,
+        "inconclusive": 0,
+        "probes_total": 125,
+        "verified": 49
+      },
+      "coverage_error": null,
+      "date": "2026-09-06T02:35:23+02:00",
+      "engine_wasm_bytes": 278660,
+      "engine_wasm_sha256": "9e25f395d30215d150107a030fa2679456082b0c65d2da44960596c2b0648eed",
+      "summary": "Add per-permission duty/consequence/remedy, party-role evaluation, and a real odrl:conflict strategy",
+      "tag": "v0.12.0"
+    },
+    {
+      "commit": "ebea2dfbf62a43438544218749315645dcf5193f",
+      "compliance": {
+        "failed": 0,
+        "passed": 68,
+        "skipped": 0,
+        "total": 68
+      },
+      "contradicted_rows": [],
+      "coverage": {
+        "agreed": 125,
+        "contradicted": 0,
+        "disagreed": 0,
+        "documented": 3,
+        "envelope_rejected": 4,
+        "errored": 0,
+        "inconclusive": 0,
+        "probes_total": 125,
+        "verified": 49
+      },
+      "coverage_error": null,
+      "date": "2026-09-06T05:15:31+02:00",
+      "engine_wasm_bytes": 278660,
+      "engine_wasm_sha256": "9e25f395d30215d150107a030fa2679456082b0c65d2da44960596c2b0648eed",
+      "summary": "site: note dsp-odrl-adapter on the Coverage page, as prose not a fake row",
+      "tag": "v0.12.1"
+    }
+  ],
+  "schema": "ds-odrl-engine-rs/release-history@1"
+}

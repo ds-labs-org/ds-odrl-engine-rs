@@ -1,0 +1,43 @@
+[package]
+name = "release-history"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Generates compliance/reports/release-history.json: every tagged release's real ODRL-Test-Suite pass rate, plus the current 125-probe ODRL 2.2 coverage catalog re-executed against that release's own engine.wasm through its four-export C ABI"
+publish = false
+
+# Stage 2 of the Release History pipeline; `scripts/build-release-history.sh`
+# is stage 1 and produces this crate's input (one historical `engine.wasm`
+# and one historical `compliance/reports/latest.json` per tag).
+#
+# Deliberately its own workspace crate, on the same reasoning
+# `coverage-probes` records for itself:
+#
+# 1. It must run from a bare clone with no ODRL-Test-Suite submodule --
+#    unlike `compliance-runner`, which exits(1) without it. The historical
+#    compliance numbers it reports were produced by *historical* runs of
+#    that runner (staged as JSON), not by one it performs itself.
+# 2. CI runs `cargo run -p compliance-runner --release` and `cargo run -p
+#    coverage-probes --release` with no `--bin`; a second binary in either
+#    package would break those invocations.
+#
+# `engine` is deliberately NOT a dependency. The whole point of this crate
+# is to execute *historical* engine builds, and linking today's engine
+# crate would only ever give today's answers. Every decision it records
+# comes out of a compiled, tagged `engine.wasm` driven through the same
+# four exports (`alloc`/`dealloc`/`evaluate` over `memory`) a browser or
+# JVM host drives -- see `src/host.rs`.
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+# `raw_value` for the same reason site/Cargo.toml gives: a probe's request
+# bytes go to the historical wasm verbatim, never round-tripped through
+# types that would silently drop the very keys a negative probe injects.
+serde_json = { version = "1", features = ["raw_value"] }
+sha2 = "0.10"
+# A minimal, pure-Rust WebAssembly interpreter: no JIT, no host toolchain,
+# nothing platform-specific to reproduce. Driving each historical
+# engine.wasm through its own real ABI is what makes this a re-execution
+# of history rather than a recompilation of history against today's Rust
+# source -- see src/host.rs's header for why this beats the alternative.
+wasmi = "2"

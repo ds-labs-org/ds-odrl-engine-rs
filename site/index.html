@@ -136,6 +136,43 @@
          deploy a Coverage page with no catalog to execute. -->
     <link data-trunk rel="copy-file" href="../compliance/reports/latest-coverage.json" data-target-path="compliance-data" />
 
+    <!-- The Release History page's data artifact: every tagged release's
+         real ODRL-Test-Suite result (as that tag's own compliance-runner
+         reported it, re-executed at that tag), plus today's 125-probe
+         coverage catalog replayed against that tag's own compiled
+         engine.wasm through its C ABI. Written by
+         `scripts/build-release-history.sh` followed by `cargo run -p
+         release-history --release` -- see the README's "Release history
+         dashboard" section for the regeneration procedure and for why it
+         is deliberately not part of the ordinary CI loop (it rebuilds
+         every historical engine, which is a tag-time job, not a
+         per-commit one).
+
+         Unlike the three artifacts above, this one carries *results*
+         rather than only inputs -- and that difference is the one thing
+         about this page that has to be stated rather than assumed. The
+         Compliance and Coverage pages recompute everything they show
+         because they can: one engine.wasm, already fetched. This page
+         cannot: its subject is nineteen *different* historical
+         engine.wasm binaries, and asking a visitor's browser to download
+         and instantiate all of them on page load, to recompute figures
+         that change only when a tag is cut, is a far worse trade than
+         saying plainly that these are build-time numbers. The page says
+         exactly that in an Alert above the dashboard, and carries each
+         release's engine.wasm SHA-256 so the claim is checkable rather
+         than merely asserted.
+
+         Same compliance-data/ target directory as the three above, and
+         for the same reason spelled out at length there: this page's own
+         route is `/history`, so a data directory named `history` would
+         reproduce the /compliance route-vs-directory 307-redirect
+         collision exactly.
+
+         Trunk's copy-file fails the build outright if this file is
+         missing, which is again the right failure mode: the site must not
+         deploy a Release History page with no record to render. -->
+    <link data-trunk rel="copy-file" href="../compliance/reports/release-history.json" data-target-path="compliance-data" />
+
     <!-- This product's own mark: same mesh/node visual language as the
          ds42.org dataspace study this engine implements (see the case
          study link on every page), re-drawn with this product's own
