@@ -23,7 +23,7 @@ use std::collections::BTreeSet;
 
 use engine::claims::Claims;
 use engine::constraint::{Constraint, Operator, MAX_CONSTRAINT_DEPTH};
-use engine::decision::{ConflictStrategy, Rule};
+use engine::decision::{ConflictStrategy, Rule, MAX_CONSEQUENCE_DEPTH};
 use engine::profile::{Behaviour, DutyMode};
 use engine::wire::{Request, RequestConfig, WireActionDecl, WirePolicy};
 
@@ -128,10 +128,18 @@ pub fn ingest_policy_value(doc: &serde_json::Value) -> Result<Ingested, IngestEr
 /// cover a request for `sell`. A host that wants real coverage builds its
 /// `config` with `profile-interpreter` from actual Profile documents and
 /// uses this only as a fallback.
+///
+/// **Includes every nested duty/remedy/consequence action, not only each
+/// rule's own.** Section 4.4's vocabulary check applies uniformly to a
+/// duty's `action` too (`decision::grants`'s own "unrecognized action ...
+/// in the duty at ..." error), so a permission's `odrl:duty` naming
+/// `compensate` needs `compensate` declared exactly as `use` itself does —
+/// otherwise ingesting a real duty would trade one silent-Allow bug for a
+/// noisy `Decision::Error` on every offer that carries one.
 pub fn minimal_config(policy: &WirePolicy, duty_mode: DutyMode, behaviour: Behaviour) -> RequestConfig {
     let mut actions: BTreeSet<String> = BTreeSet::new();
     for rule in policy.permissions.iter().chain(&policy.prohibitions).chain(&policy.obligations) {
-        actions.insert(rule.action.clone());
+        collect_actions(rule, &mut actions);
     }
     RequestConfig {
         type_: "odrl:Profile".to_string(),
@@ -146,6 +154,28 @@ pub fn minimal_config(policy: &WirePolicy, duty_mode: DutyMode, behaviour: Behav
         // change the host never asked for. A host that wants it sets
         // `partyIdentityClaim` on the config this returns.
         party_identity_claim: None,
+    }
+}
+
+/// Inserts `rule`'s own action, then recurses into its `odrl:duty`,
+/// `odrl:remedy`, and `odrl:consequence` — the three positions a `Rule`
+/// can carry another `Rule` in. Terminates: `duty`/`remedy` are only ever
+/// populated one level deep by this adapter (a nested duty carries no
+/// `odrl:duty`/`odrl:remedy` of its own, per their Vocabulary domains —
+/// see `duty_from`'s own `warn_wrong_domain` calls), and `consequence`'s
+/// own chain is bounded at ingestion by `MAX_CONSEQUENCE_DEPTH`
+/// (`consequence_from`), well short of anything requiring a depth guard
+/// here as well.
+fn collect_actions(rule: &Rule, actions: &mut BTreeSet<String>) {
+    actions.insert(rule.action.clone());
+    for duty in &rule.duty {
+        collect_actions(duty, actions);
+    }
+    for remedy in &rule.remedy {
+        collect_actions(remedy, actions);
+    }
+    if let Some(consequence) = &rule.consequence {
+        collect_actions(consequence, actions);
     }
 }
 
@@ -335,21 +365,146 @@ fn rule_from(
         constraints.push(constraint_from(&value, 0)?);
     }
 
-    if !odrl(node, "duty").is_empty() {
-        warnings.push(format!(
-            "the odrl:{local} rule for action {action:?} carries a per-rule odrl:duty; \
-             engine::Rule now models one (engine::Rule::duty, and odrl:consequence/odrl:remedy \
-             beside it), but this adapter does not yet ingest any of the three, so it is dropped \
-             — an adapter limitation now, not an engine one"
-        ));
+    let target = first_string(node, "target").or_else(|| policy_target.map(str::to_string));
+    let mut rule = Rule { target, action_refinement, ..Rule::new(action, constraints) };
+
+    // `odrl:duty` (Vocabulary: domain Permission, also read at Policy
+    // level per the Information Model) gates *this* permission: it "must
+    // be satisfied for the Permission to be exercised". Only a permission
+    // reads it here; `Policy::obligations` is where the Policy-level
+    // reading already lands, one rule per declared `odrl:obligation`, so
+    // there is no second place in this per-rule function that means that.
+    if local == "permission" {
+        rule.duty = duties_from(node, "duty", warnings)?;
+    } else {
+        warn_wrong_domain(node, "duty", local, "Permission", warnings);
     }
 
-    let target = first_string(node, "target").or_else(|| policy_target.map(str::to_string));
-    Ok(Rule {
-        target,
-        action_refinement,
-        ..Rule::new(action, constraints)
-    })
+    // `odrl:remedy` (Vocabulary: domain Prohibition) — Model §2.6.7's
+    // Duty that "MUST be fulfilled in case that a Prohibition has been
+    // infringed". Never lifts the prohibition itself; `engine` already
+    // encodes that.
+    if local == "prohibition" {
+        rule.remedy = duties_from(node, "remedy", warnings)?;
+    } else {
+        warn_wrong_domain(node, "remedy", local, "Prohibition", warnings);
+    }
+
+    // `odrl:consequence` (Vocabulary: domain Duty) — an `odrl:obligation`
+    // rule *is itself* the Policy-level Duty (there is no separate nested
+    // "duty" property to unwrap for it, unlike a permission's `odrl:duty`
+    // above), so its own `odrl:consequence` is read right here, the same
+    // way a nested duty's is in `duty_from` below.
+    if local == "obligation" {
+        rule.consequence = consequence_from(node, 0, warnings)?;
+    } else {
+        warn_wrong_domain(node, "consequence", local, "Duty", warnings);
+    }
+
+    Ok(rule)
+}
+
+/// Reads every nested Duty under `odrl:{property}` (`"duty"` on a
+/// permission, `"remedy"` on a prohibition) into the `Rule`s
+/// `engine::Rule::duty`/`::remedy` hold directly — each one built the same
+/// way a top-level rule is (action, constraints, own optional target),
+/// plus its own `odrl:consequence` chain, since a Duty's domain includes
+/// that property too.
+fn duties_from(node: &Node, property: &str, warnings: &mut Vec<String>) -> Result<Vec<Rule>, IngestError> {
+    let mut duties = Vec::new();
+    for value in odrl(node, property) {
+        let Expanded::Node(child) = value else {
+            // A bare `{"@id": …}` reference to a duty defined elsewhere:
+            // silently dropping it would leave the permission it was meant
+            // to gate unconditional, or the prohibition's remedy
+            // unenforced — the same fail-open `rules_from` above already
+            // refuses for a top-level rule.
+            return Err(IngestError::RuleIsABareReference(
+                property.to_string(),
+                as_string(&value).unwrap_or_default(),
+            ));
+        };
+        duties.push(duty_from(&child, property, warnings)?);
+    }
+    Ok(duties)
+}
+
+/// One Duty node reached in duty position (a permission's `odrl:duty`, a
+/// prohibition's `odrl:remedy`, or an `odrl:consequence` successor) —
+/// action, constraints, an optional own target (not inherited from the
+/// policy: a duty's target, when it states one, is the duty's own
+/// deliverable, not the asset the permission/prohibition it hangs off is
+/// about), and its own `odrl:consequence`, if any.
+fn duty_from(node: &Node, local: &str, warnings: &mut Vec<String>) -> Result<Rule, IngestError> {
+    let (action, action_refinement) = action_from(node, local, warnings)?;
+
+    let mut constraints = Vec::new();
+    for value in odrl(node, "constraint") {
+        constraints.push(constraint_from(&value, 0)?);
+    }
+
+    let mut rule =
+        Rule { target: first_string(node, "target"), action_refinement, ..Rule::new(action, constraints) };
+    rule.consequence = consequence_from(node, 0, warnings)?;
+
+    // A Duty's own domain carries neither `odrl:duty` (Permission's) nor
+    // `odrl:remedy` (Prohibition's); either appearing here is an
+    // unmappable shape, not silently droppable — dropping a duty's own
+    // gating condition would be exactly the fail-open direction this item
+    // exists to close.
+    warn_wrong_domain(node, "duty", local, "Permission", warnings);
+    warn_wrong_domain(node, "remedy", local, "Prohibition", warnings);
+
+    Ok(rule)
+}
+
+/// `odrl:consequence` on a Duty node (Vocabulary: domain Duty) — "the
+/// consequent Duty" `engine::Rule::consequence` chains to. Bounded at
+/// [`MAX_CONSEQUENCE_DEPTH`], the same bound the engine itself stops
+/// walking a chain at, so a chain deeper than that is dropped (warned,
+/// never silently) rather than built into a `Rule` the engine would never
+/// fully evaluate anyway.
+fn consequence_from(node: &Node, depth: usize, warnings: &mut Vec<String>) -> Result<Option<Box<Rule>>, IngestError> {
+    let values = odrl(node, "consequence");
+    let Some(first) = values.first() else {
+        return Ok(None);
+    };
+    if values.len() > 1 {
+        warnings.push(format!(
+            "this odrl:consequence carries {} duties; engine::Rule::consequence models a single \
+             successor per duty (see its own doc comment on why), so only the first is ingested",
+            values.len()
+        ));
+    }
+    if depth >= MAX_CONSEQUENCE_DEPTH {
+        warnings.push(format!(
+            "an odrl:consequence chain nested past MAX_CONSEQUENCE_DEPTH ({MAX_CONSEQUENCE_DEPTH}) \
+             is dropped rather than ingested past the depth the engine's own outstanding_duty \
+             would ever walk"
+        ));
+        return Ok(None);
+    }
+    let Expanded::Node(child) = first else {
+        return Err(IngestError::RuleIsABareReference(
+            "consequence".to_string(),
+            as_string(first).unwrap_or_default(),
+        ));
+    };
+    Ok(Some(Box::new(duty_from(child, "consequence", warnings)?)))
+}
+
+/// Warns when `node` (a rule of kind `local`) carries `odrl:{property}`,
+/// whose Vocabulary domain is `expected_domain`, not `local` — a shape
+/// this adapter cannot map without guessing which `Rule` field the author
+/// actually meant, so it is named and dropped rather than silently
+/// ignored or misfiled.
+fn warn_wrong_domain(node: &Node, property: &str, local: &str, expected_domain: &str, warnings: &mut Vec<String>) {
+    if !odrl(node, property).is_empty() {
+        warnings.push(format!(
+            "the odrl:{local} rule carries odrl:{property}, whose domain is odrl:{expected_domain}, \
+             not odrl:{local}; dropped rather than mapped to the wrong engine::Rule field"
+        ));
+    }
 }
 
 /// Reads a rule's `odrl:action`, in either of the two shapes ODRL 2.2
@@ -907,5 +1062,182 @@ mod tests {
         for _ in 0..4 {
             assert_eq!(render(), first, "canonicalized Request JSON must be byte-identical every time");
         }
+    }
+
+    // -- odrl:duty / odrl:consequence / odrl:remedy ingestion -------------
+
+    #[test]
+    fn a_permission_naming_odrl_duty_ingests_it_instead_of_being_dropped() {
+        // The task's own distinguishing example: a permission genuinely
+        // gated on a duty to compensate.
+        let doc = r#"{
+          "@context": "http://www.w3.org/ns/odrl.jsonld",
+          "@type": "Offer",
+          "@id": "urn:uuid:duty-offer",
+          "assigner": "did:web:provider.example",
+          "target": "urn:asset:A",
+          "permission": [{
+            "action": "use",
+            "duty": [{ "action": "compensate" }]
+          }]
+        }"#;
+        let ingested = ingest_policy(doc).expect("must ingest");
+        assert_eq!(
+            ingested.policy.permissions[0].duty,
+            vec![Rule::new("compensate", vec![])],
+            "odrl:duty must be ingested into engine::Rule::duty, not dropped"
+        );
+        assert!(
+            ingested.warnings.iter().all(|w| !w.contains("dropped")),
+            "a genuinely mappable odrl:duty must not warn that it was dropped: {:?}",
+            ingested.warnings
+        );
+
+        // Before this fix, `Rule::duty` was always empty regardless of the
+        // document, so `DutyMode::Deny` had nothing to gate on and this
+        // Allowed unconditionally -- exactly as if the duty had never
+        // existed.
+        let req = request_for(&ingested.policy, "urn:asset:A", "use", Claims::new(), DutyMode::Deny, Behaviour::Open);
+        let response = evaluate_request(&req);
+        assert_eq!(
+            response.decision,
+            WireDecision::Deny,
+            "an unconstrained odrl:duty this engine has no claims-based way to confirm must stay \
+             unresolved, and DutyMode::Deny must withhold the grant it gates -- reason: {}",
+            response.reason
+        );
+        assert!(
+            response.duties.iter().any(|d| d.action == "compensate" && !d.resolved),
+            "the outstanding duty must be reported in the response: {:?}",
+            response.duties
+        );
+    }
+
+    #[test]
+    fn a_permission_gated_on_a_constrained_duty_denies_unresolved_and_allows_once_satisfied() {
+        let doc = r#"{
+          "@context": "http://www.w3.org/ns/odrl.jsonld",
+          "@type": "Offer",
+          "@id": "urn:uuid:duty-gate",
+          "assigner": "did:web:provider.example",
+          "target": "urn:asset:A",
+          "permission": [{
+            "action": "use",
+            "duty": [{
+              "action": "compensate",
+              "constraint": [{ "leftOperand": "payment", "operator": "eq", "rightOperand": "received" }]
+            }]
+          }]
+        }"#;
+        let ingested = ingest_policy(doc).expect("must ingest");
+        assert_eq!(ingested.policy.permissions[0].duty.len(), 1, "the duty must be ingested");
+        assert_eq!(ingested.policy.permissions[0].duty[0].constraints.len(), 1);
+
+        let unresolved =
+            request_for(&ingested.policy, "urn:asset:A", "use", Claims::new(), DutyMode::Deny, Behaviour::Open);
+        assert_eq!(evaluate_request(&unresolved).decision, WireDecision::Deny);
+
+        let satisfied: Claims = [("payment".to_string(), "received".into())].into_iter().collect();
+        let resolved = request_for(&ingested.policy, "urn:asset:A", "use", satisfied, DutyMode::Deny, Behaviour::Open);
+        assert_eq!(
+            evaluate_request(&resolved).decision,
+            WireDecision::Allow,
+            "the same duty, satisfied from claims, must let the permission it gates grant"
+        );
+    }
+
+    #[test]
+    fn a_prohibition_naming_odrl_remedy_ingests_it_instead_of_being_silently_ignored() {
+        let doc = r#"{
+          "@context": "http://www.w3.org/ns/odrl.jsonld",
+          "@type": "Offer",
+          "@id": "urn:uuid:remedy-offer",
+          "assigner": "did:web:provider.example",
+          "target": "urn:asset:A",
+          "prohibition": [{
+            "action": "distribute",
+            "remedy": [{ "action": "notify" }]
+          }]
+        }"#;
+        let ingested = ingest_policy(doc).expect("must ingest");
+        assert_eq!(
+            ingested.policy.prohibitions[0].remedy,
+            vec![Rule::new("notify", vec![])],
+            "odrl:remedy must be ingested into engine::Rule::remedy, not dropped"
+        );
+
+        let req =
+            request_for(&ingested.policy, "urn:asset:A", "distribute", Claims::new(), DutyMode::Advise, Behaviour::Open);
+        let response = evaluate_request(&req);
+        assert_eq!(response.decision, WireDecision::Deny, "the prohibition itself still denies");
+        assert!(
+            response.duties.iter().any(|d| d.action == "notify" && !d.resolved),
+            "the unresolved remedy must be reported: {:?}",
+            response.duties
+        );
+    }
+
+    #[test]
+    fn an_obligation_naming_odrl_consequence_ingests_it_instead_of_being_dropped() {
+        let doc = r#"{
+          "@context": "http://www.w3.org/ns/odrl.jsonld",
+          "@type": "Offer",
+          "@id": "urn:uuid:consequence-offer",
+          "assigner": "did:web:provider.example",
+          "target": "urn:asset:A",
+          "permission": [{ "action": "use" }],
+          "obligation": [{
+            "action": "notify",
+            "consequence": [{ "action": "compensate" }]
+          }]
+        }"#;
+        let ingested = ingest_policy(doc).expect("must ingest");
+        assert_eq!(
+            ingested.policy.obligations[0].consequence,
+            Some(Box::new(Rule::new("compensate", vec![]))),
+            "odrl:consequence must be ingested into engine::Rule::consequence, not dropped"
+        );
+
+        // The obligation's own action ("notify") is unconstrained, so it
+        // never resolves either; its consequence is what `outstanding_duty`
+        // reports once it doesn't, and a policy-level obligation denies
+        // outright under DutyMode::Deny regardless of which permission was
+        // requested.
+        let req = request_for(&ingested.policy, "urn:asset:A", "use", Claims::new(), DutyMode::Deny, Behaviour::Open);
+        let response = evaluate_request(&req);
+        assert_eq!(response.decision, WireDecision::Deny);
+        assert!(
+            response.duties.iter().any(|d| d.action == "compensate" && !d.resolved),
+            "the consequence successor must be the duty actually reported once the obligation \
+             itself is unresolved: {:?}",
+            response.duties
+        );
+    }
+
+    #[test]
+    fn odrl_duty_odrl_remedy_odrl_consequence_in_the_wrong_domain_are_dropped_with_a_named_warning() {
+        // odrl:duty's domain is Permission, not Prohibition; putting one on
+        // a prohibition is an unmappable shape, not silently ignorable.
+        let doc = r#"{
+          "@context": "http://www.w3.org/ns/odrl.jsonld",
+          "@type": "Offer",
+          "@id": "urn:uuid:wrong-domain",
+          "assigner": "did:web:provider.example",
+          "target": "urn:asset:A",
+          "prohibition": [{
+            "action": "distribute",
+            "duty": [{ "action": "compensate" }]
+          }]
+        }"#;
+        let ingested = ingest_policy(doc).expect("must ingest");
+        assert!(ingested.policy.prohibitions[0].duty.is_empty());
+        assert!(
+            ingested
+                .warnings
+                .iter()
+                .any(|w| w.contains("odrl:duty") && w.contains("odrl:Permission")),
+            "a wrong-domain odrl:duty must be named in a warning, not silently dropped: {:?}",
+            ingested.warnings
+        );
     }
 }

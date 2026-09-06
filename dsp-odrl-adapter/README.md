@@ -142,7 +142,10 @@ job with its own "which offer applies" question.
 | `odrl:assigner` / `odrl:assignee` | `assigner` / `assignee` | opaque strings, as the engine already treats them |
 | `odrl:permission[]` | `permissions[]` | array order preserved — it is what `permission[0]` in the engine's `reason` trace means |
 | `odrl:prohibition[]` | `prohibitions[]` | |
-| `odrl:obligation[]` | `obligations[]` | policy-level duties, which is the only kind `engine` evaluates |
+| `odrl:obligation[]` | `obligations[]` | policy-level duties |
+| `odrl:duty[]` on a permission | `Rule.duty` (`odrl:duty`) | domain Permission; gates the permission (root README, "Duty, consequence and remedy") |
+| `odrl:remedy[]` on a prohibition | `Rule.remedy` (`odrl:remedy`) | domain Prohibition; never lifts the prohibition itself |
+| `odrl:consequence` on a Duty (a permission's duty, a prohibition's remedy, an obligation, or another consequence) | `Rule.consequence` (`odrl:consequence`) | domain Duty; one successor, chained to `engine::MAX_CONSEQUENCE_DEPTH` — several `odrl:consequence`s on one Duty keep only the first (see "What is warned about" below) |
 | `odrl:action` (term or `@id`) | `Rule.action` | compacted (see below) |
 | `odrl:action` as a node with `rdf:value` + `odrl:refinement` | `Rule.action` + `Rule.action_refinement` | several refinements become one `odrl:and` |
 | `odrl:target` on a rule | `Rule.target` (`odrl:target`) | |
@@ -284,9 +287,20 @@ adapter that silently discards what it could not map is an adapter you
 cannot audit.
 
 - a coerced value no term, prefix or `@vocab` resolves (taken verbatim);
-- a per-rule `odrl:duty` (this engine evaluates policy-level obligations
-  only — root README, Section 4.5);
+- `odrl:duty`, `odrl:remedy` or `odrl:consequence` appearing on the wrong
+  kind of rule — `odrl:duty`'s Vocabulary domain is Permission,
+  `odrl:remedy`'s is Prohibition, `odrl:consequence`'s is Duty (an
+  `odrl:obligation` rule counts as a Duty itself). All three *are*
+  ingested into `engine::Rule::duty`/`::remedy`/`::consequence` when they
+  appear on the kind of rule their domain actually names (root README,
+  "Duty, consequence and remedy") — this warning fires only for the
+  wrong-domain case, which is dropped rather than mapped to a field it
+  does not mean;
 - a rule naming several `odrl:action`s (only the first is ingested);
+- an `odrl:consequence` chain nested past `engine::MAX_CONSEQUENCE_DEPTH`
+  (dropped, since the engine itself would never walk that far), or more
+  than one `odrl:consequence` on the same Duty (`engine::Rule::consequence`
+  models a single successor, so only the first is ingested);
 - an `odrl:profile` declaration (not loaded, so any term it defines stays
   an opaque string) and `odrl:inheritFrom` (the engine now resolves policy
   inheritance for a caller that populates `WirePolicy.inherit_from` itself
@@ -320,9 +334,11 @@ rules, than its author wrote, which is the fail-open direction:
 - `IngestError::UnsupportedOperator(iri)` — a real ODRL 2.2 operator this
   engine has no evaluation for (`odrl:isA`, `odrl:hasPart`), or one a
   profile invented.
-- `IngestError::RuleIsABareReference(list, iri)` — a rule stated as
-  `{"@id": …}`, pointing at a body defined in a document this adapter does
-  not resolve. Skipping it would drop a whole prohibition on the floor.
+- `IngestError::RuleIsABareReference(list, iri)` — a rule, duty, remedy or
+  consequence stated as `{"@id": …}`, pointing at a body defined in a
+  document this adapter does not resolve. Skipping it would drop a whole
+  prohibition (or the duty gating a permission, or a prohibition's
+  remedy) on the floor.
 - `IngestError::ConstraintNestedTooDeep(depth)` — past
   `engine::MAX_CONSTRAINT_DEPTH`, the same bound the evaluator itself stops
   recursing at.

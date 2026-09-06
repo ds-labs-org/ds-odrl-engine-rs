@@ -931,10 +931,13 @@ The vendored corpus exercises none of the three, so the suite's 68/68
 result is unchanged, and `compliance-runner`'s `translate.rs` adapter is
 untouched: it does not read `odrl:duty`, `odrl:consequence` or
 `odrl:remedy` out of a test-suite policy and keeps resolving per-permission
-duty state at translate time from the SOTW graph, exactly as before. The
-same is true of `dsp-odrl-adapter`, which still drops a per-rule
-`odrl:duty` it finds in a DSP contract offer — with a warning that now says
-plainly this is an adapter limitation rather than an engine one.
+duty state at translate time from the SOTW graph, exactly as before.
+`dsp-odrl-adapter`, by contrast, **does** ingest all three now — it is the
+one production ingestion path for a real DSP contract offer in this
+workspace, so silently dropping a permission's `odrl:duty` there was a
+real fail-open, not merely an unexercised construct (see its own README's
+"What it ingests" and "What is warned about rather than silently
+dropped").
 
 ## Party-role evaluation (`odrl:assignee`), opt-in
 
