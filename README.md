@@ -2002,7 +2002,7 @@ record of what every tagged version of this engine *actually did* —
 measured by re-running this repo's two instruments against each tag, not
 by copying numbers out of commit messages.
 
-For each of the 26 tags from `v0.1.0` to `v0.17.1`:
+For each of the 27 tags from `v0.1.0` to `v0.18.0`:
 
 * **ODRL-Test-Suite** — that tag is checked out, and **that tag's own
   `compliance-runner`** is built and run against **the suite revision that
@@ -2090,6 +2090,7 @@ probes are agreed/disagreed/errored out of 136.
 | `v0.16.0` | 18:26 | 68/68 | 49 / 1 / 0 | 134 / 2 / 0 | native `inheritFrom`/conflict-voiding, `AssetCollection` membership, `xsd:duration` comparison, `odrl:andSequence`, `dsp-odrl-adapter` duty/consequence/remedy ingestion + IRI expansion + action pushdown |
 | `v0.17.0` | 21:51 | 68/68 | 50 / 0 / 0 | 136 / 0 / 0 | `agreementAssigneeClaim` opt-in, `odrl:Offer` assignee inertness, Release History dashboard repair |
 | `v0.17.1` | 22:04 | 68/68 | 50 / 0 / 0 | 136 / 0 / 0 | close the release-history staleness gap in ci.yml too, not just pages.yml |
+| `v0.18.0` | 11:28 | 68/68 | 50 / 0 / 0 | 136 / 0 / 0 | per-release Implemented/Partial/NotImplemented/OutOfScope chart, History page typography pass |
 
 Four things in that table are worth reading twice, because none of them
 came from a changelog:
@@ -2105,10 +2106,13 @@ came from a changelog:
   fixing. The replay re-detected a historical regression from the binary
   alone.
 * **Every tag from `v0.12.0` through `v0.15.0` shares one contradicted
-  count (5 rows, 10 probes), because none of them touch `engine/` at
-  all** (Release History itself, bench harnesses — see "byte-identical
-  `engine.wasm`" below). Only `v0.16.0` and `v0.17.0` move the count
-  again, each by adding real engine capability.
+  count (5 rows, 10 probes), and every tag from `v0.17.0` through
+  `v0.18.0` shares another (0 rows, 0 probes), because none of them touch
+  `engine/` at all** (Release History itself, bench harnesses, dashboard
+  presentation — see "byte-identical `engine.wasm`" below). Only
+  `v0.16.0` and `v0.17.0` move the count, each by adding real engine
+  capability; `v0.17.1` and `v0.18.0` are CI/presentation-only and
+  inherit `v0.17.0`'s numbers exactly.
 * **`v0.11.0`'s 12 contradicted rows today are exactly the coverage rows
   this study has added since it shipped, in full**:
   `assets.collections`, `conflict.fixed-strategy`,
@@ -2346,9 +2350,9 @@ whose `engine/` tree is byte-identical produce a **byte-identical**
 `v0.8.1`/`v0.9.0`, `v0.10.0`/`v0.10.1`, `v0.12.0`–`v0.15.0` (a group
 that grew from a pair to six tags across this repair, since none of
 `v0.13.0`, `v0.13.1`, `v0.14.0` or `v0.15.0` touch `engine/` either) and
-now `v0.17.0`/`v0.17.1` (a CI-only tag, per its own commit message) each
-share one SHA-256, and `git diff <a> <b> -- engine` is empty for every one
-of those pairs. The engine build is reproducible across checkouts on this
+now `v0.17.0`/`v0.17.1`/`v0.18.0` (a CI-only tag and a presentation-only
+tag, per their own commit messages) each share one SHA-256, and `git diff
+<a> <b> -- engine` is empty for every one of those pairs. The engine build is reproducible across checkouts on this
 toolchain.
 
 ## Current compliance summary
