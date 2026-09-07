@@ -81,6 +81,25 @@ for tag in $tags; do
   # the tag: re-syncing per tag is what makes the pass rate historical.
   git -C "$worktree_dir" submodule update --init --recursive --force >/dev/null
 
+  # Cargo.lock was gitignored for this repo's entire history until the fix
+  # that added this comment, so no tag before it carries one at all --
+  # `git clean` just removed any leftover copy from the previous tag's own
+  # build, and cargo would otherwise re-resolve every dependency fresh
+  # against *today's* crates.io index on every single invocation of this
+  # script, on any day. That is not "this tag's real historical build," it
+  # is whatever dependency graph happened to be current the moment someone
+  # ran this script -- which is exactly why CI's own rebuild disagreed
+  # with every committed engine_wasm_bytes/engine_wasm_sha256 even after
+  # the Rust *toolchain* was pinned. Copying the repo's own current,
+  # committed Cargo.lock into every historical worktree makes every tag's
+  # rebuild resolve against the one pinned dependency graph instead: still
+  # not a perfect historical replay (an old tag's Cargo.toml can require a
+  # version this lockfile does not carry, in which case cargo resolves
+  # only what it must), but reproducible across machines and across time,
+  # which a real historical claim needs more than it needs period-accurate
+  # dependency versions nobody is asserting anyway.
+  cp "$repo_root/Cargo.lock" "$worktree_dir/Cargo.lock"
+
   commit="$(git -C "$repo_root" rev-list -n1 "$tag")"
   date="$(git -C "$repo_root" log -1 --format=%cI "$commit")"
   subject="$(git -C "$repo_root" log -1 --format=%s "$commit")"

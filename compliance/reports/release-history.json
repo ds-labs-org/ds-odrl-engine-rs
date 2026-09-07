@@ -2320,6 +2320,39 @@
       },
       "summary": "site/full-compliance: stop the shortfall alert claiming a delta that isn't one",
       "tag": "v0.20.0"
+    },
+    {
+      "commit": "7f4d9540b55c365a1eaae8fb4644909fe0b255e6",
+      "compliance": {
+        "failed": 0,
+        "passed": 68,
+        "skipped": 0,
+        "total": 68
+      },
+      "contradicted_rows": [],
+      "coverage": {
+        "agreed": 136,
+        "contradicted": 0,
+        "disagreed": 0,
+        "documented": 2,
+        "envelope_rejected": 4,
+        "errored": 0,
+        "inconclusive": 0,
+        "probes_total": 136,
+        "verified": 50
+      },
+      "coverage_error": null,
+      "date": "2026-09-07T21:32:25+02:00",
+      "engine_wasm_bytes": 315509,
+      "engine_wasm_sha256": "cd6dee62f4d69dc755a0cb1442bacfea9c595c0760a193602b278ea34f7d0b21",
+      "row_status": {
+        "implemented": 11,
+        "not_implemented": 10,
+        "out_of_scope": 8,
+        "partial": 23
+      },
+      "summary": "release-history: include v0.20.0's own entry, and confirm the toolchain fix",
+      "tag": "v0.20.1"
     }
   ],
   "schema": "ds-odrl-engine-rs/release-history@2"
