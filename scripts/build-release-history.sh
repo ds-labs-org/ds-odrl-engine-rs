@@ -108,15 +108,20 @@ for tag in $tags; do
     cd "$worktree_dir"
     export CARGO_TARGET_DIR="$cargo_target_dir"
     # Panic locations (`#[track_caller]`, the file:line every `unwrap`/
-    # `assert!` embeds) bake in this worktree's own absolute path, which
-    # differs in length between machines -- confirmed the residual cause
-    # once the toolchain and dependency graph were both pinned: every
-    # single tag's rebuilt engine.wasm was reproducible to within exactly
-    # the character-count difference between this box's checkout path and
-    # the CI runner's. Remapping the actual path to a fixed placeholder
-    # makes the embedded string identical regardless of where either
-    # machine happens to have this repo checked out.
-    export RUSTFLAGS="--remap-path-prefix=$worktree_dir=/build/ds-odrl-engine-rs"
+    # `assert!` embeds) bake in absolute paths, and there are TWO
+    # different ones to normalize, confirmed one at a time rather than
+    # guessed: this worktree's own checkout path (this crate's own
+    # panics), and every dependency's source path under
+    # $CARGO_HOME/registry/src (their panics -- serde, wasmi's own
+    # transitive deps, etc, none of which live under the worktree at
+    # all). Remapping only the first still left CI's rebuild a few bytes
+    # off from every locally-built binary; reproduced the exact mechanism
+    # locally (two otherwise-identical builds under different CARGO_HOMEs
+    # produced different engine.wasm sizes) before trusting this fix, not
+    # after guessing at it a third time. Both remap to fixed placeholders
+    # regardless of where either machine actually has them.
+    cargo_home="${CARGO_HOME:-$HOME/.cargo}"
+    export RUSTFLAGS="--remap-path-prefix=$worktree_dir=/build/ds-odrl-engine-rs --remap-path-prefix=$cargo_home/registry/src=/build/cargo-registry"
     cargo build -p engine --target wasm32-unknown-unknown --release >/dev/null
     cp "$cargo_target_dir/wasm32-unknown-unknown/release/engine.wasm" "$out/engine.wasm"
 
