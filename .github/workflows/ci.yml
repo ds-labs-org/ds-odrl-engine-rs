@@ -86,25 +86,32 @@ jobs:
       # scratch, which is slow but still correct; slow-but-correct on an
       # infrequent path is the right tradeoff, not a reason to skip this
       # check on PRs.
-      # Keyed by Cargo.lock first, tag list second, and the restore-keys
-      # prefix embeds only the lock hash -- deliberately, after this exact
-      # cache silently defeated both the toolchain pin and the committed
-      # Cargo.lock fixes, twice, by restoring pre-fix engine.wasm binaries
-      # for every already-cached tag via a bare "v1-" prefix match that
-      # didn't care what had changed. A prefix keyed by lock_hash only
-      # falls back to a cache sharing today's exact Cargo.lock, so the
-      # intended fallback (reuse older tags' builds, build only a newly
-      # added tag) still works, but a future Cargo.lock/toolchain change
-      # forces a real rebuild instead of serving stale bytes again.
+      # Keyed by everything that can change what a cached tag's rebuild
+      # produces, tag list last, restore-keys embedding everything else --
+      # deliberately, after this exact cache mechanism silently defeated
+      # three separate real fixes in a row (the toolchain pin, the
+      # committed Cargo.lock, and this script's own --remap-path-prefix
+      # addition) by restoring pre-fix engine.wasm binaries for every
+      # already-cached tag, because each fix touched a file the cache key
+      # never hashed. "Build inputs" here means: Cargo.lock (the
+      # dependency graph), this build script (RUSTFLAGS, checkout/build
+      # steps), and this workflow file itself (the toolchain version pin
+      # lives in this same file, so hashing it here means a future
+      # toolchain bump is covered automatically, without having to
+      # remember to also touch this step). A restore-keys prefix built
+      # from that same combined hash only ever falls back to a cache
+      # sharing an identical build process, differing solely in which
+      # tags are already staged -- the one fallback actually intended
+      # (reuse older tags' builds, build only a newly added tag).
       # Renamed v1 -> v2 once: this repo's only existing v1 entries are
       # already known-bad.
-      - name: compute release-history cache key from Cargo.lock and the tag list
+      - name: compute release-history cache key from every build input
         id: release-history-key
         run: |
           tags_hash="$(git tag -l | sort -V | sha256sum | cut -d' ' -f1)"
-          lock_hash="$(sha256sum Cargo.lock | cut -d' ' -f1)"
-          echo "cache-key=release-history-stage-v2-${lock_hash}-${tags_hash}" >> "$GITHUB_OUTPUT"
-          echo "restore-prefix=release-history-stage-v2-${lock_hash}-" >> "$GITHUB_OUTPUT"
+          inputs_hash="$(cat Cargo.lock scripts/build-release-history.sh .github/workflows/ci.yml | sha256sum | cut -d' ' -f1)"
+          echo "cache-key=release-history-stage-v2-${inputs_hash}-${tags_hash}" >> "$GITHUB_OUTPUT"
+          echo "restore-prefix=release-history-stage-v2-${inputs_hash}-" >> "$GITHUB_OUTPUT"
 
       - name: restore release-history staging cache
         uses: actions/cache@v4

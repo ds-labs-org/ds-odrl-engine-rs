@@ -111,32 +111,38 @@ jobs:
       # staged, skip" logic never rebuilt them -- both fixes were
       # deployed and CI kept failing against the exact same stale bytes,
       # twice, until this was found. Hashing Cargo.lock into the key means
-      # any future dependency or toolchain-affecting change forces a real
-      # rebuild instead of silently serving cached bytes from before it.
-      # Renamed v1 -> v2 once, deliberately: this repo's only existing v1
-      # cache entries are already known-bad (built before this fix), and
-      # `restore-keys`' prefix match would happily hand them back if the
-      # namespace were not retired outright.
-      - name: compute release-history cache key from Cargo.lock and the tag list
+      # any future dependency, toolchain, or build-*process* change forces
+      # a real rebuild instead of silently serving cached bytes from
+      # before it -- "build inputs" here is Cargo.lock (the dependency
+      # graph), scripts/build-release-history.sh (RUSTFLAGS, checkout/
+      # build steps -- this exact cache also defeated that script's own
+      # --remap-path-prefix addition, hashing only Cargo.lock was one file
+      # short), and this workflow file itself (the toolchain version pin
+      # lives in this same file, so a future bump is covered
+      # automatically). Renamed v1 -> v2 once, deliberately: this repo's
+      # only existing v1 cache entries are already known-bad (built before
+      # this fix), and `restore-keys`' prefix match would happily hand
+      # them back if the namespace were not retired outright.
+      - name: compute release-history cache key from every build input
         id: release-history-key
         run: |
           tags_hash="$(git tag -l | sort -V | sha256sum | cut -d' ' -f1)"
-          lock_hash="$(sha256sum Cargo.lock | cut -d' ' -f1)"
-          echo "cache-key=release-history-stage-v2-${lock_hash}-${tags_hash}" >> "$GITHUB_OUTPUT"
-          echo "restore-prefix=release-history-stage-v2-${lock_hash}-" >> "$GITHUB_OUTPUT"
+          inputs_hash="$(cat Cargo.lock scripts/build-release-history.sh .github/workflows/pages.yml | sha256sum | cut -d' ' -f1)"
+          echo "cache-key=release-history-stage-v2-${inputs_hash}-${tags_hash}" >> "$GITHUB_OUTPUT"
+          echo "restore-prefix=release-history-stage-v2-${inputs_hash}-" >> "$GITHUB_OUTPUT"
 
       - name: restore release-history staging cache
         uses: actions/cache@v4
         with:
           path: target/release-history/stage
           key: ${{ steps.release-history-key.outputs.cache-key }}
-          # Deliberately keyed by lock_hash first: restore-keys' own prefix
-          # match only ever falls back to a cache sharing the SAME
-          # Cargo.lock, differing only in which tags it has already staged
-          # (the intended fallback -- reuse older tags' builds, build only
-          # a newly-added one). Putting tags_hash first, or leaving the
-          # prefix as a bare "v2-", would let a Cargo.lock change fall back
-          # to a stale-lockfile cache exactly as the v1 bug did.
+          # Deliberately keyed by inputs_hash first: restore-keys' own
+          # prefix match only ever falls back to a cache sharing the SAME
+          # build inputs, differing only in which tags it has already
+          # staged (the intended fallback -- reuse older tags' builds,
+          # build only a newly-added one). Putting tags_hash first, or
+          # leaving the prefix as a bare "v2-", would let any build-input
+          # change fall back to a stale cache exactly as the v1 bug did.
           restore-keys: |
             ${{ steps.release-history-key.outputs.restore-prefix }}
 
