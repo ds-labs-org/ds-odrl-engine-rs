@@ -2197,8 +2197,25 @@ note fails `cargo test --workspace` just as loudly as one losing it.
 It is presentation and catalog-data work only: **no engine decision logic
 changed**, and compliance stays 68/68/0/0 with `latest.md` and
 `latest.json` byte-identical. It is a **live snapshot** with no Release
-History integration in this pass — `release-history/` and the History
-page's own modules are untouched. And it never asserts full compliance
+History integration in this pass: `site/src/history_page.rs` and
+`site/src/history_catalog.rs` are untouched, and nothing on the History
+dashboard reads this axis.
+
+`release-history/` carries exactly one line of it, and that line could not
+be avoided. That generator compiles `site/src/coverage_catalog.rs` in by
+`#[path]` (see "Two things keep the artifact honest anyway" below), so
+`CatalogRow` gaining `full_compliance_gap` put the new field in the
+generator's crate too, where a `#[cfg(test)]` struct-literal fixture has
+to name every field. The fixture sets it to `None`. It compiles out of the
+shipped generator binary, adds no History-side consumption of the axis,
+and changes no output: `compliance/reports/release-history.json` is
+byte-identical, still SHA-256
+`32be2fbadf0e1f31eca3c7f2ad01a13425fe7e282ac70b4c18be9f7105686eaa`, and
+every release's derived row and probe tallies are unchanged. Keeping the
+directory boundary literally intact would have meant storing a row's own
+gap somewhere other than that row — a worse shared type bought for a
+cosmetic win — so the coupling is recorded here instead of designed
+around. And it never asserts full compliance
 over an answer it did not observe: a probe that errored at the ABI, or one
 whose live answer departed from its own documented behaviour (which
 `/coverage` would report as a contradiction, invalidating the premise the
