@@ -181,6 +181,25 @@ impl Release {
     }
     Some(compliance.passed as f64 / compliance.total as f64)
   }
+
+  /// Agreeing probes as a fraction of every probe replayed against this
+  /// release, 0.0..=1.0. This is a strictly finer-grained axis than
+  /// [`verified_fraction`]: that one counts a *row* as verified only when
+  /// every one of its own probes agrees, so one disagreeing probe among
+  /// several sinks the whole row; this one counts every individual probe.
+  /// A release can therefore show a lower row-verified share than probe-
+  /// agreement share (a handful of rows each losing one probe drags rows
+  /// down further than probes), which is exactly why this is a second,
+  /// separate line rather than a restatement of the first. `None` when
+  /// this release has no tally at all, same reasoning as
+  /// [`verified_fraction`] -- rendered as "not addressable", never 0%.
+  pub fn probe_agreement_fraction(&self) -> Option<f64> {
+    let coverage = self.coverage.as_ref()?;
+    if coverage.probes_total == 0 {
+      return None;
+    }
+    Some(coverage.agreed as f64 / coverage.probes_total as f64)
+  }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -412,12 +431,42 @@ mod tests {
     assert!(!unaddressable.is_empty(), "this history contains a real pre-v0.6.0 wire break");
     for release in unaddressable {
       assert_eq!(release.verified_fraction(), None);
+      assert_eq!(release.probe_agreement_fraction(), None);
       assert_eq!(release.probeable_rows(), 0);
       assert!(release.coverage_error.as_ref().is_some_and(|e| !e.is_empty()));
       // It must still carry its own historical compliance number: the
       // wire break stops the *coverage* replay, not the suite run that
       // release actually performed.
       assert!(release.compliance.is_some());
+    }
+  }
+
+  #[test]
+  fn probe_agreement_fraction_is_a_finer_grain_than_verified_fraction() {
+    let file = committed();
+    let addressable: Vec<&Release> = file.releases.iter().filter(|r| r.coverage.is_some()).collect();
+    assert!(addressable.len() >= 2, "need at least two addressable releases to compare");
+    for release in addressable {
+      let coverage = release.coverage.as_ref().unwrap();
+      let probe_fraction = release.probe_agreement_fraction().unwrap_or_else(|| panic!("{}: expected Some", release.tag));
+      // Computed directly from the raw tally, not re-derived through any
+      // other method -- this is the one thing this test actually pins.
+      assert_eq!(probe_fraction, coverage.agreed as f64 / coverage.probes_total as f64, "{}", release.tag);
+      assert!((0.0..=1.0).contains(&probe_fraction), "{}: {probe_fraction} out of range", release.tag);
+      // The real, load-bearing claim in this metric's own doc comment: a
+      // row only counts as verified when every one of its probes agrees,
+      // so the row-level share can never exceed the probe-level share for
+      // the same release -- one disagreeing probe cannot cost less than
+      // one row. Not asserting strict inequality: a release with zero
+      // disagreement anywhere makes the two exactly equal, which is a
+      // real, valid case (see the newest release), not a bug.
+      if let Some(row_fraction) = release.verified_fraction() {
+        assert!(
+          row_fraction <= probe_fraction + 1e-9,
+          "{}: row-verified {row_fraction} exceeded probe-agreed {probe_fraction}",
+          release.tag
+        );
+      }
     }
   }
 

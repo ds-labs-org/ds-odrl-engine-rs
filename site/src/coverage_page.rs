@@ -185,6 +185,9 @@ const COVERAGE_CSS: &str = r#"
 .ds-oe-cov-stat-value.is-contradicted { color: #c9190b; }
 .ds-oe-cov-stat-value.is-inconclusive { color: #c46100; }
 .ds-oe-cov-stat-value.is-documented { color: #0066cc; }
+.ds-oe-cov-stat-value.is-agreed { color: #005f60; }
+.ds-oe-cov-stat-value.is-disagreed { color: #c9190b; }
+.ds-oe-cov-stat-value.is-errored { color: #6753ac; }
 "#;
 
 /// The documented status a row carries, as a PatternFly label.
@@ -541,9 +544,20 @@ fn stat(value: u64, label: &str, modifier: &str) -> Html {
   )
 }
 
-/// Two stat rows, one per axis: what this study *documents*, and what this
-/// run *observed*. Reuses `pages::STAT_ROW_CSS`'s layout and adds only the
-/// per-bucket colours this page needs.
+/// Three stat rows, one per axis: what this study *documents* (rows, by
+/// their catalog status), what this run *observed* at row granularity
+/// (a row counts as verified only when every one of its own probes
+/// agrees), and what this run *observed* at probe granularity — the
+/// measure a reader actually asked for by name: how many of the
+/// individual probes this browser just ran agreed with what they
+/// predicted, disagreed, or could not even be judged (a deserializer
+/// rejection or similar, distinct from a probe that ran and disagreed).
+/// The third row is a strictly finer grain than the second: one
+/// disagreeing probe sinks its whole row in the row-level count above,
+/// but only costs one probe here — see [`Release::probe_agreement_fraction`]
+/// in `history_catalog.rs` for the same distinction drawn out historically.
+/// Reuses `pages::STAT_ROW_CSS`'s layout and adds only the per-bucket
+/// colours this page needs.
 fn stat_rows(report: &CoverageReport) -> Html {
   html!(
     <>
@@ -555,10 +569,16 @@ fn stat_rows(report: &CoverageReport) -> Html {
         { stat(report.out_of_scope, "out of scope", "is-out-of-scope") }
       </div>
       <div class="ds-oe-stats">
-        { stat(report.verified, "verified live", "is-verified") }
-        { stat(report.contradicted, "contradicted", "is-contradicted") }
-        { stat(report.inconclusive, "inconclusive", "is-inconclusive") }
+        { stat(report.verified, "rows verified live", "is-verified") }
+        { stat(report.contradicted, "rows contradicted", "is-contradicted") }
+        { stat(report.inconclusive, "rows inconclusive", "is-inconclusive") }
         { stat(report.documented, "documented claims", "is-documented") }
+      </div>
+      <div class="ds-oe-stats">
+        { stat(report.total_probes, "probes run", "is-total") }
+        { stat(report.agreed, "probes agreed", "is-agreed") }
+        { stat(report.disagreed, "probes disagreed", "is-disagreed") }
+        { stat(report.errored, "probes errored", "is-errored") }
       </div>
     </>
   )

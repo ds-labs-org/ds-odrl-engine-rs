@@ -179,6 +179,14 @@ const HISTORY_CSS: &str = r#"
 /// drift apart.
 const COMPLIANCE_COLOR: &str = "#0066cc";
 const COVERAGE_COLOR: &str = "#3e8635";
+/// A third, genuinely distinct hue from both the line chart's own blue/
+/// green pair above and the stacked chart's amber/red/grey below (those
+/// mean different things -- a documented-status classification, not a
+/// pass rate -- so reusing one of those colours here would visually
+/// imply a connection that does not exist). PatternFly's own purple
+/// chart hue, chosen for exactly this "yet another independent series"
+/// role.
+const PROBE_AGREEMENT_COLOR: &str = "#8f4bd8";
 
 /// Stacked-status-chart colours, one per [`RowStatusBreakdown`] field.
 /// Reused from elsewhere on this same page rather than invented fresh,
@@ -241,9 +249,12 @@ fn series_dots(points: &[(usize, f64)], count: usize, color: &'static str) -> Ht
   )
 }
 
-/// Two series over the release axis: the ODRL-Test-Suite pass rate each
-/// release actually recorded, and the share of probeable vocabulary rows
-/// that release's own binary verifies against today's catalog.
+/// Three series over the release axis: the ODRL-Test-Suite pass rate each
+/// release actually recorded, the share of probeable vocabulary *rows*
+/// that release's own binary verifies against today's catalog, and the
+/// share of individual *probes* (a strictly finer grain -- see
+/// [`Release::probe_agreement_fraction`]'s own doc comment for why a row
+/// can under-count relative to its own probes) that agree.
 ///
 /// Drawn as inline SVG with no charting library, matching this site's
 /// existing diagrams: it has to render in a theme it does not control and
@@ -255,6 +266,8 @@ fn chart(file: &HistoryFile) -> Html {
     file.releases.iter().enumerate().filter_map(|(i, r)| r.compliance_fraction().map(|f| (i, f))).collect();
   let coverage: Vec<(usize, f64)> =
     file.releases.iter().enumerate().filter_map(|(i, r)| r.verified_fraction().map(|f| (i, f))).collect();
+  let probe_agreement: Vec<(usize, f64)> =
+    file.releases.iter().enumerate().filter_map(|(i, r)| r.probe_agreement_fraction().map(|f| (i, f))).collect();
 
   // The contiguous leading run of releases the current catalog cannot
   // address, shaded and labelled rather than left as a mysterious gap in
@@ -278,7 +291,7 @@ fn chart(file: &HistoryFile) -> Html {
   html!(
     <>
       <svg class="ds-oe-hist-chart" viewBox={format!("0 0 {CHART_W} {CHART_H}")} role="img"
-           aria-label="Per-release ODRL-Test-Suite pass rate and share of probeable ODRL 2.2 vocabulary rows verified">
+           aria-label="Per-release ODRL-Test-Suite pass rate, share of probeable ODRL 2.2 vocabulary rows verified, and share of individual probes agreed">
         { for [0.0, 0.25, 0.5, 0.75, 1.0].iter().map(|f| html!(
             <>
               <line x1={format!("{PLOT_LEFT:.1}")} y1={format!("{:.1}", y_at(*f))}
@@ -302,6 +315,11 @@ fn chart(file: &HistoryFile) -> Html {
             <polyline points={points} fill="none" stroke={COVERAGE_COLOR} stroke-width="2" />
           )) }
         { series_dots(&coverage, count, COVERAGE_COLOR) }
+
+        { for polyline_points(&probe_agreement, count).map(|points| html!(
+            <polyline points={points} fill="none" stroke={PROBE_AGREEMENT_COLOR} stroke-width="2" />
+          )) }
+        { series_dots(&probe_agreement, count, PROBE_AGREEMENT_COLOR) }
 
         { for file.releases.iter().enumerate().map(|(i, release)| {
             // Every other label at 19 releases, or they collide.
@@ -335,6 +353,10 @@ fn chart(file: &HistoryFile) -> Html {
         <span>
           <span class="ds-oe-hist-swatch" style={format!("background: {COVERAGE_COLOR};")}></span>
           { "vocabulary rows verified, out of the rows today's catalog can probe" }
+        </span>
+        <span>
+          <span class="ds-oe-hist-swatch" style={format!("background: {PROBE_AGREEMENT_COLOR};")}></span>
+          { "individual probes agreed, out of every probe replayed against that release — finer-grained than the row line above, since one disagreeing probe sinks its whole row but counts as only one probe here" }
         </span>
       </div>
     </>
