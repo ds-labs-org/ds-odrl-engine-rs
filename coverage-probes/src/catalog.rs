@@ -1006,21 +1006,30 @@ fn operator_probes() -> Vec<Probe> {
             "no permission of policy 'probe' covered and matched requested action 'use' (closed default). \
              This row's one genuine shortfall, and the reason its Partial status is real: its two sibling \
              probes (op-eq-single, op-eq-no-concat) already behave exactly as the spec requires.",
-            "Vocabulary 3.16.1 defines eq as \"Indicating that a given value equals the right operand\" and \
-             does NOT prefix it \"A set-based operator\" -- unlike 3.16.7-3.16.12 (isA, hasPart, isPartOf, \
-             isAllOf, isAnyOf, isNoneOf), every one of which is. Information Model 2.5.1 restricts \
-             list-valued operands to exactly those: \"A Constraint MUST have either: one rightOperand \
-             property value of type: literal, or IRI, or RightOperand; or for set-based operators; list of \
-             literals, or list of IRIs, or list of RightOperands\", echoed by Vocabulary 3.14.7. ODRL's \
-             comparison model is scalar-to-scalar, and it already supplies isAnyOf (3.16.11) for exactly \
-             the membership question this engine folds into eq. So the two-element value [FR, DE] does not \
-             equal the literal DE, the Constraint is not satisfied, and the closed-world config denies. \
-             COUNTER-READING, named rather than buried: ODRL never states that a leftOperand resolves to \
-             exactly one value, and evaluators over RDF commonly adopt an existential reading under which \
-             any one matching value satisfies eq. That reading is defensible; it is judged the weaker one \
-             because it makes eq silently widen a permission (a dual national satisfies 'nationality eq \
-             DE') -- a fail-open widening of what the policy author wrote -- and because it collapses the \
-             relational/set-based distinction the Vocabulary itself draws.",
+            "Vocabulary 3.16.1 defines eq as \"Indicating that a given value equals the right operand of \
+             the Constraint\" and does NOT prefix it \"A set-based operator\" -- unlike 3.16.7-3.16.12 \
+             (isA, hasPart, isPartOf, isAllOf, isAnyOf, isNoneOf), every one of which is. What that \
+             distinction does NOT establish, said plainly because the nearest citation for it is a trap: \
+             Information Model 2.5.1's \"A Constraint MUST have either: one rightOperand property value \
+             of type: literal, or IRI, or RightOperand; or for set-based operators; list of literals, or \
+             list of IRIs, or list of RightOperands\" -- and Vocabulary 3.14.7's Note echoing it -- \
+             governs the RIGHT operand's cardinality, whereas the divergence this probe demonstrates is \
+             on the left/claim side. There \
+             2.5.1 says only that \"The leftOperand property values are defined as instances of the \
+             LeftOperand class\" and that those instances \"MUST clearly be defined to indicate the \
+             semantics of the Constraint\" -- no cardinality at all. So no clause of ODRL literally \
+             forbids the claim [FR, DE], and this ideal is a judgment between two readings rather than a \
+             rule the engine breaks. Two things carry it. First, eq asks equality while 3.16.11 already \
+             supplies isAnyOf (\"A set-based operator indicating that a given value is any of the right \
+             operand of the Constraint\") for exactly the membership question this engine folds into eq: \
+             the membership reading erases a distinction the Vocabulary draws in its own operator table, \
+             and leaves an author who meant strict equality no operator left to write it with. Second, \
+             the direction of the error -- membership only ever widens a permission (a dual national \
+             satisfies 'nationality eq DE'), so where the spec is silent the fail-open branch is the one \
+             to refuse. COUNTER-READING, named rather than buried: evaluators over RDF commonly adopt an \
+             existential reading under which any one matching value satisfies eq, and given 2.5.1's \
+             silence on leftOperand cardinality that reading is defensible ODRL rather than a violation \
+             of it. It is judged the weaker one on the two grounds above.",
         )),
     );
 
