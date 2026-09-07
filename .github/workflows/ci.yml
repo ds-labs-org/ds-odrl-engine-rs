@@ -21,7 +21,18 @@ jobs:
           # `.github/workflows/pages.yml`'s identical checkout step.
           fetch-depth: 0
 
-      - uses: dtolnay/rust-toolchain@stable
+      # Pinned to an exact version, not `@stable` -- see
+      # `.github/workflows/pages.yml`'s identical pin for why: this job's
+      # own "compliance reports are up to date" step diffs
+      # release-history.json, which records the exact byte size/SHA-256 of
+      # every historical tag's rebuilt engine.wasm, and `@stable` floating
+      # to whatever the runner's current release happens to be made every
+      # single one of those disagree with the committed file -- a
+      # toolchain artifact, not real content drift (confirmed:
+      # `git diff -- engine` was empty across every affected tag). Bumping
+      # this version is a real action that changes what
+      # release-history.json regenerates to, not routine maintenance.
+      - uses: dtolnay/rust-toolchain@1.96.1
         with:
           # scripts/build-release-history.sh builds every historical tag's
           # engine.wasm for this target.

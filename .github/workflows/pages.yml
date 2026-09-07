@@ -52,7 +52,20 @@ jobs:
           # rebuild below a silent no-op rather than a build failure.
           fetch-depth: 0
 
-      - uses: dtolnay/rust-toolchain@stable
+      # Pinned to an exact version, not `@stable` -- this job also rebuilds
+      # every historical tag's engine.wasm (scripts/build-release-history.sh
+      # below), and release-history.json commits the exact byte size/SHA-256
+      # of each. `@stable` floats to whatever the runner's current stable
+      # release is on the day CI happens to run, which produced a different
+      # engine.wasm for every single historical tag than the ones committed
+      # locally (confirmed: CI's rebuild disagreed with every committed
+      # engine_wasm_bytes/engine_wasm_sha256, on toolchain differences alone
+      # -- not a real content drift, `git diff -- engine` was empty). This
+      # version must match whatever `rustc --version` produced the currently
+      # committed compliance/reports/release-history.json; bumping it is a
+      # real action, not routine maintenance -- see the CI workflow's own
+      # identical comment before doing so.
+      - uses: dtolnay/rust-toolchain@1.96.1
         with:
           targets: wasm32-unknown-unknown
 
