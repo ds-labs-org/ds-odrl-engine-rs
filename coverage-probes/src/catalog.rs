@@ -443,10 +443,12 @@ fn action_probes() -> Vec<Probe> {
              FORK, shipped vs rejected: the shipped (A) reading is vocabulary-aware -- the bare tokens \
              use/play/display ARE the odrl: terms, which is what the JSON-LD context makes them, and \
              odrl:play odrl:includedIn odrl:use is a normative Vocabulary assertion. The rejected (B) reading \
-             is closed-profile: Terminology calls the Common Vocabulary \"A set of generic terms that MAY be \
-             re-used by ODRL Profiles\" (may, not must) and 3.3's profile mechanism has each profile declare \
-             its own actions' includedIn parents, so these would be opaque host tokens nothing external \
-             closes -- making the ideal Deny, i.e. exactly current, and this row fully compliant today. (A) \
+             is closed-profile: Terminology defines the Common Vocabulary as \"A set of generic terms that \
+             may be re-used by ODRL Profiles\" -- lowercase in a definition list, not one of the uppercase \
+             RFC 2119 keywords 1.2 Conformance reserves, so descriptive rather than a granted permission -- \
+             and 3.3's profile mechanism has each profile declare its own actions' includedIn parents, so \
+             these would be opaque host tokens nothing external closes -- making the ideal Deny, i.e. \
+             exactly current, and this row fully compliant today. (A) \
              ships because a normative Vocabulary triple about a term the request itself names is evidence \
              an evaluator has no licence to discard.",
         )),
