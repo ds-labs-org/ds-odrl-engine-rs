@@ -14,7 +14,17 @@ use serde_json::Value;
 /// Version tag for this file's shape, checked by the site before it trusts
 /// a fetched artifact (a stale, browser-cached copy of an older shape must
 /// fail loudly rather than half-parse).
-pub const SCHEMA: &str = "ds-odrl-engine-rs/odrl-coverage@1";
+///
+/// Bumped `@1` -> `@2` when [`Probe::ideal`] and [`Row::full_compliance_gap`]
+/// were added: a real shape change (two new fields, one on every probe and
+/// one on every row), not merely a new optional leaf an older parser would
+/// shrug off. A stale cached `@1` artifact must fail loudly rather than
+/// parse with the whole full-compliance axis silently absent everywhere --
+/// which would render as "every implementable row meets ODRL 2.2 in full",
+/// the single most misleading sentence that axis could produce. Same
+/// reasoning and the same convention as `release-history/src/render.rs`'s
+/// own `@1` -> `@2` bump.
+pub const SCHEMA: &str = "ds-odrl-engine-rs/odrl-coverage@2";
 
 pub const GENERATED_BY: &str = "coverage-probes (cargo run -p coverage-probes --release)";
 
@@ -57,6 +67,20 @@ pub struct Row {
     /// A limit on what this row's own probes establish, rendered on the row
     /// in the same place `documented_because` is.
     pub caveat: Option<String>,
+    /// **The full-compliance axis, at row level.** Non-null on exactly one
+    /// row: `party.collections`, which falls short of ODRL 2.2 by
+    /// construction rather than by any observable wrong answer, because the
+    /// wire contract carries no PartyCollection/`odrl:partOf` concept at
+    /// all and so no request can even pose the question.
+    ///
+    /// It is deliberately *not* the same field as `documented_because`,
+    /// which answers "why is there no probe here" for the `/coverage`
+    /// page's own question (does the engine match its documentation). This
+    /// answers a different one: what wire-contract addition full ODRL 2.2
+    /// support would need. A row carrying this is a permanent "falls
+    /// short" for `/full-compliance`, judged at row level rather than by
+    /// any probe.
+    pub full_compliance_gap: Option<String>,
 }
 
 /// What the browser must observe for one probe to agree with its row.
@@ -89,6 +113,43 @@ pub struct DutyExpect {
     pub source: Option<String>,
 }
 
+/// What an engine that fully implemented ODRL 2.2 would answer to one
+/// probe's exact request.
+///
+/// **Its presence on a probe IS the falls-short judgment.** A probe
+/// carrying `ideal: null` is one whose documented expectation already *is*
+/// the spec-ideal answer -- which is true of a great many probes on rows
+/// documented `Partial`, because a row is partial for one specific reason
+/// and its other probes usually demonstrate perfectly correct behaviour.
+///
+/// Deliberately **not** the [`Expect`] type beside it, which is a *judging*
+/// contract: `reason_contains`/`reason_excludes` are substring assertions
+/// run against a live response, and every one of them must hold or the
+/// probe disagrees. Nothing here is ever run against anything -- no engine
+/// in existence produces these answers, which is the entire point -- so
+/// `reason` is prose stating what the compliant engine's reason would have
+/// to say (sometimes "unchanged; what differs is the `duties` list"), and
+/// giving it `Expect`'s shape would falsely advertise it as machine-
+/// checkable. `decision` is the one field that is compared: it is always
+/// one of `Allow`/`Deny`/`Error`.
+#[derive(Debug, Clone, Serialize)]
+pub struct Ideal {
+    /// `Allow` | `Deny` | `Error` -- what full ODRL 2.2 compliance
+    /// requires for this exact request. Equal to `expect.decision` on
+    /// exactly one probe, where what falls short is the reported `duties`
+    /// list rather than the decision.
+    pub decision: &'static str,
+    /// What a compliant engine's `reason` would say, and where the current
+    /// expectation departs from it. Prose for a reader, never a substring
+    /// test.
+    pub reason: String,
+    /// The ODRL 2.2 Information Model / Vocabulary clauses that settle it,
+    /// quoted rather than paraphrased -- and, where the clauses genuinely
+    /// admit more than one reading, the reading shipped here alongside the
+    /// one rejected, named rather than buried.
+    pub spec_citation: String,
+}
+
 /// One `evaluate()` call, and the outcome that would demonstrate its row's
 /// claim.
 #[derive(Debug, Clone, Serialize)]
@@ -103,6 +164,12 @@ pub struct Probe {
     /// The complete, already-patched Section 5.2 request.
     pub request: Value,
     pub expect: Expect,
+    /// **The full-compliance axis, at probe level.** Non-null only where
+    /// this engine's real behaviour falls short of what ODRL 2.2 requires
+    /// for this exact request -- see [`Ideal`]. `null` on every probe whose
+    /// documented expectation is already the spec-ideal answer, which
+    /// includes every probe on every `Implemented` row by construction.
+    pub ideal: Option<Ideal>,
 }
 
 #[derive(Debug, Serialize)]
@@ -179,6 +246,7 @@ mod tests {
                 duties: None,
                 dataset_id: None,
             },
+            ideal: None,
         }
     }
 

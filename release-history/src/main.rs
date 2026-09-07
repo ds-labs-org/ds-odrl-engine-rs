@@ -573,6 +573,13 @@ mod tests {
             probe_ids: probe_ids.iter().map(|s| s.to_string()).collect(),
             documented_because: if probe_ids.is_empty() { Some("no wire request can encode this".to_string()) } else { None },
             caveat: None,
+            // The /full-compliance axis plays no part in
+            // `classify_row_for_release`, which reads only `row.status` and
+            // the row's own probe outcomes. Carried here solely because the
+            // shared `CatalogRow` type gained the field -- this dashboard
+            // does not consume it, and no History-side integration was in
+            // scope for that pass.
+            full_compliance_gap: None,
         }
     }
 

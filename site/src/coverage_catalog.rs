@@ -34,7 +34,12 @@ pub const COVERAGE_URL: &str = "compliance-data/latest-coverage.json";
 /// rather than assumed: `copy-file` assets are not content-hashed, so a
 /// returning visitor can be served a browser-cached artifact of an older
 /// shape, and that must fail loudly instead of half-parsing.
-pub const COVERAGE_SCHEMA: &str = "ds-odrl-engine-rs/odrl-coverage@1";
+///
+/// Bumped `@1` -> `@2` alongside [`ProbeFixture::ideal`] and
+/// [`CatalogRow::full_compliance_gap`] -- see `coverage-probes/src/render.rs`'s
+/// own `SCHEMA` doc comment for why a silently-absent full-compliance axis
+/// is the one stale-cache failure that must never be quiet.
+pub const COVERAGE_SCHEMA: &str = "ds-odrl-engine-rs/odrl-coverage@2";
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct Category {
@@ -57,11 +62,32 @@ pub struct CatalogRow {
   pub probe_ids: Vec<String>,
   pub documented_because: Option<String>,
   pub caveat: Option<String>,
+  /// The full-compliance axis at row level: what wire-contract addition
+  /// full ODRL 2.2 support would need, on a row where no request can pose
+  /// the question at all. Non-null on exactly one row
+  /// (`party.collections`), which makes it a permanent *falls short* for
+  /// `/full-compliance` judged at row level rather than by any probe.
+  ///
+  /// `#[serde(default)]` so this module's own hand-written fixture JSON
+  /// stays readable, not so a real catalog may omit it -- an artifact
+  /// predating the field is rejected by the schema check above, which is
+  /// the whole reason that check exists.
+  #[serde(default)]
+  pub full_compliance_gap: Option<String>,
 }
 
 impl CatalogRow {
   pub fn is_documented_only(&self) -> bool {
     self.probe_ids.is_empty()
+  }
+
+  /// Whether this row is in scope for `/full-compliance` at all: the seven
+  /// `OutOfScope` rows are excluded outright (they sit outside the wire
+  /// contract, which is not the same thing as falling short of the spec),
+  /// and the eleven `Implemented` ones meet it trivially. What remains is
+  /// the 34 implementable rows that page actually asks about.
+  pub fn is_implementable(&self) -> bool {
+    matches!(self.status.as_str(), "Partial" | "NotImplemented")
   }
 }
 
@@ -85,6 +111,33 @@ pub struct Expectation {
   pub dataset_id: Option<String>,
 }
 
+/// What an engine that fully implemented ODRL 2.2 would answer to one
+/// probe's exact request — the `/full-compliance` axis, which asks a
+/// different question from the one every other type in this module serves.
+///
+/// **Its presence is the judgment**: a probe carrying an `Ideal` falls
+/// short of full ODRL 2.2, and one carrying `None` already meets it. That
+/// is not derivable by comparing `decision` against `Expectation::decision`
+/// — on one probe they are equal and what falls short is the reported
+/// duties list — so nothing should try.
+///
+/// Deliberately **not** an [`Expectation`]: that type is a judging
+/// contract, every clause of which is run against a live response by
+/// [`classify_probe`]. Nothing here is ever run against anything. No engine
+/// in existence produces these answers, which is the entire point, so
+/// `reason` is prose for a reader and only `decision` is comparable.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct Ideal {
+  /// `Allow` | `Deny` | `Error`.
+  pub decision: String,
+  /// What a compliant engine's reason would say, and where the current
+  /// expectation departs from it. Prose, never a substring test.
+  pub reason: String,
+  /// The ODRL 2.2 clauses that settle it, quoted — and, where they admit
+  /// more than one reading, the shipped reading alongside the rejected one.
+  pub spec_citation: String,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct ProbeFixture {
   pub id: String,
@@ -95,6 +148,15 @@ pub struct ProbeFixture {
   /// Kept as raw bytes — see this module's header. Never round-tripped.
   pub request: Box<RawValue>,
   pub expect: Expectation,
+  /// The full-compliance axis at probe level — see [`Ideal`]. `None` on
+  /// every probe whose documented expectation is already the spec-ideal
+  /// answer, which includes every probe on every `Implemented` row.
+  ///
+  /// `#[serde(default)]` for the same reason `full_compliance_gap` has it:
+  /// this module's fixture JSON, not a licence for a real catalog to omit
+  /// the field.
+  #[serde(default)]
+  pub ideal: Option<Ideal>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -508,6 +570,7 @@ mod tests {
       probe_ids: probe_ids.iter().map(|s| s.to_string()).collect(),
       documented_because: documented.map(str::to_string),
       caveat: None,
+      full_compliance_gap: None,
     }
   }
 
@@ -684,7 +747,7 @@ mod tests {
 
   #[test]
   fn a_row_referencing_an_unknown_probe_is_rejected_rather_than_silently_probing_nothing() {
-    let text = r#"{"schema":"ds-odrl-engine-rs/odrl-coverage@1","generated_by":"g","spec":"s",
+    let text = r#"{"schema":"ds-odrl-engine-rs/odrl-coverage@2","generated_by":"g","spec":"s",
       "source_analysis":"a","note":"n","categories":[],
       "rows":[{"id":"r","category":"actions","term":"t","status":"Partial","why":"w","evidence":"e",
                "asserts":"a","probe_ids":["nope"],"documented_because":null,"caveat":null}],
@@ -698,7 +761,7 @@ mod tests {
   fn a_row_that_is_both_probed_and_documented_or_neither_is_rejected() {
     let with_rows = |row: &str| {
       format!(
-        r#"{{"schema":"ds-odrl-engine-rs/odrl-coverage@1","generated_by":"g","spec":"s",
+        r#"{{"schema":"ds-odrl-engine-rs/odrl-coverage@2","generated_by":"g","spec":"s",
            "source_analysis":"a","note":"n","categories":[],"rows":[{row}],
            "probes":[{{"id":"p","kind":"positive","title":"t","asserts":"a","falsified_by":"f","request":{{}},
            "expect":{{"decision":"Allow","reason_contains":[],"reason_excludes":[],"duties":null,
@@ -960,6 +1023,64 @@ mod tests {
       assert_eq!(contradicted, expected_rows, "perturbing {probe_id}");
       assert_eq!(report.contradicted, expected_rows.len() as u64, "perturbing {probe_id}");
       assert_eq!(report.disagreed, 1);
+    }
+  }
+
+  // ---- the full-compliance axis, as this page parses it ---------------
+
+  /// The axis's shape survives the JSON round trip: the committed artifact
+  /// really carries an `ideal` on the probes that fall short and on no
+  /// others, and a `full_compliance_gap` on exactly one row. Asserted here
+  /// as well as in the generator because `#[serde(default)]` on both
+  /// fields means a shape regression would otherwise parse into silent
+  /// `None`s — reading, on the page, as "nothing falls short of ODRL 2.2".
+  #[test]
+  fn the_committed_catalog_carries_the_full_compliance_axis_on_both_of_its_halves() {
+    let file = parse_coverage_catalog(LATEST_COVERAGE_JSON).expect("the committed artifact parses");
+
+    let falls_short: Vec<&str> =
+      file.probes.iter().filter(|p| p.ideal.is_some()).map(|p| p.id.as_str()).collect();
+    assert_eq!(falls_short.len(), 15, "fifteen probes are judged short of full ODRL 2.2: {falls_short:?}");
+
+    for probe in file.probes.iter().filter(|p| p.ideal.is_some()) {
+      let ideal = probe.ideal.as_ref().expect("just filtered");
+      assert!(matches!(ideal.decision.as_str(), "Allow" | "Deny" | "Error"), "{}", probe.id);
+      assert!(!ideal.reason.is_empty(), "{}", probe.id);
+      assert!(!ideal.spec_citation.is_empty(), "{}", probe.id);
+    }
+
+    let with_gap: Vec<&str> =
+      file.rows.iter().filter(|r| r.full_compliance_gap.is_some()).map(|r| r.id.as_str()).collect();
+    assert_eq!(with_gap, ["party.collections"]);
+  }
+
+  /// The scope rule that keeps this axis honest, checked against the
+  /// artifact this page actually fetches: an `Implemented` row's probes
+  /// carry no ideal (such a row meets full spec by definition), and every
+  /// implementable row that DOES carry falls-short evidence carries it on
+  /// a probe the row itself names — never on some other row's probe that
+  /// happens to be in the file.
+  #[test]
+  fn no_implemented_row_falls_short_and_every_falls_short_probe_belongs_to_an_implementable_row() {
+    let file = parse_coverage_catalog(LATEST_COVERAGE_JSON).expect("the committed artifact parses");
+    let ideal_of = |id: &str| file.probes.iter().find(|p| p.id == id).is_some_and(|p| p.ideal.is_some());
+
+    for row in file.rows.iter().filter(|r| r.status == "Implemented") {
+      for probe_id in &row.probe_ids {
+        assert!(!ideal_of(probe_id), "Implemented row {} names falls-short probe {probe_id}", row.id);
+      }
+    }
+
+    let implementable: Vec<&CatalogRow> = file.rows.iter().filter(|r| r.is_implementable()).collect();
+    assert_eq!(implementable.len(), 34, "the axis is scoped to 34 rows of the catalog's 52");
+
+    for probe in file.probes.iter().filter(|p| p.ideal.is_some()) {
+      assert!(
+        implementable.iter().any(|row| row.probe_ids.contains(&probe.id)),
+        "probe {} falls short of full spec but no Partial/NotImplemented row names it, so nothing on \
+         /full-compliance would ever render it",
+        probe.id
+      );
     }
   }
 

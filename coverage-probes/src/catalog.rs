@@ -23,6 +23,34 @@
 //! supported half of every request is exactly Section 5.2's shape, checked
 //! by the compiler) and then patched — see `patch.rs` for why unknown keys
 //! can only enter that one way.
+//!
+//! # Two questions, two fields, deliberately not one
+//!
+//! Every probe carries an `expect`, and a growing minority also carry an
+//! `ideal`. They answer different questions and are read by different
+//! pages:
+//!
+//! - **`expect` — does the engine match what this study says it does?**
+//!   That is `/coverage`'s question. A probe whose live answer differs
+//!   from its `expect` means the *documentation* is wrong, which is why
+//!   several `expect`s record honestly-documented gaps as the correct
+//!   outcome.
+//! - **`ideal` — assuming the engine SHOULD fully implement ODRL 2.2, does
+//!   it?** That is `/full-compliance`'s question. A probe carrying an
+//!   `ideal` means the engine is right about itself *and* short of the
+//!   spec. Its presence is the judgment; there is no comparison to
+//!   perform, which matters because one probe's ideal decision equals its
+//!   current one and what falls short there is the reported `duties` list.
+//!
+//! Nothing here reuses `/coverage`'s Agreed/Disagreed/Verified/
+//! Contradicted vocabulary, which already means matches-the-documentation.
+//! The full-compliance axis says *meets full spec* / *falls short*.
+//!
+//! Rows documented `OutOfScope` carry no ideal on any probe: they are
+//! structurally outside the wire contract, not short of the spec. Rows
+//! documented `Implemented` carry none either, and that is asserted rather
+//! than assumed — see
+//! `no_probe_on_an_implemented_row_carries_a_full_compliance_ideal`.
 
 use serde_json::json;
 
@@ -33,7 +61,7 @@ use engine::wire::{WireActionDecl, WireNodeRef};
 use engine::{Claims, ConflictStrategy, Request, RequestConfig, Rule, WirePolicy};
 
 use crate::patch::{apply_patches, Patch};
-use crate::render::{Category, DutyExpect, Expect, Probe, Row};
+use crate::render::{Category, DutyExpect, Expect, Ideal, Probe, Row};
 use crate::taxonomy::taxonomy_config;
 
 const DATASET_ID: &str = "urn:uuid:coverage-probe";
@@ -237,6 +265,44 @@ fn allow_constrained(rendered_constraint: &str) -> Expect {
 }
 
 // ---------------------------------------------------------------------
+// The full-compliance axis
+// ---------------------------------------------------------------------
+
+/// One probe's **full-compliance target**: what an engine that fully
+/// implemented ODRL 2.2 would answer to that probe's exact request.
+///
+/// This is a different question from the one every `expect` above asks,
+/// and the two must not be confused. `expect` records what *this* engine
+/// does, as this study documents it — including its honestly-documented
+/// gaps — so a probe whose live answer differs from its `expect` means the
+/// documentation is wrong. `ideal` records what the *spec* requires, so a
+/// probe carrying one means the engine is right about itself and still
+/// short of ODRL 2.2. Nothing here is ever compared against a live
+/// response: see `render::Ideal`'s own doc comment for why it deliberately
+/// does not reuse `Expect`'s judging shape.
+///
+/// **Attached only where the two genuinely differ.** A probe with no
+/// `ideal` is one whose documented expectation already *is* the
+/// spec-correct answer — which is the case for most probes on most
+/// `Partial` rows, because a row is partial for one specific reason and
+/// its remaining probes usually demonstrate behaviour that is exactly
+/// right. Saying so by omission, rather than restating the current answer
+/// as the ideal one, keeps "carries an ideal" readable as "falls short"
+/// with no comparison to perform.
+fn ideal(decision: &'static str, reason: &str, spec_citation: &str) -> Ideal {
+    Ideal { decision, reason: reason.to_string(), spec_citation: spec_citation.to_string() }
+}
+
+impl Probe {
+    /// Records that this probe's real, live behaviour falls short of full
+    /// ODRL 2.2 — never called on a probe that already meets it.
+    fn falls_short_of(mut self, ideal: Ideal) -> Self {
+        self.ideal = Some(ideal);
+        self
+    }
+}
+
+// ---------------------------------------------------------------------
 // Probe assembly
 // ---------------------------------------------------------------------
 
@@ -268,6 +334,10 @@ fn build(spec: Spec) -> Probe {
         falsified_by: spec.falsified_by.to_string(),
         request,
         expect: spec.expect,
+        // Set by `falls_short_of` at the handful of call sites where full
+        // ODRL 2.2 compliance would answer differently; `None` is the
+        // right default for every probe that already meets it.
+        ideal: None,
     }
 }
 
@@ -328,23 +398,59 @@ fn action_probes() -> Vec<Probe> {
         expect: allow("permission[0] of policy 'probe' matched: action 'use' covers requested 'display', unconstrained"),
     }));
 
-    probes.push(build(Spec {
-        id: "act-includedin-undeclared-gap",
-        kind: NEGATIVE,
-        title: "an includedIn chain through an undeclared intermediate action does not cover",
-        asserts: "The same two-hop chain as act-includedin-2hop with its intermediate action (`play`) left \
-                  undeclared as its own ActionDecl. Coverage traverses only edges some loaded profile \
-                  declares -- a typo'd or unlisted action can never silently become covered.",
-        falsified_by: "Allow -- which would mean covers() reaches through actions no profile declared",
-        request: Request {
-            action: "display".to_string(),
-            config: config(vec![action("use"), action_in("display", "play")]),
-            policies: vec![policy("probe", vec![rule("use", vec![])])],
-            ..base_request()
-        },
-        patches: vec![],
-        expect: deny(&closed_deny("display")),
-    }));
+    // This one probe decides its whole row's full-compliance verdict: its
+    // sibling act-includedin-2hop already meets full spec, so under the
+    // rejected reading below actions.included-in-transitive would meet
+    // ODRL 2.2 in full today.
+    probes.push(
+        build(Spec {
+            id: "act-includedin-undeclared-gap",
+            kind: NEGATIVE,
+            title: "an includedIn chain through an undeclared intermediate action does not cover",
+            asserts: "The same two-hop chain as act-includedin-2hop with its intermediate action (`play`) left \
+                      undeclared as its own ActionDecl. Coverage traverses only edges some loaded profile \
+                      declares -- a typo'd or unlisted action can never silently become covered.",
+            falsified_by: "Allow -- which would mean covers() reaches through actions no profile declared",
+            request: Request {
+                action: "display".to_string(),
+                config: config(vec![action("use"), action_in("display", "play")]),
+                policies: vec![policy("probe", vec![rule("use", vec![])])],
+                ..base_request()
+            },
+            patches: vec![],
+            expect: deny(&closed_deny("display")),
+        })
+        .falls_short_of(ideal(
+            "Allow",
+            "permission[0] of policy 'probe' matched: action 'use' covers requested 'display' -- the chain \
+             closes through odrl:play's own vocabulary-asserted includedIn edge, rather than stopping at the \
+             closed-default Deny this probe expects today. Under the strict-validation reading the ideal is \
+             instead Error on an invalid profile; a plain Deny is what neither reading produces.",
+            "Information Model 2.4 Action Class: \"The purpose of the includedIn property is to explicitly \
+             assert that the semantics of the referenced instance of an other Action encompasses (includes) \
+             the semantics of this instance of Action. The includedIn property is transitive, and as such, \
+             the Actions form ancestor relationships\", and \"The implication of the includedIn property is \
+             that a Permission or Prohibition of an encompassing Action is inherited by all Actions with an \
+             includedIn relationship.\" Also 2.4: \"An Action (except for use and transfer) MUST have one \
+             includedIn property value (of type Action) to transitively assert this Action that encompasses \
+             its operational semantics.\" Vocabulary 4.4.15 Display: \"Included In: play\"; 4.4.32 Play: \
+             \"Included In: use\". This probe declares `use` and `display includedIn play` but never declares \
+             `play`, so under the spec the referenced Action `play` either IS odrl:play -- whose includedIn \
+             use edge the Vocabulary asserts normatively, closing display -> play -> use and giving Allow -- \
+             or it is a term violating 2.4's own MUST, which makes the profile invalid rather than merely \
+             non-covering. Reading a dangling edge as silently inert, which is what a plain Deny requires, is \
+             authorised by no clause in either document. \
+             FORK, shipped vs rejected: the shipped (A) reading is vocabulary-aware -- the bare tokens \
+             use/play/display ARE the odrl: terms, which is what the JSON-LD context makes them, and \
+             odrl:play odrl:includedIn odrl:use is a normative Vocabulary assertion. The rejected (B) reading \
+             is closed-profile: Terminology calls the Common Vocabulary \"A set of generic terms that MAY be \
+             re-used by ODRL Profiles\" (may, not must) and 3.3's profile mechanism has each profile declare \
+             its own actions' includedIn parents, so these would be opaque host tokens nothing external \
+             closes -- making the ideal Deny, i.e. exactly current, and this row fully compliant today. (A) \
+             ships because a normative Vocabulary triple about a term the request itself names is evidence \
+             an evaluator has no licence to discard.",
+        )),
+    );
 
     probes.push(build(Spec {
         id: "act-implies-ignored",
@@ -525,19 +631,41 @@ fn left_operand_probes() -> Vec<Probe> {
         expect: deny(&closed_deny("use")),
     }));
 
-    probes.push(build(Spec {
-        id: "lo-datetime-absent-no-clock",
-        kind: NEGATIVE,
-        title: "with no dateTime claim there is no clock to fall back on",
-        asserts: "ODRL's dateTime means \"the current moment\"; this engine has no idea what that is. \
-                  engine.wasm is instantiated with an EMPTY import object (engine_bridge::\
-                  load_engine_instance), so this is a structural property of the artifact this page \
-                  loaded, not a policy choice: there is no host function it could call for the time.",
-        falsified_by: "Allow -- which would mean the guest synthesised a clock from somewhere",
-        request: one(c("dateTime", Operator::Lt, "2027-01-01T00:00:00Z"), no_claims()),
-        patches: vec![],
-        expect: deny(&closed_deny("use")),
-    }));
+    probes.push(
+        build(Spec {
+            id: "lo-datetime-absent-no-clock",
+            kind: NEGATIVE,
+            title: "with no dateTime claim there is no clock to fall back on",
+            asserts: "ODRL's dateTime means \"the current moment\"; this engine has no idea what that is. \
+                      engine.wasm is instantiated with an EMPTY import object (engine_bridge::\
+                      load_engine_instance), so this is a structural property of the artifact this page \
+                      loaded, not a policy choice: there is no host function it could call for the time.",
+            falsified_by: "Allow -- which would mean the guest synthesised a clock from somewhere",
+            request: one(c("dateTime", Operator::Lt, "2027-01-01T00:00:00Z"), no_claims()),
+            patches: vec![],
+            expect: deny(&closed_deny("use")),
+        })
+        .falls_short_of(ideal(
+            "Allow",
+            "permission[0] of policy 'probe' matched: action 'use': dateTime lt 2027-01-01T00:00:00Z. \
+             LOAD-BEARING CAVEAT for a live snapshot: this ideal is wall-clock dependent. Evaluated at any \
+             instant before 2027-01-01T00:00:00Z -- which includes now -- a compliant engine allows; from \
+             that instant onward the ideal becomes Deny and this probe silently stops demonstrating any \
+             shortfall at all. Say \"before 2027-01-01\" wherever this is rendered, or move the fixture's \
+             right operand further out.",
+            "Vocabulary 4.5.6 Datetime defines the left operand as \"The date (and optional time and \
+             timezone) of exercising the action of the Rule\" -- the value is the moment of exercise itself, \
+             not an input a requester may or may not supply -- with the Note framing lt/lteq as the Rule \
+             being exercised before the right operand's date(time). An engine that is evaluating a request \
+             is by construction in possession of that value, so a full implementation compares now against \
+             2027-01-01T00:00:00Z and finds the Constraint satisfied (Information Model 2.5.1: \"If the \
+             comparison returns a match the Constraint is satisfied, otherwise it is not satisfied\"). This \
+             differs from current behaviour only under the reading that the clock is intrinsic to the \
+             evaluator rather than a host-supplied fact -- the same PDP/PIP boundary question named on \
+             lo-count-absent-not-stateful, and the reason this engine's own no-clock posture is a coherent \
+             design choice rather than an oversight.",
+        )),
+    );
 
     probes.push(build(Spec {
         id: "lo-count-hit",
@@ -790,17 +918,39 @@ fn left_operand_probes() -> Vec<Probe> {
         expect: allow_constrained("unitOfCount eq page"),
     }));
 
-    probes.push(build(Spec {
-        id: "lo-policyusage-literal",
-        kind: NEGATIVE,
-        title: "odrl:policyUsage is compared as a bare string, not as execution history",
-        asserts: "The reserved right operand means \"the moment this policy was used\". Here it matches \
-                  only because a host put the literal string in the claims map.",
-        falsified_by: "Deny -- which would only mean this catalog mis-stated the string comparison",
-        request: one(c("event", Operator::Eq, "odrl:policyUsage"), claims(&[("event", s("odrl:policyUsage"))])),
-        patches: vec![],
-        expect: allow_constrained("event eq odrl:policyUsage"),
-    }));
+    probes.push(
+        build(Spec {
+            id: "lo-policyusage-literal",
+            kind: NEGATIVE,
+            title: "odrl:policyUsage is compared as a bare string, not as execution history",
+            asserts: "The reserved right operand means \"the moment this policy was used\". Here it matches \
+                      only because a host put the literal string in the claims map.",
+            falsified_by: "Deny -- which would only mean this catalog mis-stated the string comparison",
+            request: one(c("event", Operator::Eq, "odrl:policyUsage"), claims(&[("event", s("odrl:policyUsage"))])),
+            patches: vec![],
+            expect: allow_constrained("event eq odrl:policyUsage"),
+        })
+        .falls_short_of(ideal(
+            "Deny",
+            "no permission of policy 'probe' covered and matched requested action 'use' (closed default) -- \
+             the reason changes from a matched-constraint Allow to the closed-default deny. The engine \
+             allows here by string-equalling a reserved IRI against a claim that happens to contain the same \
+             characters; a compliant engine, resolving odrl:policyUsage to the exercise datetime, finds \
+             nothing on the other side to compare it with.",
+            "Vocabulary 4.6.1 Policy Rule Usage: \"Indicates the actual datetime the action of the Rule was \
+             exercised\"; Identifier http://www.w3.org/ns/odrl/2/policyUsage; \"Class: RightOperand\"; Note: \
+             \"This can be used to express constraints with a LeftOperand relative to the time the rule is \
+             exercised. Operators indicate before (lt, lteq), during (eq) or after (gt, gteq) the usage of \
+             the rule. Example: event lt policyUsage expresses that the identified event must have happened \
+             before the action of the rule is exercised.\" With Vocabulary 4.5.10 Event and Information \
+             Model 2.5.1 (\"The rightOperand property values are defined as instances of the RightOperand \
+             class, or IRIs, or Literal values\", plus the binary satisfaction rule): odrl:policyUsage is \
+             not a string but a reserved RightOperand instance whose value IS the exercise datetime, so \
+             `event eq policyUsage` must be evaluated as a temporal comparison. Here the host's event claim \
+             is the literal token 'odrl:policyUsage', which identifies no event and carries no period, so \
+             the comparison cannot return a match.",
+        )),
+    );
 
     probes.push(build(Spec {
         id: "lo-policyusage-absent",
@@ -838,18 +988,41 @@ fn operator_probes() -> Vec<Probe> {
         expect: allow_constrained("nationality eq DE"),
     }));
 
-    probes.push(build(Spec {
-        id: "op-eq-multi-membership",
-        kind: NEGATIVE,
-        title: "eq over a multi-valued claim is membership, not identity",
-        asserts: "The documented divergence from strict ODRL equality: the claim is the two-element list \
-                  [FR, DE], which under spec equality is not equal to DE. This engine reads it as \
-                  membership and Allows.",
-        falsified_by: "Deny -- which would mean the documented adaptation is not actually in effect",
-        request: one(c("nationality", Operator::Eq, "DE"), claims(&[("nationality", m(&["FR", "DE"]))])),
-        patches: vec![],
-        expect: allow_constrained("nationality eq DE"),
-    }));
+    probes.push(
+        build(Spec {
+            id: "op-eq-multi-membership",
+            kind: NEGATIVE,
+            title: "eq over a multi-valued claim is membership, not identity",
+            asserts: "The documented divergence from strict ODRL equality: the claim is the two-element list \
+                      [FR, DE], which under spec equality is not equal to DE. This engine reads it as \
+                      membership and Allows.",
+            falsified_by: "Deny -- which would mean the documented adaptation is not actually in effect",
+            request: one(c("nationality", Operator::Eq, "DE"), claims(&[("nationality", m(&["FR", "DE"]))])),
+            patches: vec![],
+            expect: allow_constrained("nationality eq DE"),
+        })
+        .falls_short_of(ideal(
+            "Deny",
+            "no permission of policy 'probe' covered and matched requested action 'use' (closed default). \
+             This row's one genuine shortfall, and the reason its Partial status is real: its two sibling \
+             probes (op-eq-single, op-eq-no-concat) already behave exactly as the spec requires.",
+            "Vocabulary 3.16.1 defines eq as \"Indicating that a given value equals the right operand\" and \
+             does NOT prefix it \"A set-based operator\" -- unlike 3.16.7-3.16.12 (isA, hasPart, isPartOf, \
+             isAllOf, isAnyOf, isNoneOf), every one of which is. Information Model 2.5.1 restricts \
+             list-valued operands to exactly those: \"A Constraint MUST have either: one rightOperand \
+             property value of type: literal, or IRI, or RightOperand; or for set-based operators; list of \
+             literals, or list of IRIs, or list of RightOperands\", echoed by Vocabulary 3.14.7. ODRL's \
+             comparison model is scalar-to-scalar, and it already supplies isAnyOf (3.16.11) for exactly \
+             the membership question this engine folds into eq. So the two-element value [FR, DE] does not \
+             equal the literal DE, the Constraint is not satisfied, and the closed-world config denies. \
+             COUNTER-READING, named rather than buried: ODRL never states that a leftOperand resolves to \
+             exactly one value, and evaluators over RDF commonly adopt an existential reading under which \
+             any one matching value satisfies eq. That reading is defensible; it is judged the weaker one \
+             because it makes eq silently widen a permission (a dual national satisfies 'nationality eq \
+             DE') -- a fail-open widening of what the policy author wrote -- and because it collapses the \
+             relational/set-based distinction the Vocabulary itself draws.",
+        )),
+    );
 
     probes.push(build(Spec {
         id: "op-eq-no-concat",
@@ -1011,21 +1184,46 @@ fn operator_probes() -> Vec<Probe> {
         expect: allow_constrained("spatial isPartOf DE,FR,IT"),
     }));
 
-    probes.push(build(Spec {
-        id: "op-ispartof-no-hierarchy",
-        kind: NEGATIVE,
-        title: "isPartOf is not hierarchy membership: Berlin is not part of Germany here",
-        asserts: "Berlin genuinely IS part of Germany, which is exactly what ODRL's isPartOf means. This \
-                  engine's version cannot see it -- the operator name is honest about intent, not about \
-                  capability.",
-        falsified_by: "Allow -- which would require a containment graph",
-        request: one(
-            c("spatial", Operator::IsPartOf, "https://www.geonames.org/2921044"),
-            claims(&[("spatial", s("https://www.geonames.org/2950159"))]),
-        ),
-        patches: vec![],
-        expect: deny(&closed_deny("use")),
-    }));
+    probes.push(
+        build(Spec {
+            id: "op-ispartof-no-hierarchy",
+            kind: NEGATIVE,
+            title: "isPartOf is not hierarchy membership: Berlin is not part of Germany here",
+            asserts: "Berlin genuinely IS part of Germany, which is exactly what ODRL's isPartOf means. This \
+                      engine's version cannot see it -- the operator name is honest about intent, not about \
+                      capability.",
+            falsified_by: "Allow -- which would require a containment graph",
+            request: one(
+                c("spatial", Operator::IsPartOf, "https://www.geonames.org/2921044"),
+                claims(&[("spatial", s("https://www.geonames.org/2950159"))]),
+            ),
+            patches: vec![],
+            expect: deny(&closed_deny("use")),
+        })
+        .falls_short_of(ideal(
+            "Allow",
+            "permission[0] of policy 'probe' matched: action 'use': spatial isPartOf \
+             https://www.geonames.org/2921044. This row's headline shortfall: the engine denies only \
+             because IsPartOf runs IsAnyOf's flat comma-list membership test \
+             (engine/src/constraint.rs:595-598, `Operator::IsAnyOf | Operator::IsPartOf` sharing one arm).",
+            "Vocabulary 3.16.9 Is part of: \"A set-based operator indicating that a given value is contained \
+             by the right operand of the Constraint\" (Identifier http://www.w3.org/ns/odrl/2/isPartOf) -- \
+             containment, not enumeration, is the whole definition. Vocabulary 4.5.26 spatial: \"A named and \
+             identified geospatial area with defined borders ... An IRI MUST be used to represent this \
+             value\", its Note naming external code sources (ISO 3166, the Getty Thesaurus) as where the \
+             area is resolved from; and Information Model 2.5.1's rightOperandReference machinery (\"that \
+             IRI must be de-referenced first and the data returned must be interpreted as the value to be \
+             compared\") shows ODRL already assumes evaluators dereference IRIs. Containment verified \
+             independently rather than assumed: https://sws.geonames.org/2950159/about.rdf returns gn:name \
+             \"Berlin\", gn:featureCode P.PPLC, gn:countryCode DE and gn:parentCountry rdf:resource=\
+             \"https://sws.geonames.org/2921044/\"; https://sws.geonames.org/2921044/about.rdf returns \
+             gn:name \"Germany\". Berlin is contained by Germany in the very authority this probe's two IRIs \
+             name, so a fully spec-implementing engine's comparison returns a match. Reading considered and \
+             rejected: an engine with no containment knowledge returns no match, and 2.5.1's \"otherwise it \
+             is not satisfied\" makes Deny formally defensible -- but that is precisely the narrowing this \
+             axis exists to expose, since its premise is an engine that DOES fully implement isPartOf.",
+        )),
+    );
 
     probes.push(build(Spec {
         id: "op-ispartof-mirrors-isanyof",
@@ -1124,31 +1322,76 @@ fn operator_probes() -> Vec<Probe> {
     let operator_token_request =
         || one(c("purpose", Operator::Eq, "odrl:Purpose"), claims(&[("purpose", s("odrl:Purpose"))]));
 
-    probes.push(build(Spec {
-        id: "op-isa-unparseable",
-        kind: NEGATIVE,
-        title: "isA is not in the operator enum, so the whole request fails to parse",
-        asserts: "The engine's Operator is a closed Rust enum. An out-of-enum token is not an unknown \
-                  field to be ignored -- it fails deserialization, and the ABI answers Error with the \
-                  serde message. Read against op-isa-control-eq, the byte-identical request with a \
-                  supported token.",
-        falsified_by: "Allow or Deny -- either would mean the token was tolerated somehow",
-        request: operator_token_request(),
-        patches: vec![Patch::set("/policies/0/permissions/0/constraints/0", "operator", json!("isA"))],
-        expect: error(&["request did not parse as the documented Section 5.2 JSON shape", "isA"]),
-    }));
+    // Both of these fall short in the same way, and it is not the subtle
+    // half: isA and hasPart are two of the twelve CORE Operator instances
+    // Vocabulary 3.14.4 enumerates, so answering Error is a shortfall on
+    // its own, before anything is said about what the evaluation yields.
+    probes.push(
+        build(Spec {
+            id: "op-isa-unparseable",
+            kind: NEGATIVE,
+            title: "isA is not in the operator enum, so the whole request fails to parse",
+            asserts: "The engine's Operator is a closed Rust enum. An out-of-enum token is not an unknown \
+                      field to be ignored -- it fails deserialization, and the ABI answers Error with the \
+                      serde message. Read against op-isa-control-eq, the byte-identical request with a \
+                      supported token.",
+            falsified_by: "Allow or Deny -- either would mean the token was tolerated somehow",
+            request: operator_token_request(),
+            patches: vec![Patch::set("/policies/0/permissions/0/constraints/0", "operator", json!("isA"))],
+            expect: error(&["request did not parse as the documented Section 5.2 JSON shape", "isA"]),
+        })
+        .falls_short_of(ideal(
+            "Deny",
+            "no permission of policy 'probe' covered and matched requested action 'use' (closed default) -- \
+             an ordinary unsatisfied constraint, not a parse failure. The Error is the shortfall; the Deny \
+             is merely what the evaluation then yields.",
+            "isA is not an extension: Vocabulary 3.14.4 Operator enumerates the closed core set -- \
+             \"Instances: eq, gt, gteq, hasPart, isA, isAllOf, isAnyOf, isNoneOf, isPartOf, lt, lteq, \
+             neq\" -- and 3.16.7 Is a defines it: \"A set-based operator indicating that a given value is \
+             an instance of the right operand of the Constraint\" (Identifier \
+             http://www.w3.org/ns/odrl/2/isA). A fully spec-implementing engine must therefore accept the \
+             token and evaluate it. On the resulting decision for THIS request the two available routes \
+             converge: the claim value is the literal string odrl:Purpose and the right operand is the same \
+             string, but ODRL 2.2 defines no class odrl:Purpose at all (4.5.19 defines lowercase \
+             odrl:purpose as a LeftOperand instance; the Vocabulary's only RightOperand instance is \
+             policyUsage, 3.14.6/4.6.1). Route 1: the class is unknown, so nothing can be shown to be an \
+             instance of it -- no match. Route 2: even treating it as a class, a class is not an instance of \
+             itself -- no match. Both give an unsatisfied Constraint (2.5.1) and a closed-world Deny; only a \
+             reflexive/punning reading would yield Allow, and nothing in \"is an instance of\" supports one.",
+        )),
+    );
 
-    probes.push(build(Spec {
-        id: "op-haspart-unparseable",
-        kind: NEGATIVE,
-        title: "hasPart is not in the operator enum either",
-        asserts: "The same policy structure as op-isa-unparseable, varying only the operator token: the \
-                  enum is closed at the engine's own compile time, not per-token.",
-        falsified_by: "Allow or Deny",
-        request: operator_token_request(),
-        patches: vec![Patch::set("/policies/0/permissions/0/constraints/0", "operator", json!("hasPart"))],
-        expect: error(&["request did not parse as the documented Section 5.2 JSON shape", "hasPart"]),
-    }));
+    probes.push(
+        build(Spec {
+            id: "op-haspart-unparseable",
+            kind: NEGATIVE,
+            title: "hasPart is not in the operator enum either",
+            asserts: "The same policy structure as op-isa-unparseable, varying only the operator token: the \
+                      enum is closed at the engine's own compile time, not per-token.",
+            falsified_by: "Allow or Deny",
+            request: operator_token_request(),
+            patches: vec![Patch::set("/policies/0/permissions/0/constraints/0", "operator", json!("hasPart"))],
+            expect: error(&["request did not parse as the documented Section 5.2 JSON shape", "hasPart"]),
+        })
+        .falls_short_of(ideal(
+            "Deny",
+            "no permission of policy 'probe' covered and matched requested action 'use' (closed default). \
+             The Error half is settled either way; only the non-Error decision this should reach is open.",
+            "hasPart is a core ODRL 2.2 operator -- Vocabulary 3.14.4 lists it among the twelve Operator \
+             instances -- so a fully spec-implementing engine must parse and evaluate it rather than \
+             answering Error. That half is NOT ambiguous. On the resulting decision, 3.16.8 says hasPart \
+             means \"a given value contains the right operand of the Constraint\", and here the given value \
+             and the right operand are the identical atomic literal odrl:Purpose, so the answer turns on \
+             whether parthood is reflexive. FORK, shipped vs rejected: the shipped (A) reading takes \
+             \"contains\" as a set/collection relation -- a bare scalar contains nothing, the Constraint is \
+             not satisfied (2.5.1), and hasPart stays the genuine converse of isPartOf (3.16.9, \"contained \
+             by\"), which would not hold reflexively either. The rejected (B) reading imports standard \
+             mereology, in which parthood is reflexive, every value contains itself, and the ideal would be \
+             Allow with the reason 'purpose hasPart odrl:Purpose'. ODRL 2.2 says nothing about reflexivity \
+             either way, and never defines any class odrl:Purpose (4.5.19 defines lowercase odrl:purpose as \
+             a LeftOperand), leaving the right operand an undefined IRI.",
+        )),
+    );
 
     probes.push(build(Spec {
         id: "op-isa-control-eq",
@@ -1445,24 +1688,47 @@ fn policy_class_probes() -> Vec<Probe> {
         expect: allow(&base_allow_reason()),
     }));
 
-    probes.push(build(Spec {
-        id: "pc-kind-agreement-ignores-assignee",
-        kind: NEGATIVE,
-        title: "kind: Agreement grants to a stranger, unless a host asks otherwise",
-        asserts: "An ODRL Agreement MUST grant only to its own named assignee (odrl-vocab 3.2.1). This \
-                  request names did:web:alice.example and the caller presents did:web:mallory.example \
-                  -- and, with neither partyIdentityClaim nor agreementAssigneeClaim configured, the \
-                  decision AND the reason are byte-identical to pc-kind-set's. `kind` alone never \
-                  selects a semantics; it takes a config naming one of the two claim keys to make an \
-                  Agreement behave differently from a Set -- see \
-                  pc-kind-agreement-assignee-claim-excludes-a-mismatch for that config turned on, on \
-                  this identical request.",
-        falsified_by: "Deny -- which would mean assignee scoping is enforced for every Agreement \
-                       unconditionally, with no config to switch it on",
-        request: named_to_alice("Agreement"),
-        patches: vec![],
-        expect: allow(&base_allow_reason()),
-    }));
+    probes.push(
+        build(Spec {
+            id: "pc-kind-agreement-ignores-assignee",
+            kind: NEGATIVE,
+            title: "kind: Agreement grants to a stranger, unless a host asks otherwise",
+            asserts: "An ODRL Agreement MUST grant only to its own named assignee (odrl-vocab 3.2.1). This \
+                      request names did:web:alice.example and the caller presents did:web:mallory.example \
+                      -- and, with neither partyIdentityClaim nor agreementAssigneeClaim configured, the \
+                      decision AND the reason are byte-identical to pc-kind-set's. `kind` alone never \
+                      selects a semantics; it takes a config naming one of the two claim keys to make an \
+                      Agreement behave differently from a Set -- see \
+                      pc-kind-agreement-assignee-claim-excludes-a-mismatch for that config turned on, on \
+                      this identical request.",
+            falsified_by: "Deny -- which would mean assignee scoping is enforced for every Agreement \
+                           unconditionally, with no config to switch it on",
+            request: named_to_alice("Agreement"),
+            patches: vec![],
+            expect: allow(&base_allow_reason()),
+        })
+        .falls_short_of(ideal(
+            "Deny",
+            "The Agreement's own assignee is not established for this caller, so it grants nothing -- e.g. \
+             \"policy 'probe' names odrl:assignee 'did:web:alice.example', which does not match the \
+             caller\". Note this shortfall is about the DEFAULT: the same request with \
+             agreementAssigneeClaim configured already reaches exactly this answer \
+             (pc-kind-agreement-assignee-claim-excludes-a-mismatch), so what falls short is that ODRL's \
+             MUST is opt-in here rather than what an Agreement means.",
+            "Vocabulary 3.2.1 Agreement, Note: \"An Agreement Policy MUST contain at least one Permission or \
+             Prohibition rule, a Party with Assigner function, and a Party with Assignee function (in the \
+             same Permission or Prohibition). The Agreement Policy will grant the terms of the Policy from \
+             the Assigner to the Assignee.\" Information Model 2.1.3: \"An ODRL Policy of subclass Agreement \
+             represents Rules that have been granted from assigner to assignee Parties.\" This request is an \
+             Agreement naming assignee did:web:alice.example while the caller presents \
+             sub=did:web:mallory.example, and the engine answers Allow with the plain permission-matched \
+             reason. Residual fork, not enough to unsettle the verdict: ODRL defines no property by which a \
+             request says which claim carries the caller's identity, so an ideal engine arguably cannot \
+             IDENTIFY mallory without the opt-in config -- but this probe's config sets behaviour: closed, \
+             and under a closed default an assignee that cannot be established can never yield Allow \
+             either. Both branches land on Deny; only the reason text differs.",
+        )),
+    );
 
     probes.push(build(Spec {
         id: "pc-kind-agreement-assignee-claim-hit",
@@ -1564,18 +1830,49 @@ fn policy_class_probes() -> Vec<Probe> {
         expect: allow(&base_allow_reason()),
     }));
 
-    probes.push(build(Spec {
-        id: "pc-kind-nonsense",
-        kind: NEGATIVE,
-        title: "a kind that is not an ODRL policy class at all is accepted",
-        asserts: "`NotAnOdrlPolicyClass` reaches the identical decision and reason as Set, Agreement and \
-                  Ticket. Nothing validates `kind`; carrying it on the wire is documentation, not \
-                  semantics.",
-        falsified_by: "Error -- which would mean `kind` is validated",
-        request: named_to_alice("NotAnOdrlPolicyClass"),
-        patches: vec![],
-        expect: allow(&base_allow_reason()),
-    }));
+    // Shared by three rows -- policy-classes.discrimination,
+    // policy-classes.set-default and (OutOfScope, so excluded from the
+    // full-compliance axis entirely) policy-classes.profile-subclass. One
+    // probe, one ideal: a shared probe must not be judged two ways.
+    probes.push(
+        build(Spec {
+            id: "pc-kind-nonsense",
+            kind: NEGATIVE,
+            title: "a kind that is not an ODRL policy class at all is accepted",
+            asserts: "`NotAnOdrlPolicyClass` reaches the identical decision and reason as Set, Agreement and \
+                      Ticket. Nothing validates `kind`; carrying it on the wire is documentation, not \
+                      semantics.",
+            falsified_by: "Error -- which would mean `kind` is validated",
+            request: named_to_alice("NotAnOdrlPolicyClass"),
+            patches: vec![],
+            expect: allow(&base_allow_reason()),
+        })
+        .falls_short_of(ideal(
+            "Error",
+            "An unrecognised policy class, named and refused -- e.g. \"unrecognized policy class \
+             \\\"NotAnOdrlPolicyClass\\\"\", mirroring the engine's existing \"unrecognized action\" \
+             wording. Read for policy-classes.set-default specifically the finding is sharper: that row's \
+             claim is that identical evaluation of any kind IS always-Set semantics, and this probe is the \
+             one place where falling back to Set is an extrapolation the spec does not grant.",
+            "Information Model 2.1 Policy Class: \"An ODRL Policy must either: Only use terms defined in the \
+             ODRL Core Vocabulary [odrl-vocab], or Use an ODRL Profile that declares the supported \
+             vocabulary used by expressions in the Policy. In the latter case, the profile property MUST be \
+             used to indicate the IRIs of the ODRL Profile(s).\" And: \"An ODRL Policy MAY be subclassed to \
+             more precisely describe the context of use of the Policy that MAY include additional \
+             constraints that ODRL processors MUST understand.\" `NotAnOdrlPolicyClass` is neither a \
+             Core/Common term nor declared by this request's profile (https://ds42.org/profiles/\
+             coverage-probe declares only actions), so the expression is non-conformant and the processor \
+             cannot \"understand\" the additional constraints the declared subclass may carry. The \
+             default-to-Set clause does not rescue Allow: 2.1.1 licenses the Set default only \"if none is \
+             specified\", and here one IS specified, just unrecognisably. FORK, shipped vs rejected: the \
+             rejected reading makes refusing an undeclared Policy subclass an ODRL VALIDATOR's duty (1.3, \
+             \"a system that checks the conformance of ODRL Policy expressions\") and therefore outside an \
+             Evaluator's remit, leaving Allow defensible. Error ships for internal consistency with \
+             act-unrecognized-error, which already Errors on an undeclared ACTION under the same \
+             closed-world profile rule -- the spec prescribes no output form, so consistency is the \
+             available tie-breaker.",
+        )),
+    );
 
     probes.push(build(Spec {
         id: "pc-kind-profile-subclass",
@@ -1674,24 +1971,50 @@ fn party_probes() -> Vec<Probe> {
         expect: allow(&base_allow_reason()),
     }));
 
-    probes.push(build(Spec {
-        id: "pf-assignee-scoped-miss",
-        kind: NEGATIVE,
-        title: "with partyIdentityClaim configured, a policy assigned to someone else grants nothing",
-        asserts: "Identical to pf-assignee-scoped-hit but for the caller's own `sub`. The policy is \
-                  treated as absent from the request rather than as a policy that grants nothing, so \
-                  the answer is a deny whose reason names the assignee mismatch -- explicitly not the \
-                  closed-default 'no permission ... covered and matched' line.",
-        falsified_by: "Allow, or a Deny reported as an ordinary constraint miss",
-        request: scoped_to_alice(stranger()),
-        patches: vec![],
-        expect: deny(
-            "no policy in the request applies to this caller: policy 'probe' names odrl:assignee \
-             'did:web:alice.example', which does not match the caller's 'sub' claim \
-             (\"did:web:mallory.example\")",
-        )
-        .excluding(&["no permission of policy"]),
-    }));
+    // The one judgment in this whole axis where the engine falls short by
+    // being STRICTER than ODRL 2.2, not laxer. Nothing here is a fail-open,
+    // and the page must not read it as one.
+    probes.push(
+        build(Spec {
+            id: "pf-assignee-scoped-miss",
+            kind: NEGATIVE,
+            title: "with partyIdentityClaim configured, a policy assigned to someone else grants nothing",
+            asserts: "Identical to pf-assignee-scoped-hit but for the caller's own `sub`. The policy is \
+                      treated as absent from the request rather than as a policy that grants nothing, so \
+                      the answer is a deny whose reason names the assignee mismatch -- explicitly not the \
+                      closed-default 'no permission ... covered and matched' line.",
+            falsified_by: "Allow, or a Deny reported as an ordinary constraint miss",
+            request: scoped_to_alice(stranger()),
+            patches: vec![],
+            expect: deny(
+                "no policy in the request applies to this caller: policy 'probe' names odrl:assignee \
+                 'did:web:alice.example', which does not match the caller's 'sub' claim \
+                 (\"did:web:mallory.example\")",
+            )
+            .excluding(&["no permission of policy"]),
+        })
+        .falls_short_of(ideal(
+            "Allow",
+            "The plain permission-matched reason \"permission[0] of policy 'probe' matched: action 'use', \
+             unconstrained\" -- i.e. the party-mismatch reason would disappear entirely. Unusual, and worth \
+             stating plainly wherever this is rendered: the engine is short of the spec here by being \
+             STRICTER than it, so this is the opposite of a fail-open. The same partyIdentityClaim \
+             mechanism is spec-correct on an Agreement (Vocabulary 3.2.1) and spec-wrong on a Set.",
+            "The policy under test is a Set (`policy()` builds kind \"Set\"), and Vocabulary 3.2.3 says of a \
+             Set: \"No privileges are granted to any Party (if defined).\" Read with Information Model \
+             2.6.1, which grounds a Permission's applicability solely in refinements, constraints and \
+             duties -- \"A Permission allows an action, with all refinements satisfied, to be exercised on \
+             an Asset if all constraints are satisfied and if all duties are fulfilled\" -- a Set's assignee \
+             has no role in deciding who the rule applies to, and a narrowing Deny is a host extension that \
+             goes BEYOND ODRL rather than an approximation of it. FORK, shipped vs rejected: the rejected \
+             reading takes 3.2.3's clause to deny only that a Set's named assignee is CONFERRED anything, \
+             leaving a host free to also use it to NARROW applicability -- under which Deny (= current) is \
+             fine. Nothing in the fetched text settles it: the clause is about granting, and the spec never \
+             says an evaluator MUST NOT narrow. Allow ships because 2.6.1 enumerates the Permission's \
+             satisfaction condition without any party term at all. This is the judgment in the set most \
+             likely to be contested.",
+        )),
+    );
 
     probes.push(build(Spec {
         id: "pf-assignee-as-claim",
@@ -1871,17 +2194,42 @@ fn duty_probes() -> Vec<Probe> {
         .with_duties(vec![]),
     }));
 
-    probes.push(build(Spec {
-        id: "duty-per-permission-advisory",
-        kind: POSITIVE,
-        title: "under dutyMode: advise the same unresolved duty is advisory, and carries its attachment point",
-        asserts: "The duty surfaces in `duties` with a `source` naming where it hangs -- the field a                   policy-level obligation never carries, which is how a caller tells the two apart.",
-        falsified_by: "Deny, or a duties entry with no source",
-        request: permission_duty_request(DutyMode::Advise, asserted_duty("compensate"), no_claims()),
-        patches: vec![],
-        expect: allow("permission[0] of policy 'probe' matched: action 'use', unconstrained")
-            .with_duties(vec![attached_duty("compensate", "permission[0].duty[0]")]),
-    }));
+    probes.push(
+        build(Spec {
+            id: "duty-per-permission-advisory",
+            kind: POSITIVE,
+            title: "under dutyMode: advise the same unresolved duty is advisory, and carries its attachment point",
+            asserts: "The duty surfaces in `duties` with a `source` naming where it hangs -- the field a                   policy-level obligation never carries, which is how a caller tells the two apart.",
+            falsified_by: "Deny, or a duties entry with no source",
+            request: permission_duty_request(DutyMode::Advise, asserted_duty("compensate"), no_claims()),
+            patches: vec![],
+            expect: allow("permission[0] of policy 'probe' matched: action 'use', unconstrained")
+                .with_duties(vec![attached_duty("compensate", "permission[0].duty[0]")]),
+        })
+        .falls_short_of(ideal(
+            "Deny",
+            "\"permission[0] of policy 'probe' matched, but its odrl:duty[0] 'compensate' is unresolved\" -- \
+             the reason must change from the bare permission-matched line to one naming the unmet \
+             pre-condition, while the duties entry (compensate at permission[0].duty[0]) stays. This row's \
+             shortfall, and it is fail-open on the one duty position ODRL makes normatively gating.",
+            "Information Model 2.6.1: \"A Permission allows an action, with all refinements satisfied, to be \
+             exercised on an Asset if all constraints are satisfied and if all duties are fulfilled\", and \
+             \"The duty property expresses an agreed obligation that MUST be fulfilled. That is, the duty \
+             property asserts a pre-condition between the Permission and the Duty.\" Vocabulary 3.13.3 Has \
+             Duty: \"A Duty is a pre-condition which must be fulfilled in order to receive the Permission.\" \
+             That sentence is unconditional and carries no configurable escape hatch. This engine gates the \
+             pre-condition on its own dutyMode knob instead -- engine/src/decision.rs::Rule::grants \
+             evaluates `config.duty_mode != DutyMode::Deny || self.duties_resolved(claims)` -- so under \
+             dutyMode: advise an unfulfilled 2.6.1 pre-condition is discarded and the permission grants \
+             anyway. Contrast duty-obligation-deny-mode, where the same knob is spec-NEUTRAL because 2.6.4 \
+             gives a policy-level obligation no gating role at all. FORK worth naming: one can argue \
+             dutyMode: advise is an out-of-band host instruction (\"tell me about duties, do not enforce \
+             them\") the spec does not govern, the same status as the non-ODRL `behaviour: closed` knob; \
+             the stronger counter-argument, and the one shipped, is that 2.6.1 defines what a Permission \
+             MEANS, so no configuration can make an unfulfilled-duty Permission grant and still be an ODRL \
+             Permission.",
+        )),
+    );
 
     probes.push(build(Spec {
         id: "duty-per-permission-scoped-to-its-own-permission",
@@ -1910,40 +2258,97 @@ fn duty_probes() -> Vec<Probe> {
         )
     }
 
-    probes.push(build(Spec {
-        id: "duty-consequence-resolves-where-the-primary-did-not",
-        kind: POSITIVE,
-        title: "an unfulfilled duty falls through to its odrl:consequence, which resolves",
-        asserts: "`notify` is not fulfilled, so ODRL says the consequence duty is what now applies -- and                   the claims assert *it* fulfilled, so nothing is outstanding and dutyMode: deny has                   nothing to act on.",
-        falsified_by: "Deny, or a duties entry -- either would mean the consequence was never consulted",
-        request: {
-            let mut request = base_request();
-            request.config = flat_config(&["use", "notify", "compensate"]);
-            request.config.duty_mode = DutyMode::Deny;
-            request.policies[0].obligations = vec![notify_with_consequence()];
-            request.claims = fulfilled("compensate");
-            request
-        },
-        patches: vec![],
-        expect: allow(&base_allow_reason()).with_duties(vec![]),
-    }));
+    // Both consequence probes fall short the same way, and it is one
+    // error: this engine treats a consequence as a REPLACEMENT for the
+    // duty it hangs off, where ODRL 2.2 says three separate times that a
+    // consequence is an ADDITIONAL duty. Note that this probe's own
+    // `asserts` text states the substitution reading as if it were the
+    // spec's; the fetched Information Model text does not support it.
+    probes.push(
+        build(Spec {
+            id: "duty-consequence-resolves-where-the-primary-did-not",
+            kind: POSITIVE,
+            title: "an unfulfilled duty falls through to its odrl:consequence, which resolves",
+            asserts: "`notify` is not fulfilled, so ODRL says the consequence duty is what now applies -- and                   the claims assert *it* fulfilled, so nothing is outstanding and dutyMode: deny has                   nothing to act on.",
+            falsified_by: "Deny, or a duties entry -- either would mean the consequence was never consulted",
+            request: {
+                let mut request = base_request();
+                request.config = flat_config(&["use", "notify", "compensate"]);
+                request.config.duty_mode = DutyMode::Deny;
+                request.policies[0].obligations = vec![notify_with_consequence()];
+                request.claims = fulfilled("compensate");
+                request
+            },
+            patches: vec![],
+            expect: allow(&base_allow_reason()).with_duties(vec![]),
+        })
+        .falls_short_of(ideal(
+            "Deny",
+            "\"duty[0] 'notify' of policy 'probe' is unresolved under duty_mode: deny\" -- the PRIMARY duty, \
+             not the consequence, is what remains outstanding, and under this engine's own convention the \
+             duties list is emptied on a dutyMode: deny Deny. This request supplies only `duty:compensate = \
+             fulfilled`; `duty:notify eq fulfilled` is unmet, so the obligation is not fulfilled no matter \
+             that its consequence is.",
+            "A substitution-vs-addition error. Information Model 2.6.3 Duty Class: \"A Duty is fulfilled if \
+             all constraints are satisfied and if its action, with all refinements satisfied, has been \
+             exercised. If its action has not been exercised, then all consequences must also be fulfilled \
+             to fulfil the Duty. That is, consequences are additional Duties that must also be fulfilled.\" \
+             And later in the same section: \"If either of these fails to be fulfilled, then this will \
+             result in the consequence Duties also becoming new requirements, meaning that the original \
+             obligation or duty, as well as the consequence Duties MUST all be fulfilled.\" 2.6.6 restates \
+             it: \"In this case, all consequence Duties MUST also be fulfilled to set the final state of \
+             the Permission/Obligation Duty to fulfilled.\" Vocabulary 3.13.4's Consequence Note repeats it \
+             a third time: \"the original obligation or duty, as well as the consequence Duty must all be \
+             fulfilled\". The engine instead treats the consequence as a replacement -- \
+             engine/src/decision.rs::outstanding_duty_at recurses into `duty.consequence` and returns None \
+             as soon as any link in the chain is satisfied, its own doc comment saying \"The outstanding \
+             duty reported is the last one evaluated, not the first\" -- which is precisely the reading \
+             2.6.3's \"That is, consequences are additional Duties\" sentence exists to rule out.",
+        )),
+    );
 
-    probes.push(build(Spec {
-        id: "duty-consequence-itself-unresolved",
-        kind: POSITIVE,
-        title: "a consequence that is itself unresolved leaves dutyMode governing, and is named as a consequence",
-        asserts: "The paired miss: the same obligation with no claims at all. The outstanding duty reported                   is the consequence -- what the policy now requires -- not the `notify` it replaced, and                   its source says `.consequence`.",
-        falsified_by: "a duties entry naming notify, or one with no source",
-        request: {
-            let mut request = base_request();
-            request.config = flat_config(&["use", "notify", "compensate"]);
-            request.policies[0].obligations = vec![notify_with_consequence()];
-            request
-        },
-        patches: vec![],
-        expect: allow(&base_allow_reason())
-            .with_duties(vec![attached_duty("compensate", "duty[0].consequence")]),
-    }));
+    probes.push(
+        build(Spec {
+            id: "duty-consequence-itself-unresolved",
+            kind: POSITIVE,
+            title: "a consequence that is itself unresolved leaves dutyMode governing, and is named as a consequence",
+            asserts: "The paired miss: the same obligation with no claims at all. The outstanding duty reported                   is the consequence -- what the policy now requires -- not the `notify` it replaced, and                   its source says `.consequence`.",
+            falsified_by: "a duties entry naming notify, or one with no source",
+            request: {
+                let mut request = base_request();
+                request.config = flat_config(&["use", "notify", "compensate"]);
+                request.policies[0].obligations = vec![notify_with_consequence()];
+                request
+            },
+            patches: vec![],
+            expect: allow(&base_allow_reason())
+                .with_duties(vec![attached_duty("compensate", "duty[0].consequence")]),
+        })
+        .falls_short_of(ideal(
+            // The one probe in the catalog whose ideal DECISION equals its
+            // current one. What falls short is the reported `duties` list,
+            // which is why `ideal.is_some()` -- not a decision comparison
+            // -- is what marks a probe as falling short.
+            "Allow",
+            "Decision unchanged (dutyMode is advise here, and per 2.6.4 a policy-level obligation does not \
+             gate a Permission), and the reason unchanged: \"permission[0] of policy 'probe' matched: action \
+             'use', unconstrained\". What must change is `duties`: a compliant engine reports BOTH \
+             outstanding duties -- duty[0] 'notify', the primary, in the shape a policy-level obligation \
+             carries, AND 'compensate' at source duty[0].consequence. The current expectation lists only \
+             the consequence, silently dropping the primary the spec says is still required, so a host \
+             acting on this response is told to compensate and never told it must still notify.",
+            "Information Model 2.6.3: \"If its action has not been exercised, then all consequences must \
+             also be fulfilled to fulfil the Duty. That is, consequences are additional Duties that must \
+             also be fulfilled\", and \"the original obligation or duty, as well as the consequence Duties \
+             MUST all be fulfilled.\" 2.6.6: \"all consequence Duties MUST also be fulfilled to set the \
+             final state of the Permission/Obligation Duty to fulfilled.\" With no claims at all, `notify` \
+             is unfulfilled AND `compensate` is unfulfilled, so a host has two outstanding requirements, \
+             not one. Rated reasonably confident rather than certain only because ODRL 2.2 governs the \
+             model, not the shape of a PDP response envelope -- but \"MUST all be fulfilled\" leaves an \
+             engine that reports one of two outstanding requirements materially understating what the \
+             policy demands.",
+        )),
+    );
 
     /// The prohibition every remedy probe below varies: `use` prohibited
     /// for a US claim, carrying an `odrl:remedy` duty `anonymize`.
@@ -2428,24 +2833,43 @@ fn other_probes() -> Vec<Probe> {
         expect: allow(uid_reason).excluding(&["c-9"]),
     }));
 
-    probes.push(build(Spec {
-        id: "profile-union-not-per-policy",
-        kind: NEGATIVE,
-        title: "a policy may use vocabulary its own declared profile never defines",
-        asserts: "The config is the union of two loaded profiles (it declares both `use` and `anonymize`); \
-                  the policy declares odrl:profile A, which defines only `use`; and the policy then uses \
-                  `anonymize` successfully. Per-policy profile scoping would produce an Error here \
-                  instead. A superset can only ever recognize more, never fewer -- a named fail-open.",
-        falsified_by: "Error -- which is what correctly-scoped per-policy profile selection would give",
-        request: Request {
-            action: "anonymize".to_string(),
-            config: flat_config(&["use", "anonymize"]),
-            policies: vec![policy("probe", vec![rule("anonymize", vec![])])],
-            ..base_request()
-        },
-        patches: vec![Patch::set("/policies/0", "profile", json!("https://example.org/profiles/A"))],
-        expect: allow("permission[0] of policy 'probe' matched: action 'anonymize', unconstrained"),
-    }));
+    probes.push(
+        build(Spec {
+            id: "profile-union-not-per-policy",
+            kind: NEGATIVE,
+            title: "a policy may use vocabulary its own declared profile never defines",
+            asserts: "The config is the union of two loaded profiles (it declares both `use` and `anonymize`); \
+                      the policy declares odrl:profile A, which defines only `use`; and the policy then uses \
+                      `anonymize` successfully. Per-policy profile scoping would produce an Error here \
+                      instead. A superset can only ever recognize more, never fewer -- a named fail-open.",
+            falsified_by: "Error -- which is what correctly-scoped per-policy profile selection would give",
+            request: Request {
+                action: "anonymize".to_string(),
+                config: flat_config(&["use", "anonymize"]),
+                policies: vec![policy("probe", vec![rule("anonymize", vec![])])],
+                ..base_request()
+            },
+            patches: vec![Patch::set("/policies/0", "profile", json!("https://example.org/profiles/A"))],
+            expect: allow("permission[0] of policy 'probe' matched: action 'anonymize', unconstrained"),
+        })
+        .falls_short_of(ideal(
+            "Error",
+            "The policy's own declared odrl:profile is named and processing stops -- e.g. \"policy 'probe' \
+             declares odrl:profile 'https://example.org/profiles/A', which this processing system does not \
+             recognise\", replacing the current Allow reason \"permission[0] of policy 'probe' matched: \
+             action 'anonymize', unconstrained\".",
+            "Information Model 3.2 ODRL Profile Conformance: \"When an ODRL Profile(s) is used in an ODRL \
+             Policy, an ODRL Processing system MUST understand the semantics of the identified ODRL \
+             Profile(s). If the ODRL Processing system does not recognise the ODRL Profile identifier(s) \
+             then it MUST stop processing the policy.\" The policy declares \
+             https://example.org/profiles/A; the loaded profile is https://ds42.org/profiles/coverage-probe, \
+             so A is unrecognised and processing MUST stop rather than resolve `anonymize` out of the union. \
+             Secondary hook, same direction: 3.1 says the Common Vocabulary's terms (anonymize is Vocabulary \
+             4.4.4, not Core 3.x) are usable because \"These terms may be defined explicitly or may be \
+             adopted from the ODRL Common Vocabulary\" by a Profile -- and profile A adopts only `use`, so \
+             nothing the policy declares supplies `anonymize` either.",
+        )),
+    );
 
     // `odrl:inheritFrom` is now a real, modelled field
     // (`engine::wire::WirePolicy::inherit_from`), so these four build it
@@ -2695,21 +3119,45 @@ fn other_probes() -> Vec<Probe> {
         expect: deny(&closed_deny("use")),
     }));
 
-    probes.push(build(Spec {
-        id: "ror-reference-key-ignored",
-        kind: NEGATIVE,
-        title: "odrl:rightOperandReference is dropped entirely",
-        asserts: "The spec's own indirect form for exactly this case, injected on the constraint. The \
-                  constraint's literal right operand `XX` decides instead, and misses.",
-        falsified_by: "Allow -- which would mean the reference form is read",
-        request: one(c("spatial", Operator::Eq, "XX"), claims(&[("spatial", s("DE"))])),
-        patches: vec![Patch::set(
-            "/policies/0/permissions/0/constraints/0",
-            "rightOperandReference",
-            json!({"@id": "https://example.org/regions/eu"}),
-        )],
-        expect: deny(&closed_deny("use")),
-    }));
+    probes.push(
+        build(Spec {
+            id: "ror-reference-key-ignored",
+            kind: NEGATIVE,
+            title: "odrl:rightOperandReference is dropped entirely",
+            asserts: "The spec's own indirect form for exactly this case, injected on the constraint. The \
+                      constraint's literal right operand `XX` decides instead, and misses.",
+            falsified_by: "Allow -- which would mean the reference form is read",
+            request: one(c("spatial", Operator::Eq, "XX"), claims(&[("spatial", s("DE"))])),
+            patches: vec![Patch::set(
+                "/policies/0/permissions/0/constraints/0",
+                "rightOperandReference",
+                json!({"@id": "https://example.org/regions/eu"}),
+            )],
+            expect: deny(&closed_deny("use")),
+        })
+        .falls_short_of(ideal(
+            "Error",
+            "The malformed constraint is named rather than silently decided by its literal operand -- e.g. \
+             \"constraint declares both odrl:rightOperand and odrl:rightOperandReference; Information Model \
+             2.5.1 permits only one\", replacing the current closed-default Deny reason. Worth stating on \
+             the page: this probe does NOT exhibit its row's actual shortfall -- that an engine which CAN \
+             dereference would answer differently -- because both readings of this malformed input land on \
+             a non-Allow. Demonstrating that needs a new probe carrying rightOperandReference alone, under \
+             a set-based operator (e.g. spatial isAnyOf -> a reference to a list containing DE), where a \
+             compliant engine allows and this one misses.",
+            "Information Model 2.5.1 Constraint Class: \"Only one of rightOperand or rightOperandReference \
+             MUST appear in the Constraint.\" Vocabulary 3.14.8 Has Right Operand Reference: \"An IRI that \
+             MUST be dereferenced to obtain the actual right operand value.\" This probe's constraint \
+             carries both `rightOperand: XX` and a rightOperandReference, which no conformant Constraint \
+             may do. FORK, shipped vs rejected: the shipped (structural) reading refuses the expression \
+             outright, giving Error. The rejected (charitable) reading honours the reference as 2.5.1 \
+             intends, dereferences https://example.org/regions/eu and compares with eq against the claim DE \
+             -- which still fails, so the decision stays Deny and only the reason changes. The fork is \
+             closely related to op-lt-mixed-type-miss's own Deny-vs-Error question, where the OPPOSITE \
+             branch shipped: there the input is a datatype violation an ODRL Validator polices (1.3), while \
+             here it is a cardinality violation in the Constraint the Evaluator is being handed.",
+        )),
+    );
 
     probes
 }
@@ -2773,6 +3221,29 @@ fn row(spec: RowSpec) -> Row {
         probe_ids: spec.probe_ids.iter().map(|id| id.to_string()).collect(),
         documented_because: spec.documented_because.map(str::to_string),
         caveat: spec.caveat.map(str::to_string),
+        // Set by `falls_short_at_row_level` on the one row whose gap no
+        // probe can reach; `None` everywhere else, including on every row
+        // whose shortfall its own probes already demonstrate.
+        full_compliance_gap: None,
+    }
+}
+
+impl Row {
+    /// Records a full-compliance shortfall that **no probe can carry**,
+    /// because the wire contract has no way to express the question at
+    /// all. Exactly one row uses this — `party.collections`, which has
+    /// zero probes for precisely that reason — and the text says which
+    /// wire-contract additions full ODRL 2.2 support would need.
+    ///
+    /// Distinct from `documented_because`, which every probe-less row
+    /// carries and which answers `/coverage`'s question ("why can no
+    /// request test this claim about what the engine does"). This answers
+    /// `/full-compliance`'s ("what would the engine need before it could
+    /// even attempt the spec here"), and its presence makes the row a
+    /// permanent falls-short judged at row level rather than by any probe.
+    fn falls_short_at_row_level(mut self, gap: &str) -> Self {
+        self.full_compliance_gap = Some(gap.to_string());
+        self
     }
 }
 
@@ -3330,7 +3801,51 @@ pub fn rows() -> Vec<Row> {
                  the test. It is a native-tooling claim, verified by that crate's own tests instead.",
             ),
             caveat: None,
-        }),
+        })
+        // The one row whose full-compliance shortfall is judged at row
+        // level. It has zero probes, and that is exactly why: the question
+        // cannot be posed on this wire, so there is no answer to be wrong.
+        .falls_short_at_row_level(
+            "ODRL 2.2 Information Model 2.3 makes collection membership a first-class part of the Party \
+             class -- \"A Party MAY have none, one, or many partOf property values (of type \
+             PartyCollection) to identify the PartyCollection that this Party is a member of\", where \
+             \"PartyCollection - a Party that is a single entity representing a set of member entities. \
+             This indicates that all the members of the set will undertake the same functional role in the \
+             Rule\" -- and 2.3.2 states the evaluation consequence outright: \"The partOf property is used \
+             to identify a PartyCollection that a Party entity is a member of ... This enables a Rule that \
+             relates to a PartyCollection to understand which individual Parties the Rule may apply to.\" \
+             Examples 9 and 10 in 2.3 show exactly the shape: an Agreement whose assignee is the \
+             PartyCollection http://example.com/team/A, and a separate vCard expression asserting \
+             \"odrl:partOf\": \"http://example.com/team/A\" for http://example.com/person/murphy, which the \
+             spec says \"means that http://example.com/person/murphy is an assignee and can use the target \
+             asset in the Policy\". This engine's Section 5.2 wire contract can express neither half: \
+             WirePolicy::assignee is a single opaque Option<String> that wire::party_role_mismatch compares \
+             for exact string equality (or multi-value claim membership) against one claim key, and Request \
+             carries no field at all saying which collections the caller belongs to -- so a request naming \
+             team/A as assignee and a caller identifying as murphy cannot even be posed. \
+             Three additions would be needed for the engine to attempt full support. (1) A caller-side \
+             membership channel symmetric to the one the asset side already has: Request::asset_collections \
+             is precisely this shape for odrl:partOf on Assets -- decision::Rule::target_applies matches a \
+             rule's target against \"any asset collection asset_collections asserts requested_target is a \
+             member of\", explicitly as a host-supplied fact with no graph traversal and no transitive \
+             closure -- so a sibling Request::party_collections: Vec<String> (JSON partyCollections) would \
+             carry the flattened, host-resolved list of PartyCollection IRIs the caller belongs to, one \
+             entry per ancestor. (2) Engine-side resolution: party_role_mismatch widened so a policy \
+             assignee naming a PartyCollection is satisfied when the caller's \
+             partyIdentityClaim/agreementAssigneeClaim value matches OR the assignee IRI appears in \
+             party_collections -- a few lines, and the only change that touches the decision path. (3) For \
+             the refined form, 2.5.6 requires more than a fact channel: \"A PartyCollection MAY include a \
+             refinement property to indicate the refinement context under which to identify individual \
+             Party(ies) of the complete collection ... all of the Constraints/Logical Constraints \
+             referenced by the refinement property MUST be satisfied\", and \"when using the refinement \
+             property, the uid property MUST NOT be used to identify the PartyCollection. Instead, the \
+             source property MUST be used\" -- so assignee would have to stop being a bare string and \
+             become a structured value carrying source plus a refinement constraint list the engine \
+             evaluates against the caller's claims. Until at least (1) and (2) exist no request can ask the \
+             question, which is why this row falls short of full ODRL 2.2 by construction rather than by \
+             any observable wrong answer -- and the asset-side precedent shows the addition is small, not \
+             architectural.",
+        ),
         row(RowSpec {
             id: "party.inverse-properties",
             category: "party",
@@ -3808,6 +4323,283 @@ mod tests {
                 row.id,
                 row.status
             );
+        }
+    }
+
+    // ---- the full-compliance axis --------------------------------------
+
+    /// The implementable rows -- `Partial` or `NotImplemented` -- that
+    /// carry no falls-short evidence at all: no probe of theirs has an
+    /// `ideal`, and none of them is `party.collections` (the one row
+    /// judged at row level).
+    ///
+    /// **A row landing here is not a row that meets ODRL 2.2 in full.** It
+    /// is a row whose shortfall none of its *current* probes can reach --
+    /// the shortfall would need a probe nobody has written yet, and
+    /// sometimes one this wire contract cannot express. Each entry's
+    /// reason, from the research pass that judged every probe on every
+    /// implementable row:
+    ///
+    /// - `actions.implies` — odrl:implies is a prohibition/conflict
+    ///   relation (IM 2.4), never a permission-coverage one, so dropping
+    ///   it happens to give the right answer here; the gap needs a probe
+    ///   where a permitted action implies a *prohibited* one.
+    /// - `actions.spec-taxonomy` — all three chains resolve exactly as the
+    ///   Vocabulary asserts.
+    /// - `left-operands.numeric` — needs a probe injecting the spec's own
+    ///   `odrl:status` key (IM 2.5.1), which the three-field Constraint
+    ///   cannot carry.
+    /// - `left-operands.spatial` — under the shipped reading of `eq` as
+    ///   equality, the containment shortfall lives entirely under
+    ///   isPartOf, where op-ispartof-no-hierarchy does demonstrate it.
+    /// - `left-operands.opaque` — the BCP-47 sentence is a non-normative
+    ///   Note about lexical form, and neither event probe supplies a
+    ///   period; the row's premise, not the engine, is what is off.
+    /// - `left-operands.durations` — the nominal 365/30-day Y/M conversion
+    ///   cannot manifest on two pure dayTime durations.
+    /// - `left-operands.coordinates` — the two points really are ~10 m
+    ///   apart, and ODRL defines no tolerance anywhere on Constraint.
+    /// - `left-operands.unit-of-count` — the key appears only in claims the
+    ///   policy never references; the shortfall needs `odrl:unit` on the
+    ///   constraint (IM 2.5.5 Example 16).
+    /// - `operators.neq` — the absent-value miss is exactly IM 2.5.1's
+    ///   binary "otherwise it is not satisfied".
+    /// - `operators.ordering` — all six probes reach the spec-ideal answer.
+    /// - `logical.and-sequence` — **the one entry the research backlog's
+    ///   own "needs a new probe" list did not name**, found by this
+    ///   invariant rather than handed to it. Its three probes were all
+    ///   judged ideal == current: two stateless attribute predicates leave
+    ///   "satisfied in sequence" degenerate to "satisfied", so the row's
+    ///   real narrowing (Vocabulary 3.17.4's "in the order specified" is
+    ///   not separately tracked) is not reached by anything it currently
+    ///   probes. Recorded here rather than papered over.
+    /// - `party.inverse-properties` — the probe asserts assignerOf/
+    ///   assigneeOf on the *policy* with asset URNs as values, so IM
+    ///   2.3.3's inference (Domain: Party, Range: Policy) is never
+    ///   licensed and a compliant engine infers nothing either.
+    /// - `party.common-functions` — Vocabulary 4.3.1-4.3.12 define all
+    ///   twelve as ancillary roles on duty actions, none of which appears
+    ///   in IM 2.6.1's permission condition.
+    /// - `duty.obligation` — the real narrowing is that a satisfied
+    ///   constraint is read as proof the action was exercised (contra IM
+    ///   2.6.4's conjunction); this row's own obligation constraint
+    ///   happens to read as an execution assertion.
+    /// - `duty.remedy` — the row's stated premise is not borne out: IM
+    ///   2.6.2/2.6.7 make a fulfilled remedy change the Prohibition's
+    ///   infringement state, not what it permits, so all three probes are
+    ///   spec-correct and the *documentation* overstates the gap.
+    /// - `assets.collections` — IM 2.2.2 makes partOf an asserted fact,
+    ///   never inferred, which is the model the engine implements.
+    /// - `assets.target` — per-rule target scoping and IM 2.10's
+    ///   same-target restriction are both correct.
+    /// - `assets.output` — odrl:output states no precondition on whether a
+    ///   permission grants; the shortfall is not decision-observable at
+    ///   all without a response-envelope addition.
+    /// - `other.uid` — under the decisions-only reading both probes are
+    ///   ideal == current; the decision-level bite (IM 2.5.2 operands as
+    ///   IRI references to uid-bearing Constraints) has no wire form.
+    /// - `other.inherit-from` — all six probes, including the conflict
+    ///   divergence void, reach the spec-ideal answer.
+    ///
+    /// Three rows the same research pass listed as needing a new probe are
+    /// deliberately **absent** from this constant, because each turned out
+    /// to carry falls-short evidence anyway: `policy-classes.set-default`
+    /// and `policy-classes.discrimination` through the shared
+    /// `pc-kind-nonsense`, `party.assigner-assignee` through
+    /// `pf-assignee-scoped-miss`, and `other.right-operand-reference`
+    /// through `ror-reference-key-ignored`.
+    const ROWS_WITH_NO_FALLS_SHORT_EVIDENCE_YET: &[&str] = &[
+        "actions.implies",
+        "actions.spec-taxonomy",
+        "left-operands.numeric",
+        "left-operands.spatial",
+        "left-operands.opaque",
+        "left-operands.durations",
+        "left-operands.coordinates",
+        "left-operands.unit-of-count",
+        "operators.neq",
+        "operators.ordering",
+        "logical.and-sequence",
+        "party.inverse-properties",
+        "party.common-functions",
+        "duty.obligation",
+        "duty.remedy",
+        "assets.collections",
+        "assets.target",
+        "assets.output",
+        "other.uid",
+        "other.inherit-from",
+    ];
+
+    /// Scope rule 2 of the full-compliance axis, asserted over the real
+    /// catalog rather than assumed: every row documented `Implemented`
+    /// trivially meets full spec, so no probe any such row names may carry
+    /// an `ideal`. This is the invariant that would break first if a probe
+    /// shared between an implementable row and an `Implemented` one ever
+    /// gained a shortfall — `act-base-exact` and `pf-assignee-null-control`
+    /// are both shared exactly that way.
+    #[test]
+    fn no_probe_on_an_implemented_row_carries_a_full_compliance_ideal() {
+        let probes = probes();
+        let ideal_of = |id: &str| {
+            probes.iter().find(|p| p.id == id).unwrap_or_else(|| panic!("no probe {id}")).ideal.is_some()
+        };
+
+        let mut offenders: Vec<String> = Vec::new();
+        for row in rows().iter().filter(|row| row.status == IMPLEMENTED) {
+            for probe_id in &row.probe_ids {
+                if ideal_of(probe_id) {
+                    offenders.push(format!("{} names {probe_id}", row.id));
+                }
+            }
+        }
+        assert!(
+            offenders.is_empty(),
+            "a row documented Implemented cannot also fall short of full ODRL 2.2: {}",
+            offenders.join("; ")
+        );
+    }
+
+    /// The axis's own load-bearing claim, checked in both directions: an
+    /// implementable row (`Partial` or `NotImplemented`) is documented that
+    /// way because something about it genuinely is not full ODRL 2.2, so
+    /// it should carry *some* falls-short evidence — a probe with an
+    /// `ideal`, or (for `party.collections` alone) a row-level
+    /// `full_compliance_gap`.
+    ///
+    /// The rows that carry none are enumerated above rather than tolerated
+    /// silently: an exact set comparison, so this fails just as loudly when
+    /// a row quietly loses its evidence as when one gains it.
+    #[test]
+    fn every_implementable_row_carries_falls_short_evidence_or_is_named_as_lacking_it() {
+        let probes = probes();
+        let ideal_of = |id: &str| {
+            probes.iter().find(|p| p.id == id).unwrap_or_else(|| panic!("no probe {id}")).ideal.is_some()
+        };
+
+        let rows = rows();
+        let implementable: Vec<&Row> =
+            rows.iter().filter(|row| matches!(row.status, PARTIAL | NOT_IMPLEMENTED)).collect();
+        assert_eq!(
+            (
+                implementable.iter().filter(|r| r.status == PARTIAL).count(),
+                implementable.iter().filter(|r| r.status == NOT_IMPLEMENTED).count(),
+            ),
+            (23, 11),
+            "the full-compliance axis is scoped to 34 implementable rows; the other 18 are 11 Implemented \
+             (trivially compliant) and 7 OutOfScope (excluded outright)"
+        );
+
+        let without: Vec<&str> = implementable
+            .iter()
+            .filter(|row| {
+                let by_probe = row.probe_ids.iter().any(|id| ideal_of(id));
+                let by_row = row.full_compliance_gap.as_ref().is_some_and(|gap| !gap.is_empty());
+                !by_probe && !by_row
+            })
+            .map(|row| row.id.as_str())
+            .collect();
+
+        assert_eq!(
+            without, ROWS_WITH_NO_FALLS_SHORT_EVIDENCE_YET,
+            "these implementable rows carry no demonstrable reason they fall short of full ODRL 2.2 -- \
+             each one needs either a new probe or a re-scoped documented status, and the constant above \
+             says which and why"
+        );
+    }
+
+    /// `party.collections` is the whole of the row-level half of the axis,
+    /// and it is exactly the row that has no probes: the wire contract
+    /// carries no PartyCollection concept, so no request can pose the
+    /// question and there is no answer to be wrong.
+    #[test]
+    fn exactly_one_row_falls_short_at_row_level_and_it_is_the_one_with_no_probes() {
+        let rows = rows();
+        let with_gap: Vec<&Row> = rows.iter().filter(|row| row.full_compliance_gap.is_some()).collect();
+
+        assert_eq!(with_gap.len(), 1);
+        assert_eq!(with_gap[0].id, "party.collections");
+        assert!(with_gap[0].probe_ids.is_empty(), "a row-level gap exists because no probe can carry it");
+        assert!(matches!(with_gap[0].status, PARTIAL | NOT_IMPLEMENTED), "an OutOfScope row is excluded");
+
+        let gap = with_gap[0].full_compliance_gap.as_deref().expect("just checked");
+        for needed in ["PartyCollection", "odrl:partOf", "party_collections", "asset_collections", "2.5.6"] {
+            assert!(gap.contains(needed), "the gap text must name `{needed}` for a reader to act on it");
+        }
+    }
+
+    /// An `ideal` that named a decision outside the contract, or cited no
+    /// spec text, would render on the page as an authoritative-looking
+    /// claim with nothing behind it.
+    #[test]
+    fn every_ideal_names_a_contract_decision_and_quotes_the_spec() {
+        let mut with_ideal = 0;
+        for probe in probes() {
+            let Some(ideal) = &probe.ideal else { continue };
+            with_ideal += 1;
+            assert!(
+                matches!(ideal.decision, "Allow" | "Deny" | "Error"),
+                "{}: ideal decision `{}` is not one of Allow/Deny/Error",
+                probe.id,
+                ideal.decision
+            );
+            assert!(!ideal.reason.is_empty(), "{}: ideal carries no reason", probe.id);
+            assert!(
+                ideal.spec_citation.len() > 200,
+                "{}: an ideal must quote the clauses that settle it, not gesture at them",
+                probe.id
+            );
+            // The one probe whose ideal decision equals its current one --
+            // what falls short there is the reported `duties` list, not the
+            // decision. Everywhere else the two must actually differ, or
+            // the probe is carrying an ideal it does not need.
+            if ideal.decision == probe.expect.decision {
+                assert_eq!(
+                    probe.id, "duty-consequence-itself-unresolved",
+                    "{}: an ideal identical to the current expectation demonstrates no shortfall",
+                    probe.id
+                );
+            }
+        }
+        assert_eq!(
+            with_ideal, 15,
+            "fifteen probes were judged to fall short of full ODRL 2.2 by the research pass this axis \
+             records; a change to that count is a change to the page's headline claim"
+        );
+    }
+
+    /// Rows documented `OutOfScope` are excluded from the full-compliance
+    /// axis entirely -- they are outside the wire contract, not short of
+    /// the spec -- so none of them may be the *only* row naming a probe
+    /// that carries an ideal. One probe does sit on both sides
+    /// (`pc-kind-nonsense`, shared with two implementable policy-class
+    /// rows), and a shared probe must not be judged two ways; this pins
+    /// that to the one known case rather than letting it spread.
+    #[test]
+    fn an_out_of_scope_row_never_introduces_a_falls_short_probe_of_its_own() {
+        let probes = probes();
+        let ideal_of = |id: &str| {
+            probes.iter().find(|p| p.id == id).unwrap_or_else(|| panic!("no probe {id}")).ideal.is_some()
+        };
+        let rows = rows();
+        let implementable_probe_ids: BTreeSet<&str> = rows
+            .iter()
+            .filter(|row| matches!(row.status, PARTIAL | NOT_IMPLEMENTED))
+            .flat_map(|row| row.probe_ids.iter().map(String::as_str))
+            .collect();
+
+        for row in rows.iter().filter(|row| row.status == OUT_OF_SCOPE) {
+            for probe_id in &row.probe_ids {
+                if ideal_of(probe_id) {
+                    assert!(
+                        implementable_probe_ids.contains(probe_id.as_str()),
+                        "OutOfScope row {} names {probe_id}, which carries an ideal no implementable row \
+                         accounts for",
+                        row.id
+                    );
+                    assert_eq!(probe_id, "pc-kind-nonsense", "the only probe shared across that boundary");
+                }
+            }
         }
     }
 

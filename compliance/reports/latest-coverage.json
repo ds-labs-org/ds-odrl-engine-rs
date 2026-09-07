@@ -77,6 +77,7 @@
       },
       "falsified_by": "anything but Allow -- which would mean the baseline itself is broken and no other probe's reading can be trusted",
       "id": "act-base-exact",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -125,6 +126,7 @@
       },
       "falsified_by": "Deny -- which would mean coverage is exact-string matching, not taxonomy resolution",
       "id": "act-includedin-1hop",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "sell",
@@ -182,6 +184,7 @@
       },
       "falsified_by": "Deny -- which would mean coverage resolves one hop only",
       "id": "act-includedin-2hop",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "display",
@@ -242,6 +245,11 @@
       },
       "falsified_by": "Allow -- which would mean covers() reaches through actions no profile declared",
       "id": "act-includedin-undeclared-gap",
+      "ideal": {
+        "decision": "Allow",
+        "reason": "permission[0] of policy 'probe' matched: action 'use' covers requested 'display' -- the chain closes through odrl:play's own vocabulary-asserted includedIn edge, rather than stopping at the closed-default Deny this probe expects today. Under the strict-validation reading the ideal is instead Error on an invalid profile; a plain Deny is what neither reading produces.",
+        "spec_citation": "Information Model 2.4 Action Class: \"The purpose of the includedIn property is to explicitly assert that the semantics of the referenced instance of an other Action encompasses (includes) the semantics of this instance of Action. The includedIn property is transitive, and as such, the Actions form ancestor relationships\", and \"The implication of the includedIn property is that a Permission or Prohibition of an encompassing Action is inherited by all Actions with an includedIn relationship.\" Also 2.4: \"An Action (except for use and transfer) MUST have one includedIn property value (of type Action) to transitively assert this Action that encompasses its operational semantics.\" Vocabulary 4.4.15 Display: \"Included In: play\"; 4.4.32 Play: \"Included In: use\". This probe declares `use` and `display includedIn play` but never declares `play`, so under the spec the referenced Action `play` either IS odrl:play -- whose includedIn use edge the Vocabulary asserts normatively, closing display -> play -> use and giving Allow -- or it is a term violating 2.4's own MUST, which makes the profile invalid rather than merely non-covering. Reading a dangling edge as silently inert, which is what a plain Deny requires, is authorised by no clause in either document. FORK, shipped vs rejected: the shipped (A) reading is vocabulary-aware -- the bare tokens use/play/display ARE the odrl: terms, which is what the JSON-LD context makes them, and odrl:play odrl:includedIn odrl:use is a normative Vocabulary assertion. The rejected (B) reading is closed-profile: Terminology calls the Common Vocabulary \"A set of generic terms that MAY be re-used by ODRL Profiles\" (may, not must) and 3.3's profile mechanism has each profile declare its own actions' includedIn parents, so these would be opaque host tokens nothing external closes -- making the ideal Deny, i.e. exactly current, and this row fully compliant today. (A) ships because a normative Vocabulary triple about a term the request itself names is evidence an evaluator has no licence to discard."
+      },
       "kind": "negative",
       "request": {
         "action": "display",
@@ -296,6 +304,7 @@
       },
       "falsified_by": "Allow -- which would mean odrl:implies is being resolved as a coverage edge",
       "id": "act-implies-ignored",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "sell",
@@ -353,6 +362,7 @@
       },
       "falsified_by": "Deny -- which would mean the engine cannot resolve the spec's own taxonomy",
       "id": "act-taxonomy-display-play-use",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "display",
@@ -698,6 +708,7 @@
       },
       "falsified_by": "Deny -- which would mean the engine cannot resolve the spec's own taxonomy",
       "id": "act-taxonomy-extract-reproduce-use",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "extract",
@@ -1043,6 +1054,7 @@
       },
       "falsified_by": "Deny -- which would mean the engine cannot resolve the spec's own taxonomy",
       "id": "act-taxonomy-sell-transfer",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "sell",
@@ -1388,6 +1400,7 @@
       },
       "falsified_by": "Allow or Deny -- either would mean unknown vocabulary is tolerated silently",
       "id": "act-unrecognized-error",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -1437,6 +1450,7 @@
       },
       "falsified_by": "Allow or Deny -- Error must out-rank both, or a misconfigured policy could be masked by a well-formed one beside it",
       "id": "act-unrecognized-outranks-allow",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -1499,6 +1513,7 @@
       },
       "falsified_by": "Deny -- which would mean unknown left operands are rejected rather than looked up",
       "id": "lo-extension-hit",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -1555,6 +1570,7 @@
       },
       "falsified_by": "Allow",
       "id": "lo-extension-miss",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -1611,6 +1627,7 @@
       },
       "falsified_by": "Deny",
       "id": "lo-datetime-hit",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -1667,6 +1684,7 @@
       },
       "falsified_by": "Allow",
       "id": "lo-datetime-miss",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -1723,6 +1741,11 @@
       },
       "falsified_by": "Allow -- which would mean the guest synthesised a clock from somewhere",
       "id": "lo-datetime-absent-no-clock",
+      "ideal": {
+        "decision": "Allow",
+        "reason": "permission[0] of policy 'probe' matched: action 'use': dateTime lt 2027-01-01T00:00:00Z. LOAD-BEARING CAVEAT for a live snapshot: this ideal is wall-clock dependent. Evaluated at any instant before 2027-01-01T00:00:00Z -- which includes now -- a compliant engine allows; from that instant onward the ideal becomes Deny and this probe silently stops demonstrating any shortfall at all. Say \"before 2027-01-01\" wherever this is rendered, or move the fixture's right operand further out.",
+        "spec_citation": "Vocabulary 4.5.6 Datetime defines the left operand as \"The date (and optional time and timezone) of exercising the action of the Rule\" -- the value is the moment of exercise itself, not an input a requester may or may not supply -- with the Note framing lt/lteq as the Rule being exercised before the right operand's date(time). An engine that is evaluating a request is by construction in possession of that value, so a full implementation compares now against 2027-01-01T00:00:00Z and finds the Constraint satisfied (Information Model 2.5.1: \"If the comparison returns a match the Constraint is satisfied, otherwise it is not satisfied\"). This differs from current behaviour only under the reading that the clock is intrinsic to the evaluator rather than a host-supplied fact -- the same PDP/PIP boundary question named on lo-count-absent-not-stateful, and the reason this engine's own no-clock posture is a coherent design choice rather than an oversight."
+      },
       "kind": "negative",
       "request": {
         "action": "use",
@@ -1777,6 +1800,7 @@
       },
       "falsified_by": "Deny",
       "id": "lo-count-hit",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -1833,6 +1857,7 @@
       },
       "falsified_by": "Allow",
       "id": "lo-count-miss",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -1889,6 +1914,7 @@
       },
       "falsified_by": "Allow -- which would mean the engine invented an execution count",
       "id": "lo-count-absent-not-stateful",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -1943,6 +1969,7 @@
       },
       "falsified_by": "Allow, or Error",
       "id": "lo-count-nonnumeric-miss",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -1999,6 +2026,7 @@
       },
       "falsified_by": "Allow -- which is exactly the fail-open the is_finite() guard exists to stop",
       "id": "lo-count-infinity-rejected",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -2055,6 +2083,7 @@
       },
       "falsified_by": "Deny",
       "id": "lo-payamount-decimal",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -2111,6 +2140,7 @@
       },
       "falsified_by": "Deny",
       "id": "lo-spatial-flat-hit",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -2167,6 +2197,7 @@
       },
       "falsified_by": "Allow -- which would mean a region hierarchy exists somewhere in the engine",
       "id": "lo-spatial-no-containment",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -2223,6 +2254,7 @@
       },
       "falsified_by": "Deny",
       "id": "lo-purpose-opaque-hit",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -2279,6 +2311,7 @@
       },
       "falsified_by": "Allow -- which would mean language-range handling exists",
       "id": "lo-language-no-bcp47",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -2335,6 +2368,7 @@
       },
       "falsified_by": "Allow -- which would require modelling event periods",
       "id": "lo-event-no-period-ordering",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -2391,6 +2425,7 @@
       },
       "falsified_by": "Deny -- which would mean the duration parser regressed",
       "id": "lo-duration-metering-example",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -2447,6 +2482,7 @@
       },
       "falsified_by": "Allow -- which would mean an unparseable value is silently accepted somewhere",
       "id": "lo-duration-malformed-miss",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -2503,6 +2539,7 @@
       },
       "falsified_by": "Deny",
       "id": "lo-coordinates-string-eq",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -2559,6 +2596,7 @@
       },
       "falsified_by": "Allow -- which would require a distance or containment computation",
       "id": "lo-coordinates-no-geometry",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -2615,6 +2653,7 @@
       },
       "falsified_by": "Allow",
       "id": "lo-absoluteposition-no-ordering",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -2671,6 +2710,7 @@
       },
       "falsified_by": "a decision or reason differing from lo-unitofcount-volume's",
       "id": "lo-unitofcount-page",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -2728,6 +2768,7 @@
       },
       "falsified_by": "a decision or reason differing from lo-unitofcount-page's",
       "id": "lo-unitofcount-volume",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -2785,6 +2826,7 @@
       },
       "falsified_by": "Deny",
       "id": "lo-unitofcount-as-plain-key",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -2841,6 +2883,11 @@
       },
       "falsified_by": "Deny -- which would only mean this catalog mis-stated the string comparison",
       "id": "lo-policyusage-literal",
+      "ideal": {
+        "decision": "Deny",
+        "reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default) -- the reason changes from a matched-constraint Allow to the closed-default deny. The engine allows here by string-equalling a reserved IRI against a claim that happens to contain the same characters; a compliant engine, resolving odrl:policyUsage to the exercise datetime, finds nothing on the other side to compare it with.",
+        "spec_citation": "Vocabulary 4.6.1 Policy Rule Usage: \"Indicates the actual datetime the action of the Rule was exercised\"; Identifier http://www.w3.org/ns/odrl/2/policyUsage; \"Class: RightOperand\"; Note: \"This can be used to express constraints with a LeftOperand relative to the time the rule is exercised. Operators indicate before (lt, lteq), during (eq) or after (gt, gteq) the usage of the rule. Example: event lt policyUsage expresses that the identified event must have happened before the action of the rule is exercised.\" With Vocabulary 4.5.10 Event and Information Model 2.5.1 (\"The rightOperand property values are defined as instances of the RightOperand class, or IRIs, or Literal values\", plus the binary satisfaction rule): odrl:policyUsage is not a string but a reserved RightOperand instance whose value IS the exercise datetime, so `event eq policyUsage` must be evaluated as a temporal comparison. Here the host's event claim is the literal token 'odrl:policyUsage', which identifies no event and carries no period, so the comparison cannot return a match."
+      },
       "kind": "negative",
       "request": {
         "action": "use",
@@ -2897,6 +2944,7 @@
       },
       "falsified_by": "Allow -- which would mean the engine tracked its own past usage",
       "id": "lo-policyusage-absent",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -2951,6 +2999,7 @@
       },
       "falsified_by": "Deny",
       "id": "op-eq-single",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -3007,6 +3056,11 @@
       },
       "falsified_by": "Deny -- which would mean the documented adaptation is not actually in effect",
       "id": "op-eq-multi-membership",
+      "ideal": {
+        "decision": "Deny",
+        "reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default). This row's one genuine shortfall, and the reason its Partial status is real: its two sibling probes (op-eq-single, op-eq-no-concat) already behave exactly as the spec requires.",
+        "spec_citation": "Vocabulary 3.16.1 defines eq as \"Indicating that a given value equals the right operand\" and does NOT prefix it \"A set-based operator\" -- unlike 3.16.7-3.16.12 (isA, hasPart, isPartOf, isAllOf, isAnyOf, isNoneOf), every one of which is. Information Model 2.5.1 restricts list-valued operands to exactly those: \"A Constraint MUST have either: one rightOperand property value of type: literal, or IRI, or RightOperand; or for set-based operators; list of literals, or list of IRIs, or list of RightOperands\", echoed by Vocabulary 3.14.7. ODRL's comparison model is scalar-to-scalar, and it already supplies isAnyOf (3.16.11) for exactly the membership question this engine folds into eq. So the two-element value [FR, DE] does not equal the literal DE, the Constraint is not satisfied, and the closed-world config denies. COUNTER-READING, named rather than buried: ODRL never states that a leftOperand resolves to exactly one value, and evaluators over RDF commonly adopt an existential reading under which any one matching value satisfies eq. That reading is defensible; it is judged the weaker one because it makes eq silently widen a permission (a dual national satisfies 'nationality eq DE') -- a fail-open widening of what the policy author wrote -- and because it collapses the relational/set-based distinction the Vocabulary itself draws."
+      },
       "kind": "negative",
       "request": {
         "action": "use",
@@ -3066,6 +3120,7 @@
       },
       "falsified_by": "Allow -- which would mean eq quietly acquired list semantics of its own",
       "id": "op-eq-no-concat",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -3125,6 +3180,7 @@
       },
       "falsified_by": "Deny",
       "id": "op-neq-hit",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -3181,6 +3237,7 @@
       },
       "falsified_by": "Allow -- which would make the absent-key posture non-uniform in a second place",
       "id": "op-neq-absent-miss",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -3235,6 +3292,7 @@
       },
       "falsified_by": "Deny",
       "id": "op-isanyof-hit",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -3291,6 +3349,7 @@
       },
       "falsified_by": "Allow",
       "id": "op-isanyof-miss",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -3347,6 +3406,7 @@
       },
       "falsified_by": "Allow -- which would mean an escaping convention exists after all",
       "id": "op-isanyof-comma-unescapable",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -3403,6 +3463,7 @@
       },
       "falsified_by": "Deny",
       "id": "op-isanyof-comma-control",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -3459,6 +3520,7 @@
       },
       "falsified_by": "Deny",
       "id": "op-isallof-hit",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -3519,6 +3581,7 @@
       },
       "falsified_by": "Allow -- which would collapse isAllOf into isAnyOf",
       "id": "op-isallof-miss",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -3577,6 +3640,7 @@
       },
       "falsified_by": "Deny",
       "id": "op-isnoneof-hit",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -3633,6 +3697,7 @@
       },
       "falsified_by": "Allow -- which would make the exclusion inert",
       "id": "op-isnoneof-miss",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -3689,6 +3754,7 @@
       },
       "falsified_by": "Deny -- which would make the documented exception not real",
       "id": "op-isnoneof-absent-satisfies",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -3743,6 +3809,7 @@
       },
       "falsified_by": "Deny",
       "id": "op-ispartof-hit",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -3799,6 +3866,11 @@
       },
       "falsified_by": "Allow -- which would require a containment graph",
       "id": "op-ispartof-no-hierarchy",
+      "ideal": {
+        "decision": "Allow",
+        "reason": "permission[0] of policy 'probe' matched: action 'use': spatial isPartOf https://www.geonames.org/2921044. This row's headline shortfall: the engine denies only because IsPartOf runs IsAnyOf's flat comma-list membership test (engine/src/constraint.rs:595-598, `Operator::IsAnyOf | Operator::IsPartOf` sharing one arm).",
+        "spec_citation": "Vocabulary 3.16.9 Is part of: \"A set-based operator indicating that a given value is contained by the right operand of the Constraint\" (Identifier http://www.w3.org/ns/odrl/2/isPartOf) -- containment, not enumeration, is the whole definition. Vocabulary 4.5.26 spatial: \"A named and identified geospatial area with defined borders ... An IRI MUST be used to represent this value\", its Note naming external code sources (ISO 3166, the Getty Thesaurus) as where the area is resolved from; and Information Model 2.5.1's rightOperandReference machinery (\"that IRI must be de-referenced first and the data returned must be interpreted as the value to be compared\") shows ODRL already assumes evaluators dereference IRIs. Containment verified independently rather than assumed: https://sws.geonames.org/2950159/about.rdf returns gn:name \"Berlin\", gn:featureCode P.PPLC, gn:countryCode DE and gn:parentCountry rdf:resource=\"https://sws.geonames.org/2921044/\"; https://sws.geonames.org/2921044/about.rdf returns gn:name \"Germany\". Berlin is contained by Germany in the very authority this probe's two IRIs name, so a fully spec-implementing engine's comparison returns a match. Reading considered and rejected: an engine with no containment knowledge returns no match, and 2.5.1's \"otherwise it is not satisfied\" makes Deny formally defensible -- but that is precisely the narrowing this axis exists to expose, since its premise is an engine that DOES fully implement isPartOf."
+      },
       "kind": "negative",
       "request": {
         "action": "use",
@@ -3855,6 +3927,7 @@
       },
       "falsified_by": "Deny -- which would mean isPartOf is doing something isAnyOf does not",
       "id": "op-ispartof-mirrors-isanyof",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -3911,6 +3984,7 @@
       },
       "falsified_by": "Deny -- which is exactly what a lexical comparison would produce",
       "id": "op-lt-fractional-chronological",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -3967,6 +4041,7 @@
       },
       "falsified_by": "Deny -- which would mean only the full dateTime lexical form is accepted",
       "id": "op-lteq-xsd-date",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -4023,6 +4098,7 @@
       },
       "falsified_by": "Deny",
       "id": "op-lt-offset-datetime",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -4079,6 +4155,7 @@
       },
       "falsified_by": "Deny",
       "id": "op-gteq-numeric-boundary",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -4135,6 +4212,7 @@
       },
       "falsified_by": "Allow -- which would make gt and gteq indistinguishable",
       "id": "op-gt-numeric-boundary",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -4191,6 +4269,7 @@
       },
       "falsified_by": "Allow -- which would mean cross-type coercion happens somewhere",
       "id": "op-lt-mixed-type-miss",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -4248,6 +4327,11 @@
       },
       "falsified_by": "Allow or Deny -- either would mean the token was tolerated somehow",
       "id": "op-isa-unparseable",
+      "ideal": {
+        "decision": "Deny",
+        "reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default) -- an ordinary unsatisfied constraint, not a parse failure. The Error is the shortfall; the Deny is merely what the evaluation then yields.",
+        "spec_citation": "isA is not an extension: Vocabulary 3.14.4 Operator enumerates the closed core set -- \"Instances: eq, gt, gteq, hasPart, isA, isAllOf, isAnyOf, isNoneOf, isPartOf, lt, lteq, neq\" -- and 3.16.7 Is a defines it: \"A set-based operator indicating that a given value is an instance of the right operand of the Constraint\" (Identifier http://www.w3.org/ns/odrl/2/isA). A fully spec-implementing engine must therefore accept the token and evaluate it. On the resulting decision for THIS request the two available routes converge: the claim value is the literal string odrl:Purpose and the right operand is the same string, but ODRL 2.2 defines no class odrl:Purpose at all (4.5.19 defines lowercase odrl:purpose as a LeftOperand instance; the Vocabulary's only RightOperand instance is policyUsage, 3.14.6/4.6.1). Route 1: the class is unknown, so nothing can be shown to be an instance of it -- no match. Route 2: even treating it as a class, a class is not an instance of itself -- no match. Both give an unsatisfied Constraint (2.5.1) and a closed-world Deny; only a reflexive/punning reading would yield Allow, and nothing in \"is an instance of\" supports one."
+      },
       "kind": "negative",
       "request": {
         "action": "use",
@@ -4305,6 +4389,11 @@
       },
       "falsified_by": "Allow or Deny",
       "id": "op-haspart-unparseable",
+      "ideal": {
+        "decision": "Deny",
+        "reason": "no permission of policy 'probe' covered and matched requested action 'use' (closed default). The Error half is settled either way; only the non-Error decision this should reach is open.",
+        "spec_citation": "hasPart is a core ODRL 2.2 operator -- Vocabulary 3.14.4 lists it among the twelve Operator instances -- so a fully spec-implementing engine must parse and evaluate it rather than answering Error. That half is NOT ambiguous. On the resulting decision, 3.16.8 says hasPart means \"a given value contains the right operand of the Constraint\", and here the given value and the right operand are the identical atomic literal odrl:Purpose, so the answer turns on whether parthood is reflexive. FORK, shipped vs rejected: the shipped (A) reading takes \"contains\" as a set/collection relation -- a bare scalar contains nothing, the Constraint is not satisfied (2.5.1), and hasPart stays the genuine converse of isPartOf (3.16.9, \"contained by\"), which would not hold reflexively either. The rejected (B) reading imports standard mereology, in which parthood is reflexive, every value contains itself, and the ideal would be Allow with the reason 'purpose hasPart odrl:Purpose'. ODRL 2.2 says nothing about reflexivity either way, and never defines any class odrl:Purpose (4.5.19 defines lowercase odrl:purpose as a LeftOperand), leaving the right operand an undefined IRI."
+      },
       "kind": "negative",
       "request": {
         "action": "use",
@@ -4361,6 +4450,7 @@
       },
       "falsified_by": "anything but Allow -- which would mean the pair proves nothing about operators",
       "id": "op-isa-control-eq",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -4418,6 +4508,7 @@
       },
       "falsified_by": "Allow or Deny -- either would mean profile-declared operators take effect",
       "id": "op-profile-operator-unparseable",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -4479,6 +4570,7 @@
       },
       "falsified_by": "Deny",
       "id": "lc-and-both",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -4548,6 +4640,7 @@
       },
       "falsified_by": "Allow",
       "id": "lc-and-one-false",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -4617,6 +4710,7 @@
       },
       "falsified_by": "Deny",
       "id": "lc-and-empty-vacuous",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -4672,6 +4766,7 @@
       },
       "falsified_by": "Deny",
       "id": "lc-or-second",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -4740,6 +4835,7 @@
       },
       "falsified_by": "Allow",
       "id": "lc-or-none",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -4808,6 +4904,7 @@
       },
       "falsified_by": "Allow",
       "id": "lc-or-empty-never",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -4863,6 +4960,7 @@
       },
       "falsified_by": "Deny",
       "id": "lc-xone-exactly-one",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -4932,6 +5030,7 @@
       },
       "falsified_by": "Allow",
       "id": "lc-xone-zero",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -5001,6 +5100,7 @@
       },
       "falsified_by": "Allow -- which would make xone an or",
       "id": "lc-xone-two-denies",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -5070,6 +5170,7 @@
       },
       "falsified_by": "Deny",
       "id": "lc-or-two-allows-control",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -5139,6 +5240,7 @@
       },
       "falsified_by": "Deny -- which would mean the atomic fields (or nothing) decided instead of odrl:andSequence",
       "id": "lc-andsequence-honored",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -5208,6 +5310,7 @@
       },
       "falsified_by": "Allow -- which would mean the atomic fields are being consulted instead of odrl:andSequence",
       "id": "lc-andsequence-miss",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -5276,6 +5379,7 @@
       },
       "falsified_by": "A different decision or reason from lc-andsequence-honored's",
       "id": "lc-and-control-honored",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -5345,6 +5449,7 @@
       },
       "falsified_by": "Allow -- which would mean profile-declared logical operands take effect",
       "id": "lc-custom-logical-ignored",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -5419,6 +5524,7 @@
       },
       "falsified_by": "Deny",
       "id": "pc-kind-set",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -5469,6 +5575,11 @@
       },
       "falsified_by": "Deny -- which would mean assignee scoping is enforced for every Agreement unconditionally, with no config to switch it on",
       "id": "pc-kind-agreement-ignores-assignee",
+      "ideal": {
+        "decision": "Deny",
+        "reason": "The Agreement's own assignee is not established for this caller, so it grants nothing -- e.g. \"policy 'probe' names odrl:assignee 'did:web:alice.example', which does not match the caller\". Note this shortfall is about the DEFAULT: the same request with agreementAssigneeClaim configured already reaches exactly this answer (pc-kind-agreement-assignee-claim-excludes-a-mismatch), so what falls short is that ODRL's MUST is opt-in here rather than what an Agreement means.",
+        "spec_citation": "Vocabulary 3.2.1 Agreement, Note: \"An Agreement Policy MUST contain at least one Permission or Prohibition rule, a Party with Assigner function, and a Party with Assignee function (in the same Permission or Prohibition). The Agreement Policy will grant the terms of the Policy from the Assigner to the Assignee.\" Information Model 2.1.3: \"An ODRL Policy of subclass Agreement represents Rules that have been granted from assigner to assignee Parties.\" This request is an Agreement naming assignee did:web:alice.example while the caller presents sub=did:web:mallory.example, and the engine answers Allow with the plain permission-matched reason. Residual fork, not enough to unsettle the verdict: ODRL defines no property by which a request says which claim carries the caller's identity, so an ideal engine arguably cannot IDENTIFY mallory without the opt-in config -- but this probe's config sets behaviour: closed, and under a closed default an assignee that cannot be established can never yield Allow either. Both branches land on Deny; only the reason text differs."
+      },
       "kind": "negative",
       "request": {
         "action": "use",
@@ -5519,6 +5630,7 @@
       },
       "falsified_by": "Deny -- which would mean the check rejects even the correct assignee",
       "id": "pc-kind-agreement-assignee-claim-hit",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -5572,6 +5684,7 @@
       },
       "falsified_by": "Allow -- which would mean agreementAssigneeClaim was accepted on the wire and silently ignored",
       "id": "pc-kind-agreement-assignee-claim-excludes-a-mismatch",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -5623,6 +5736,7 @@
       },
       "falsified_by": "a reason mentioning odrl:assignee, or any answer differing from pc-kind-set's -- either would mean a matching assignee is being treated as meaningful",
       "id": "pc-kind-offer-assignee-inert-even-on-a-match",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -5674,6 +5788,7 @@
       },
       "falsified_by": "Deny -- which is exactly what this engine wrongly did before this fix",
       "id": "pc-kind-offer-assignee-inert-even-on-a-mismatch",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -5725,6 +5840,7 @@
       },
       "falsified_by": "Deny or Error",
       "id": "pc-kind-ticket-with-assignee",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -5775,6 +5891,11 @@
       },
       "falsified_by": "Error -- which would mean `kind` is validated",
       "id": "pc-kind-nonsense",
+      "ideal": {
+        "decision": "Error",
+        "reason": "An unrecognised policy class, named and refused -- e.g. \"unrecognized policy class \\\"NotAnOdrlPolicyClass\\\"\", mirroring the engine's existing \"unrecognized action\" wording. Read for policy-classes.set-default specifically the finding is sharper: that row's claim is that identical evaluation of any kind IS always-Set semantics, and this probe is the one place where falling back to Set is an extrapolation the spec does not grant.",
+        "spec_citation": "Information Model 2.1 Policy Class: \"An ODRL Policy must either: Only use terms defined in the ODRL Core Vocabulary [odrl-vocab], or Use an ODRL Profile that declares the supported vocabulary used by expressions in the Policy. In the latter case, the profile property MUST be used to indicate the IRIs of the ODRL Profile(s).\" And: \"An ODRL Policy MAY be subclassed to more precisely describe the context of use of the Policy that MAY include additional constraints that ODRL processors MUST understand.\" `NotAnOdrlPolicyClass` is neither a Core/Common term nor declared by this request's profile (https://ds42.org/profiles/coverage-probe declares only actions), so the expression is non-conformant and the processor cannot \"understand\" the additional constraints the declared subclass may carry. The default-to-Set clause does not rescue Allow: 2.1.1 licenses the Set default only \"if none is specified\", and here one IS specified, just unrecognisably. FORK, shipped vs rejected: the rejected reading makes refusing an undeclared Policy subclass an ODRL VALIDATOR's duty (1.3, \"a system that checks the conformance of ODRL Policy expressions\") and therefore outside an Evaluator's remit, leaving Allow defensible. Error ships for internal consistency with act-unrecognized-error, which already Errors on an undeclared ACTION under the same closed-world profile rule -- the spec prescribes no output form, so consistency is the available tie-breaker."
+      },
       "kind": "negative",
       "request": {
         "action": "use",
@@ -5825,6 +5946,7 @@
       },
       "falsified_by": "a decision or reason differing from pc-kind-nonsense's",
       "id": "pc-kind-profile-subclass",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -5880,6 +6002,7 @@
       },
       "falsified_by": "Deny -- which would mean assignee is evaluated as a party scope unasked",
       "id": "pf-assignee-mismatch",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -5930,6 +6053,7 @@
       },
       "falsified_by": "a decision or reason differing from pf-assignee-mismatch's",
       "id": "pf-assignee-null-control",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -5980,6 +6104,7 @@
       },
       "falsified_by": "Deny -- which would mean the check rejects even the correct assignee",
       "id": "pf-assignee-scoped-hit",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -6033,6 +6158,11 @@
       },
       "falsified_by": "Allow, or a Deny reported as an ordinary constraint miss",
       "id": "pf-assignee-scoped-miss",
+      "ideal": {
+        "decision": "Allow",
+        "reason": "The plain permission-matched reason \"permission[0] of policy 'probe' matched: action 'use', unconstrained\" -- i.e. the party-mismatch reason would disappear entirely. Unusual, and worth stating plainly wherever this is rendered: the engine is short of the spec here by being STRICTER than it, so this is the opposite of a fail-open. The same partyIdentityClaim mechanism is spec-correct on an Agreement (Vocabulary 3.2.1) and spec-wrong on a Set.",
+        "spec_citation": "The policy under test is a Set (`policy()` builds kind \"Set\"), and Vocabulary 3.2.3 says of a Set: \"No privileges are granted to any Party (if defined).\" Read with Information Model 2.6.1, which grounds a Permission's applicability solely in refinements, constraints and duties -- \"A Permission allows an action, with all refinements satisfied, to be exercised on an Asset if all constraints are satisfied and if all duties are fulfilled\" -- a Set's assignee has no role in deciding who the rule applies to, and a narrowing Deny is a host extension that goes BEYOND ODRL rather than an approximation of it. FORK, shipped vs rejected: the rejected reading takes 3.2.3's clause to deny only that a Set's named assignee is CONFERRED anything, leaving a host free to also use it to NARROW applicability -- under which Deny (= current) is fine. Nothing in the fetched text settles it: the clause is about granting, and the spec never says an evaluator MUST NOT narrow. Allow ships because 2.6.1 enumerates the Permission's satisfaction condition without any party term at all. This is the judgment in the set most likely to be contested."
+      },
       "kind": "negative",
       "request": {
         "action": "use",
@@ -6084,6 +6214,7 @@
       },
       "falsified_by": "Deny",
       "id": "pf-assignee-as-claim",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -6140,6 +6271,7 @@
       },
       "falsified_by": "any decision or reason differing from pf-assignee-null-control's",
       "id": "pf-assignerof-inert",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -6192,6 +6324,7 @@
       },
       "falsified_by": "any decision or reason differing from pf-assignee-null-control's",
       "id": "pf-common-functions-inert",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -6260,6 +6393,7 @@
       },
       "falsified_by": "an empty duties list -- which would mean an unverifiable duty is treated as met",
       "id": "duty-obligation-unresolved-advise",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -6316,6 +6450,7 @@
       },
       "falsified_by": "a non-empty duties list",
       "id": "duty-obligation-satisfied-by-claims",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -6380,6 +6515,7 @@
       },
       "falsified_by": "Allow -- which would make dutyMode inert",
       "id": "duty-obligation-deny-mode",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -6443,6 +6579,7 @@
       },
       "falsified_by": "Allow, which would mean the pre-condition was discarded -- the fail-open gap this                        row recorded before the field existed",
       "id": "duty-per-permission-unresolved-deny",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -6509,6 +6646,7 @@
       },
       "falsified_by": "Deny, or a non-empty duties list",
       "id": "duty-per-permission-satisfied",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -6584,6 +6722,11 @@
       },
       "falsified_by": "Deny, or a duties entry with no source",
       "id": "duty-per-permission-advisory",
+      "ideal": {
+        "decision": "Deny",
+        "reason": "\"permission[0] of policy 'probe' matched, but its odrl:duty[0] 'compensate' is unresolved\" -- the reason must change from the bare permission-matched line to one naming the unmet pre-condition, while the duties entry (compensate at permission[0].duty[0]) stays. This row's shortfall, and it is fail-open on the one duty position ODRL makes normatively gating.",
+        "spec_citation": "Information Model 2.6.1: \"A Permission allows an action, with all refinements satisfied, to be exercised on an Asset if all constraints are satisfied and if all duties are fulfilled\", and \"The duty property expresses an agreed obligation that MUST be fulfilled. That is, the duty property asserts a pre-condition between the Permission and the Duty.\" Vocabulary 3.13.3 Has Duty: \"A Duty is a pre-condition which must be fulfilled in order to receive the Permission.\" That sentence is unconditional and carries no configurable escape hatch. This engine gates the pre-condition on its own dutyMode knob instead -- engine/src/decision.rs::Rule::grants evaluates `config.duty_mode != DutyMode::Deny || self.duties_resolved(claims)` -- so under dutyMode: advise an unfulfilled 2.6.1 pre-condition is discarded and the permission grants anyway. Contrast duty-obligation-deny-mode, where the same knob is spec-NEUTRAL because 2.6.4 gives a policy-level obligation no gating role at all. FORK worth naming: one can argue dutyMode: advise is an out-of-band host instruction (\"tell me about duties, do not enforce them\") the spec does not govern, the same status as the non-ODRL `behaviour: closed` knob; the stronger counter-argument, and the one shipped, is that 2.6.1 defines what a Permission MEANS, so no configuration can make an unfulfilled-duty Permission grant and still be an ODRL Permission."
+      },
       "kind": "positive",
       "request": {
         "action": "use",
@@ -6657,6 +6800,7 @@
       },
       "falsified_by": "Deny -- which would mean the duty was applied policy-wide, not to its own permission",
       "id": "duty-per-permission-scoped-to-its-own-permission",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -6727,6 +6871,11 @@
       },
       "falsified_by": "Deny, or a duties entry -- either would mean the consequence was never consulted",
       "id": "duty-consequence-resolves-where-the-primary-did-not",
+      "ideal": {
+        "decision": "Deny",
+        "reason": "\"duty[0] 'notify' of policy 'probe' is unresolved under duty_mode: deny\" -- the PRIMARY duty, not the consequence, is what remains outstanding, and under this engine's own convention the duties list is emptied on a dutyMode: deny Deny. This request supplies only `duty:compensate = fulfilled`; `duty:notify eq fulfilled` is unmet, so the obligation is not fulfilled no matter that its consequence is.",
+        "spec_citation": "A substitution-vs-addition error. Information Model 2.6.3 Duty Class: \"A Duty is fulfilled if all constraints are satisfied and if its action, with all refinements satisfied, has been exercised. If its action has not been exercised, then all consequences must also be fulfilled to fulfil the Duty. That is, consequences are additional Duties that must also be fulfilled.\" And later in the same section: \"If either of these fails to be fulfilled, then this will result in the consequence Duties also becoming new requirements, meaning that the original obligation or duty, as well as the consequence Duties MUST all be fulfilled.\" 2.6.6 restates it: \"In this case, all consequence Duties MUST also be fulfilled to set the final state of the Permission/Obligation Duty to fulfilled.\" Vocabulary 3.13.4's Consequence Note repeats it a third time: \"the original obligation or duty, as well as the consequence Duty must all be fulfilled\". The engine instead treats the consequence as a replacement -- engine/src/decision.rs::outstanding_duty_at recurses into `duty.consequence` and returns None as soon as any link in the chain is satisfied, its own doc comment saying \"The outstanding duty reported is the last one evaluated, not the first\" -- which is precisely the reading 2.6.3's \"That is, consequences are additional Duties\" sentence exists to rule out."
+      },
       "kind": "positive",
       "request": {
         "action": "use",
@@ -6811,6 +6960,11 @@
       },
       "falsified_by": "a duties entry naming notify, or one with no source",
       "id": "duty-consequence-itself-unresolved",
+      "ideal": {
+        "decision": "Allow",
+        "reason": "Decision unchanged (dutyMode is advise here, and per 2.6.4 a policy-level obligation does not gate a Permission), and the reason unchanged: \"permission[0] of policy 'probe' matched: action 'use', unconstrained\". What must change is `duties`: a compliant engine reports BOTH outstanding duties -- duty[0] 'notify', the primary, in the shape a policy-level obligation carries, AND 'compensate' at source duty[0].consequence. The current expectation lists only the consequence, silently dropping the primary the spec says is still required, so a host acting on this response is told to compensate and never told it must still notify.",
+        "spec_citation": "Information Model 2.6.3: \"If its action has not been exercised, then all consequences must also be fulfilled to fulfil the Duty. That is, consequences are additional Duties that must also be fulfilled\", and \"the original obligation or duty, as well as the consequence Duties MUST all be fulfilled.\" 2.6.6: \"all consequence Duties MUST also be fulfilled to set the final state of the Permission/Obligation Duty to fulfilled.\" With no claims at all, `notify` is unfulfilled AND `compensate` is unfulfilled, so a host has two outstanding requirements, not one. Rated reasonably confident rather than certain only because ODRL 2.2 governs the model, not the shape of a PDP response envelope -- but \"MUST all be fulfilled\" leaves an engine that reports one of two outstanding requirements materially understating what the policy demands."
+      },
       "kind": "positive",
       "request": {
         "action": "use",
@@ -6893,6 +7047,7 @@
       },
       "falsified_by": "Allow, or an empty duties list, or a reason that does not mention the remedy",
       "id": "duty-remedy-unresolved-does-not-drop-the-prohibition",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -6970,6 +7125,7 @@
       },
       "falsified_by": "Allow -- which would make a single host-supplied claim able to erase a prohibition",
       "id": "duty-remedy-satisfied-still-denies",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -7048,6 +7204,7 @@
       },
       "falsified_by": "a duties entry naming anonymize",
       "id": "duty-remedy-not-reported-when-the-prohibition-does-not-fire",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -7125,6 +7282,7 @@
       },
       "falsified_by": "any decision, reason or duties list differing from act-base-exact's",
       "id": "duty-profile-rule-class-inert",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -7179,6 +7337,7 @@
       },
       "falsified_by": "Deny -- which would mean the prohibition's target is dropped and every rule is implicitly about dataset_id, as every rule was before per-rule targets existed",
       "id": "asset-per-rule-target-hit",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -7234,6 +7393,7 @@
       },
       "falsified_by": "Allow -- which would mean the permission's own target is dropped",
       "id": "asset-per-rule-target-miss",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -7289,6 +7449,7 @@
       },
       "falsified_by": "Allow -- which would mean collection membership is inferred from the IRIs alone, with no host-supplied fact",
       "id": "asset-target-not-a-collection",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -7338,6 +7499,7 @@
       },
       "falsified_by": "Deny -- which would mean asset_collections is ignored and target_applies still does bare string equality against dataset_id alone",
       "id": "asset-collection-membership-hit",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -7390,6 +7552,7 @@
       },
       "falsified_by": "Allow -- which would mean any non-empty asset_collections list satisfies any targeted rule, regardless of which collection it names",
       "id": "asset-collection-membership-wrong-collection-miss",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -7442,6 +7605,7 @@
       },
       "falsified_by": "any decision or reason differing from act-base-exact's",
       "id": "asset-output-ignored",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -7493,6 +7657,7 @@
       },
       "falsified_by": "Allow, or a reason reporting the prohibition as the deciding rule",
       "id": "conflict-default-invalid-voids",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -7548,6 +7713,7 @@
       },
       "falsified_by": "any decision or reason differing from conflict-default-invalid-voids's",
       "id": "conflict-invalid-declared-explicitly",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -7602,6 +7768,7 @@
       },
       "falsified_by": "Deny -- which would mean odrl:conflict is still inert",
       "id": "conflict-perm-allows",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -7658,6 +7825,7 @@
       },
       "falsified_by": "Allow, or the void reason",
       "id": "conflict-prohibit-denies",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -7712,6 +7880,7 @@
       },
       "falsified_by": "any decision or reason differing from act-base-exact's",
       "id": "conflict-no-collision-inert",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -7762,6 +7931,7 @@
       },
       "falsified_by": "Allow or Deny -- either would mean the token was tolerated and some other strategy applied",
       "id": "conflict-profile-strategy-unparseable",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -7821,6 +7991,7 @@
       },
       "falsified_by": "Deny",
       "id": "beh-open-empty",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -7866,6 +8037,7 @@
       },
       "falsified_by": "Allow -- which would mean the parameter is inert",
       "id": "beh-closed-empty",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -7909,6 +8081,7 @@
       },
       "falsified_by": "Allow, or Error",
       "id": "beh-default-alias",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -7952,6 +8125,7 @@
       },
       "falsified_by": "Error (a required-field parse failure), or Deny (a changed default)",
       "id": "beh-absent-defaults-open",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -7994,6 +8168,7 @@
       },
       "falsified_by": "Deny -- which would mean the parameter reaches beyond the empty-list case",
       "id": "beh-closed-with-matching-permission",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -8050,6 +8225,7 @@
       },
       "falsified_by": "a reason not naming the policy IRI",
       "id": "uid-policy-in-reason",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -8108,6 +8284,7 @@
       },
       "falsified_by": "a reason containing r-7",
       "id": "uid-rule-index-not-uid",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -8167,6 +8344,7 @@
       },
       "falsified_by": "a reason containing c-9",
       "id": "uid-constraint-no-uid",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -8224,6 +8402,11 @@
       },
       "falsified_by": "Error -- which is what correctly-scoped per-policy profile selection would give",
       "id": "profile-union-not-per-policy",
+      "ideal": {
+        "decision": "Error",
+        "reason": "The policy's own declared odrl:profile is named and processing stops -- e.g. \"policy 'probe' declares odrl:profile 'https://example.org/profiles/A', which this processing system does not recognise\", replacing the current Allow reason \"permission[0] of policy 'probe' matched: action 'anonymize', unconstrained\".",
+        "spec_citation": "Information Model 3.2 ODRL Profile Conformance: \"When an ODRL Profile(s) is used in an ODRL Policy, an ODRL Processing system MUST understand the semantics of the identified ODRL Profile(s). If the ODRL Processing system does not recognise the ODRL Profile identifier(s) then it MUST stop processing the policy.\" The policy declares https://example.org/profiles/A; the loaded profile is https://ds42.org/profiles/coverage-probe, so A is unrecognised and processing MUST stop rather than resolve `anonymize` out of the union. Secondary hook, same direction: 3.1 says the Common Vocabulary's terms (anonymize is Vocabulary 4.4.4, not Core 3.x) are usable because \"These terms may be defined explicitly or may be adopted from the ODRL Common Vocabulary\" by a Profile -- and profile A adopts only `use`, so nothing the policy declares supplies `anonymize` either."
+      },
       "kind": "negative",
       "request": {
         "action": "anonymize",
@@ -8276,6 +8459,7 @@
       },
       "falsified_by": "Deny -- which would mean inheritFrom is not resolved",
       "id": "inheritfrom-safe-direction-hit",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -8347,6 +8531,7 @@
       },
       "falsified_by": "Allow",
       "id": "inheritfrom-safe-direction-control",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -8415,6 +8600,7 @@
       },
       "falsified_by": "Allow -- which is the fail-open gap this closes",
       "id": "inheritfrom-fail-open-hit",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -8478,6 +8664,7 @@
       },
       "falsified_by": "Deny",
       "id": "inheritfrom-fail-open-control",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -8538,6 +8725,7 @@
       },
       "falsified_by": "any Deny whose reason names a resolved strategy rather than voiding the policy, or an Allow",
       "id": "inheritfrom-conflict-divergence-hit",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -8608,6 +8796,7 @@
       },
       "falsified_by": "the void reason above",
       "id": "inheritfrom-conflict-divergence-control",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -8678,6 +8867,7 @@
       },
       "falsified_by": "Deny",
       "id": "ror-literal-eq",
+      "ideal": null,
       "kind": "positive",
       "request": {
         "action": "use",
@@ -8734,6 +8924,7 @@
       },
       "falsified_by": "Allow -- which would require network access the guest does not have",
       "id": "ror-not-dereferenced",
+      "ideal": null,
       "kind": "negative",
       "request": {
         "action": "use",
@@ -8790,6 +8981,11 @@
       },
       "falsified_by": "Allow -- which would mean the reference form is read",
       "id": "ror-reference-key-ignored",
+      "ideal": {
+        "decision": "Error",
+        "reason": "The malformed constraint is named rather than silently decided by its literal operand -- e.g. \"constraint declares both odrl:rightOperand and odrl:rightOperandReference; Information Model 2.5.1 permits only one\", replacing the current closed-default Deny reason. Worth stating on the page: this probe does NOT exhibit its row's actual shortfall -- that an engine which CAN dereference would answer differently -- because both readings of this malformed input land on a non-Allow. Demonstrating that needs a new probe carrying rightOperandReference alone, under a set-based operator (e.g. spatial isAnyOf -> a reference to a list containing DE), where a compliant engine allows and this one misses.",
+        "spec_citation": "Information Model 2.5.1 Constraint Class: \"Only one of rightOperand or rightOperandReference MUST appear in the Constraint.\" Vocabulary 3.14.8 Has Right Operand Reference: \"An IRI that MUST be dereferenced to obtain the actual right operand value.\" This probe's constraint carries both `rightOperand: XX` and a rightOperandReference, which no conformant Constraint may do. FORK, shipped vs rejected: the shipped (structural) reading refuses the expression outright, giving Error. The rejected (charitable) reading honours the reference as 2.5.1 intends, dereferences https://example.org/regions/eu and compares with eq against the claim DE -- which still fails, so the decision stays Deny and only the reason changes. The fork is closely related to op-lt-mixed-type-miss's own Deny-vs-Error question, where the OPPOSITE branch shipped: there the input is a datatype violation an ODRL Validator polices (1.3), while here it is a cardinality violation in the Constraint the Evaluator is being handed."
+      },
       "kind": "negative",
       "request": {
         "action": "use",
@@ -8844,6 +9040,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/profile.rs::ActionDecl, profile-interpreter/src/interpret.rs",
+      "full_compliance_gap": null,
       "id": "actions.open-vocabulary",
       "probe_ids": [
         "act-base-exact",
@@ -8859,6 +9056,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/profile.rs::ResolvedConfig::covers",
+      "full_compliance_gap": null,
       "id": "actions.included-in-transitive",
       "probe_ids": [
         "act-includedin-2hop",
@@ -8874,6 +9072,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/wire.rs::WireActionDecl",
+      "full_compliance_gap": null,
       "id": "actions.implies",
       "probe_ids": [
         "act-implies-ignored",
@@ -8889,6 +9088,7 @@
       "caveat": "The 51 action declarations in these probes' config were produced by profile-interpreter parsing profile-interpreter/examples/odrl-2.2-common-actions.ttl natively at catalog-generation time; this run verifies the engine's chain resolution over them, not the Turtle parse.",
       "documented_because": null,
       "evidence": "profile-interpreter/examples/odrl-2.2-common-actions.ttl",
+      "full_compliance_gap": null,
       "id": "actions.spec-taxonomy",
       "probe_ids": [
         "act-taxonomy-display-play-use",
@@ -8905,6 +9105,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/decision.rs::first_unrecognized_action",
+      "full_compliance_gap": null,
       "id": "actions.unrecognized-is-error",
       "probe_ids": [
         "act-unrecognized-error",
@@ -8920,6 +9121,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/constraint.rs::Constraint::evaluate, engine/src/claims.rs",
+      "full_compliance_gap": null,
       "id": "left-operands.extension",
       "probe_ids": [
         "lo-extension-hit",
@@ -8935,6 +9137,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/temporal.rs, engine/src/constraint.rs::ordering_matches",
+      "full_compliance_gap": null,
       "id": "left-operands.datetime",
       "probe_ids": [
         "lo-datetime-hit",
@@ -8951,6 +9154,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/constraint.rs::ordering_matches",
+      "full_compliance_gap": null,
       "id": "left-operands.numeric",
       "probe_ids": [
         "lo-count-hit",
@@ -8970,6 +9174,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/claims.rs::ClaimValue::matches",
+      "full_compliance_gap": null,
       "id": "left-operands.spatial",
       "probe_ids": [
         "lo-spatial-flat-hit",
@@ -8985,6 +9190,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/constraint.rs::Constraint::evaluate",
+      "full_compliance_gap": null,
       "id": "left-operands.opaque",
       "probe_ids": [
         "lo-purpose-opaque-hit",
@@ -9001,6 +9207,7 @@
       "caveat": "Y/M components use a fixed nominal length (365/30 days), not XSD's own partial-order duration comparison -- see parse_xsd_duration_nanos's own doc comment.",
       "documented_because": null,
       "evidence": "engine/src/temporal.rs::parse_xsd_duration_nanos, engine/src/constraint.rs::ordering_matches",
+      "full_compliance_gap": null,
       "id": "left-operands.durations",
       "probe_ids": [
         "lo-duration-metering-example",
@@ -9016,6 +9223,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/constraint.rs",
+      "full_compliance_gap": null,
       "id": "left-operands.coordinates",
       "probe_ids": [
         "lo-coordinates-string-eq",
@@ -9032,6 +9240,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/constraint.rs::Constraint (three atomic fields, no qualifier)",
+      "full_compliance_gap": null,
       "id": "left-operands.unit-of-count",
       "probe_ids": [
         "lo-unitofcount-page",
@@ -9048,6 +9257,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/constraint.rs (right_operand is a plain string)",
+      "full_compliance_gap": null,
       "id": "left-operands.policy-usage",
       "probe_ids": [
         "lo-policyusage-literal",
@@ -9063,6 +9273,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/claims.rs::ClaimValue::matches",
+      "full_compliance_gap": null,
       "id": "operators.eq",
       "probe_ids": [
         "op-eq-single",
@@ -9079,6 +9290,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/constraint.rs::Constraint::evaluate",
+      "full_compliance_gap": null,
       "id": "operators.neq",
       "probe_ids": [
         "op-neq-hit",
@@ -9094,6 +9306,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/claims.rs::matches_any/matches_all, engine/src/constraint.rs",
+      "full_compliance_gap": null,
       "id": "operators.set-operators",
       "probe_ids": [
         "op-isanyof-hit",
@@ -9116,6 +9329,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/constraint.rs::Operator::IsPartOf",
+      "full_compliance_gap": null,
       "id": "operators.is-part-of",
       "probe_ids": [
         "op-ispartof-hit",
@@ -9132,6 +9346,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/temporal.rs, engine/src/constraint.rs::ordering_matches",
+      "full_compliance_gap": null,
       "id": "operators.ordering",
       "probe_ids": [
         "op-lt-fractional-chronological",
@@ -9151,6 +9366,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/constraint.rs::Operator",
+      "full_compliance_gap": null,
       "id": "operators.isa-haspart",
       "probe_ids": [
         "op-isa-unparseable",
@@ -9167,6 +9383,7 @@
       "caveat": "The probe verifies the observable half -- declaring the extension changes nothing the engine does. That this is a deliberate design boundary rather than an oversight is a documented claim (engine/src/profile.rs's module doc), not something any probe can establish.",
       "documented_because": null,
       "evidence": "profile-interpreter/src/interpret.rs (the odrl:Operator warning)",
+      "full_compliance_gap": null,
       "id": "operators.profile-extension",
       "probe_ids": [
         "op-profile-operator-unparseable"
@@ -9181,6 +9398,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/constraint.rs::Constraint::and",
+      "full_compliance_gap": null,
       "id": "logical.and",
       "probe_ids": [
         "lc-and-both",
@@ -9197,6 +9415,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/constraint.rs::Constraint::or",
+      "full_compliance_gap": null,
       "id": "logical.or",
       "probe_ids": [
         "lc-or-second",
@@ -9213,6 +9432,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/constraint.rs::Constraint::xone",
+      "full_compliance_gap": null,
       "id": "logical.xone",
       "probe_ids": [
         "lc-xone-exactly-one",
@@ -9230,6 +9450,7 @@
       "caveat": "Evaluated with the same conjunction semantics as odrl:and; the spec's own 'in the order specified' clause is not separately tracked or enforced -- see Constraint's own `and_sequence` field doc comment.",
       "documented_because": null,
       "evidence": "engine/src/constraint.rs::Constraint::and_sequence",
+      "full_compliance_gap": null,
       "id": "logical.and-sequence",
       "probe_ids": [
         "lc-andsequence-honored",
@@ -9246,6 +9467,7 @@
       "caveat": "The probe verifies the observable half -- declaring the extension changes nothing the engine does. That this is a deliberate design boundary rather than an oversight is a documented claim (engine/src/profile.rs's module doc), not something any probe can establish.",
       "documented_because": null,
       "evidence": "engine/src/profile.rs (module doc), engine/src/constraint.rs::Constraint",
+      "full_compliance_gap": null,
       "id": "logical.profile-extension",
       "probe_ids": [
         "lc-custom-logical-ignored"
@@ -9260,6 +9482,7 @@
       "caveat": "Narrow, on purpose: two classes out of seven, and only the assignee half of what each MUST/MUST NOT actually says. Nothing here validates that an Offer's own rules avoid Agreement-only wording, or resolves any other class-specific structural rule -- checking document structure stays outside this engine's own enforcement-vs-conformance scope.",
       "documented_because": null,
       "evidence": "engine/src/wire.rs::party_role_mismatch, engine/src/profile.rs::ResolvedConfig::agreement_assignee_claim",
+      "full_compliance_gap": null,
       "id": "policy-classes.discrimination",
       "probe_ids": [
         "pc-kind-agreement-ignores-assignee",
@@ -9280,6 +9503,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/decision.rs::decide",
+      "full_compliance_gap": null,
       "id": "policy-classes.set-default",
       "probe_ids": [
         "pc-kind-set",
@@ -9295,6 +9519,7 @@
       "caveat": "The probe verifies the observable half -- declaring the extension changes nothing the engine does. That this is a deliberate design boundary rather than an oversight is a documented claim (engine/src/profile.rs's module doc), not something any probe can establish.",
       "documented_because": null,
       "evidence": "engine/src/profile.rs (module doc)",
+      "full_compliance_gap": null,
       "id": "policy-classes.profile-subclass",
       "probe_ids": [
         "pc-kind-profile-subclass",
@@ -9310,6 +9535,7 @@
       "caveat": "Opt-in and assignee-only. Nothing here validates an assigner, resolves an odrl:PartyCollection, or normalizes an IRI: the comparison is the engine's own `eq` semantics against one claim key -- string equality, or membership for a multi-valued claim. A second, independent opt-in switch, `agreementAssigneeClaim`, exists alongside this one, scoped to kind == Agreement only -- see policy-classes.discrimination.",
       "documented_because": null,
       "evidence": "engine/src/wire.rs::party_role_mismatch, engine/src/profile.rs::ResolvedConfig::party_identity_claim",
+      "full_compliance_gap": null,
       "id": "party.assigner-assignee",
       "probe_ids": [
         "pf-assignee-mismatch",
@@ -9328,6 +9554,7 @@
       "caveat": null,
       "documented_because": "There is no odrl:partOf, no state-of-the-world graph and no collection concept anywhere on the wire -- nothing for evaluate() to observe, so no request can put this claim to the test. It is a native-tooling claim, verified by that crate's own tests instead.",
       "evidence": "compliance-runner/src/translate.rs (odrl:partOf lookups)",
+      "full_compliance_gap": "ODRL 2.2 Information Model 2.3 makes collection membership a first-class part of the Party class -- \"A Party MAY have none, one, or many partOf property values (of type PartyCollection) to identify the PartyCollection that this Party is a member of\", where \"PartyCollection - a Party that is a single entity representing a set of member entities. This indicates that all the members of the set will undertake the same functional role in the Rule\" -- and 2.3.2 states the evaluation consequence outright: \"The partOf property is used to identify a PartyCollection that a Party entity is a member of ... This enables a Rule that relates to a PartyCollection to understand which individual Parties the Rule may apply to.\" Examples 9 and 10 in 2.3 show exactly the shape: an Agreement whose assignee is the PartyCollection http://example.com/team/A, and a separate vCard expression asserting \"odrl:partOf\": \"http://example.com/team/A\" for http://example.com/person/murphy, which the spec says \"means that http://example.com/person/murphy is an assignee and can use the target asset in the Policy\". This engine's Section 5.2 wire contract can express neither half: WirePolicy::assignee is a single opaque Option<String> that wire::party_role_mismatch compares for exact string equality (or multi-value claim membership) against one claim key, and Request carries no field at all saying which collections the caller belongs to -- so a request naming team/A as assignee and a caller identifying as murphy cannot even be posed. Three additions would be needed for the engine to attempt full support. (1) A caller-side membership channel symmetric to the one the asset side already has: Request::asset_collections is precisely this shape for odrl:partOf on Assets -- decision::Rule::target_applies matches a rule's target against \"any asset collection asset_collections asserts requested_target is a member of\", explicitly as a host-supplied fact with no graph traversal and no transitive closure -- so a sibling Request::party_collections: Vec<String> (JSON partyCollections) would carry the flattened, host-resolved list of PartyCollection IRIs the caller belongs to, one entry per ancestor. (2) Engine-side resolution: party_role_mismatch widened so a policy assignee naming a PartyCollection is satisfied when the caller's partyIdentityClaim/agreementAssigneeClaim value matches OR the assignee IRI appears in party_collections -- a few lines, and the only change that touches the decision path. (3) For the refined form, 2.5.6 requires more than a fact channel: \"A PartyCollection MAY include a refinement property to indicate the refinement context under which to identify individual Party(ies) of the complete collection ... all of the Constraints/Logical Constraints referenced by the refinement property MUST be satisfied\", and \"when using the refinement property, the uid property MUST NOT be used to identify the PartyCollection. Instead, the source property MUST be used\" -- so assignee would have to stop being a bare string and become a structured value carrying source plus a refinement constraint list the engine evaluates against the caller's claims. Until at least (1) and (2) exist no request can ask the question, which is why this row falls short of full ODRL 2.2 by construction rather than by any observable wrong answer -- and the asset-side precedent shows the addition is small, not architectural.",
       "id": "party.collections",
       "probe_ids": [],
       "status": "NotImplemented",
@@ -9340,6 +9567,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/wire.rs::WirePolicy",
+      "full_compliance_gap": null,
       "id": "party.inverse-properties",
       "probe_ids": [
         "pf-assignerof-inert",
@@ -9355,6 +9583,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/wire.rs::WirePolicy",
+      "full_compliance_gap": null,
       "id": "party.common-functions",
       "probe_ids": [
         "pf-common-functions-inert",
@@ -9370,6 +9599,7 @@
       "caveat": "The probe verifies the observable half -- declaring the extension changes nothing the engine does. That this is a deliberate design boundary rather than an oversight is a documented claim (engine/src/profile.rs's module doc), not something any probe can establish.",
       "documented_because": null,
       "evidence": "engine/src/profile.rs (module doc)",
+      "full_compliance_gap": null,
       "id": "party.profile-roles",
       "probe_ids": [
         "pf-common-functions-inert",
@@ -9385,6 +9615,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/decision.rs::unresolved_duties, Rule::duty_satisfied",
+      "full_compliance_gap": null,
       "id": "duty.obligation",
       "probe_ids": [
         "duty-obligation-unresolved-advise",
@@ -9401,6 +9632,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/decision.rs::Rule::duty, Rule::grants, unresolved_permission_duties",
+      "full_compliance_gap": null,
       "id": "duty.per-permission",
       "probe_ids": [
         "duty-per-permission-unresolved-deny",
@@ -9418,6 +9650,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/decision.rs::Rule::consequence, outstanding_duty, MAX_CONSEQUENCE_DEPTH",
+      "full_compliance_gap": null,
       "id": "duty.consequence",
       "probe_ids": [
         "duty-consequence-resolves-where-the-primary-did-not",
@@ -9433,6 +9666,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/decision.rs::Rule::remedy, unresolved_remedies, decide (doc comment)",
+      "full_compliance_gap": null,
       "id": "duty.remedy",
       "probe_ids": [
         "duty-remedy-unresolved-does-not-drop-the-prohibition",
@@ -9449,6 +9683,7 @@
       "caveat": "The probe verifies the observable half -- declaring the extension changes nothing the engine does. That this is a deliberate design boundary rather than an oversight is a documented claim (engine/src/profile.rs's module doc), not something any probe can establish.",
       "documented_because": null,
       "evidence": "engine/src/profile.rs (module doc), engine/src/wire.rs::WirePolicy",
+      "full_compliance_gap": null,
       "id": "duty.profile-rule-classes",
       "probe_ids": [
         "duty-profile-rule-class-inert",
@@ -9464,6 +9699,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/wire.rs::Request::asset_collections, engine/src/decision.rs::Rule::target_applies",
+      "full_compliance_gap": null,
       "id": "assets.collections",
       "probe_ids": [
         "asset-collection-membership-hit",
@@ -9480,6 +9716,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/decision.rs::Rule::target, Rule::target_applies",
+      "full_compliance_gap": null,
       "id": "assets.target",
       "probe_ids": [
         "asset-per-rule-target-hit",
@@ -9495,6 +9732,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/decision.rs::Rule",
+      "full_compliance_gap": null,
       "id": "assets.output",
       "probe_ids": [
         "asset-output-ignored",
@@ -9510,6 +9748,7 @@
       "caveat": null,
       "documented_because": "Association happens when a host SELECTS which policies to put in the request. evaluate() receives an already-selected policy set, so there is no observable difference between \"the host used hasPolicy\" and \"the host used anything else\" -- a pre-request concern no request can encode.",
       "evidence": "engine/src/wire.rs::Request (policies arrive already selected)",
+      "full_compliance_gap": null,
       "id": "assets.has-policy",
       "probe_ids": [],
       "status": "OutOfScope",
@@ -9522,6 +9761,7 @@
       "caveat": "`invalid` surfaces as Deny under a distinct reason rather than as a fourth wire decision -- a void policy is a policy decision, not the configuration gap Decision::Error exists to flag. The probes read the reason string for it.",
       "documented_because": null,
       "evidence": "engine/src/decision.rs::ConflictStrategy, conflicting_rules, decide; engine/src/wire.rs::WirePolicy",
+      "full_compliance_gap": null,
       "id": "conflict.property",
       "probe_ids": [
         "conflict-default-invalid-voids",
@@ -9538,6 +9778,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/decision.rs::<ConflictStrategy as Default>::default",
+      "full_compliance_gap": null,
       "id": "conflict.fixed-strategy",
       "probe_ids": [
         "conflict-default-invalid-voids",
@@ -9553,6 +9794,7 @@
       "caveat": "The probe verifies the observable half -- declaring the extension changes nothing the engine does. That this is a deliberate design boundary rather than an oversight is a documented claim (engine/src/profile.rs's module doc), not something any probe can establish.",
       "documented_because": null,
       "evidence": "engine/src/profile.rs (module doc), engine/src/decision.rs::ConflictStrategy",
+      "full_compliance_gap": null,
       "id": "conflict.profile-strategies",
       "probe_ids": [
         "conflict-profile-strategy-unparseable",
@@ -9568,6 +9810,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/wire.rs::describe_reason",
+      "full_compliance_gap": null,
       "id": "other.uid",
       "probe_ids": [
         "uid-policy-in-reason",
@@ -9584,6 +9827,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/profile.rs::resolve (union), engine/src/wire.rs::RequestConfig",
+      "full_compliance_gap": null,
       "id": "other.profile-property",
       "probe_ids": [
         "profile-union-not-per-policy"
@@ -9598,6 +9842,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/wire.rs::resolve_inherit_from, resolve_one, WirePolicy::inherit_from",
+      "full_compliance_gap": null,
       "id": "other.inherit-from",
       "probe_ids": [
         "inheritfrom-safe-direction-hit",
@@ -9617,6 +9862,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/constraint.rs, site/src/engine_bridge.rs::load_engine_instance",
+      "full_compliance_gap": null,
       "id": "other.right-operand-reference",
       "probe_ids": [
         "ror-literal-eq",
@@ -9633,6 +9879,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/profile.rs::Behaviour, engine/src/decision.rs::decide",
+      "full_compliance_gap": null,
       "id": "other.behaviour",
       "probe_ids": [
         "beh-open-empty",
@@ -9651,6 +9898,7 @@
       "caveat": null,
       "documented_because": null,
       "evidence": "engine/src/decision.rs::Decision::Error, engine/src/wire.rs::evaluate_request",
+      "full_compliance_gap": null,
       "id": "other.error-on-unrecognized",
       "probe_ids": [
         "act-unrecognized-error",
@@ -9661,7 +9909,7 @@
       "why": "No direct ODRL analog: a spec-conformant evaluator would police unknown vocabulary through validation (SHACL shapes), not through evaluation-time refusal. Coherent as a choice, but stricter than the spec."
     }
   ],
-  "schema": "ds-odrl-engine-rs/odrl-coverage@1",
+  "schema": "ds-odrl-engine-rs/odrl-coverage@2",
   "source_analysis": "docs/spikes/2026-09-05-odrl-2.2-vocabulary-gap-analysis.md (Deepthought-Solutions/dataspace)",
   "spec": "W3C ODRL 2.2 Vocabulary & Expression, https://www.w3.org/TR/odrl-vocab/"
 }
