@@ -114,6 +114,18 @@ const COVERAGE_CSS: &str = r#"
   color: var(--pf-t--global--text--color--subtle, #6a6e73);
 }
 .ds-oe-cov-table-wrap { overflow-x: auto; }
+/* PatternFly's own table CSS vertical-centers every cell by default. Harmless
+   for a short row, but this table's own "What this run observed" cell can
+   grow to several hundred pixels once its ExpandableSection opens (a row's
+   probe list, each with its own multi-line detail) -- middle-aligned against
+   that height strands the Term/Documented-status/Verification cells' much
+   shorter content near the visual middle of the row, far from the top of the
+   probe list it actually describes, which is exactly what made a disagreeing
+   probe hard to find (reported directly: "I can't see well the failing
+   probes"). Anchoring every cell to the row's own top keeps a term beside the
+   start of its own observed content regardless of how far the expanded
+   probes push the row's bottom edge down. */
+.ds-oe-cov-table-wrap td { vertical-align: top; }
 .ds-oe-cov-term {
   font-family: var(--ds-oe-font-mono, ui-monospace, monospace);
   font-size: 0.85rem;
@@ -141,9 +153,19 @@ const COVERAGE_CSS: &str = r#"
 }
 .ds-oe-cov-probe {
   margin: 0 0 0.85rem;
+  padding: 0.1rem 0 0.1rem 0.6rem;
   font-size: 0.85rem;
 }
 .ds-oe-cov-probe:last-child { margin-bottom: 0; }
+/* Same red this page uses everywhere else for a disagreement (the row-
+   level .is-contradicted rule above), scoped to just the one probe
+   entry that actually disagreed rather than the whole expanded list --
+   a row can hold several probes, and only some rows' worth of red text
+   buried in "expected X / observed Y" made it easy to miss which. */
+.ds-oe-cov-probe.is-disagreed {
+  border-left: 3px solid var(--pf-t--global--border--color--status--danger--default, #c9190b);
+  background: var(--pf-t--global--background--color--status--danger--default, #faeae8);
+}
 .ds-oe-cov-probe-id {
   font-family: var(--ds-oe-font-mono, ui-monospace, monospace);
   font-size: 0.85em;
@@ -263,12 +285,34 @@ fn observed_html(row: &RowOutcome) -> Html {
   }
 }
 
+/// Per-probe pass/fail, shown once per expanded probe rather than left to
+/// the reader to work out from the "expected X · observed Y" text alone.
+/// A row's own `Verification` cell already shows this at row grain, but a
+/// row can hold several probes, and nothing before this distinguished
+/// which specific one, among several agreeing siblings, actually
+/// disagreed — reported directly ("I can't see well the failing
+/// probes"). Same three-way palette the Coverage page's own probe-level
+/// stat row already established (`is-agreed`/`is-disagreed`/
+/// `is-errored`), so a reader who has seen the headline numbers
+/// recognises the colours here rather than learning a second scheme.
+fn probe_status_label(status: ProbeStatus) -> Html {
+  let (color, icon, text) = match status {
+    ProbeStatus::Agreed => (Color::Teal, Icon::CheckCircle, "agreed"),
+    ProbeStatus::Disagreed => (Color::Red, Icon::ExclamationCircle, "disagreed"),
+    ProbeStatus::Errored => (Color::Purple, Icon::ExclamationTriangle, "errored"),
+  };
+  html!(<Label label={text} color={color} icon={icon} compact=true />)
+}
+
 fn probe_detail(probe: &ProbeOutcome) -> Html {
   let observed = probe.decision.clone().unwrap_or_else(|| "—".to_string());
   let reason = probe.reason.clone().unwrap_or_default();
+  let class = if probe.status == ProbeStatus::Disagreed { "ds-oe-cov-probe is-disagreed" } else { "ds-oe-cov-probe" };
   html!(
-    <div class="ds-oe-cov-probe" key={probe.id.clone()}>
+    <div class={class} key={probe.id.clone()}>
       <div>
+        { probe_status_label(probe.status) }
+        { " " }
         <code class="ds-oe-cov-probe-id">{ probe.id.clone() }</code>
         { " " }
         <Label label={probe.kind.clone()} color={if probe.kind == "negative" { Color::Purple } else { Color::Blue }} compact=true outline=true />
