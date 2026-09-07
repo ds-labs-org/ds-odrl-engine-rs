@@ -174,6 +174,13 @@ const COVERAGE_CSS: &str = r#"
   display: block;
   color: var(--pf-t--global--text--color--subtle, #6a6e73);
 }
+/* Deliberately not red -- red on this page means exactly one thing
+   (a live probe disagreeing with the documented status), and a Partial
+   row's own known, disclosed boundary is neither a disagreement nor a
+   failure. Purple matches the `negative`-kind probe Label this same
+   text is quoting from, so the colour means the same thing in both
+   places rather than introducing a fourth hue with its own meaning. */
+.ds-oe-cov-boundary { color: var(--pf-t--global--text--color--status--info-alt, #6753ac); font-style: italic; }
 .ds-oe-cov-empty {
   padding: 1.5rem;
   text-align: center;
@@ -248,13 +255,30 @@ fn observed_html(row: &RowOutcome) -> Html {
   match row.verdict {
     RowVerdict::Documented => html!(<span class="ds-oe-cov-observed">{ "—" }</span>),
     RowVerdict::Verified => {
-      let first = row.probes.first();
-      let decision = first.and_then(|p| p.decision.clone()).unwrap_or_else(|| "?".to_string());
-      let reason = first.and_then(|p| p.reason.clone()).unwrap_or_default();
+      // For a row this study documents as Partial or NotImplemented, the
+      // single most useful probe to preview *without* expanding is the
+      // one demonstrating the boundary -- a `negative`-kind probe, if
+      // this row has one -- not whichever probe happens to be first in
+      // the catalog's own ordering (usually the positive case, which
+      // silently hides exactly what a Partial row does not cover).
+      // `Implemented` rows have nothing to bound, so they keep showing
+      // the first probe, same as before. Reported directly: seeing
+      // "136/136 agreed" made a Partial row's own narrowing invisible
+      // without digging into "Show probes" first.
+      let preferred = matches!(row.row.status.as_str(), "Partial" | "NotImplemented")
+        .then(|| row.probes.iter().find(|p| p.kind == "negative"))
+        .flatten()
+        .or_else(|| row.probes.first());
+      let decision = preferred.and_then(|p| p.decision.clone()).unwrap_or_else(|| "?".to_string());
+      let reason = preferred.and_then(|p| p.reason.clone()).unwrap_or_default();
+      let boundary = preferred.filter(|p| p.kind == "negative").map(|p| p.asserts.clone());
       html!(
         <span class="ds-oe-cov-observed">
           <strong>{ decision }</strong>
           if !reason.is_empty() { { format!(" — {reason}") } }
+          if let Some(asserts) = boundary {
+            <span class="ds-oe-cov-probe-line ds-oe-cov-boundary">{ "boundary: " }{ asserts }</span>
+          }
         </span>
       )
     }
