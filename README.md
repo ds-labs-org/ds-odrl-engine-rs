@@ -1931,7 +1931,7 @@ compliance-report vocabulary.
 
 ## Documentation and demonstrator site
 
-`site/` is a Yew + Trunk single-page app with five pages: a landing page
+`site/` is a Yew + Trunk single-page app with six pages: a landing page
 explaining what this engine is and is not, an in-browser demonstrator
 that lets you edit a Section 5.2 request by hand and evaluate it against
 a *real* compiled `engine.wasm` (fetched and driven over its raw C ABI —
@@ -1953,10 +1953,14 @@ page, **ODRL 2.2 Coverage**, does the same thing for this study's
 vocabulary claims: it executes all 136 probes of
 `compliance/reports/latest-coverage.json` against that same
 `engine.wasm`, live, and derives a per-row verdict that can come back
-*Contradicted*. The fifth, **Release History**, is the one page here that
-is computed at build time rather than in your browser, and says so —
-see "Release history dashboard" below for what it shows and why it is
-the exception. It
+*Contradicted*. A fifth, **Full Compliance**, replays the same probes
+through the same engine and asks the opposite-facing question — not "does
+the engine match its documentation" but "does it meet the full ODRL 2.2
+spec, whether or not that is what we currently claim to support"; see
+"Full ODRL 2.2 compliance page" below. The sixth, **Release History**, is
+the one page here that is computed at build time rather than in your
+browser, and says so — see "Release history dashboard" below for what it
+shows and why it is the exception. It
 shares its visual identity (teal brand ramp, monospace heading/code
 stack, mesh logo) with the [ds42.org dataspace
 study](https://github.com/Deepthought-Solutions/dataspace)'s own docs
@@ -1995,9 +1999,221 @@ Pages on every push to `main` that touches `site/`, `engine/`, or
 `compliance/reports/`. Live at
 <https://ds-labs-org.github.io/ds-odrl-engine-rs/>.
 
+## Full ODRL 2.2 compliance page
+
+The site's fifth page, **Full Compliance** (`/full-compliance`), asks a
+question the Coverage page deliberately does not.
+
+* **`/coverage`** asks: *does the engine match what this study documents
+  about it?* Its target is each probe's `expect`, which records what this
+  engine **does** — honestly-documented gaps included. A red row there
+  means the **documentation** is wrong, which is why several `expect`s
+  record a narrowing as the correct outcome.
+* **`/full-compliance`** asks: *assuming the engine **should** fully
+  implement ODRL 2.2 for every row that is not structurally out of scope,
+  does its real, live behaviour meet that ideal?* Its target is each
+  probe's `ideal` (added to the catalog in schema
+  `ds-odrl-engine-rs/odrl-coverage@2`), which records what the **spec**
+  requires. A row falling short there means the engine is right about
+  itself and still short of ODRL 2.2.
+
+Both pages drive the **same** compiled `engine.wasm` over the same
+`alloc`/`evaluate`/`dealloc` C ABI with the same 136 request payloads,
+through the same replay function (`coverage_run::replay_all`, shared
+rather than copied), so any difference between them is a difference of
+question and never of execution.
+
+### Its own vocabulary, and no red
+
+`/coverage`'s *Agreed*, *Disagreed*, *Verified* and *Contradicted* already
+mean matches-the-documentation, so none of the four appears on this page.
+The words here are **Meets full spec**, **Falls short**, and — for the one
+row no request can pose at all — **Falls short (structural)**, plus
+**Undetermined** for a probe this browser could not judge. Nothing on the
+page is red either: amber marks a demonstrated shortfall and purple a
+structural one, because falling short of the full spec is what a
+*partial* status *means*, not a failure. Red stays reserved for
+`/coverage`, where it means something louder and rarer.
+
+`site/src/full_compliance.rs` carries a unit test
+(`the_two_axes_use_none_of_the_coverage_pages_four_words`) asserting the
+separation rather than trusting it to survive editing.
+
+### The judgment is the presence of an ideal, not a comparison
+
+A probe carrying an `Ideal` falls short; one carrying `None` meets the
+spec. That is not derivable by comparing `ideal.decision` against
+`expect.decision`, and the catalog contains the probe that proves it:
+`duty-consequence-itself-unresolved`'s ideal decision **equals** its
+current one (both `Allow`) and what falls short there is the reported
+`duties` list — a compliant engine must report *both* outstanding duties,
+and this engine reports only the consequence, silently dropping the
+primary the spec says is still required. A decision comparison would score
+that probe fully compliant. Pinned by
+`a_probe_whose_ideal_decision_equals_its_current_one_still_falls_short`.
+
+### Scope, and the real numbers
+
+Of the catalog's 52 vocabulary rows:
+
+* **7 documented `OutOfScope` are excluded outright.** They name
+  profile-extension points and `odrl:hasPolicy`, which sit outside the
+  wire contract entirely — and being outside the contract is not the same
+  thing as falling short of the spec.
+* **11 documented `Implemented` meet full spec trivially.** No probe on
+  any of them carries an ideal, asserted over the real catalog rather than
+  assumed (it is load-bearing: `act-base-exact` and
+  `pf-assignee-null-control` are each shared between an `Implemented` row
+  and an implementable one).
+* **34 documented `Partial` or `NotImplemented` are the researched ones**,
+  and **not all of them fall short**: a row is partial for one *specific*
+  reason, and 20 of the 34 reach the spec-ideal answer on every probe they
+  currently carry.
+
+That leaves **45 in-scope rows: 31 meet full ODRL 2.2, 14 fall short — 13
+demonstrated by a probe, and 1 a structural wire-contract gap with no
+probe possible — 0 undetermined.**
+
+At probe grain: **130 of the catalog's 136 probes are judged here** (the
+other 6 are named only by rows this page excludes), and of those **115
+meet full spec, 15 fall short, 0 undetermined**. That second number is the
+honest one and the page says so rather than quoting a bare `N/136`: only
+those **15** probes distinguish this page's question from `/coverage`'s.
+The other 115 already produce the answer full ODRL 2.2 requires, so they
+would look identical on either page.
+
+The fifteen, with the answer that would have to change:
+
+| Probe | This engine | Full ODRL 2.2 |
+| --- | --- | --- |
+| `op-ispartof-no-hierarchy` | Deny | **Allow** |
+| `act-includedin-undeclared-gap` | Deny | **Allow** |
+| `lo-datetime-absent-no-clock` | Deny | **Allow** |
+| `pf-assignee-scoped-miss` | Deny | **Allow** |
+| `op-eq-multi-membership` | Allow | **Deny** |
+| `lo-policyusage-literal` | Allow | **Deny** |
+| `pc-kind-agreement-ignores-assignee` | Allow | **Deny** |
+| `duty-per-permission-advisory` | Allow | **Deny** |
+| `duty-consequence-resolves-where-the-primary-did-not` | Allow | **Deny** |
+| `op-isa-unparseable` | Error | **Deny** |
+| `op-haspart-unparseable` | Error | **Deny** |
+| `pc-kind-nonsense` | Allow | **Error** |
+| `profile-union-not-per-policy` | Allow | **Error** |
+| `ror-reference-key-ignored` | Deny | **Error** |
+| `duty-consequence-itself-unresolved` | Allow | Allow — the `duties` list is what falls short |
+
+The headline is `op-ispartof-no-hierarchy`: Vocabulary 3.16.9 defines
+`isPartOf` as *containment*, geonames' own RDF has Berlin
+`gn:parentCountry` Germany (verified by fetching both `about.rdf`
+documents, not assumed), and this engine denies only because
+`Operator::IsAnyOf | Operator::IsPartOf` share one arm in
+`engine/src/constraint.rs:595-598`. `pf-assignee-scoped-miss` is the one
+place the engine is short of the spec by being **stricter** than it, not
+laxer.
+
+### The structural gap: `party.collections`
+
+One row has **zero probes** and is judged at row level rather than by any
+probe, because the wire contract carries no `PartyCollection`/`odrl:partOf`
+concept at all — so no request can pose the question and there is no
+answer to be wrong. It renders its `full_compliance_gap` prose directly,
+styled as a structural gap rather than a probe verdict: Information Model
+2.3/2.3.2 and Examples 9–10 for what the spec requires, then the three
+wire-contract additions full support would need — a caller-side
+`Request::party_collections` channel (with `Request::asset_collections` as
+the asset-side precedent showing the addition is small rather than
+architectural), a widened `party_role_mismatch`, and IM 2.5.6's structured
+assignee for the refined form.
+
+### Contested judgments: the sign-off list, on the page as well as here
+
+The live half of this page is **measured** — the engine really is driven,
+and its real answer really is what you see. The ideal half is a *reading*
+of two W3C documents, and on fifteen row/probe entries (fourteen distinct
+probes) that reading is contested rather than obvious. The page carries
+the whole list in an expandable Info alert above the table, and marks each
+affected probe inline, so a reader can find "these specific calls were
+judged one way but the spec genuinely admits another" without archaeology.
+Five of the fourteen probes were judged to fall short; on the other nine,
+what is contested is whether they should have fallen short at all.
+
+| Row | Probe | The fork, in one line |
+| --- | --- | --- |
+| `actions.included-in-transitive` | `act-includedin-undeclared-gap` | Vocabulary-aware (shipped, ideal Allow, row falls short) vs. closed-profile (ideal = current Deny, **row would meet full spec**). The single highest-leverage judgment on the page. |
+| `left-operands.spatial` | `lo-spatial-no-containment` | `eq` is literal equality (shipped, ideal = current) vs. the deployment reading where `spatial eq <region>` means containment (ideal Allow). Picking the latter commits the page to asserting `eq` is not equality. |
+| `left-operands.opaque` | `lo-language-no-bcp47` | BCP 47 fixes lexical form only (shipped, ideal = current) vs. BCP 47 pulling in RFC 4647 basic filtering, where `en` matches `en-GB` (ideal Allow). The `/coverage` row's own premise asserts the second reading, so either this page contradicts that row or the row is re-scoped. |
+| `left-operands.coordinates` | `lo-absoluteposition-no-ordering` | No ordering over a 2-D tuple (shipped, ideal = current) vs. the componentwise product order (ideal Allow). Separately: `absoluteTemporalPosition` (4.5.3) genuinely *is* orderable, a real gap this probe does not reach. |
+| `operators.ordering` | `op-lt-mixed-type-miss` | A datatype violation makes the constraint unsatisfiable (shipped, ideal = current Deny) vs. Vocabulary 4.5.6's MUST making the policy invalid (Error). Under either reading the refusal to coerce is itself correct. |
+| `operators.isa-haspart` | `op-haspart-unparseable` | That the current Error is wrong is **settled** (3.14.4's closed twelve). Only the resulting decision forks: `contains` as a set relation (shipped, Deny) vs. mereological reflexivity (Allow). The row falls short either way. |
+| `policy-classes.discrimination` | `pc-kind-offer-assignee-inert-even-on-a-match` | Only the Offer's named assignee is inert (shipped, ideal = current Allow) vs. IM 2.1.2's "an Offer does not grant any Rules" read literally, under which a closed-world engine must never Allow from an Offer alone — which is what most dataspace connectors do in practice. |
+| `policy-classes.discrimination` | `pc-kind-offer-assignee-inert-even-on-a-mismatch` | The same fork; whichever branch is picked must apply to **both** Offer probes, since the pair exists to show the answer does not depend on the assignee's direction. |
+| `policy-classes.discrimination` | `pc-kind-ticket-with-assignee` | Evaluate and ignore the property 4.1.4 says MUST NOT be there (shipped, Allow) vs. Error on the structurally invalid Ticket; plus a third arguable ideal (Deny for want of holder evidence, for which the wire carries no channel). |
+| `policy-classes.discrimination` | `pc-kind-nonsense` | Error for consistency with `act-unrecognized-error` (shipped, row falls short) vs. refusing an undeclared Policy subclass being an ODRL *Validator*'s duty (IM 1.3), leaving the current Allow defensible. |
+| `policy-classes.set-default` | `pc-kind-nonsense` | The same probe, judged identically in both rows deliberately — a shared probe must not carry two different ideals. Under the Allow branch **this row would have no falls-short probe at all**. |
+| `party.assigner-assignee` | `pf-assignee-scoped-miss` | 3.2.3 strips a Set's assignee of all evaluative force (shipped, ideal Allow, row falls short) vs. it denying only *conferral*, leaving a host free to narrow (ideal = current Deny). **The judgment in the whole set most likely to be contested**, and note the engine is short here by being stricter, not laxer. |
+| `other.uid` | `uid-rule-index-not-uid` | Whether "fully implements ODRL 2.2" reaches **diagnostics**. Answered once, page-wide: this page judges *decisions*, so ideal = current. |
+| `other.uid` | `uid-constraint-no-uid` | The same scope answer — but with a latent decision-level bite: IM 2.5.2's operands-by-reference would be unevaluable in an engine that drops constraint uids, and the wire contract has no reference-by-uid operand form today. |
+| `other.right-operand-reference` | `ror-reference-key-ignored` | Structural refusal of a constraint declaring both `rightOperand` and `rightOperandReference` (shipped, Error) vs. honouring the reference charitably (decision stays the current Deny, only the reason changes). Either way this probe does not exhibit the row's *actual* shortfall. |
+
+### The other half of the honesty: 20 rows whose narrowing nothing reaches
+
+Twenty of the 34 implementable rows come back **Meets full spec** — and
+that is not a claim that they are now fully compliant. It means their
+*current probes* all reach the spec-ideal answer while the narrowing their
+own documentation describes is demonstrated by nothing. Each such row
+renders the reason inline, and two remedies apply depending on the row: a
+new probe, or a re-scoped documented status where the source gap analysis
+turned out to be wrong about the engine rather than about the spec.
+
+Nineteen came from the research pass's own needs-a-new-probe backlog:
+`actions.implies`, `actions.spec-taxonomy`, `left-operands.numeric`,
+`left-operands.spatial`, `left-operands.opaque`,
+`left-operands.durations`, `left-operands.coordinates`,
+`left-operands.unit-of-count`, `operators.neq`, `operators.ordering`,
+`party.inverse-properties`, `party.common-functions`, `duty.obligation`,
+`duty.remedy`, `assets.collections`, `assets.target`, `assets.output`,
+`other.uid`, `other.inherit-from`. The twentieth,
+**`logical.and-sequence`**, did not: it was found by the catalog's own
+invariant test, because with two stateless attribute predicates
+"satisfied in sequence" degenerates to "satisfied", so Vocabulary 3.17.4's
+"in the order specified" — precisely the narrowing that row's caveat names
+— is reached by none of its three probes.
+
+Three rows the backlog listed as needing a new probe are conversely
+*absent* from that list, having turned out to carry falls-short evidence
+anyway: `policy-classes.set-default` (via the shared `pc-kind-nonsense`),
+`party.assigner-assignee` (via `pf-assignee-scoped-miss`), and
+`other.right-operand-reference` (via `ror-reference-key-ignored`).
+
+`site/src/full_compliance.rs` holds these notes as a constant and asserts,
+as an **exact set comparison**
+(`the_unreached_narrowing_notes_cover_exactly_the_implementable_rows_that_meet_full_spec`),
+that they describe exactly the rows the live judgment puts in that bucket
+— so a row silently gaining shortfall evidence and keeping a now-false
+note fails `cargo test --workspace` just as loudly as one losing it.
+
+### What this page does not do
+
+It is presentation and catalog-data work only: **no engine decision logic
+changed**, and compliance stays 68/68/0/0 with `latest.md` and
+`latest.json` byte-identical. It is a **live snapshot** with no Release
+History integration in this pass — `release-history/` and the History
+page's own modules are untouched. And it never asserts full compliance
+over an answer it did not observe: a probe that errored at the ABI, or one
+whose live answer departed from its own documented behaviour (which
+`/coverage` would report as a contradiction, invalidating the premise the
+researched ideal was written against), is **Undetermined** — never counted
+as meeting the spec *or* as falling short of it.
+
+One time-dependent caveat travels in the catalog and is worth repeating
+here: `lo-datetime-absent-no-clock`'s ideal is wall-clock dependent.
+Evaluated at any instant before `2027-01-01T00:00:00Z` a compliant engine
+allows; from that instant onward the ideal becomes Deny and the probe
+stops demonstrating any shortfall at all.
+
 ## Release history dashboard
 
-The site's fifth page, **Release History** (`/history`), is a per-release
+The site's sixth page, **Release History** (`/history`), is a per-release
 record of what every tagged version of this engine *actually did* —
 measured by re-running this repo's two instruments against each tag, not
 by copying numbers out of commit messages.

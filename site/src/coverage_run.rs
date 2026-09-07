@@ -23,11 +23,61 @@ use yew::prelude::*;
 
 use crate::coverage_catalog::{
   compile_coverage_report, errored_probe_outcome, evaluated_probe_outcome, parse_coverage_catalog, probe_json,
-  ProbeOutcome, COVERAGE_URL,
+  CoverageFile, ProbeOutcome, COVERAGE_URL,
 };
 use crate::coverage_state::{CoverageProgress, RunState, Stage};
 use crate::engine_bridge;
 use crate::run_support::{fetch_text, yield_for_paint, FRAME_MS};
+
+/// Drives every probe in `catalog` through the real `engine.wasm` over its
+/// `alloc`/`evaluate`/`dealloc` C ABI, in catalog order, and returns what
+/// came back plus the wall-clock milliseconds it genuinely took.
+///
+/// **Shared with `/full-compliance`**, which asks a different question of
+/// the same responses (see `full_compliance.rs`). Only the judging and the
+/// presentation fork; the replay itself must not, or the two pages would
+/// be reporting on two different executions of the engine and any
+/// disagreement between them would be unattributable. Sharing it also
+/// keeps both pages on `engine_bridge::evaluate`'s fresh-`memory.buffer()`
+/// discipline by construction rather than by a second implementation
+/// remembering to.
+///
+/// `on_outcome` is called once per probe, after that probe's outcome is
+/// recorded and before the next one starts, so each caller can drive its
+/// own progress counters — which is the one thing the two runs genuinely
+/// do differently while probing.
+///
+/// The request bytes go over the ABI verbatim: never deserialized and
+/// re-serialized, which would drop exactly the unknown ODRL keys most of
+/// the negative probes exist to inject (see `coverage_catalog.rs`'s
+/// header). A probe failing at the ABI boundary is recorded as an errored
+/// outcome and the loop continues, so one failure can neither hide the
+/// others nor strand the UI on this stage.
+pub async fn replay_all(
+  catalog: &CoverageFile,
+  mut on_outcome: impl FnMut(&ProbeOutcome),
+) -> (Vec<ProbeOutcome>, f64) {
+  let mut outcomes: Vec<ProbeOutcome> = Vec::with_capacity(catalog.probes.len());
+  let started = js_sys::Date::now();
+  let mut last_yield = started;
+
+  for probe in &catalog.probes {
+    let outcome = match engine_bridge::evaluate(probe_json(probe)).await {
+      Ok(response) => evaluated_probe_outcome(probe, &response),
+      Err(message) => errored_probe_outcome(probe, &message),
+    };
+
+    on_outcome(&outcome);
+    outcomes.push(outcome);
+
+    if js_sys::Date::now() - last_yield >= FRAME_MS {
+      yield_for_paint().await;
+      last_yield = js_sys::Date::now();
+    }
+  }
+
+  (outcomes, js_sys::Date::now() - started)
+}
 
 /// Runs the whole four-stage sequence, publishing each transition through
 /// `state`. Every terminal path is either `Done` or `Failed`: no stage can
@@ -71,35 +121,15 @@ pub async fn run(state: UseStateHandle<RunState>) {
   let mut progress = CoverageProgress { total: catalog.probes.len(), ..CoverageProgress::default() };
   state.set(RunState::Probing { engine_bytes, progress: progress.clone() });
 
-  let mut outcomes: Vec<ProbeOutcome> = Vec::with_capacity(catalog.probes.len());
-  let started = js_sys::Date::now();
-  let mut last_yield = started;
-
-  for probe in &catalog.probes {
-    // The request bytes go over the ABI verbatim -- never deserialized
-    // and re-serialized, which would drop exactly the unknown ODRL keys
-    // most of the negative probes exist to inject (see
-    // coverage_catalog.rs's header).
-    let outcome = match engine_bridge::evaluate(probe_json(probe)).await {
-      Ok(response) => evaluated_probe_outcome(probe, &response),
-      // One probe failing at the ABI boundary can never hide the other
-      // 112, nor strand the UI on this stage: it is recorded as an
-      // errored probe (which makes its rows Inconclusive, not silently
-      // Verified) and the loop continues.
-      Err(message) => errored_probe_outcome(probe, &message),
-    };
-
+  // The loop itself lives in `replay_all`, shared verbatim with
+  // `/full-compliance`. What stays here is this run's own axis: an errored
+  // probe makes its rows Inconclusive, never silently Verified.
+  let (outcomes, elapsed_ms) = replay_all(&catalog, |outcome| {
     progress.record(outcome.status);
-    outcomes.push(outcome);
     state.set(RunState::Probing { engine_bytes, progress: progress.clone() });
+  })
+  .await;
 
-    if js_sys::Date::now() - last_yield >= FRAME_MS {
-      yield_for_paint().await;
-      last_yield = js_sys::Date::now();
-    }
-  }
-
-  let elapsed_ms = js_sys::Date::now() - started;
   state.set(RunState::Compiling { engine_bytes, progress: progress.clone() });
   // Without a real await between this `set` and the next, Yew coalesces
   // the two updates into a single render and "Compiling coverage report"

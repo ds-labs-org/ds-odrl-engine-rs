@@ -44,6 +44,26 @@ mod demo_widgets;
 mod engine_bridge;
 #[cfg(target_arch = "wasm32")]
 mod engine_module;
+// Ungated, for the same reason `coverage_catalog` and `coverage_state` are
+// above: this is the Full Compliance page's whole pure half -- the
+// per-probe judgment against ODRL 2.2, the per-row verdict derivation, both
+// tallies, the contested-reading sign-off list and the unreached-narrowing
+// notes. Two of its tests are exact set comparisons tying that prose to the
+// live verdicts the committed catalog produces, and behind a wasm32 gate
+// neither would compile under `cargo test --workspace`, let alone run --
+// leaving a page free to assert "these twenty rows meet full spec" over a
+// set that had quietly changed underneath it.
+#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+mod full_compliance;
+#[cfg(target_arch = "wasm32")]
+mod full_compliance_page;
+#[cfg(target_arch = "wasm32")]
+mod full_compliance_run;
+// Ungated too, exactly as `coverage_state` is: stage ordering and live
+// tallies go quietly wrong in ways that misreport a run a visitor is
+// watching, and that should not need a browser to catch.
+#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+mod full_compliance_state;
 // Ungated, for the third time and for the sharpest version of the reason:
 // this is the Release History page's whole pure half -- the artifact's
 // parsing, its rejection paths, and the derived per-release quantities

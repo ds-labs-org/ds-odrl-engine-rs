@@ -5,10 +5,16 @@ use yew::prelude::*;
 use yew_nested_router::prelude::Switch as RouterSwitch;
 
 /// The page shell: masthead brand, sidebar nav, and a router `Switch`
-/// plugging in whichever of the five routes (Home/Demo/Compliance/
-/// Coverage/History) is current. Structurally mirrors the ds42.org dataspace
-/// study's own `MainView` (Masthead/Page/Nav via patternfly-yew), not its
-/// nav items -- this product has its own five-page shape.
+/// plugging in whichever of the six routes (Home/Demo/Compliance/
+/// Coverage/Full Compliance/History) is current. Structurally mirrors the
+/// ds42.org dataspace study's own `MainView` (Masthead/Page/Nav via
+/// patternfly-yew), not its nav items -- this product has its own
+/// six-page shape.
+///
+/// "Full Compliance" sits directly under "ODRL 2.2 Coverage" deliberately:
+/// the two pages drive the same engine over the same probes and differ
+/// only in what they judge the answers against, so a reader who has just
+/// read one should find the other without hunting for it.
 #[component]
 pub fn MainView() -> Html {
   let brand = html!(
@@ -26,6 +32,7 @@ pub fn MainView() -> Html {
           <NavRouterItem<AppRoute> to={AppRoute::Demo}>{ "Demonstrator" }</NavRouterItem<AppRoute>>
           <NavRouterItem<AppRoute> to={AppRoute::Compliance}>{ "Compliance Results" }</NavRouterItem<AppRoute>>
           <NavRouterItem<AppRoute> to={AppRoute::Coverage}>{ "ODRL 2.2 Coverage" }</NavRouterItem<AppRoute>>
+          <NavRouterItem<AppRoute> to={AppRoute::FullCompliance}>{ "Full Compliance" }</NavRouterItem<AppRoute>>
           <NavRouterItem<AppRoute> to={AppRoute::History}>{ "Release History" }</NavRouterItem<AppRoute>>
         </NavList>
       </Nav>
