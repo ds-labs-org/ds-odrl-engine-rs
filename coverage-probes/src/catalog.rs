@@ -1211,9 +1211,15 @@ fn operator_probes() -> Vec<Probe> {
              containment, not enumeration, is the whole definition. Vocabulary 4.5.26 spatial: \"A named and \
              identified geospatial area with defined borders ... An IRI MUST be used to represent this \
              value\", its Note naming external code sources (ISO 3166, the Getty Thesaurus) as where the \
-             area is resolved from; and Information Model 2.5.1's rightOperandReference machinery (\"that \
-             IRI must be de-referenced first and the data returned must be interpreted as the value to be \
-             compared\") shows ODRL already assumes evaluators dereference IRIs. Containment verified \
+             area is resolved from. Information Model 2.5.1's dereferencing rule is deliberately NOT \
+             claimed here, because it cuts the other way: the same paragraph says that if \"the \
+             rightOperand was http://example.com/c100 then that is interpreted as the value to be compared \
+             in the expression\", and reserves \"that IRI must be de-referenced first\" for the \
+             rightOperandReference form -- which this probe's constraint does not carry. That costs the \
+             ideal nothing. 2.5.1 fixes only what the two values ARE; the operator fixes what the \
+             comparison between them asks, and 3.16.9 asks containment, not identity. The right operand \
+             taken as-is is the IRI of a geospatial area, which is the only form 4.5.26 permits, so \
+             \"contained by\" is a question about the area that IRI names. Containment verified \
              independently rather than assumed: https://sws.geonames.org/2950159/about.rdf returns gn:name \
              \"Berlin\", gn:featureCode P.PPLC, gn:countryCode DE and gn:parentCountry rdf:resource=\
              \"https://sws.geonames.org/2921044/\"; https://sws.geonames.org/2921044/about.rdf returns \
