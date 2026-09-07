@@ -37,8 +37,8 @@
 
 use crate::coverage_catalog::{status_display, Category, Ideal};
 use crate::full_compliance::{
-  contested_readings_for, unreached_narrowing, ContestedReading, FullComplianceReport, ProbeJudgment,
-  RowJudgment, RowSpecVerdict, SpecOutcome, CONTESTED_READINGS,
+  contested_readings_for, shortfall_headline, unreached_narrowing, ContestedReading, FullComplianceReport,
+  ProbeJudgment, RowJudgment, RowSpecVerdict, SpecOutcome, CONTESTED_READINGS,
 };
 use crate::full_compliance_run::run;
 use crate::full_compliance_state::{RunState, SpecProgress, Stage};
@@ -597,8 +597,8 @@ fn shortfall_alert(report: &FullComplianceReport) -> Html {
           { "Every one of these is a row this study already documents as " }<em>{ "partial" }</em>
           { " or " }<em>{ "not implemented" }</em>
           { ", so none of them contradicts this study's own documentation, which is what the Coverage page \
-             measures. What this page adds is the specific answer that would have to change, and the \
-             ODRL 2.2 clause that settles it:" }
+             measures. What this page adds is the specific thing that would have to change — usually the \
+             decision itself, and on one row what the answer carries alongside an unchanged decision:" }
         </p>
         <ul>
           { for short.iter().map(|row| {
@@ -609,10 +609,8 @@ fn shortfall_alert(report: &FullComplianceReport) -> Html {
                   if let Some(probe) = probe {
                     if let Some(ideal) = &probe.ideal {
                       { format!(
-                          " — probe {}: this engine answers {}, full ODRL 2.2 requires {}",
-                          probe.id,
-                          probe.observed_decision.clone().unwrap_or_else(|| "—".to_string()),
-                          ideal.decision
+                          " — {}",
+                          shortfall_headline(&probe.id, probe.observed_decision.as_deref(), ideal)
                       ) }
                     }
                   } else {

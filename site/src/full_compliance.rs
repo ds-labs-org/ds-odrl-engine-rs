@@ -551,6 +551,47 @@ pub fn contested_readings_for(row_id: &str) -> Vec<&'static ContestedReading> {
   CONTESTED_READINGS.iter().filter(|entry| entry.row == row_id).collect()
 }
 
+/// One falls-short row reduced to the sentence the page's summary alert
+/// prints for it, from the row's first falls-short probe.
+///
+/// A comparison of decisions appears here **only where the decisions
+/// really do differ**, and it is never the judgment — that stays
+/// `ideal.is_some()`, per this module's header.
+/// `duty-consequence-itself-unresolved` is the probe that forces the
+/// distinction: its ideal decision equals its observed one (both `Allow`)
+/// and what falls short is the reported `duties` list, so a bare delta
+/// would print "this engine answers Allow, full ODRL 2.2 requires Allow"
+/// and offer a non-difference as the row's whole evidence. Where the
+/// decisions agree the ideal's own prose is the evidence, exactly as the
+/// row's detail cell already renders it — which also means a purely
+/// cosmetic reordering of a row's `probe_ids`, or any future row whose
+/// only shortfall is in what the answer carries rather than in the answer,
+/// cannot turn this alert into an assertion the run did not support.
+///
+/// Lives here rather than in the rendering module so `cargo test
+/// --workspace` can hold it to that, as the tests below do.
+pub fn shortfall_headline(probe_id: &str, observed: Option<&str>, ideal: &Ideal) -> String {
+  match observed {
+    Some(observed) if observed == ideal.decision => format!(
+      "probe {probe_id}: the decision is not what falls short here — this engine answers {observed}, and \
+       so does full ODRL 2.2. {}",
+      ideal.reason
+    ),
+    Some(observed) => {
+      format!("probe {probe_id}: this engine answers {observed}, full ODRL 2.2 requires {}", ideal.decision)
+    }
+    // Not reachable from a live run — a probe only falls short after it
+    // agreed with its documented expectation, which requires a decision —
+    // but stated rather than papered over with a dash that would read as
+    // an observed answer.
+    None => format!(
+      "probe {probe_id}: this browser recorded no decision, so the shortfall stands on the catalog's \
+       research alone — full ODRL 2.2 requires {}",
+      ideal.decision
+    ),
+  }
+}
+
 /// Judges one probe against full ODRL 2.2.
 ///
 /// The order of the arms is the whole contract:
@@ -846,6 +887,73 @@ mod tests {
       .find(|p| p.id == "duty-consequence-itself-unresolved")
       .expect("an in-scope row names it");
     assert_eq!(judgment.outcome, SpecOutcome::FallsShort);
+  }
+
+  /// The same rule one layer up, where it is easiest to lose: the summary
+  /// alert names one probe per falls-short row, and it names whichever of
+  /// that row's falls-short probes comes first in `probe_ids`. A purely
+  /// cosmetic reorder of `duty.consequence`'s two ids must not turn that
+  /// bullet into "answers Allow, requires Allow" — a non-difference
+  /// offered as the row's evidence — so this runs over *every* falls-short
+  /// probe of every short row rather than the one that happens to lead.
+  #[test]
+  fn no_shortfall_headline_claims_a_delta_between_two_equal_decisions() {
+    let report = report();
+    let mut unchanged_decisions = 0;
+
+    for row in report.short_rows() {
+      for probe in row.probes.iter().filter(|p| p.outcome == SpecOutcome::FallsShort) {
+        let ideal = probe.ideal.as_ref().expect("a falls-short probe carries the ideal that made it one");
+        let observed = probe.observed_decision.as_deref();
+        let headline = shortfall_headline(&probe.id, observed, ideal);
+        let delta = format!("full ODRL 2.2 requires {}", ideal.decision);
+        if observed == Some(ideal.decision.as_str()) {
+          unchanged_decisions += 1;
+          assert!(
+            !headline.contains(&delta),
+            "probe {} has no decision delta, so its headline must not claim one: {headline}",
+            probe.id
+          );
+          assert!(
+            headline.contains(&ideal.reason),
+            "probe {}: with no delta to show, the ideal's own prose is the evidence, and it is missing: \
+             {headline}",
+            probe.id
+          );
+        } else {
+          assert!(headline.contains(&delta), "probe {}: the delta is the evidence here: {headline}", probe.id);
+        }
+      }
+    }
+
+    assert_eq!(
+      unchanged_decisions, 1,
+      "duty-consequence-itself-unresolved is the one probe today whose ideal decision equals its observed \
+       one; a second would be welcome, but it must arrive with this guard still holding"
+    );
+  }
+
+  /// The three arms of [`shortfall_headline`] against decisions chosen
+  /// here, so the equal-decision arm is covered even if the catalog one
+  /// day carries no such probe.
+  #[test]
+  fn a_shortfall_headline_shows_a_delta_only_where_there_is_one() {
+    let ideal = Ideal {
+      decision: "Allow".to_string(),
+      reason: "what must change is the duties list".to_string(),
+      spec_citation: "Information Model 2.6.3".to_string(),
+    };
+
+    let unchanged = shortfall_headline("p-equal", Some("Allow"), &ideal);
+    assert!(!unchanged.contains("full ODRL 2.2 requires Allow"), "{unchanged}");
+    assert!(unchanged.contains("what must change is the duties list"), "{unchanged}");
+
+    let changed = shortfall_headline("p-differs", Some("Deny"), &ideal);
+    assert!(changed.contains("this engine answers Deny, full ODRL 2.2 requires Allow"), "{changed}");
+
+    let unobserved = shortfall_headline("p-none", None, &ideal);
+    assert!(!unobserved.contains("this engine answers"), "{unobserved}");
+    assert!(unobserved.contains("full ODRL 2.2 requires Allow"), "{unobserved}");
   }
 
   #[test]
