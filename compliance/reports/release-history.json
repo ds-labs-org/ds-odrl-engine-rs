@@ -2190,7 +2190,7 @@
       "tag": "v0.18.0"
     },
     {
-      "commit": "956f713036e8a0d6de70b31bde686f9bc8708265",
+      "commit": "df9a924ee8dbccb20a5fb9548526f121408931bd",
       "compliance": {
         "failed": 0,
         "passed": 68,
@@ -2210,7 +2210,7 @@
         "verified": 50
       },
       "coverage_error": null,
-      "date": "2026-09-07T14:03:51+02:00",
+      "date": "2026-09-07T14:05:13+02:00",
       "engine_wasm_bytes": 315509,
       "engine_wasm_sha256": "cd6dee62f4d69dc755a0cb1442bacfea9c595c0760a193602b278ea34f7d0b21",
       "row_status": {
@@ -2219,7 +2219,7 @@
         "out_of_scope": 8,
         "partial": 23
       },
-      "summary": "site: add a probe-level agreement stat and history line, alongside the row-level ones",
+      "summary": "release-history: include v0.19.0's own entry",
       "tag": "v0.19.0"
     }
   ],
