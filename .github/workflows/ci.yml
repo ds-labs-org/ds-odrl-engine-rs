@@ -86,17 +86,33 @@ jobs:
       # scratch, which is slow but still correct; slow-but-correct on an
       # infrequent path is the right tradeoff, not a reason to skip this
       # check on PRs.
-      - name: compute release-history cache key from the current tag list
+      # Keyed by Cargo.lock first, tag list second, and the restore-keys
+      # prefix embeds only the lock hash -- deliberately, after this exact
+      # cache silently defeated both the toolchain pin and the committed
+      # Cargo.lock fixes, twice, by restoring pre-fix engine.wasm binaries
+      # for every already-cached tag via a bare "v1-" prefix match that
+      # didn't care what had changed. A prefix keyed by lock_hash only
+      # falls back to a cache sharing today's exact Cargo.lock, so the
+      # intended fallback (reuse older tags' builds, build only a newly
+      # added tag) still works, but a future Cargo.lock/toolchain change
+      # forces a real rebuild instead of serving stale bytes again.
+      # Renamed v1 -> v2 once: this repo's only existing v1 entries are
+      # already known-bad.
+      - name: compute release-history cache key from Cargo.lock and the tag list
         id: release-history-key
-        run: echo "tags-hash=$(git tag -l | sort -V | sha256sum | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+        run: |
+          tags_hash="$(git tag -l | sort -V | sha256sum | cut -d' ' -f1)"
+          lock_hash="$(sha256sum Cargo.lock | cut -d' ' -f1)"
+          echo "cache-key=release-history-stage-v2-${lock_hash}-${tags_hash}" >> "$GITHUB_OUTPUT"
+          echo "restore-prefix=release-history-stage-v2-${lock_hash}-" >> "$GITHUB_OUTPUT"
 
       - name: restore release-history staging cache
         uses: actions/cache@v4
         with:
           path: target/release-history/stage
-          key: release-history-stage-v1-${{ steps.release-history-key.outputs.tags-hash }}
+          key: ${{ steps.release-history-key.outputs.cache-key }}
           restore-keys: |
-            release-history-stage-v1-
+            ${{ steps.release-history-key.outputs.restore-prefix }}
 
       - name: build any tags missing from the release-history staging cache
         run: scripts/build-release-history.sh
