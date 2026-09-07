@@ -2002,7 +2002,7 @@ record of what every tagged version of this engine *actually did* —
 measured by re-running this repo's two instruments against each tag, not
 by copying numbers out of commit messages.
 
-For each of the 28 tags from `v0.1.0` to `v0.19.0`:
+For each of the 29 tags from `v0.1.0` to `v0.19.1`:
 
 * **ODRL-Test-Suite** — that tag is checked out, and **that tag's own
   `compliance-runner`** is built and run against **the suite revision that
@@ -2092,6 +2092,7 @@ probes are agreed/disagreed/errored out of 136.
 | `v0.17.1` | 22:04 | 68/68 | 50 / 0 / 0 | 136 / 0 / 0 | close the release-history staleness gap in ci.yml too, not just pages.yml |
 | `v0.18.0` | 11:28 | 68/68 | 50 / 0 / 0 | 136 / 0 / 0 | per-release Implemented/Partial/NotImplemented/OutOfScope chart, History page typography pass |
 | `v0.19.0` | 14:03 | 68/68 | 50 / 0 / 0 | 136 / 0 / 0 | probe-level agreement stat (Coverage page) and history line (History page) |
+| `v0.19.1` | 14:45 | 68/68 | 50 / 0 / 0 | 136 / 0 / 0 | fix a disagreeing probe being hard to spot: vertical-align: top, per-probe agreed/disagreed labels |
 
 Four things in that table are worth reading twice, because none of them
 came from a changelog:
@@ -2108,12 +2109,12 @@ came from a changelog:
   alone.
 * **Every tag from `v0.12.0` through `v0.15.0` shares one contradicted
   count (5 rows, 10 probes), and every tag from `v0.17.0` through
-  `v0.19.0` shares another (0 rows, 0 probes), because none of them touch
+  `v0.19.1` shares another (0 rows, 0 probes), because none of them touch
   `engine/` at all** (Release History itself, bench harnesses, dashboard
   presentation, Coverage/History page additions — see "byte-identical
   `engine.wasm`" below). Only `v0.16.0` and `v0.17.0` move the count,
-  each by adding real engine capability; `v0.17.1`, `v0.18.0` and
-  `v0.19.0` are CI/presentation-only and inherit `v0.17.0`'s numbers
+  each by adding real engine capability; `v0.17.1`, `v0.18.0`, `v0.19.0`
+  and `v0.19.1` are CI/presentation-only and inherit `v0.17.0`'s numbers
   exactly.
 * **`v0.11.0`'s 12 contradicted rows today are exactly the coverage rows
   this study has added since it shipped, in full**:
@@ -2370,7 +2371,7 @@ rather than asserted:
 for i in $(seq 8); do
   cargo run -q -p release-history --release -- STAGE_DIR --check-determinism
 done
-# 8 × sha256 3eb11f346d0c1c8e4014e3a5324fbc3e1ddb7849b73cce0aa3d57f5174dd855a
+# 8 × sha256 14794232123eb9e88394678dcd31046359ed9b29540839506fe4144da682364b
 # ... identical to sha256sum compliance/reports/release-history.json
 ```
 
@@ -2380,9 +2381,9 @@ whose `engine/` tree is byte-identical produce a **byte-identical**
 `v0.8.1`/`v0.9.0`, `v0.10.0`/`v0.10.1`, `v0.12.0`–`v0.15.0` (a group
 that grew from a pair to six tags across this repair, since none of
 `v0.13.0`, `v0.13.1`, `v0.14.0` or `v0.15.0` touch `engine/` either) and
-now `v0.17.0`/`v0.17.1`/`v0.18.0`/`v0.19.0` (a CI-only tag and two
-presentation-only tags, per their own commit messages) each share one
-SHA-256, and `git diff <a> <b> -- engine` is empty for every one of
+now `v0.17.0`/`v0.17.1`/`v0.18.0`/`v0.19.0`/`v0.19.1` (a CI-only tag and
+three presentation-only tags, per their own commit messages) each share
+one SHA-256, and `git diff <a> <b> -- engine` is empty for every one of
 those pairs. The engine build is reproducible across checkouts on this
 toolchain.
 
