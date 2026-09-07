@@ -107,6 +107,16 @@ for tag in $tags; do
   (
     cd "$worktree_dir"
     export CARGO_TARGET_DIR="$cargo_target_dir"
+    # Panic locations (`#[track_caller]`, the file:line every `unwrap`/
+    # `assert!` embeds) bake in this worktree's own absolute path, which
+    # differs in length between machines -- confirmed the residual cause
+    # once the toolchain and dependency graph were both pinned: every
+    # single tag's rebuilt engine.wasm was reproducible to within exactly
+    # the character-count difference between this box's checkout path and
+    # the CI runner's. Remapping the actual path to a fixed placeholder
+    # makes the embedded string identical regardless of where either
+    # machine happens to have this repo checked out.
+    export RUSTFLAGS="--remap-path-prefix=$worktree_dir=/build/ds-odrl-engine-rs"
     cargo build -p engine --target wasm32-unknown-unknown --release >/dev/null
     cp "$cargo_target_dir/wasm32-unknown-unknown/release/engine.wasm" "$out/engine.wasm"
 
