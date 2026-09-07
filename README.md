@@ -2002,7 +2002,7 @@ record of what every tagged version of this engine *actually did* —
 measured by re-running this repo's two instruments against each tag, not
 by copying numbers out of commit messages.
 
-For each of the 25 tags from `v0.1.0` to `v0.17.0`:
+For each of the 26 tags from `v0.1.0` to `v0.17.1`:
 
 * **ODRL-Test-Suite** — that tag is checked out, and **that tag's own
   `compliance-runner`** is built and run against **the suite revision that
@@ -2089,6 +2089,7 @@ probes are agreed/disagreed/errored out of 136.
 | `v0.15.0` | 13:35 | 68/68 | 45 / 5 / 0 | 126 / 10 / 0 | performance, resource and load comparison across all five ODRL engines |
 | `v0.16.0` | 18:26 | 68/68 | 49 / 1 / 0 | 134 / 2 / 0 | native `inheritFrom`/conflict-voiding, `AssetCollection` membership, `xsd:duration` comparison, `odrl:andSequence`, `dsp-odrl-adapter` duty/consequence/remedy ingestion + IRI expansion + action pushdown |
 | `v0.17.0` | 21:51 | 68/68 | 50 / 0 / 0 | 136 / 0 / 0 | `agreementAssigneeClaim` opt-in, `odrl:Offer` assignee inertness, Release History dashboard repair |
+| `v0.17.1` | 22:04 | 68/68 | 50 / 0 / 0 | 136 / 0 / 0 | close the release-history staleness gap in ci.yml too, not just pages.yml |
 
 Four things in that table are worth reading twice, because none of them
 came from a changelog:
@@ -2129,13 +2130,111 @@ came from a changelog:
   forever. Genuinely absent capability at every step, never a harness
   artefact.
 
+### A per-release Implemented/Partial/NotImplemented/OutOfScope breakdown
+
+`CatalogInfo.implemented`/`partial`/`not_implemented`/`out_of_scope` (the
+`11`/`23`/`11`/`7` printed above) is a static property of the *current*
+catalog source — one number, identical for every release, by that
+struct's own design. Stacked over 26 releases it would just repeat the
+same four bars twenty-six times, which is not a chart. `Release` now also
+carries its own `row_status: Option<RowStatusBreakdown>` — the site's new
+stacked chart on `/history` — derived from *that release's own* probe
+agreement, genuinely varying release to release, computed by
+`release-history/src/main.rs`'s `classify_row_for_release`:
+
+```text
+classify_row_for_release(row):
+  if row has zero probes (documented-only claim, no wire request possible):
+    -> OutOfScope                    # timeless, every release alike
+  elif row.status == NotImplemented or row.status == OutOfScope:
+    -> row.status, pinned            # see below
+  else (row.status is Implemented or Partial -- both test positive capability):
+    agreed = probes with ProbeStatus::Agreed; total = row's own probes
+    if agreed == total: -> row.status unchanged
+    elif agreed == 0:   -> NotImplemented
+    else:                -> Partial
+```
+
+**Why the naive rule ("all agreed → Implemented, some → Partial, none →
+NotImplemented") is wrong, and pinning both `NotImplemented` and
+`OutOfScope`.** A row's probes are not all the same kind of evidence. For
+a row documented `Implemented`/`Partial` today, its probes test *positive
+capability*: agreement means "this release exhibited the documented
+behaviour." For a row documented `NotImplemented` today, its probe is a
+*control* proving the documented gap's absence is real — agreement there
+means "this release correctly lacks the feature, exactly as still
+documented," which has always been true of a still-open, disclosed gap.
+Applying the naive rule would misclassify every `NotImplemented` row as
+`Implemented` for every release in history, which is backwards: it would
+dress up a real, disclosed, currently-open limitation as historically
+closed. The spec for this feature named only that one case explicitly;
+implementing it surfaced a second, structurally identical one this
+catalog's data actually contains — six of its seven `OutOfScope` rows
+carry one or two probes of their own (an unrecognized profile-declared
+`odrl:Operator` still fails to parse, a profile-declared party role still
+sits inert, …), and those probes are exactly the same kind of control:
+proving a permanent boundary stays correctly inert, not testing a
+capability that grew in. Both statuses are therefore pinned to their own
+documented reading regardless of this release's own probe agreement.
+`ProbeStatus::Errored` counts as not-agreed throughout, the same as
+`Disagreed`.
+
+**The consequence, found by writing the tests rather than assumed:**
+because both pinned categories never consult probe agreement, and every
+zero-probe row (there are two: `party.collections`, documented
+`NotImplemented`, and `assets.has-policy`, documented `OutOfScope`) maps
+to `OutOfScope` unconditionally, the derived `out_of_scope` count is the
+same **8** for every addressable release — one more than `CatalogInfo`'s
+own static `out_of_scope` (7), because `party.collections` moves buckets
+under this rule despite `CatalogInfo` counting it as `not_implemented`.
+Symmetrically, the derived `not_implemented` baseline never drops below
+**10** (the catalog's 11 `NotImplemented` rows, minus that same
+zero-probe row) for exactly the same structural reason — real signal, not
+a bug: `site::history_catalog::tests::out_of_scope_is_identical_across_every_addressable_release`
+pins the first half of it, and
+`release-history`'s own
+`the_newest_releases_derived_breakdown_is_checked_against_catalog_info_and_the_real_discrepancy_is_recorded`
+test records the exact 1-row discrepancy rather than forcing the property
+to hold. For the newest release (`v0.17.1`, zero contradictions against
+today's catalog), the two capability-tested buckets match `CatalogInfo`
+exactly (`implemented: 11`, `partial: 23`) and the two pinned buckets are
+the structurally-shifted `not_implemented: 10` / `out_of_scope: 8` above
+— confirming the naive property holds exactly where probes actually test
+capability, and diverges exactly where the pinning rule says it must.
+
+A few real, addressable releases across the range (`Implemented` /
+`Partial` / `NotImplemented` / `OutOfScope`, out of the 52 rows):
+
+| tag | Implemented | Partial | NotImplemented | OutOfScope |
+|---|---|---|---|---|
+| `v0.6.0` (oldest addressable) | 4 | 22 | 18 | 8 |
+| `v0.11.0` | 9 | 21 | 14 | 8 |
+| `v0.16.0` | 11 | 23 | 10 | 8 |
+| `v0.17.1` (newest) | 11 | 23 | 10 | 8 |
+
+`OutOfScope` never moves; `NotImplemented` only ever falls as far as its
+pinned floor of 10; `Implemented`/`Partial` are the two bars that actually
+tell this engine's growth story. See `/history`'s own new stacked chart
+for the full 26-release picture and its caption for the same rule stated
+in the page's own prose.
+
+**Schema bump.** This is a real shape change — a new field on every
+release, not an optional leaf an `@1` parser would silently ignore — so
+`release-history/src/render.rs`'s `SCHEMA` (and
+`site/src/history_catalog.rs`'s matching `HISTORY_SCHEMA`) moved from
+`ds-odrl-engine-rs/release-history@1` to `@2`. A browser holding an `@1`
+copy of the artifact now fails loudly (`declares schema ds-odrl-engine-rs/
+release-history@1, this page speaks ds-odrl-engine-rs/release-history@2`)
+rather than rendering a dashboard with `row_status` silently absent
+everywhere.
+
 ### Why this page is not live in your browser
 
 The Compliance Results and ODRL 2.2 Coverage pages both re-execute their
 whole corpus against `engine.wasm` in the visitor's browser, and say so.
-This one cannot: its subject is **25 different historical `engine.wasm`
-binaries**, 6.0 MB of them combined, which would have to be shipped and
-instantiated to recompute 3,400 probe evaluations (25 releases × 136
+This one cannot: its subject is **26 different historical `engine.wasm`
+binaries**, 6.3 MB of them combined, which would have to be shipped and
+instantiated to recompute 3,536 probe evaluations (26 releases × 136
 probes) on page load — for figures that can only change when someone cuts
 a new tag. Both the page's own intro paragraph and this figure are read
 off the same `HistoryFile` at render time (`site/src/history_page.rs`'s
@@ -2162,7 +2261,7 @@ asserts that the newest staged release's own coverage tally has zero
 contradictions against the catalog it was generated from, so a stale
 regeneration fails `cargo test --workspace` instead of quietly shipping
 an old dashboard. (As of this artifact: 50 verified / 0 contradicted / 0
-inconclusive / 2 documented for `v0.17.0`, the newest tag — matching what
+inconclusive / 2 documented for `v0.17.1`, the newest tag — matching what
 the live Coverage page itself reports for the same 136-probe catalog.)
 
 ### Regenerating it
@@ -2237,16 +2336,17 @@ rather than asserted:
 for i in $(seq 8); do
   cargo run -q -p release-history --release -- STAGE_DIR --check-determinism
 done
-# 8 × sha256 99a15987cc2f11431e5f18ee6913e8c68dd3881cf8301a23883c476d98ae77fd
+# 8 × sha256 af762186055d1b42ce60ea120ee071189ee90c678d03e4bc801188f2297bf423
 # ... identical to sha256sum compliance/reports/release-history.json
 ```
 
 A second, unplanned reproducibility result fell out of the sweep: tags
 whose `engine/` tree is byte-identical produce a **byte-identical**
 `engine.wasm`. `v0.1.0`/`v0.1.1`/`v0.1.2`, `v0.2.1`–`v0.5.0`,
-`v0.8.1`/`v0.9.0`, `v0.10.0`/`v0.10.1` and `v0.12.0`–`v0.15.0` (a group
+`v0.8.1`/`v0.9.0`, `v0.10.0`/`v0.10.1`, `v0.12.0`–`v0.15.0` (a group
 that grew from a pair to six tags across this repair, since none of
-`v0.13.0`, `v0.13.1`, `v0.14.0` or `v0.15.0` touch `engine/` either) each
+`v0.13.0`, `v0.13.1`, `v0.14.0` or `v0.15.0` touch `engine/` either) and
+now `v0.17.0`/`v0.17.1` (a CI-only tag, per its own commit message) each
 share one SHA-256, and `git diff <a> <b> -- engine` is empty for every one
 of those pairs. The engine build is reproducible across checkouts on this
 toolchain.

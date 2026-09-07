@@ -33,7 +33,10 @@ pub const HISTORY_URL: &str = "compliance-data/release-history.json";
 /// returning visitor can be served a browser-cached artifact of an older
 /// shape, which must fail loudly instead of half-parsing into a dashboard
 /// with plausible-looking holes in it.
-pub const HISTORY_SCHEMA: &str = "ds-odrl-engine-rs/release-history@1";
+///
+/// Bumped `@1` -> `@2` alongside [`Release::row_status`]'s addition --
+/// see `release-history/src/render.rs`'s own `SCHEMA` doc comment.
+pub const HISTORY_SCHEMA: &str = "ds-odrl-engine-rs/release-history@2";
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct CatalogInfo {
@@ -74,6 +77,26 @@ pub struct CoverageTally {
   pub envelope_rejected: usize,
 }
 
+/// One release's own Implemented/Partial/NotImplemented/OutOfScope
+/// breakdown -- genuinely varying release to release, unlike
+/// [`CatalogInfo`]'s static, catalog-wide distribution above. See
+/// `release-history/src/render.rs`'s own `RowStatusBreakdown` doc comment
+/// and `release-history/src/main.rs`'s `classify_row_for_release` for the
+/// exact per-row rule this was derived by.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct RowStatusBreakdown {
+  pub implemented: usize,
+  pub partial: usize,
+  pub not_implemented: usize,
+  pub out_of_scope: usize,
+}
+
+impl RowStatusBreakdown {
+  pub fn total(&self) -> usize {
+    self.implemented + self.partial + self.not_implemented + self.out_of_scope
+  }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct ContradictedRow {
   pub id: String,
@@ -100,6 +123,9 @@ pub struct Release {
   pub coverage: Option<CoverageTally>,
   pub coverage_error: Option<String>,
   pub contradicted_rows: Vec<ContradictedRow>,
+  /// This release's own per-row status breakdown -- `None` exactly when
+  /// `coverage` is `None`. See [`RowStatusBreakdown`].
+  pub row_status: Option<RowStatusBreakdown>,
 }
 
 impl Release {
@@ -253,6 +279,30 @@ pub fn parse_release_history(text: &str) -> Result<HistoryFile, String> {
         ));
       }
     }
+
+    // Same "exactly one of the two" reasoning as `coverage`/`coverage_error`
+    // above, and for the same purpose: a release that is addressable at all
+    // must carry a row_status breakdown to draw the new stacked chart from,
+    // and one that isn't must not carry a breakdown a reader could mistake
+    // for real per-row verdicts on a release the catalog cannot address.
+    if release.coverage.is_some() != release.row_status.is_some() {
+      return Err(format!(
+        "{HISTORY_URL}: release `{}` carries coverage: {} but row_status: {} -- these must agree",
+        release.tag,
+        release.coverage.is_some(),
+        release.row_status.is_some()
+      ));
+    }
+    if let Some(row_status) = &release.row_status {
+      if row_status.total() != file.catalog.rows {
+        return Err(format!(
+          "{HISTORY_URL}: release `{}` row_status sums to {} but the catalog carries {} rows",
+          release.tag,
+          row_status.total(),
+          file.catalog.rows
+        ));
+      }
+    }
   }
 
   Ok(file)
@@ -295,6 +345,48 @@ mod tests {
     assert_eq!(coverage.probes_total, file.catalog.probes);
     assert_eq!(coverage.verified + coverage.contradicted + coverage.inconclusive + coverage.documented, file.catalog.rows);
     assert_eq!(coverage.contradicted, 0, "the newest tag must not contradict the catalog generated from it");
+  }
+
+  #[test]
+  fn every_addressable_release_carries_a_row_status_breakdown_summing_to_the_catalogs_rows() {
+    let file = committed();
+    for release in &file.releases {
+      match (&release.coverage, &release.row_status) {
+        (Some(_), Some(row_status)) => {
+          assert_eq!(row_status.total(), file.catalog.rows, "{}: row_status must sum to every row", release.tag);
+        }
+        (None, None) => {}
+        _ => panic!("{}: coverage and row_status must agree on whether this release is addressable", release.tag),
+      }
+    }
+  }
+
+  /// `out_of_scope` alone is pinned per-row regardless of probe agreement
+  /// (see `release-history`'s own `classify_row_for_release` doc comment:
+  /// every zero-probe row, and every documented-`OutOfScope` row, always
+  /// classifies to `OutOfScope`, with no dependency on any release's own
+  /// probe outcomes) -- so it is identical for every addressable release.
+  /// `not_implemented` is NOT similarly invariant, even though documented-
+  /// `NotImplemented` rows are themselves pinned the same way: it also
+  /// receives whichever documented-`Implemented`/`Partial` rows a given
+  /// release agreed on zero of their own probes, which is exactly the
+  /// quantity that shrinks release to release as this engine's coverage
+  /// grew (found empirically while writing this test -- an earlier,
+  /// broader version of this assertion covering both fields failed on the
+  /// real committed data, correctly, and was narrowed to what the
+  /// classification rule actually guarantees rather than forced to pass).
+  /// This pins the real invariant on the committed data so a future change
+  /// to the classification rule that broke it would fail loudly here.
+  #[test]
+  fn out_of_scope_is_identical_across_every_addressable_release() {
+    let file = committed();
+    let addressable: Vec<&RowStatusBreakdown> =
+      file.releases.iter().filter_map(|r| r.row_status.as_ref()).collect();
+    assert!(addressable.len() >= 2, "need at least two addressable releases to compare");
+    let first_out_of_scope = addressable[0].out_of_scope;
+    for (release, row_status) in file.releases.iter().filter(|r| r.row_status.is_some()).zip(addressable.iter()) {
+      assert_eq!(row_status.out_of_scope, first_out_of_scope, "{}: out_of_scope moved", release.tag);
+    }
   }
 
   #[test]

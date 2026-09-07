@@ -26,7 +26,13 @@ use serde_json::Value;
 /// own `SCHEMA`: `copy-file` assets are not content-hashed, so a
 /// returning visitor can be handed a browser-cached copy of an older
 /// shape, and that must fail loudly rather than half-parse.
-pub const SCHEMA: &str = "ds-odrl-engine-rs/release-history@1";
+///
+/// Bumped `@1` -> `@2` when [`Release::row_status`] was added: a real
+/// shape change (a new field on every release, not merely a new optional
+/// leaf an old parser would silently ignore under `#[serde(default)]`),
+/// so a stale cached `@1` artifact must fail loudly rather than parse
+/// with `row_status` silently absent everywhere.
+pub const SCHEMA: &str = "ds-odrl-engine-rs/release-history@2";
 
 pub const GENERATED_BY: &str =
     "release-history (scripts/build-release-history.sh, then cargo run -p release-history --release)";
@@ -99,6 +105,39 @@ pub struct CoverageTally {
     pub envelope_rejected: usize,
 }
 
+/// One release's own Implemented/Partial/NotImplemented/OutOfScope
+/// breakdown, derived from *that release's* probe agreement rather than
+/// copied from [`CatalogInfo`]'s static, catalog-wide distribution.
+///
+/// Unlike `CatalogInfo.implemented`/`partial`/`not_implemented`/
+/// `out_of_scope` -- a fixed property of the current catalog source, one
+/// number repeated identically for every release by that struct's own
+/// design -- these four fields vary release to release: they are what
+/// *that release's own compiled `engine.wasm`* actually exhibited when
+/// its probe agreement is read alongside each row's own current
+/// documented status. See `release-history/src/main.rs`'s
+/// `classify_row_for_release` for the exact per-row rule, and this
+/// crate's README section ("Release history dashboard") for the full
+/// worked rationale, including why a documented `NotImplemented` (or
+/// `OutOfScope`) row is pinned to its own status rather than reclassified
+/// by probe agreement.
+///
+/// Always sums to [`CatalogInfo::rows`] (52, as of this catalog) when
+/// present at all. `None` on a [`Release`] exactly when
+/// [`Release::coverage`] is `None` -- a release the current catalog
+/// cannot address at all has no per-row verdicts to derive this from
+/// either, and reporting a breakdown of all-`NotImplemented` there would
+/// misrepresent "the catalog cannot address this release" as "this
+/// release implements nothing," the same distinction `coverage`/
+/// `coverage_error` already exists to preserve.
+#[derive(Debug, Clone, Serialize)]
+pub struct RowStatusBreakdown {
+    pub implemented: usize,
+    pub partial: usize,
+    pub not_implemented: usize,
+    pub out_of_scope: usize,
+}
+
 /// A row the current catalog documents as holding, that this historical
 /// engine did not satisfy. Expected, and the whole point: it names a
 /// capability the release genuinely did not have yet.
@@ -138,6 +177,10 @@ pub struct Release {
     /// in the engine's own words wherever the engine had any.
     pub coverage_error: Option<String>,
     pub contradicted_rows: Vec<ContradictedRow>,
+    /// This release's own per-row Implemented/Partial/NotImplemented/
+    /// OutOfScope breakdown -- `None` exactly when `coverage` is `None`.
+    /// See [`RowStatusBreakdown`] for what this is and is not.
+    pub row_status: Option<RowStatusBreakdown>,
 }
 
 #[derive(Debug, Serialize)]
@@ -212,6 +255,7 @@ mod tests {
                 }),
                 coverage_error: None,
                 contradicted_rows: vec![],
+                row_status: Some(RowStatusBreakdown { implemented: 11, partial: 18, not_implemented: 16, out_of_scope: 7 }),
             }],
         }
     }
@@ -243,8 +287,29 @@ mod tests {
         let mut file = sample();
         file.releases[0].coverage = None;
         file.releases[0].coverage_error = Some("engine.wasm exports no `evaluate`".to_string());
+        file.releases[0].row_status = None;
         let value: Value = serde_json::from_str(&render(&file)).unwrap();
         assert!(value["releases"][0]["coverage"].is_null());
         assert_eq!(value["releases"][0]["coverage_error"], "engine.wasm exports no `evaluate`");
+        assert!(
+            value["releases"][0]["row_status"].is_null(),
+            "row_status must be null exactly when coverage is, same as coverage_error's own reasoning"
+        );
+    }
+
+    #[test]
+    fn a_releases_row_status_breakdown_round_trips_and_sums_to_the_catalogs_row_count() {
+        let file = sample();
+        let value: Value = serde_json::from_str(&render(&file)).unwrap();
+        let row_status = &value["releases"][0]["row_status"];
+        assert_eq!(row_status["implemented"], 11);
+        assert_eq!(row_status["partial"], 18);
+        assert_eq!(row_status["not_implemented"], 16);
+        assert_eq!(row_status["out_of_scope"], 7);
+        let sum = row_status["implemented"].as_u64().unwrap()
+            + row_status["partial"].as_u64().unwrap()
+            + row_status["not_implemented"].as_u64().unwrap()
+            + row_status["out_of_scope"].as_u64().unwrap();
+        assert_eq!(sum, file.catalog.rows as u64);
     }
 }

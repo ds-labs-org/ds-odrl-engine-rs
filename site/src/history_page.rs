@@ -50,6 +50,57 @@ use yew::prelude::*;
 /// tokens with literal hex fallbacks, so they stay legible if a token is
 /// ever renamed upstream.
 const HISTORY_CSS: &str = r#"
+/* Presentation polish, requested by the project owner and scoped to this
+   page alone -- this whole <style> block mounts with `HistoryPage` and
+   unmounts with it on route change, so nothing below reaches any other
+   page. No new colours, no restructuring, no reworded prose: geometry
+   only.
+
+   Left/right margin. There is no page-local content wrapper narrower than
+   the shared `Page` layout: what actually controls horizontal whitespace
+   around every page's content today is PatternFly's own
+   `.pf-v6-c-page__main-section` padding
+   (`--pf-v6-c-page__main-section--PaddingInline{Start,End}`, both
+   defaulting to `--pf-t--global--spacer--lg` = 1.5rem -- see
+   `site/target/node_modules/@patternfly/patternfly/6.4.0/components/Page/page.css`).
+   Doubled to 3rem on *both* sides here, not just one.
+
+   Base font size, +10%. PatternFly's own body-text token
+   (`--pf-t--global--font--size--body--default`) is the real base every
+   piece of prose on this page reads from -- `Content` paragraphs, `Alert`
+   bodies, `Card` bodies. It resolves to 0.875rem
+   (`--pf-t--global--font--size--sm` = `--pf-t--global--font--size--200`,
+   `site/target/node_modules/@patternfly/patternfly/6.4.0/base/patternfly-variables.css`).
+   0.875rem * 1.10 = 0.9625rem, computed from that real number rather than
+   guessed. Redeclaring only the top-level `--pf-t--global--...` token here
+   does NOT reach any of those, though: each component's own
+   `--pf-v6-c-*--FontSize` variable is declared once, at PatternFly's own
+   `:root` rule, as `var(--pf-t--global--font--size--body--default)` -- and
+   a custom property's `var()` references resolve against the environment
+   *where that property is declared*, not where it is later read, so
+   redeclaring only the leaf token here would leave every one of those
+   already-resolved 0.875rem values untouched (verified empirically: it
+   measurably does nothing to a rendered paragraph's `font-size` without
+   the component-level overrides below). Each component-level token this
+   page's own prose actually reads is therefore redeclared directly below,
+   at the same 1.10 scale. This page's tables are a deliberate, honest
+   exception, unaffected either way: `release_table`/`longest_standing_gaps`
+   render plain `<table class="pf-v6-c-table"><tr><th>/<td>` with none of
+   PatternFly's own `.pf-v6-c-table__tr`/`__th`/`__td` classes (compiled
+   CSS gates per-cell typography behind `tr:where(.pf-v6-c-table__tr) >
+   :where(th, td)`, which a plain `<tr><td>` never matches) -- so table
+   text already rendered at the plain browser default before this change,
+   governed by no PatternFly token in either direction, and stays that way
+   here rather than gaining a new, page-local special case for a gap this
+   pass did not introduce and was not asked to close. */
+.pf-v6-c-page__main-section {
+  padding-inline-start: 3rem !important;
+  padding-inline-end: 3rem !important;
+  --pf-t--global--font--size--body--default: 0.9625rem;
+  --pf-v6-c-content--FontSize: 0.9625rem;
+  --pf-v6-c-alert--FontSize: 0.9625rem;
+  --pf-v6-c-card__body--FontSize: 0.9625rem;
+}
 .ds-oe-hist-table-wrap { overflow-x: auto; }
 .ds-oe-hist-tag {
   font-family: var(--ds-oe-font-mono, ui-monospace, monospace);
@@ -117,13 +168,35 @@ const HISTORY_CSS: &str = r#"
   color: var(--pf-t--global--text--color--subtle, #6a6e73);
   margin-top: 0.1rem;
 }
-.ds-oe-hist-section { margin-top: 2.25rem; }
+.ds-oe-hist-section { margin-top: 3.5rem; }
+/* Vertical space ahead of the two Alert boxes and the chart(s) -- a
+   clearly larger, consistent top margin (matches `.ds-oe-hist-section`'s
+   own bump above), not a token nudge. */
+.ds-oe-hist-lead { margin-top: 3rem; }
 "#;
 
 /// Series colours, shared by the chart and its legend so the two cannot
 /// drift apart.
 const COMPLIANCE_COLOR: &str = "#0066cc";
 const COVERAGE_COLOR: &str = "#3e8635";
+
+/// Stacked-status-chart colours, one per [`RowStatusBreakdown`] field.
+/// Reused from elsewhere on this same page rather than invented fresh,
+/// but one: `STATUS_IMPLEMENTED_COLOR` is `COVERAGE_COLOR` itself (the
+/// existing "good" green), `STATUS_NOT_IMPLEMENTED_COLOR` is
+/// `.ds-oe-hist-bad`'s red, `STATUS_OUT_OF_SCOPE_COLOR` is the same subtle
+/// grey `.ds-oe-hist-muted`/`.ds-oe-hist-when` already use for
+/// not-applicable text. `STATUS_PARTIAL_COLOR` is the one new hex value
+/// this page introduces, an amber roughly at PatternFly's own warning hue,
+/// chosen to sit visually between the green and the red it is stacked
+/// between. All four keep enough contrast against both a light and a dark
+/// page background to stay legible in either `prefers-color-scheme`
+/// (the SVG draws no other page-controlled background of its own to clash
+/// against, same as the line chart above it).
+const STATUS_IMPLEMENTED_COLOR: &str = COVERAGE_COLOR;
+const STATUS_PARTIAL_COLOR: &str = "#f0ab00";
+const STATUS_NOT_IMPLEMENTED_COLOR: &str = "#c9190b";
+const STATUS_OUT_OF_SCOPE_COLOR: &str = "#6a6e73";
 
 /// Chart geometry, in the SVG's own `viewBox` units.
 const CHART_W: f64 = 760.0;
@@ -264,6 +337,178 @@ fn chart(file: &HistoryFile) -> Html {
           { "vocabulary rows verified, out of the rows today's catalog can probe" }
         </span>
       </div>
+    </>
+  )
+}
+
+/// Geometry for the stacked status chart below, sharing [`x_at`]'s x-axis
+/// mapping (and therefore the same release positions) with the line chart
+/// above it, so the two charts read as one coordinated pair rather than
+/// two unrelated figures.
+const STATUS_PLOT_TOP: f64 = 16.0;
+const STATUS_PLOT_BOTTOM: f64 = 190.0;
+const STATUS_CHART_H: f64 = 250.0;
+
+fn status_y_at(rows: f64, total_rows: f64) -> f64 {
+  STATUS_PLOT_BOTTOM - (STATUS_PLOT_BOTTOM - STATUS_PLOT_TOP) * (rows / total_rows).clamp(0.0, 1.0)
+}
+
+/// The new per-release stacked chart: one bar per release, left to right
+/// chronological (same x-axis as the line chart above), each split into
+/// its own [`RowStatusBreakdown`] -- Implemented/Partial/NotImplemented
+/// stacked bottom to top by "how close to the documented reading", with
+/// OutOfScope on top. See [`dashboard`]'s caption, printed immediately
+/// below this chart, for the exact classification rule in prose.
+///
+/// The nine releases the current catalog cannot address at all (no
+/// `row_status`, same releases [`chart`]'s own shaded region already
+/// marks) get the identical shaded gap and label here rather than an
+/// absent bar -- an absent bar with nothing beside it could read as "zero
+/// everywhere", which is exactly the misreading the line chart's own gap
+/// treatment above already exists to avoid.
+fn status_chart(file: &HistoryFile) -> Html {
+  let count = file.releases.len();
+  let total_rows = file.catalog.rows as f64;
+  let bar_w = ((PLOT_RIGHT - PLOT_LEFT) / (count.max(1) as f64) * 0.6).max(2.0);
+
+  let addressable_from = file.releases.iter().position(|r| r.row_status.is_some());
+  let shade = addressable_from.filter(|&first| first > 0).map(|first| {
+    let x0 = PLOT_LEFT - 6.0;
+    let x1 = x_at(first, count) - 6.0;
+    html!(
+      <>
+        <rect x={format!("{x0:.1}")} y={format!("{STATUS_PLOT_TOP:.1}")} width={format!("{:.1}", x1 - x0)}
+              height={format!("{:.1}", STATUS_PLOT_BOTTOM - STATUS_PLOT_TOP)} fill="currentColor" opacity="0.06" />
+        <text x={format!("{:.1}", (x0 + x1) / 2.0)} y={format!("{:.1}", STATUS_PLOT_TOP + 14.0)}
+              text-anchor="middle" font-size="10" fill="currentColor" opacity="0.65">
+          { "catalog cannot address" }
+        </text>
+      </>
+    )
+  });
+
+  let bars = file.releases.iter().enumerate().filter_map(|(i, release)| {
+    let rs = release.row_status.as_ref()?;
+    let cx = x_at(i, count);
+    let x = cx - bar_w / 2.0;
+    // Bottom to top: Implemented (closest to the documented reading),
+    // Partial, NotImplemented, OutOfScope on top -- a green foundation a
+    // reader expects to grow over time, with the always-8-rows OutOfScope
+    // band riding unchanged at the top (see `release-history`'s own
+    // `classify_row_for_release`: every OutOfScope-documented row, and
+    // every zero-probe row regardless of its own documented status, pins
+    // to OutOfScope release after release).
+    let segments = [
+      (rs.implemented as f64, STATUS_IMPLEMENTED_COLOR),
+      (rs.partial as f64, STATUS_PARTIAL_COLOR),
+      (rs.not_implemented as f64, STATUS_NOT_IMPLEMENTED_COLOR),
+      (rs.out_of_scope as f64, STATUS_OUT_OF_SCOPE_COLOR),
+    ];
+    let mut cumulative = 0.0;
+    let rects: Vec<Html> = segments
+      .iter()
+      .map(|(value, color)| {
+        let y0 = status_y_at(cumulative, total_rows);
+        cumulative += value;
+        let y1 = status_y_at(cumulative, total_rows);
+        html!(
+          <rect x={format!("{x:.1}")} y={format!("{y1:.1}")} width={format!("{bar_w:.1}")}
+                height={format!("{:.1}", (y0 - y1).max(0.0))} fill={*color}>
+            <title>{ format!("{}: {} rows", release.tag, *value as u64) }</title>
+          </rect>
+        )
+      })
+      .collect();
+    Some(html!(<>{ for rects }</>))
+  });
+
+  html!(
+    <>
+      <svg class="ds-oe-hist-chart" viewBox={format!("0 0 {CHART_W} {STATUS_CHART_H}")} role="img"
+           aria-label="Per-release Implemented/Partial/NotImplemented/OutOfScope breakdown of the 52 ODRL 2.2 vocabulary rows, derived from that release's own probe agreement">
+        { for [0.0, 0.25, 0.5, 0.75, 1.0].iter().map(|f| {
+            let rows = f * total_rows;
+            html!(
+              <>
+                <line x1={format!("{PLOT_LEFT:.1}")} y1={format!("{:.1}", status_y_at(rows, total_rows))}
+                      x2={format!("{PLOT_RIGHT:.1}")} y2={format!("{:.1}", status_y_at(rows, total_rows))}
+                      stroke="currentColor" stroke-width="0.5" opacity="0.18" />
+                <text x={format!("{:.1}", PLOT_LEFT - 8.0)} y={format!("{:.1}", status_y_at(rows, total_rows) + 3.5)}
+                      text-anchor="end" font-size="10" fill="currentColor" opacity="0.6">
+                  { format!("{}", rows.round() as i64) }
+                </text>
+              </>
+            )
+          }) }
+
+        { shade }
+        { for bars }
+
+        { for file.releases.iter().enumerate().map(|(i, release)| {
+            let show = count <= 10 || i % 2 == 0 || i + 1 == count;
+            html!(
+              <>
+                <line x1={format!("{:.1}", x_at(i, count))} y1={format!("{STATUS_PLOT_BOTTOM:.1}")}
+                      x2={format!("{:.1}", x_at(i, count))} y2={format!("{:.1}", STATUS_PLOT_BOTTOM + 4.0)}
+                      stroke="currentColor" stroke-width="0.6" opacity="0.4" />
+                if show {
+                  <text x={format!("{:.1}", x_at(i, count))} y={format!("{:.1}", STATUS_PLOT_BOTTOM + 20.0)}
+                        text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.75"
+                        transform={format!("rotate(-38 {:.1} {:.1})", x_at(i, count), STATUS_PLOT_BOTTOM + 20.0)}>
+                    { release.tag.clone() }
+                  </text>
+                }
+              </>
+            )
+          }) }
+
+        <line x1={format!("{PLOT_LEFT:.1}")} y1={format!("{STATUS_PLOT_BOTTOM:.1}")}
+              x2={format!("{PLOT_RIGHT:.1}")} y2={format!("{STATUS_PLOT_BOTTOM:.1}")}
+              stroke="currentColor" stroke-width="1" opacity="0.45" />
+      </svg>
+
+      <div class="ds-oe-hist-legend">
+        <span>
+          <span class="ds-oe-hist-swatch" style={format!("background: {STATUS_IMPLEMENTED_COLOR};")}></span>
+          { "Implemented" }
+        </span>
+        <span>
+          <span class="ds-oe-hist-swatch" style={format!("background: {STATUS_PARTIAL_COLOR};")}></span>
+          { "Partial" }
+        </span>
+        <span>
+          <span class="ds-oe-hist-swatch" style={format!("background: {STATUS_NOT_IMPLEMENTED_COLOR};")}></span>
+          { "Not implemented" }
+        </span>
+        <span>
+          <span class="ds-oe-hist-swatch" style={format!("background: {STATUS_OUT_OF_SCOPE_COLOR};")}></span>
+          { "Out of scope" }
+        </span>
+      </div>
+      <Content>
+        <p class="ds-oe-hist-note">
+          <strong>{ "How each release's bar is classified. " }</strong>
+          { "A row with no probe at all (a documented-only claim, no wire request can encode it) is always "}
+          <em>{ "Out of scope" }</em>
+          { ", every release alike. A row this catalog documents as " }<em>{ "Not implemented" }</em>
+          { " or " }<em>{ "Out of scope" }</em>{ " today stays pinned to that same reading for every release, \
+             regardless of this release's own probe agreement: both are non-capability statuses whose probes \
+             are controls proving a disclosed gap or a permanent boundary is still correctly there, not tests \
+             of positive capability -- a still-open, disclosed gap has no \"more implemented in the past\" \
+             reading, and treating its probes' agreement as a positive signal would misrepresent a real, \
+             disclosed limitation as historically closed. Every other row -- documented " }
+          <em>{ "Implemented" }</em>{ " or " }<em>{ "Partial" }</em>
+          { " today, the two statuses whose own probes DO test positive capability -- is classified by this \
+             release's own agreement against that row's own probes: every probe agreed keeps the row's \
+             documented status unchanged (a " }<em>{ "Partial" }</em>
+          { " row whose calibrated probes all agree stays " }<em>{ "Partial" }</em>
+          { ", never upgraded to " }<em>{ "Implemented" }</em>
+          { " for matching exactly the behaviour its own documented status already describes as partial); \
+             zero probes agreed means this release predates the documented behaviour entirely (" }
+          <em>{ "Not implemented" }</em>{ "); anything in between is " }<em>{ "Partial" }</em>
+          { "." }
+        </p>
+      </Content>
     </>
   )
 }
@@ -476,7 +721,13 @@ fn provenance(file: &HistoryFile) -> Html {
 fn dashboard(file: &HistoryFile) -> Html {
   html!(
     <>
-      { chart(file) }
+      <div class="ds-oe-hist-lead">
+        { chart(file) }
+      </div>
+      <div class="ds-oe-hist-lead">
+        <Title level={Level::H2}>{ "Implemented / Partial / Not implemented / Out of scope, per release" }</Title>
+        { status_chart(file) }
+      </div>
       { provenance(file) }
       <div class="ds-oe-hist-section">
         <Title level={Level::H2}>{ "Every tagged release" }</Title>
@@ -594,25 +845,29 @@ pub fn HistoryPage() -> Html {
             html!(
               <>
                 { intro(file) }
-                { build_time_alert(file) }
+                <div class="ds-oe-hist-lead">
+                  { build_time_alert(file) }
+                </div>
                 if unaddressable > 0 {
-                  <Alert inline=true r#type={AlertType::Warning}
-                         title={format!("{unaddressable} early releases predate the current wire shape")}>
-                    <Content>
-                      <p>
-                        { "v0.6.0 reshaped the request's " }<code>{ "config" }</code>{ " object from " }
-                        <code>{ "{\"recognized_actions\": [...]}" }</code>
-                        { " into real JSON-LD vocabulary. That was a rename, not an addition, and the field \
-                           it replaced had no " }<code>{ "#[serde(default)]" }</code>
-                        { " to fall back on — so an engine built before it refuses every one of today's \
-                           probe requests at its own deserializer, before any policy logic runs. Those \
-                           releases therefore show their real ODRL-Test-Suite results and " }
-                        <em>{ "no" }</em>{ " coverage figure at all, rather than a zero that would read as \
-                           \"this release supported nothing\". Every wire change after v0.6.0 was additive, \
-                           which is exactly why the replay works from there on." }
-                      </p>
-                    </Content>
-                  </Alert>
+                  <div class="ds-oe-hist-lead">
+                    <Alert inline=true r#type={AlertType::Warning}
+                           title={format!("{unaddressable} early releases predate the current wire shape")}>
+                      <Content>
+                        <p>
+                          { "v0.6.0 reshaped the request's " }<code>{ "config" }</code>{ " object from " }
+                          <code>{ "{\"recognized_actions\": [...]}" }</code>
+                          { " into real JSON-LD vocabulary. That was a rename, not an addition, and the field \
+                             it replaced had no " }<code>{ "#[serde(default)]" }</code>
+                          { " to fall back on — so an engine built before it refuses every one of today's \
+                             probe requests at its own deserializer, before any policy logic runs. Those \
+                             releases therefore show their real ODRL-Test-Suite results and " }
+                          <em>{ "no" }</em>{ " coverage figure at all, rather than a zero that would read as \
+                             \"this release supported nothing\". Every wire change after v0.6.0 was additive, \
+                             which is exactly why the replay works from there on." }
+                        </p>
+                      </Content>
+                    </Alert>
+                  </div>
                 }
                 { dashboard(file) }
               </>
