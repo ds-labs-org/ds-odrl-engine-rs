@@ -643,24 +643,27 @@ fn left_operand_probes() -> Vec<Probe> {
                       load_engine_instance), so this is a structural property of the artifact this page \
                       loaded, not a policy choice: there is no host function it could call for the time.",
             falsified_by: "Allow -- which would mean the guest synthesised a clock from somewhere",
-            request: one(c("dateTime", Operator::Lt, "2027-01-01T00:00:00Z"), no_claims()),
+            request: one(c("dateTime", Operator::Lt, "2999-01-01T00:00:00Z"), no_claims()),
             patches: vec![],
             expect: deny(&closed_deny("use")),
         })
         .falls_short_of(ideal(
             "Allow",
-            "permission[0] of policy 'probe' matched: action 'use': dateTime lt 2027-01-01T00:00:00Z. \
-             LOAD-BEARING CAVEAT for a live snapshot: this ideal is wall-clock dependent. Evaluated at any \
-             instant before 2027-01-01T00:00:00Z -- which includes now -- a compliant engine allows; from \
-             that instant onward the ideal becomes Deny and this probe silently stops demonstrating any \
-             shortfall at all. Say \"before 2027-01-01\" wherever this is rendered, or move the fixture's \
-             right operand further out.",
+            "permission[0] of policy 'probe' matched: action 'use': dateTime lt 2999-01-01T00:00:00Z. \
+             The far-future right operand is deliberate and load-bearing, not a stray fixture value: this \
+             is the one ideal on the page that a wall clock could invalidate, because a compliant engine \
+             compares the moment of evaluation against the bound and would answer Deny once that moment \
+             passes it. On a live-snapshot page with no fixed evaluation date the shortfall would then stop \
+             being demonstrated -- silently, since nothing here re-reads the clock -- so the bound is set \
+             beyond any instant at which this artifact will be replayed rather than disclosed as an \
+             expiry. Its two sibling probes keep near-term bounds because they supply the dateTime as a \
+             claim and so do not depend on when they run.",
             "Vocabulary 4.5.6 Datetime defines the left operand as \"The date (and optional time and \
              timezone) of exercising the action of the Rule\" -- the value is the moment of exercise itself, \
              not an input a requester may or may not supply -- with the Note framing lt/lteq as the Rule \
              being exercised before the right operand's date(time). An engine that is evaluating a request \
              is by construction in possession of that value, so a full implementation compares now against \
-             2027-01-01T00:00:00Z and finds the Constraint satisfied (Information Model 2.5.1: \"If the \
+             2999-01-01T00:00:00Z and finds the Constraint satisfied (Information Model 2.5.1: \"If the \
              comparison returns a match the Constraint is satisfied, otherwise it is not satisfied\"). This \
              differs from current behaviour only under the reading that the clock is intrinsic to the \
              evaluator rather than a host-supplied fact -- the same PDP/PIP boundary question named on \

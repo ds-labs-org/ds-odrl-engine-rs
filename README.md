@@ -2205,11 +2205,15 @@ whose live answer departed from its own documented behaviour (which
 researched ideal was written against), is **Undetermined** — never counted
 as meeting the spec *or* as falling short of it.
 
-One time-dependent caveat travels in the catalog and is worth repeating
-here: `lo-datetime-absent-no-clock`'s ideal is wall-clock dependent.
-Evaluated at any instant before `2027-01-01T00:00:00Z` a compliant engine
-allows; from that instant onward the ideal becomes Deny and the probe
-stops demonstrating any shortfall at all.
+One ideal is wall-clock dependent by construction and is worth naming
+here: `lo-datetime-absent-no-clock`'s, because a compliant engine compares
+the *moment of evaluation* against the constraint's bound. On a page with
+no fixed evaluation date that would make the demonstrated shortfall expire
+on a calendar day, so the probe's right operand is deliberately
+`2999-01-01T00:00:00Z` — beyond any instant at which this artifact will be
+replayed — rather than a near-term bound carrying a disclosed expiry. The
+row's two sibling probes supply `dateTime` as a claim and so are not
+time-dependent at all.
 
 ## Release history dashboard
 
