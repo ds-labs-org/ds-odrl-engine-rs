@@ -2221,6 +2221,39 @@
       },
       "summary": "release-history: include v0.19.0's own entry",
       "tag": "v0.19.0"
+    },
+    {
+      "commit": "f3de9bfe7bc543b66134404e22fa915b0a164d13",
+      "compliance": {
+        "failed": 0,
+        "passed": 68,
+        "skipped": 0,
+        "total": 68
+      },
+      "contradicted_rows": [],
+      "coverage": {
+        "agreed": 136,
+        "contradicted": 0,
+        "disagreed": 0,
+        "documented": 2,
+        "envelope_rejected": 4,
+        "errored": 0,
+        "inconclusive": 0,
+        "probes_total": 136,
+        "verified": 50
+      },
+      "coverage_error": null,
+      "date": "2026-09-07T14:45:21+02:00",
+      "engine_wasm_bytes": 315509,
+      "engine_wasm_sha256": "cd6dee62f4d69dc755a0cb1442bacfea9c595c0760a193602b278ea34f7d0b21",
+      "row_status": {
+        "implemented": 11,
+        "not_implemented": 10,
+        "out_of_scope": 8,
+        "partial": 23
+      },
+      "summary": "coverage_page: fix two real reasons a disagreeing probe was hard to spot",
+      "tag": "v0.19.1"
     }
   ],
   "schema": "ds-odrl-engine-rs/release-history@2"
