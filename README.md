@@ -2002,7 +2002,7 @@ record of what every tagged version of this engine *actually did* —
 measured by re-running this repo's two instruments against each tag, not
 by copying numbers out of commit messages.
 
-For each of the 27 tags from `v0.1.0` to `v0.18.0`:
+For each of the 28 tags from `v0.1.0` to `v0.19.0`:
 
 * **ODRL-Test-Suite** — that tag is checked out, and **that tag's own
   `compliance-runner`** is built and run against **the suite revision that
@@ -2091,6 +2091,7 @@ probes are agreed/disagreed/errored out of 136.
 | `v0.17.0` | 21:51 | 68/68 | 50 / 0 / 0 | 136 / 0 / 0 | `agreementAssigneeClaim` opt-in, `odrl:Offer` assignee inertness, Release History dashboard repair |
 | `v0.17.1` | 22:04 | 68/68 | 50 / 0 / 0 | 136 / 0 / 0 | close the release-history staleness gap in ci.yml too, not just pages.yml |
 | `v0.18.0` | 11:28 | 68/68 | 50 / 0 / 0 | 136 / 0 / 0 | per-release Implemented/Partial/NotImplemented/OutOfScope chart, History page typography pass |
+| `v0.19.0` | 14:03 | 68/68 | 50 / 0 / 0 | 136 / 0 / 0 | probe-level agreement stat (Coverage page) and history line (History page) |
 
 Four things in that table are worth reading twice, because none of them
 came from a changelog:
@@ -2107,12 +2108,13 @@ came from a changelog:
   alone.
 * **Every tag from `v0.12.0` through `v0.15.0` shares one contradicted
   count (5 rows, 10 probes), and every tag from `v0.17.0` through
-  `v0.18.0` shares another (0 rows, 0 probes), because none of them touch
+  `v0.19.0` shares another (0 rows, 0 probes), because none of them touch
   `engine/` at all** (Release History itself, bench harnesses, dashboard
-  presentation — see "byte-identical `engine.wasm`" below). Only
-  `v0.16.0` and `v0.17.0` move the count, each by adding real engine
-  capability; `v0.17.1` and `v0.18.0` are CI/presentation-only and
-  inherit `v0.17.0`'s numbers exactly.
+  presentation, Coverage/History page additions — see "byte-identical
+  `engine.wasm`" below). Only `v0.16.0` and `v0.17.0` move the count,
+  each by adding real engine capability; `v0.17.1`, `v0.18.0` and
+  `v0.19.0` are CI/presentation-only and inherit `v0.17.0`'s numbers
+  exactly.
 * **`v0.11.0`'s 12 contradicted rows today are exactly the coverage rows
   this study has added since it shipped, in full**:
   `assets.collections`, `conflict.fixed-strategy`,
@@ -2232,6 +2234,34 @@ release-history@1, this page speaks ds-odrl-engine-rs/release-history@2`)
 rather than rendering a dashboard with `row_status` silently absent
 everywhere.
 
+### A probe-level agreement line, and the stat it made visible on the Coverage page too
+
+Every earlier figure on this page's line chart, and every row-status
+figure in the stacked chart above, is at **row** granularity: a row
+counts as verified only when *every one* of its own probes agrees. That
+is the right grain for "does this vocabulary claim hold," but it hides a
+real fact the raw data already carries — one disagreeing probe among
+several sinks its whole row, so the row-level share understates how much
+of the corpus actually agrees. `Release::probe_agreement_fraction`
+(`site/src/history_catalog.rs`) adds the finer-grained axis directly from
+each release's own already-committed `CoverageTally.agreed`/
+`.probes_total` — no new data pipeline work, since every release's raw
+tally already carried both numbers; only the line was missing. A new
+test, `probe_agreement_fraction_is_a_finer_grain_than_verified_fraction`,
+pins this as a real invariant against the committed data rather than
+trusting it by construction: for every addressable release, the row-
+verified share never exceeds the probe-agreed share.
+
+The same measure was missing from the **Coverage** page's own live
+report for the identical reason — `CoverageReport.agreed`/`.disagreed`/
+`.errored`/`.total_probes` were computed and used internally (to derive
+the row-level `verified`/`contradicted`/`inconclusive` figures next to
+them) but never surfaced as their own headline. Added as a third stat
+row (probes run/agreed/disagreed/errored) alongside the two existing
+row-granularity rows, which were relabelled ("rows verified live", "rows
+contradicted", "rows inconclusive") to disambiguate now that both grains
+appear on the same page.
+
 ### Why this page is not live in your browser
 
 The Compliance Results and ODRL 2.2 Coverage pages both re-execute their
@@ -2340,7 +2370,7 @@ rather than asserted:
 for i in $(seq 8); do
   cargo run -q -p release-history --release -- STAGE_DIR --check-determinism
 done
-# 8 × sha256 af762186055d1b42ce60ea120ee071189ee90c678d03e4bc801188f2297bf423
+# 8 × sha256 3eb11f346d0c1c8e4014e3a5324fbc3e1ddb7849b73cce0aa3d57f5174dd855a
 # ... identical to sha256sum compliance/reports/release-history.json
 ```
 
@@ -2350,9 +2380,10 @@ whose `engine/` tree is byte-identical produce a **byte-identical**
 `v0.8.1`/`v0.9.0`, `v0.10.0`/`v0.10.1`, `v0.12.0`–`v0.15.0` (a group
 that grew from a pair to six tags across this repair, since none of
 `v0.13.0`, `v0.13.1`, `v0.14.0` or `v0.15.0` touch `engine/` either) and
-now `v0.17.0`/`v0.17.1`/`v0.18.0` (a CI-only tag and a presentation-only
-tag, per their own commit messages) each share one SHA-256, and `git diff
-<a> <b> -- engine` is empty for every one of those pairs. The engine build is reproducible across checkouts on this
+now `v0.17.0`/`v0.17.1`/`v0.18.0`/`v0.19.0` (a CI-only tag and two
+presentation-only tags, per their own commit messages) each share one
+SHA-256, and `git diff <a> <b> -- engine` is empty for every one of
+those pairs. The engine build is reproducible across checkouts on this
 toolchain.
 
 ## Current compliance summary
