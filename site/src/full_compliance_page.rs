@@ -596,8 +596,9 @@ fn shortfall_alert(report: &FullComplianceReport) -> Html {
         <p>
           { "Every one of these is a row this study already documents as " }<em>{ "partial" }</em>
           { " or " }<em>{ "not implemented" }</em>
-          { ", so none of them contradicts anything. What this page adds is the specific answer that would \
-             have to change, and the ODRL 2.2 clause that settles it:" }
+          { ", so none of them contradicts this study's own documentation, which is what the Coverage page \
+             measures. What this page adds is the specific answer that would have to change, and the \
+             ODRL 2.2 clause that settles it:" }
         </p>
         <ul>
           { for short.iter().map(|row| {
