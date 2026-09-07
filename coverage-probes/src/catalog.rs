@@ -2261,15 +2261,16 @@ fn duty_probes() -> Vec<Probe> {
     // Both consequence probes fall short the same way, and it is one
     // error: this engine treats a consequence as a REPLACEMENT for the
     // duty it hangs off, where ODRL 2.2 says three separate times that a
-    // consequence is an ADDITIONAL duty. Note that this probe's own
-    // `asserts` text states the substitution reading as if it were the
-    // spec's; the fetched Information Model text does not support it.
+    // consequence is an ADDITIONAL duty. Both `asserts` texts below
+    // therefore attribute the fall-through to THIS ENGINE, never to the
+    // spec: they are rendered verbatim on /coverage, which carries no
+    // ideal column to correct a spec claim made there.
     probes.push(
         build(Spec {
             id: "duty-consequence-resolves-where-the-primary-did-not",
             kind: POSITIVE,
             title: "an unfulfilled duty falls through to its odrl:consequence, which resolves",
-            asserts: "`notify` is not fulfilled, so ODRL says the consequence duty is what now applies -- and                   the claims assert *it* fulfilled, so nothing is outstanding and dutyMode: deny has                   nothing to act on.",
+            asserts: "`notify` is not fulfilled, so this engine falls through to its odrl:consequence and treats *that* duty as the one now applying -- the claims assert it fulfilled, so nothing is outstanding and dutyMode: deny has nothing to act on. The fall-through is this engine's own reading, not ODRL's: Information Model 2.6.3 makes a consequence an ADDITIONAL duty, so the unfulfilled `notify` is still outstanding under the spec.",
             falsified_by: "Deny, or a duties entry -- either would mean the consequence was never consulted",
             request: {
                 let mut request = base_request();
@@ -2312,7 +2313,7 @@ fn duty_probes() -> Vec<Probe> {
             id: "duty-consequence-itself-unresolved",
             kind: POSITIVE,
             title: "a consequence that is itself unresolved leaves dutyMode governing, and is named as a consequence",
-            asserts: "The paired miss: the same obligation with no claims at all. The outstanding duty reported                   is the consequence -- what the policy now requires -- not the `notify` it replaced, and                   its source says `.consequence`.",
+            asserts: "The paired miss: the same obligation with no claims at all. The one outstanding duty reported is the consequence -- what this engine now treats as required -- not the `notify` it substituted for, and its source says `.consequence`. ODRL 2.2 would report both, the primary `notify` included.",
             falsified_by: "a duties entry naming notify, or one with no source",
             request: {
                 let mut request = base_request();

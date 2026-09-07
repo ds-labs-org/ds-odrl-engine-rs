@@ -6859,7 +6859,7 @@
       "title": "an unresolved per-permission duty does not deny a policy whose other permission grants"
     },
     {
-      "asserts": "`notify` is not fulfilled, so ODRL says the consequence duty is what now applies -- and                   the claims assert *it* fulfilled, so nothing is outstanding and dutyMode: deny has                   nothing to act on.",
+      "asserts": "`notify` is not fulfilled, so this engine falls through to its odrl:consequence and treats *that* duty as the one now applying -- the claims assert it fulfilled, so nothing is outstanding and dutyMode: deny has nothing to act on. The fall-through is this engine's own reading, not ODRL's: Information Model 2.6.3 makes a consequence an ADDITIONAL duty, so the unfulfilled `notify` is still outstanding under the spec.",
       "expect": {
         "dataset_id": null,
         "decision": "Allow",
@@ -6941,7 +6941,7 @@
       "title": "an unfulfilled duty falls through to its odrl:consequence, which resolves"
     },
     {
-      "asserts": "The paired miss: the same obligation with no claims at all. The outstanding duty reported                   is the consequence -- what the policy now requires -- not the `notify` it replaced, and                   its source says `.consequence`.",
+      "asserts": "The paired miss: the same obligation with no claims at all. The one outstanding duty reported is the consequence -- what this engine now treats as required -- not the `notify` it substituted for, and its source says `.consequence`. ODRL 2.2 would report both, the primary `notify` included.",
       "expect": {
         "dataset_id": null,
         "decision": "Allow",
