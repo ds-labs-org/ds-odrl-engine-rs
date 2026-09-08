@@ -64,9 +64,35 @@ fi
 
 for tag in $tags; do
   out="$stage_dir/$tag"
-  if [ "${FORCE:-0}" != "1" ] && [ -f "$out/engine.wasm" ] && [ -f "$out/meta.json" ]; then
+  current_commit="$(git -C "$repo_root" rev-list -n1 "$tag")"
+  # "Already staged" is keyed on the tag's *name* by the two file checks
+  # below, and on nothing else -- which is exactly wrong the one time a
+  # tag *moves* after being staged (a real incident: v0.19.0 needed a
+  # trailing fix folded in after its first staging run, and this script's
+  # own cache silently kept serving the pre-move build until someone
+  # noticed and hand-deleted that one directory). GitHub Actions makes the
+  # same failure mode worse, not just possible: its cache is keyed by
+  # `git tag -l`'s own *name* list (see ci.yml/pages.yml's own cache-key
+  # comment), which does not change when a tag is force-moved to a
+  # different commit, so a run that staged a tag right before it moved
+  # would go on serving that stale staging forever via an exact cache
+  # hit -- no `FORCE=1` a human remembers to pass fixes a cache entry
+  # nobody knows is wrong. Comparing the staged `meta.json`'s own commit
+  # against the tag's *current* resolution catches both cases the same
+  # way, automatically, whether the mismatch is a local leftover or a
+  # multi-day-old CI cache entry.
+  staged_commit=""
+  if [ -f "$out/meta.json" ]; then
+    staged_commit="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('commit',''))" "$out/meta.json" 2>/dev/null || true)"
+  fi
+  if [ "${FORCE:-0}" != "1" ] && [ -f "$out/engine.wasm" ] && [ -f "$out/meta.json" ] && [ "$staged_commit" = "$current_commit" ]; then
     echo "== $tag: already staged, skipping"
     continue
+  fi
+  if [ -n "$staged_commit" ] && [ "$staged_commit" != "$current_commit" ]; then
+    echo "== $tag: staged build is of commit $staged_commit, but the tag now resolves to $current_commit -- rebuilding"
+    rm -rf "$out"
+    mkdir -p "$out"
   fi
   echo "== $tag"
   mkdir -p "$out"
