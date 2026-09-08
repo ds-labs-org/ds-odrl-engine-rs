@@ -10,8 +10,8 @@
 //! tests would silently never compile, let alone run.
 //!
 //! **This page is the one that does not recompute what it shows, and that
-//! is a deliberate, stated exception.** The Compliance Results and ODRL
-//! 2.2 Coverage pages both re-execute their whole corpus against
+//! is a deliberate, stated exception.** The Compliance Results and
+//! Capability Audit pages both re-execute their whole corpus against
 //! `engine.wasm` in the visitor's browser, and say so. This one cannot:
 //! its subject *is* nineteen different historical `engine.wasm` binaries,
 //! 3.9 MB of them, which would have to be shipped and instantiated to
@@ -34,9 +34,10 @@ pub const HISTORY_URL: &str = "compliance-data/release-history.json";
 /// shape, which must fail loudly instead of half-parsing into a dashboard
 /// with plausible-looking holes in it.
 ///
-/// Bumped `@1` -> `@2` alongside [`Release::row_status`]'s addition --
-/// see `release-history/src/render.rs`'s own `SCHEMA` doc comment.
-pub const HISTORY_SCHEMA: &str = "ds-odrl-engine-rs/release-history@2";
+/// Bumped `@2` -> `@3` alongside [`Release::row_status`]'s retirement in
+/// favour of [`Release::full_compliance`] -- see
+/// `release-history/src/render.rs`'s own `SCHEMA` doc comment.
+pub const HISTORY_SCHEMA: &str = "ds-odrl-engine-rs/release-history@3";
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct CatalogInfo {
@@ -49,6 +50,14 @@ pub struct CatalogInfo {
   pub partial: usize,
   pub not_implemented: usize,
   pub out_of_scope: usize,
+  /// Rows `/full-compliance` judges at all -- the catalog's rows minus the
+  /// ones documented `OutOfScope`. A static catalog property, identical
+  /// for every release, same reasoning as the four fields above.
+  pub full_compliance_rows_in_scope: usize,
+  pub full_compliance_rows_excluded: usize,
+  /// Distinct probes named by at least one in-scope row.
+  pub full_compliance_probes_judged: usize,
+  pub full_compliance_probes_in_catalog: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -77,23 +86,28 @@ pub struct CoverageTally {
   pub envelope_rejected: usize,
 }
 
-/// One release's own Implemented/Partial/NotImplemented/OutOfScope
-/// breakdown -- genuinely varying release to release, unlike
-/// [`CatalogInfo`]'s static, catalog-wide distribution above. See
-/// `release-history/src/render.rs`'s own `RowStatusBreakdown` doc comment
-/// and `release-history/src/main.rs`'s `classify_row_for_release` for the
-/// exact per-row rule this was derived by.
+/// One release's own reading against **full ODRL 2.2 compliance**, not
+/// against this study's documentation -- genuinely varying release to
+/// release, unlike [`CatalogInfo`]'s static, catalog-wide distribution
+/// above. See `release-history/src/render.rs`'s own `FullComplianceTally`
+/// doc comment for how this is derived (`full_compliance.rs`'s
+/// `compile_full_compliance_report`, replayed against that release's own
+/// probe outcomes -- the same function the live `/full-compliance` page
+/// calls in the browser).
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-pub struct RowStatusBreakdown {
-  pub implemented: usize,
-  pub partial: usize,
-  pub not_implemented: usize,
-  pub out_of_scope: usize,
+pub struct FullComplianceTally {
+  pub rows_meets: usize,
+  pub rows_falls_short: usize,
+  pub rows_structural_gap: usize,
+  pub rows_undetermined: usize,
+  pub probes_meets: usize,
+  pub probes_falls_short: usize,
+  pub probes_undetermined: usize,
 }
 
-impl RowStatusBreakdown {
-  pub fn total(&self) -> usize {
-    self.implemented + self.partial + self.not_implemented + self.out_of_scope
+impl FullComplianceTally {
+  pub fn rows_total(&self) -> usize {
+    self.rows_meets + self.rows_falls_short + self.rows_structural_gap + self.rows_undetermined
   }
 }
 
@@ -123,9 +137,9 @@ pub struct Release {
   pub coverage: Option<CoverageTally>,
   pub coverage_error: Option<String>,
   pub contradicted_rows: Vec<ContradictedRow>,
-  /// This release's own per-row status breakdown -- `None` exactly when
-  /// `coverage` is `None`. See [`RowStatusBreakdown`].
-  pub row_status: Option<RowStatusBreakdown>,
+  /// This release's own full-ODRL-2.2-compliance tally -- `None` exactly
+  /// when `coverage` is `None`. See [`FullComplianceTally`].
+  pub full_compliance: Option<FullComplianceTally>,
 }
 
 impl Release {
@@ -151,28 +165,6 @@ impl Release {
     self.commit.get(0..7).unwrap_or(&self.commit)
   }
 
-  /// Rows this release could actually be judged on: everything the
-  /// catalog probes, i.e. excluding the documented-only rows no engine
-  /// run can establish. Zero when the release is not addressable.
-  pub fn probeable_rows(&self) -> usize {
-    match &self.coverage {
-      Some(c) => c.verified + c.contradicted + c.inconclusive,
-      None => 0,
-    }
-  }
-
-  /// Verified rows as a fraction of probeable rows, 0.0..=1.0. `None`
-  /// when this release has no tally at all — which the page must render
-  /// as "not addressable", never as 0%.
-  pub fn verified_fraction(&self) -> Option<f64> {
-    let coverage = self.coverage.as_ref()?;
-    let probeable = self.probeable_rows();
-    if probeable == 0 {
-      return None;
-    }
-    Some(coverage.verified as f64 / probeable as f64)
-  }
-
   /// Passing fixtures as a fraction of the suite that release ran.
   pub fn compliance_fraction(&self) -> Option<f64> {
     let compliance = self.compliance.as_ref()?;
@@ -182,23 +174,35 @@ impl Release {
     Some(compliance.passed as f64 / compliance.total as f64)
   }
 
-  /// Agreeing probes as a fraction of every probe replayed against this
-  /// release, 0.0..=1.0. This is a strictly finer-grained axis than
-  /// [`verified_fraction`]: that one counts a *row* as verified only when
-  /// every one of its own probes agrees, so one disagreeing probe among
-  /// several sinks the whole row; this one counts every individual probe.
-  /// A release can therefore show a lower row-verified share than probe-
-  /// agreement share (a handful of rows each losing one probe drags rows
-  /// down further than probes), which is exactly why this is a second,
-  /// separate line rather than a restatement of the first. `None` when
-  /// this release has no tally at all, same reasoning as
-  /// [`verified_fraction`] -- rendered as "not addressable", never 0%.
-  pub fn probe_agreement_fraction(&self) -> Option<f64> {
-    let coverage = self.coverage.as_ref()?;
-    if coverage.probes_total == 0 {
+  /// In-scope rows meeting full ODRL 2.2 compliance, as a fraction of
+  /// every row `/full-compliance` judges, 0.0..=1.0. `None` when this
+  /// release has no tally at all -- which the page must render as "not
+  /// addressable", never as 0%.
+  pub fn meets_full_spec_row_fraction(&self) -> Option<f64> {
+    let full_compliance = self.full_compliance.as_ref()?;
+    let total = full_compliance.rows_total();
+    if total == 0 {
       return None;
     }
-    Some(coverage.agreed as f64 / coverage.probes_total as f64)
+    Some(full_compliance.rows_meets as f64 / total as f64)
+  }
+
+  /// Meets-full-spec probes as a fraction of every probe `/full-compliance`
+  /// judges, 0.0..=1.0. This is a strictly finer-grained axis than
+  /// [`meets_full_spec_row_fraction`], for the identical reason
+  /// `/coverage`'s own row-vs-probe pair was: that one counts a *row* as
+  /// meeting the spec only when every one of its own judged probes does,
+  /// so one falls-short probe among several sinks the whole row; this one
+  /// counts every individual probe. `None` when this release has no tally
+  /// at all, same reasoning as [`meets_full_spec_row_fraction`] -- rendered
+  /// as "not addressable", never 0%.
+  pub fn meets_full_spec_probe_fraction(&self) -> Option<f64> {
+    let full_compliance = self.full_compliance.as_ref()?;
+    let total = full_compliance.probes_meets + full_compliance.probes_falls_short + full_compliance.probes_undetermined;
+    if total == 0 {
+      return None;
+    }
+    Some(full_compliance.probes_meets as f64 / total as f64)
   }
 }
 
@@ -301,24 +305,24 @@ pub fn parse_release_history(text: &str) -> Result<HistoryFile, String> {
 
     // Same "exactly one of the two" reasoning as `coverage`/`coverage_error`
     // above, and for the same purpose: a release that is addressable at all
-    // must carry a row_status breakdown to draw the new stacked chart from,
-    // and one that isn't must not carry a breakdown a reader could mistake
-    // for real per-row verdicts on a release the catalog cannot address.
-    if release.coverage.is_some() != release.row_status.is_some() {
+    // must carry a full-compliance tally to draw the charts from, and one
+    // that isn't must not carry a tally a reader could mistake for a real
+    // judgment on a release the catalog cannot address.
+    if release.coverage.is_some() != release.full_compliance.is_some() {
       return Err(format!(
-        "{HISTORY_URL}: release `{}` carries coverage: {} but row_status: {} -- these must agree",
+        "{HISTORY_URL}: release `{}` carries coverage: {} but full_compliance: {} -- these must agree",
         release.tag,
         release.coverage.is_some(),
-        release.row_status.is_some()
+        release.full_compliance.is_some()
       ));
     }
-    if let Some(row_status) = &release.row_status {
-      if row_status.total() != file.catalog.rows {
+    if let Some(full_compliance) = &release.full_compliance {
+      if full_compliance.rows_total() != file.catalog.full_compliance_rows_in_scope {
         return Err(format!(
-          "{HISTORY_URL}: release `{}` row_status sums to {} but the catalog carries {} rows",
+          "{HISTORY_URL}: release `{}` full_compliance rows sum to {} but the catalog carries {} in-scope rows",
           release.tag,
-          row_status.total(),
-          file.catalog.rows
+          full_compliance.rows_total(),
+          file.catalog.full_compliance_rows_in_scope
         ));
       }
     }
@@ -351,8 +355,9 @@ mod tests {
   }
 
   /// The one release whose numbers are independently checkable: the
-  /// newest tag is what the *live* Coverage page runs in the browser, so
-  /// its historical row must agree with the current catalog's own totals.
+  /// newest tag is what the *live* Capability Audit page runs in the
+  /// browser, so its historical row must agree with the current catalog's
+  /// own totals.
   /// If a future engine change makes the live page report contradictions
   /// the newest staged tag doesn't, this fails and says the dashboard is
   /// stale.
@@ -367,44 +372,38 @@ mod tests {
   }
 
   #[test]
-  fn every_addressable_release_carries_a_row_status_breakdown_summing_to_the_catalogs_rows() {
+  fn every_addressable_release_carries_a_full_compliance_tally_summing_to_the_catalogs_in_scope_rows() {
     let file = committed();
     for release in &file.releases {
-      match (&release.coverage, &release.row_status) {
-        (Some(_), Some(row_status)) => {
-          assert_eq!(row_status.total(), file.catalog.rows, "{}: row_status must sum to every row", release.tag);
+      match (&release.coverage, &release.full_compliance) {
+        (Some(_), Some(full_compliance)) => {
+          assert_eq!(
+            full_compliance.rows_total(),
+            file.catalog.full_compliance_rows_in_scope,
+            "{}: full_compliance must sum to every in-scope row",
+            release.tag
+          );
         }
         (None, None) => {}
-        _ => panic!("{}: coverage and row_status must agree on whether this release is addressable", release.tag),
+        _ => panic!("{}: coverage and full_compliance must agree on whether this release is addressable", release.tag),
       }
     }
   }
 
-  /// `out_of_scope` alone is pinned per-row regardless of probe agreement
-  /// (see `release-history`'s own `classify_row_for_release` doc comment:
-  /// every zero-probe row, and every documented-`OutOfScope` row, always
-  /// classifies to `OutOfScope`, with no dependency on any release's own
-  /// probe outcomes) -- so it is identical for every addressable release.
-  /// `not_implemented` is NOT similarly invariant, even though documented-
-  /// `NotImplemented` rows are themselves pinned the same way: it also
-  /// receives whichever documented-`Implemented`/`Partial` rows a given
-  /// release agreed on zero of their own probes, which is exactly the
-  /// quantity that shrinks release to release as this engine's coverage
-  /// grew (found empirically while writing this test -- an earlier,
-  /// broader version of this assertion covering both fields failed on the
-  /// real committed data, correctly, and was narrowed to what the
-  /// classification rule actually guarantees rather than forced to pass).
-  /// This pins the real invariant on the committed data so a future change
-  /// to the classification rule that broke it would fail loudly here.
+  /// `rows_structural_gap` names a permanent wire-contract absence
+  /// (`party.collections`: no request can even pose the question), not a
+  /// probe outcome -- so it is identical for every addressable release,
+  /// the same invariant `/coverage`'s own catalog-wide `out_of_scope`
+  /// count holds for a structurally analogous reason.
   #[test]
-  fn out_of_scope_is_identical_across_every_addressable_release() {
+  fn structural_gap_count_is_identical_across_every_addressable_release() {
     let file = committed();
-    let addressable: Vec<&RowStatusBreakdown> =
-      file.releases.iter().filter_map(|r| r.row_status.as_ref()).collect();
+    let addressable: Vec<&FullComplianceTally> =
+      file.releases.iter().filter_map(|r| r.full_compliance.as_ref()).collect();
     assert!(addressable.len() >= 2, "need at least two addressable releases to compare");
-    let first_out_of_scope = addressable[0].out_of_scope;
-    for (release, row_status) in file.releases.iter().filter(|r| r.row_status.is_some()).zip(addressable.iter()) {
-      assert_eq!(row_status.out_of_scope, first_out_of_scope, "{}: out_of_scope moved", release.tag);
+    let first_structural_gap = addressable[0].rows_structural_gap;
+    for (release, full_compliance) in file.releases.iter().filter(|r| r.full_compliance.is_some()).zip(addressable.iter()) {
+      assert_eq!(full_compliance.rows_structural_gap, first_structural_gap, "{}: structural gap count moved", release.tag);
     }
   }
 
@@ -430,9 +429,8 @@ mod tests {
     let unaddressable = file.unaddressable();
     assert!(!unaddressable.is_empty(), "this history contains a real pre-v0.6.0 wire break");
     for release in unaddressable {
-      assert_eq!(release.verified_fraction(), None);
-      assert_eq!(release.probe_agreement_fraction(), None);
-      assert_eq!(release.probeable_rows(), 0);
+      assert_eq!(release.meets_full_spec_row_fraction(), None);
+      assert_eq!(release.meets_full_spec_probe_fraction(), None);
       assert!(release.coverage_error.as_ref().is_some_and(|e| !e.is_empty()));
       // It must still carry its own historical compliance number: the
       // wire break stops the *coverage* replay, not the suite run that
@@ -442,28 +440,30 @@ mod tests {
   }
 
   #[test]
-  fn probe_agreement_fraction_is_a_finer_grain_than_verified_fraction() {
+  fn meets_full_spec_probe_fraction_is_a_finer_grain_than_the_row_fraction() {
     let file = committed();
     let addressable: Vec<&Release> = file.releases.iter().filter(|r| r.coverage.is_some()).collect();
     assert!(addressable.len() >= 2, "need at least two addressable releases to compare");
     for release in addressable {
-      let coverage = release.coverage.as_ref().unwrap();
-      let probe_fraction = release.probe_agreement_fraction().unwrap_or_else(|| panic!("{}: expected Some", release.tag));
+      let full_compliance = release.full_compliance.as_ref().unwrap();
+      let probe_fraction =
+        release.meets_full_spec_probe_fraction().unwrap_or_else(|| panic!("{}: expected Some", release.tag));
+      let probe_total = full_compliance.probes_meets + full_compliance.probes_falls_short + full_compliance.probes_undetermined;
       // Computed directly from the raw tally, not re-derived through any
       // other method -- this is the one thing this test actually pins.
-      assert_eq!(probe_fraction, coverage.agreed as f64 / coverage.probes_total as f64, "{}", release.tag);
+      assert_eq!(probe_fraction, full_compliance.probes_meets as f64 / probe_total as f64, "{}", release.tag);
       assert!((0.0..=1.0).contains(&probe_fraction), "{}: {probe_fraction} out of range", release.tag);
       // The real, load-bearing claim in this metric's own doc comment: a
-      // row only counts as verified when every one of its probes agrees,
-      // so the row-level share can never exceed the probe-level share for
-      // the same release -- one disagreeing probe cannot cost less than
-      // one row. Not asserting strict inequality: a release with zero
-      // disagreement anywhere makes the two exactly equal, which is a
-      // real, valid case (see the newest release), not a bug.
-      if let Some(row_fraction) = release.verified_fraction() {
+      // row only counts as meeting full spec when every one of its judged
+      // probes does, so the row-level share can never exceed the
+      // probe-level share for the same release -- one falls-short probe
+      // cannot cost less than one row. Not asserting strict inequality: a
+      // release with zero shortfall anywhere makes the two exactly equal,
+      // which is a real, valid case, not a bug.
+      if let Some(row_fraction) = release.meets_full_spec_row_fraction() {
         assert!(
           row_fraction <= probe_fraction + 1e-9,
-          "{}: row-verified {row_fraction} exceeded probe-agreed {probe_fraction}",
+          "{}: row-meets {row_fraction} exceeded probe-meets {probe_fraction}",
           release.tag
         );
       }

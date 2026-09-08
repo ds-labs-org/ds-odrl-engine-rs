@@ -596,7 +596,7 @@ fn shortfall_alert(report: &FullComplianceReport) -> Html {
         <p>
           { "Every one of these is a row this study already documents as " }<em>{ "partial" }</em>
           { " or " }<em>{ "not implemented" }</em>
-          { ", so none of them contradicts this study's own documentation, which is what the Coverage page \
+          { ", so none of them contradicts this study's own documentation, which is what the Capability Audit page \
              measures. What this page adds is the specific thing that would have to change — usually the \
              decision itself, and on one row what the answer carries alongside an unchanged decision:" }
         </p>
@@ -698,7 +698,7 @@ fn provenance(report: &FullComplianceReport) -> Html {
       <p class="ds-oe-fc-note">
         { "Catalog: " }<code>{ report.generated_by.clone() }</code>
         { ", fetched from " }<code>{ "compliance-data/latest-coverage.json" }</code>
-        { " — the same artifact the Coverage page reads, judged against its " }<code>{ "ideal" }</code>
+        { " — the same artifact the Capability Audit page reads, judged against its " }<code>{ "ideal" }</code>
         { " field rather than its " }<code>{ "expect" }</code>{ " one. Vocabulary: " }
         <code>{ report.spec.clone() }</code>
         { ". Row statuses and their reasoning come from " }<code>{ report.source_analysis.clone() }</code>{ "." }
@@ -805,13 +805,13 @@ fn results(report: &FullComplianceReport, filters: &Filters) -> Html {
       <p class="ds-oe-fc-legend">
         { format!(
           "Read the probe row honestly: only {} of the {} probes judged here distinguish this page's \
-           question from the Coverage page's. The other {} already produce the answer full ODRL 2.2 \
+           question from the Capability Audit page's. The other {} already produce the answer full ODRL 2.2 \
            requires, so they would look identical on either page. ",
           report.probes_falls_short, report.probes_judged, report.probes_meets
         ) }
         { "And nothing on this page is red: falling short of the full spec is what a " }
         <em>{ "partial" }</em>{ " status " }<em>{ "means" }</em>
-        { ", not a failure. Red is reserved for the Coverage page, where it means the engine and its own \
+        { ", not a failure. Red is reserved for the Capability Audit page, where it means the engine and its own \
            documentation disagree." }
       </p>
 
@@ -912,9 +912,9 @@ pub fn FullCompliancePage() -> Html {
     <>
       <style>{ FULL_COMPLIANCE_CSS }</style>
       <Content>
-        <Title level={Level::H1}>{ "Full ODRL 2.2 Compliance" }</Title>
+        <Title level={Level::H1}>{ "ODRL 2.2 Full Compliance" }</Title>
         <p>
-          { "The " }<strong>{ "ODRL 2.2 Coverage" }</strong>{ " page asks: " }
+          { "The " }<strong>{ "Capability Audit" }</strong>{ " page asks: " }
           <em>{ "does this engine match what this study documents about it?" }</em>
           { " This page asks a different question, of the same engine and the same requests: " }
           <em>{ "assuming the engine " }<strong>{ "should" }</strong>{ " fully implement the ODRL 2.2 \
@@ -924,7 +924,7 @@ pub fn FullCompliancePage() -> Html {
         <p>
           { "The two questions come apart because most of this engine's gaps are " }<em>{ "documented" }</em>
           { ". A row recorded as " }<em>{ "partial" }</em>{ " has a probe whose expected outcome is the \
-             narrowing itself, so the Coverage page reports it as agreeing with its documentation — \
+             narrowing itself, so the Capability Audit page reports it as agreeing with its documentation — \
              correctly, and that page's red would be wrong there. This page ignores the documentation and \
              judges the same live answer against the " }
           <a href="https://www.w3.org/TR/odrl-vocab/" target="_blank" rel="noopener noreferrer">
@@ -937,12 +937,12 @@ pub fn FullCompliancePage() -> Html {
           { ", quoting the clause that settles each call." }
         </p>
         <p>
-          { "The probes and the replay are shared with the Coverage page — the same " }
+          { "The probes and the replay are shared with the Capability Audit page — the same " }
           <code>{ "engine.wasm" }</code>{ ", the same " }<code>{ "alloc" }</code>{ "/" }
           <code>{ "evaluate" }</code>{ "/" }<code>{ "dealloc" }</code>
           { " C ABI, the same request bytes, driven here in your browser right now — so any difference \
              between the two pages is a difference of question, never of execution. What differs is the \
-             target: the Coverage page judges each response against what this study says the engine does; \
+             target: the Capability Audit page judges each response against what this study says the engine does; \
              this page judges it against what ODRL 2.2 requires." }
         </p>
         <p>

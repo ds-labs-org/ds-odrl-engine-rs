@@ -1,5 +1,9 @@
 {
   "catalog": {
+    "full_compliance_probes_in_catalog": 136,
+    "full_compliance_probes_judged": 130,
+    "full_compliance_rows_excluded": 7,
+    "full_compliance_rows_in_scope": 45,
     "generated_by": "coverage-probes (cargo run -p coverage-probes --release)",
     "implemented": 11,
     "not_implemented": 11,
@@ -11,7 +15,7 @@
     "spec": "W3C ODRL 2.2 Vocabulary & Expression, https://www.w3.org/TR/odrl-vocab/"
   },
   "generated_by": "release-history (scripts/build-release-history.sh, then cargo run -p release-history --release)",
-  "method": "One detached git worktree per tag: build engine.wasm for wasm32-unknown-unknown --release, run compliance-runner --release, then replay the current latest-coverage.json catalog against that binary in a wasmi interpreter. The verdicts are derived by site/src/coverage_catalog.rs itself -- the same module the Coverage page runs in the browser -- included here by path, not reimplemented.",
+  "method": "One detached git worktree per tag: build engine.wasm for wasm32-unknown-unknown --release, run compliance-runner --release, then replay the current latest-coverage.json catalog against that binary in a wasmi interpreter. The per-row/per-probe outcomes are derived by site/src/coverage_catalog.rs, and the full-ODRL-2.2-compliance tally by site/src/full_compliance.rs -- the same two modules the Capability Audit and ODRL 2.2 Full Compliance pages run in the browser -- both included here by path, not reimplemented.",
   "note": "Build-time historical record, not a live in-browser run. Every compliance figure is what that tag's own compliance-runner printed when re-executed against the ODRL-Test-Suite revision that tag pinned; every coverage figure comes from driving that tag's compiled engine.wasm through its own alloc/dealloc/evaluate ABI with the current probe catalog.",
   "releases": [
     {
@@ -28,7 +32,7 @@
       "date": "2026-09-05T09:56:59+02:00",
       "engine_wasm_bytes": 198795,
       "engine_wasm_sha256": "93afc67819e2f3ce4bf4c83886c7660f2a629e93c2afb2f00746e4426105267d",
-      "row_status": null,
+      "full_compliance": null,
       "summary": "docs: rewrite README for v0.1.0 release",
       "tag": "v0.1.0"
     },
@@ -46,7 +50,7 @@
       "date": "2026-09-05T10:08:54+02:00",
       "engine_wasm_bytes": 198795,
       "engine_wasm_sha256": "93afc67819e2f3ce4bf4c83886c7660f2a629e93c2afb2f00746e4426105267d",
-      "row_status": null,
+      "full_compliance": null,
       "summary": "compliance-runner: recognize odrl:use as covering read/write/distribute",
       "tag": "v0.1.1"
     },
@@ -64,7 +68,7 @@
       "date": "2026-09-05T10:09:35+02:00",
       "engine_wasm_bytes": 198795,
       "engine_wasm_sha256": "93afc67819e2f3ce4bf4c83886c7660f2a629e93c2afb2f00746e4426105267d",
-      "row_status": null,
+      "full_compliance": null,
       "summary": "docs: update README compliance numbers for v0.1.1's use-action fix",
       "tag": "v0.1.2"
     },
@@ -82,7 +86,7 @@
       "date": "2026-09-05T10:34:36+02:00",
       "engine_wasm_bytes": 202997,
       "engine_wasm_sha256": "a1c55bcc4054d9396c61368e806cda43e04caa5fb92017a6d16f5f464fe9cbf0",
-      "row_status": null,
+      "full_compliance": null,
       "summary": "engine+compliance-runner: close the remaining 36 compliance skips",
       "tag": "v0.2.0"
     },
@@ -100,7 +104,7 @@
       "date": "2026-09-05T10:42:54+02:00",
       "engine_wasm_bytes": 203535,
       "engine_wasm_sha256": "f3c6f8f628f22175eb0f24f0ede13a96406c06f67dcd3a7b5765d0f6db2d0002",
-      "row_status": null,
+      "full_compliance": null,
       "summary": "engine/temporal: reject out-of-range and signed datetime fields; harden tests",
       "tag": "v0.2.1"
     },
@@ -118,7 +122,7 @@
       "date": "2026-09-05T10:45:44+02:00",
       "engine_wasm_bytes": 203535,
       "engine_wasm_sha256": "f3c6f8f628f22175eb0f24f0ede13a96406c06f67dcd3a7b5765d0f6db2d0002",
-      "row_status": null,
+      "full_compliance": null,
       "summary": "README: record adapter fragility found by v0.2.0's independent review",
       "tag": "v0.2.2"
     },
@@ -136,7 +140,7 @@
       "date": "2026-09-05T12:34:49+02:00",
       "engine_wasm_bytes": 203535,
       "engine_wasm_sha256": "f3c6f8f628f22175eb0f24f0ede13a96406c06f67dcd3a7b5765d0f6db2d0002",
-      "row_status": null,
+      "full_compliance": null,
       "summary": "docs: document the site, its local run, and the ABI-bridge rationale",
       "tag": "v0.3.0"
     },
@@ -154,7 +158,7 @@
       "date": "2026-09-05T14:45:44+02:00",
       "engine_wasm_bytes": 203535,
       "engine_wasm_sha256": "f3c6f8f628f22175eb0f24f0ede13a96406c06f67dcd3a7b5765d0f6db2d0002",
-      "row_status": null,
+      "full_compliance": null,
       "summary": "profile-interpreter: read a real ODRL Profile document into engine::Profile",
       "tag": "v0.4.0"
     },
@@ -172,7 +176,7 @@
       "date": "2026-09-05T15:17:37+02:00",
       "engine_wasm_bytes": 203535,
       "engine_wasm_sha256": "f3c6f8f628f22175eb0f24f0ede13a96406c06f67dcd3a7b5765d0f6db2d0002",
-      "row_status": null,
+      "full_compliance": null,
       "summary": "site: load a real ODRL Profile document into the Demonstrator form",
       "tag": "v0.5.0"
     },
@@ -399,11 +403,14 @@
       "date": "2026-09-05T16:58:21+02:00",
       "engine_wasm_bytes": 210822,
       "engine_wasm_sha256": "72866e399c4a3eaddf162e210cd6c383c2a9003a9e16dc06cbf184dce13cf579",
-      "row_status": {
-        "implemented": 4,
-        "not_implemented": 18,
-        "out_of_scope": 8,
-        "partial": 22
+      "full_compliance": {
+        "probes_falls_short": 10,
+        "probes_meets": 70,
+        "probes_undetermined": 50,
+        "rows_falls_short": 9,
+        "rows_meets": 15,
+        "rows_structural_gap": 1,
+        "rows_undetermined": 20
       },
       "summary": "docs: update README for the odrl:includedIn action-coverage revision",
       "tag": "v0.6.0"
@@ -631,11 +638,14 @@
       "date": "2026-09-05T18:06:56+02:00",
       "engine_wasm_bytes": 213417,
       "engine_wasm_sha256": "e22885803ee222c1b16b02002469463515f2fc11f6742706204bd069389dd34c",
-      "row_status": {
-        "implemented": 4,
-        "not_implemented": 18,
-        "out_of_scope": 8,
-        "partial": 22
+      "full_compliance": {
+        "probes_falls_short": 10,
+        "probes_meets": 70,
+        "probes_undetermined": 50,
+        "rows_falls_short": 9,
+        "rows_meets": 15,
+        "rows_structural_gap": 1,
+        "rows_undetermined": 20
       },
       "summary": "docs: document the Behaviour parameter in README and profile-interpreter",
       "tag": "v0.7.0"
@@ -800,11 +810,14 @@
       "date": "2026-09-05T19:41:35+02:00",
       "engine_wasm_bytes": 243356,
       "engine_wasm_sha256": "d31551ca99f05d61e04a712aa2ae4775a4d708412341bdc1218189848d3a725c",
-      "row_status": {
-        "implemented": 8,
-        "not_implemented": 16,
-        "out_of_scope": 8,
-        "partial": 20
+      "full_compliance": {
+        "probes_falls_short": 11,
+        "probes_meets": 89,
+        "probes_undetermined": 30,
+        "rows_falls_short": 10,
+        "rows_meets": 21,
+        "rows_structural_gap": 1,
+        "rows_undetermined": 13
       },
       "summary": "Close 4 low-risk ODRL 2.2 vocabulary gaps: actions taxonomy, set operators, numeric/date comparison, native logical constraints",
       "tag": "v0.8.0"
@@ -960,11 +973,14 @@
       "date": "2026-09-05T19:54:14+02:00",
       "engine_wasm_bytes": 243981,
       "engine_wasm_sha256": "43389d0ff2f0f33e88f3e94ebe0e58b128a4b7a4e463015369592013058d1745",
-      "row_status": {
-        "implemented": 8,
-        "not_implemented": 16,
-        "out_of_scope": 8,
-        "partial": 20
+      "full_compliance": {
+        "probes_falls_short": 11,
+        "probes_meets": 90,
+        "probes_undetermined": 29,
+        "rows_falls_short": 10,
+        "rows_meets": 22,
+        "rows_structural_gap": 1,
+        "rows_undetermined": 12
       },
       "summary": "constraint: fix a fail-open regression in v0.8.0's logical-constraint parsing",
       "tag": "v0.8.1"
@@ -1120,11 +1136,14 @@
       "date": "2026-09-05T21:07:49+02:00",
       "engine_wasm_bytes": 243981,
       "engine_wasm_sha256": "43389d0ff2f0f33e88f3e94ebe0e58b128a4b7a4e463015369592013058d1745",
-      "row_status": {
-        "implemented": 8,
-        "not_implemented": 16,
-        "out_of_scope": 8,
-        "partial": 20
+      "full_compliance": {
+        "probes_falls_short": 11,
+        "probes_meets": 90,
+        "probes_undetermined": 29,
+        "rows_falls_short": 10,
+        "rows_meets": 22,
+        "rows_structural_gap": 1,
+        "rows_undetermined": 12
       },
       "summary": "site: live, in-browser ODRL compliance runner against real engine.wasm",
       "tag": "v0.9.0"
@@ -1271,11 +1290,14 @@
       "date": "2026-09-05T22:32:27+02:00",
       "engine_wasm_bytes": 243997,
       "engine_wasm_sha256": "6f8cb56c9e96105eb7a3ebce4c804768da56372c1999689f46d9e4a46bac7811",
-      "row_status": {
-        "implemented": 9,
-        "not_implemented": 16,
-        "out_of_scope": 8,
-        "partial": 19
+      "full_compliance": {
+        "probes_falls_short": 11,
+        "probes_meets": 92,
+        "probes_undetermined": 27,
+        "rows_falls_short": 10,
+        "rows_meets": 23,
+        "rows_structural_gap": 1,
+        "rows_undetermined": 11
       },
       "summary": "site: live, in-browser ODRL 2.2 vocabulary coverage report against real engine.wasm",
       "tag": "v0.10.0"
@@ -1422,11 +1444,14 @@
       "date": "2026-09-05T22:43:02+02:00",
       "engine_wasm_bytes": 243997,
       "engine_wasm_sha256": "6f8cb56c9e96105eb7a3ebce4c804768da56372c1999689f46d9e4a46bac7811",
-      "row_status": {
-        "implemented": 9,
-        "not_implemented": 16,
-        "out_of_scope": 8,
-        "partial": 19
+      "full_compliance": {
+        "probes_falls_short": 11,
+        "probes_meets": 92,
+        "probes_undetermined": 27,
+        "rows_falls_short": 10,
+        "rows_meets": 23,
+        "rows_structural_gap": 1,
+        "rows_undetermined": 11
       },
       "summary": "site: fix direct-hit/reload 404s on GitHub Pages sub-routes",
       "tag": "v0.10.1"
@@ -1564,11 +1589,14 @@
       "date": "2026-09-06T01:00:06+02:00",
       "engine_wasm_bytes": 251065,
       "engine_wasm_sha256": "58cdea4331179b22360078550bb7f419c190f43f037fd15ee0caf3fca19651e8",
-      "row_status": {
-        "implemented": 9,
-        "not_implemented": 14,
-        "out_of_scope": 8,
-        "partial": 21
+      "full_compliance": {
+        "probes_falls_short": 11,
+        "probes_meets": 96,
+        "probes_undetermined": 23,
+        "rows_falls_short": 10,
+        "rows_meets": 24,
+        "rows_structural_gap": 1,
+        "rows_undetermined": 10
       },
       "summary": "Close 4 additive ODRL gaps and add feature-flagged DSP/IDSA ingestion",
       "tag": "v0.11.0"
@@ -1643,11 +1671,14 @@
       "date": "2026-09-06T02:35:23+02:00",
       "engine_wasm_bytes": 278597,
       "engine_wasm_sha256": "ec64c070924b48e4172d0be358de7a74bafe8ea26298b4cf1489bcb7e9b15c17",
-      "row_status": {
-        "implemented": 11,
-        "not_implemented": 10,
-        "out_of_scope": 8,
-        "partial": 23
+      "full_compliance": {
+        "probes_falls_short": 15,
+        "probes_meets": 105,
+        "probes_undetermined": 10,
+        "rows_falls_short": 13,
+        "rows_meets": 27,
+        "rows_structural_gap": 1,
+        "rows_undetermined": 4
       },
       "summary": "Add per-permission duty/consequence/remedy, party-role evaluation, and a real odrl:conflict strategy",
       "tag": "v0.12.0"
@@ -1722,11 +1753,14 @@
       "date": "2026-09-06T05:15:31+02:00",
       "engine_wasm_bytes": 278597,
       "engine_wasm_sha256": "ec64c070924b48e4172d0be358de7a74bafe8ea26298b4cf1489bcb7e9b15c17",
-      "row_status": {
-        "implemented": 11,
-        "not_implemented": 10,
-        "out_of_scope": 8,
-        "partial": 23
+      "full_compliance": {
+        "probes_falls_short": 15,
+        "probes_meets": 105,
+        "probes_undetermined": 10,
+        "rows_falls_short": 13,
+        "rows_meets": 27,
+        "rows_structural_gap": 1,
+        "rows_undetermined": 4
       },
       "summary": "site: note dsp-odrl-adapter on the Coverage page, as prose not a fake row",
       "tag": "v0.12.1"
@@ -1801,11 +1835,14 @@
       "date": "2026-09-06T06:05:53+02:00",
       "engine_wasm_bytes": 278597,
       "engine_wasm_sha256": "ec64c070924b48e4172d0be358de7a74bafe8ea26298b4cf1489bcb7e9b15c17",
-      "row_status": {
-        "implemented": 11,
-        "not_implemented": 10,
-        "out_of_scope": 8,
-        "partial": 23
+      "full_compliance": {
+        "probes_falls_short": 15,
+        "probes_meets": 105,
+        "probes_undetermined": 10,
+        "rows_falls_short": 13,
+        "rows_meets": 27,
+        "rows_structural_gap": 1,
+        "rows_undetermined": 4
       },
       "summary": "Add a real, historically-executed Release History dashboard",
       "tag": "v0.13.0"
@@ -1880,11 +1917,14 @@
       "date": "2026-09-06T06:09:56+02:00",
       "engine_wasm_bytes": 278597,
       "engine_wasm_sha256": "ec64c070924b48e4172d0be358de7a74bafe8ea26298b4cf1489bcb7e9b15c17",
-      "row_status": {
-        "implemented": 11,
-        "not_implemented": 10,
-        "out_of_scope": 8,
-        "partial": 23
+      "full_compliance": {
+        "probes_falls_short": 15,
+        "probes_meets": 105,
+        "probes_undetermined": 10,
+        "rows_falls_short": 13,
+        "rows_meets": 27,
+        "rows_structural_gap": 1,
+        "rows_undetermined": 4
       },
       "summary": "compliance-runner: fix stale narrative in latest.md's own commentary",
       "tag": "v0.13.1"
@@ -1959,11 +1999,14 @@
       "date": "2026-09-06T07:53:40+02:00",
       "engine_wasm_bytes": 278597,
       "engine_wasm_sha256": "ec64c070924b48e4172d0be358de7a74bafe8ea26298b4cf1489bcb7e9b15c17",
-      "row_status": {
-        "implemented": 11,
-        "not_implemented": 10,
-        "out_of_scope": 8,
-        "partial": 23
+      "full_compliance": {
+        "probes_falls_short": 15,
+        "probes_meets": 105,
+        "probes_undetermined": 10,
+        "rows_falls_short": 13,
+        "rows_meets": 27,
+        "rows_structural_gap": 1,
+        "rows_undetermined": 4
       },
       "summary": "bench: rescue conformance bench harnesses for 4 ODRL engine comparators",
       "tag": "v0.14.0"
@@ -2038,11 +2081,14 @@
       "date": "2026-09-06T13:35:24+02:00",
       "engine_wasm_bytes": 278597,
       "engine_wasm_sha256": "ec64c070924b48e4172d0be358de7a74bafe8ea26298b4cf1489bcb7e9b15c17",
-      "row_status": {
-        "implemented": 11,
-        "not_implemented": 10,
-        "out_of_scope": 8,
-        "partial": 23
+      "full_compliance": {
+        "probes_falls_short": 15,
+        "probes_meets": 105,
+        "probes_undetermined": 10,
+        "rows_falls_short": 13,
+        "rows_meets": 27,
+        "rows_structural_gap": 1,
+        "rows_undetermined": 4
       },
       "summary": "bench: measure performance, resources and load for all five ODRL engines",
       "tag": "v0.15.0"
@@ -2081,11 +2127,14 @@
       "date": "2026-09-06T18:26:07+02:00",
       "engine_wasm_bytes": 313895,
       "engine_wasm_sha256": "f4a5ed8686565462f91b1958d04b112845bc26a6321786063a3b905923d588d0",
-      "row_status": {
-        "implemented": 11,
-        "not_implemented": 10,
-        "out_of_scope": 8,
-        "partial": 23
+      "full_compliance": {
+        "probes_falls_short": 15,
+        "probes_meets": 113,
+        "probes_undetermined": 2,
+        "rows_falls_short": 13,
+        "rows_meets": 31,
+        "rows_structural_gap": 1,
+        "rows_undetermined": 0
       },
       "summary": "README: fix stale dsp-odrl-adapter dsp-ingest test count (24 -> 32)",
       "tag": "v0.16.0"
@@ -2114,11 +2163,14 @@
       "date": "2026-09-06T21:51:02+02:00",
       "engine_wasm_bytes": 315515,
       "engine_wasm_sha256": "84fa1b792bb533c47bdaf6856ad4ca288be48c13a0dd1dcae69105df23f80251",
-      "row_status": {
-        "implemented": 11,
-        "not_implemented": 10,
-        "out_of_scope": 8,
-        "partial": 23
+      "full_compliance": {
+        "probes_falls_short": 15,
+        "probes_meets": 115,
+        "probes_undetermined": 0,
+        "rows_falls_short": 13,
+        "rows_meets": 31,
+        "rows_structural_gap": 1,
+        "rows_undetermined": 0
       },
       "summary": "release-history: regenerate the dashboard and automate it in CI so this cannot go stale again",
       "tag": "v0.17.0"
@@ -2147,11 +2199,14 @@
       "date": "2026-09-06T22:04:00+02:00",
       "engine_wasm_bytes": 315515,
       "engine_wasm_sha256": "84fa1b792bb533c47bdaf6856ad4ca288be48c13a0dd1dcae69105df23f80251",
-      "row_status": {
-        "implemented": 11,
-        "not_implemented": 10,
-        "out_of_scope": 8,
-        "partial": 23
+      "full_compliance": {
+        "probes_falls_short": 15,
+        "probes_meets": 115,
+        "probes_undetermined": 0,
+        "rows_falls_short": 13,
+        "rows_meets": 31,
+        "rows_structural_gap": 1,
+        "rows_undetermined": 0
       },
       "summary": "ci: regenerate and diff-check release-history.json too, not just latest*.json",
       "tag": "v0.17.1"
@@ -2180,11 +2235,14 @@
       "date": "2026-09-07T11:28:04+02:00",
       "engine_wasm_bytes": 315515,
       "engine_wasm_sha256": "84fa1b792bb533c47bdaf6856ad4ca288be48c13a0dd1dcae69105df23f80251",
-      "row_status": {
-        "implemented": 11,
-        "not_implemented": 10,
-        "out_of_scope": 8,
-        "partial": 23
+      "full_compliance": {
+        "probes_falls_short": 15,
+        "probes_meets": 115,
+        "probes_undetermined": 0,
+        "rows_falls_short": 13,
+        "rows_meets": 31,
+        "rows_structural_gap": 1,
+        "rows_undetermined": 0
       },
       "summary": "release-history + site: a real per-release Implemented/Partial/NotImplemented/OutOfScope chart",
       "tag": "v0.18.0"
@@ -2213,11 +2271,14 @@
       "date": "2026-09-07T14:05:13+02:00",
       "engine_wasm_bytes": 315515,
       "engine_wasm_sha256": "84fa1b792bb533c47bdaf6856ad4ca288be48c13a0dd1dcae69105df23f80251",
-      "row_status": {
-        "implemented": 11,
-        "not_implemented": 10,
-        "out_of_scope": 8,
-        "partial": 23
+      "full_compliance": {
+        "probes_falls_short": 15,
+        "probes_meets": 115,
+        "probes_undetermined": 0,
+        "rows_falls_short": 13,
+        "rows_meets": 31,
+        "rows_structural_gap": 1,
+        "rows_undetermined": 0
       },
       "summary": "release-history: include v0.19.0's own entry",
       "tag": "v0.19.0"
@@ -2246,11 +2307,14 @@
       "date": "2026-09-07T14:45:21+02:00",
       "engine_wasm_bytes": 315515,
       "engine_wasm_sha256": "84fa1b792bb533c47bdaf6856ad4ca288be48c13a0dd1dcae69105df23f80251",
-      "row_status": {
-        "implemented": 11,
-        "not_implemented": 10,
-        "out_of_scope": 8,
-        "partial": 23
+      "full_compliance": {
+        "probes_falls_short": 15,
+        "probes_meets": 115,
+        "probes_undetermined": 0,
+        "rows_falls_short": 13,
+        "rows_meets": 31,
+        "rows_structural_gap": 1,
+        "rows_undetermined": 0
       },
       "summary": "coverage_page: fix two real reasons a disagreeing probe was hard to spot",
       "tag": "v0.19.1"
@@ -2279,11 +2343,14 @@
       "date": "2026-09-07T15:21:26+02:00",
       "engine_wasm_bytes": 315515,
       "engine_wasm_sha256": "84fa1b792bb533c47bdaf6856ad4ca288be48c13a0dd1dcae69105df23f80251",
-      "row_status": {
-        "implemented": 11,
-        "not_implemented": 10,
-        "out_of_scope": 8,
-        "partial": 23
+      "full_compliance": {
+        "probes_falls_short": 15,
+        "probes_meets": 115,
+        "probes_undetermined": 0,
+        "rows_falls_short": 13,
+        "rows_meets": 31,
+        "rows_structural_gap": 1,
+        "rows_undetermined": 0
       },
       "summary": "coverage_page: preview a Partial/NotImplemented row's own boundary, not just its first probe",
       "tag": "v0.19.2"
@@ -2312,11 +2379,14 @@
       "date": "2026-09-07T21:09:08+02:00",
       "engine_wasm_bytes": 315515,
       "engine_wasm_sha256": "84fa1b792bb533c47bdaf6856ad4ca288be48c13a0dd1dcae69105df23f80251",
-      "row_status": {
-        "implemented": 11,
-        "not_implemented": 10,
-        "out_of_scope": 8,
-        "partial": 23
+      "full_compliance": {
+        "probes_falls_short": 15,
+        "probes_meets": 115,
+        "probes_undetermined": 0,
+        "rows_falls_short": 13,
+        "rows_meets": 31,
+        "rows_structural_gap": 1,
+        "rows_undetermined": 0
       },
       "summary": "site/full-compliance: stop the shortfall alert claiming a delta that isn't one",
       "tag": "v0.20.0"
@@ -2345,11 +2415,14 @@
       "date": "2026-09-07T21:32:25+02:00",
       "engine_wasm_bytes": 315515,
       "engine_wasm_sha256": "84fa1b792bb533c47bdaf6856ad4ca288be48c13a0dd1dcae69105df23f80251",
-      "row_status": {
-        "implemented": 11,
-        "not_implemented": 10,
-        "out_of_scope": 8,
-        "partial": 23
+      "full_compliance": {
+        "probes_falls_short": 15,
+        "probes_meets": 115,
+        "probes_undetermined": 0,
+        "rows_falls_short": 13,
+        "rows_meets": 31,
+        "rows_structural_gap": 1,
+        "rows_undetermined": 0
       },
       "summary": "release-history: include v0.20.0's own entry, and confirm the toolchain fix",
       "tag": "v0.20.1"
@@ -2378,15 +2451,54 @@
       "date": "2026-09-07T21:43:11+02:00",
       "engine_wasm_bytes": 315515,
       "engine_wasm_sha256": "84fa1b792bb533c47bdaf6856ad4ca288be48c13a0dd1dcae69105df23f80251",
-      "row_status": {
-        "implemented": 11,
-        "not_implemented": 10,
-        "out_of_scope": 8,
-        "partial": 23
+      "full_compliance": {
+        "probes_falls_short": 15,
+        "probes_meets": 115,
+        "probes_undetermined": 0,
+        "rows_falls_short": 13,
+        "rows_meets": 31,
+        "rows_structural_gap": 1,
+        "rows_undetermined": 0
       },
       "summary": "Commit Cargo.lock; pin the release-history rebuild pipeline to it",
       "tag": "v0.20.2"
+    },
+    {
+      "commit": "c45757c6e09d0f64122c1861015c3fb7916cddd5",
+      "compliance": {
+        "failed": 0,
+        "passed": 68,
+        "skipped": 0,
+        "total": 68
+      },
+      "contradicted_rows": [],
+      "coverage": {
+        "agreed": 136,
+        "contradicted": 0,
+        "disagreed": 0,
+        "documented": 2,
+        "envelope_rejected": 4,
+        "errored": 0,
+        "inconclusive": 0,
+        "probes_total": 136,
+        "verified": 50
+      },
+      "coverage_error": null,
+      "date": "2026-09-07T22:15:07+02:00",
+      "engine_wasm_bytes": 315515,
+      "engine_wasm_sha256": "84fa1b792bb533c47bdaf6856ad4ca288be48c13a0dd1dcae69105df23f80251",
+      "full_compliance": {
+        "probes_falls_short": 15,
+        "probes_meets": 115,
+        "probes_undetermined": 0,
+        "rows_falls_short": 13,
+        "rows_meets": 31,
+        "rows_structural_gap": 1,
+        "rows_undetermined": 0
+      },
+      "summary": "release-history: also remap CARGO_HOME/registry/src, not just the worktree path",
+      "tag": "v0.20.3"
     }
   ],
-  "schema": "ds-odrl-engine-rs/release-history@2"
+  "schema": "ds-odrl-engine-rs/release-history@3"
 }

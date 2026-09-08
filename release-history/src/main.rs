@@ -83,6 +83,21 @@ mod render;
 #[allow(dead_code)]
 mod coverage_catalog;
 
+/// The `/full-compliance` page's own pure logic -- judging the same probe
+/// outcomes against full ODRL 2.2 compliance rather than against this
+/// study's documentation. Included by path for the identical no-drift
+/// reason `coverage_catalog` above is (see that module's own doc comment
+/// just above): the one release whose numbers are independently
+/// checkable, the HEAD tag, is also the one the live `/full-compliance`
+/// page judges in the browser, and a second, hand-copied implementation
+/// here could silently disagree with it. Depends only on
+/// `coverage_catalog` (already a sibling module of this binary) plus
+/// `serde`/`serde_json`, so it is native-buildable exactly as that module
+/// is.
+#[path = "../../site/src/full_compliance.rs"]
+#[allow(dead_code)]
+mod full_compliance;
+
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -93,128 +108,36 @@ use sha2::{Digest, Sha256};
 
 use coverage_catalog::{
     compile_coverage_report, errored_probe_outcome, evaluated_probe_outcome, parse_coverage_catalog, probe_json,
-    CoverageFile, ProbeOutcome, ProbeStatus, RowOutcome, RowVerdict,
+    CoverageFile, ProbeOutcome, ProbeStatus, RowVerdict,
 };
+use full_compliance::{compile_full_compliance_report, is_in_scope};
 use host::HistoricalEngine;
 use render::{
-    CatalogInfo, ComplianceTally, ContradictedRow, CoverageTally, HistoryFile, Release, RowStatusBreakdown,
+    CatalogInfo, ComplianceTally, ContradictedRow, CoverageTally, FullComplianceTally, HistoryFile, Release,
     GENERATED_BY, METHOD, NOTE, SCHEMA,
 };
 
-/// One release's derived reading of one catalog row, per
-/// `classify_row_for_release`'s own doc comment below.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum DerivedRowStatus {
-    Implemented,
-    Partial,
-    NotImplemented,
-    OutOfScope,
-}
+/// The `/full-compliance` axis's own catalog-wide constants: which rows
+/// and probes it judges at all, identical for every release for the same
+/// reason `CatalogInfo.implemented`/`partial`/etc are -- both are a
+/// property of the current catalog, not of any one historical binary.
+/// Computed directly from the catalog rather than borrowed from one
+/// release's own tally, so this holds even if every staged release turned
+/// out unaddressable.
+fn full_compliance_catalog_facts(catalog: &CoverageFile) -> (usize, usize, usize, usize) {
+    let in_scope: Vec<_> = catalog.rows.iter().filter(|row| is_in_scope(row)).collect();
+    let rows_in_scope = in_scope.len();
+    let rows_excluded = catalog.rows.len() - rows_in_scope;
 
-/// The per-release, per-row classification the new stacked chart is built
-/// from -- genuinely varying release to release, unlike `CatalogInfo`'s
-/// static, catalog-wide Implemented/Partial/NotImplemented/OutOfScope
-/// counts (identical for every release, by that struct's own design).
-///
-/// **Why the naive rule ("all probes agreed -> Implemented, some ->
-/// Partial, none -> NotImplemented") is wrong, and what this does
-/// instead.** A row's own probes are not all the same *kind* of evidence.
-/// For a row this catalog documents as `Implemented` or `Partial` today,
-/// its probes test *positive capability*: "agreed" means "this release
-/// exhibited the documented behaviour." But for a row documented
-/// `NotImplemented` today, its probes are *control* probes proving the
-/// documented gap's absence is real -- a negative assertion, not a
-/// capability test. "Agreed" there means "this release correctly lacks
-/// the feature, exactly as still documented," which has always been true
-/// of a still-open, disclosed gap and would misclassify as `Implemented`
-/// for every release in history under the naive rule -- the exact
-/// opposite of "keep factual." The same reasoning applies, and is applied
-/// here, to a row documented `OutOfScope` with real probes attached (six
-/// of this catalog's seven `OutOfScope` rows carry one or two): each is a
-/// negative/control probe proving a permanently-out-of-scope boundary
-/// (an unrecognized profile-declared operator still fails to parse, a
-/// profile-declared party role still sits inert, ...) stays correctly
-/// inert, not a capability that grew in over releases. This is a
-/// considered generalization of the rule as specified for `NotImplemented`
-/// -- the spec's own worked pseudocode names only `Implemented`/`Partial`
-/// in its final "else" branch, apparently not anticipating that an
-/// `OutOfScope`-documented row could carry non-empty `probe_ids` at all,
-/// which six of this catalog's rows in fact do (verified empirically
-/// against `compliance/reports/latest-coverage.json`, not assumed) -- but
-/// it follows the exact same stated principle: use the row's own current
-/// documented status as *context*, never as a value the replay can
-/// overwrite for a non-capability row.
-///
-/// The exact rule, in order:
-///
-/// 1. **Zero probes** (`row.row.probe_ids` empty -- a documented-only
-///    claim, no wire request possible) -> `OutOfScope`, unconditionally,
-///    regardless of the row's own nominal `status` field. This is
-///    timeless and matches every release identically, same as
-///    `CatalogInfo.out_of_scope` reads for the catalog as a whole.
-/// 2. **Documented `NotImplemented` or `OutOfScope`, with probes** ->
-///    pinned to that same status, regardless of this release's actual
-///    probe agreement. Both are non-capability documented statuses whose
-///    own probes test for correct absence/inertness rather than
-///    positive capability; probe agreement here says "correctly
-///    confirms the (gap|boundary) as documented today," never "more or
-///    less implemented in the past."
-/// 3. **Documented `Implemented` or `Partial`** -- rows whose probes DO
-///    test positive capability -- classified by this release's own
-///    agreement count against this row's own probes: every probe agreed
-///    -> the row's documented status unchanged (a `Partial` row whose own
-///    calibrated probes all agree stays `Partial`: matching a `Partial`
-///    row's own probes means "correctly exhibits exactly the documented
-///    partial behaviour," never "more than partial"); zero agreed ->
-///    `NotImplemented` (this release predates the documented positive
-///    behaviour entirely); otherwise -> `Partial` (this release shows
-///    some but not all of it). `ProbeStatus::Errored` counts as
-///    not-agreed here, the same as `Disagreed`: an errored probe did not
-///    demonstrate the documented behaviour, regardless of why it could
-///    not be judged.
-fn classify_row_for_release(row: &RowOutcome) -> DerivedRowStatus {
-    if row.row.probe_ids.is_empty() {
-        return DerivedRowStatus::OutOfScope;
-    }
-    if row.row.status == "NotImplemented" {
-        return DerivedRowStatus::NotImplemented;
-    }
-    if row.row.status == "OutOfScope" {
-        return DerivedRowStatus::OutOfScope;
-    }
-
-    let total = row.probes.len();
-    let agreed = row.probes.iter().filter(|p| p.status == ProbeStatus::Agreed).count();
-    if agreed == total {
-        match row.row.status.as_str() {
-            "Implemented" => DerivedRowStatus::Implemented,
-            "Partial" => DerivedRowStatus::Partial,
-            other => panic!(
-                "row {} has documented status {other:?}, outside the four this catalog validates at parse time",
-                row.row.id
-            ),
-        }
-    } else if agreed == 0 {
-        DerivedRowStatus::NotImplemented
-    } else {
-        DerivedRowStatus::Partial
-    }
-}
-
-/// Tallies [`classify_row_for_release`] over every row of one release's
-/// [`coverage_catalog::CoverageReport`], for every row the catalog carries
-/// -- always summing to `report.rows.len()` (52, as of this catalog).
-fn row_status_breakdown(rows: &[RowOutcome]) -> RowStatusBreakdown {
-    let mut breakdown = RowStatusBreakdown { implemented: 0, partial: 0, not_implemented: 0, out_of_scope: 0 };
-    for row in rows {
-        match classify_row_for_release(row) {
-            DerivedRowStatus::Implemented => breakdown.implemented += 1,
-            DerivedRowStatus::Partial => breakdown.partial += 1,
-            DerivedRowStatus::NotImplemented => breakdown.not_implemented += 1,
-            DerivedRowStatus::OutOfScope => breakdown.out_of_scope += 1,
+    let mut judged_ids: Vec<&str> = Vec::new();
+    for row in &in_scope {
+        for id in &row.probe_ids {
+            if !judged_ids.contains(&id.as_str()) {
+                judged_ids.push(id);
+            }
         }
     }
-    breakdown
+    (rows_in_scope, rows_excluded, judged_ids.len(), catalog.probes.len())
 }
 
 /// `meta.json`, written per tag by stage 1.
@@ -312,7 +235,7 @@ fn stage_release(catalog: &CoverageFile, dir: &Path) -> Result<Release, String> 
         Err(_) => None,
     };
 
-    let (coverage, coverage_error, contradicted_rows, row_status) = match replay(catalog, &wasm) {
+    let (coverage, coverage_error, contradicted_rows, full_compliance) = match replay(catalog, &wasm) {
         Ok((outcomes, elapsed_ms)) => {
             let envelope_rejected = outcomes.iter().filter(|o| is_envelope_rejection(o)).count();
 
@@ -343,9 +266,24 @@ fn stage_release(catalog: &CoverageFile, dir: &Path) -> Result<Release, String> 
                         outcomes.len()
                     )),
                     contradicted_rows: Vec::new(),
-                    row_status: None,
+                    full_compliance: None,
                 });
             }
+
+            // Judged from the identical outcomes vector `compile_coverage_report`
+            // consumes just below -- cloned first, since `ProbeOutcome` carries
+            // owned strings this dashboard's two axes both need their own copy
+            // of, rather than re-running the wasmi replay a second time.
+            let full_report = compile_full_compliance_report(catalog, outcomes.clone(), elapsed_ms, wasm.len());
+            let full_tally = FullComplianceTally {
+                rows_meets: full_report.rows_meets as usize,
+                rows_falls_short: full_report.rows_falls_short as usize,
+                rows_structural_gap: full_report.rows_structural_gap as usize,
+                rows_undetermined: full_report.rows_undetermined as usize,
+                probes_meets: full_report.probes_meets as usize,
+                probes_falls_short: full_report.probes_falls_short as usize,
+                probes_undetermined: full_report.probes_undetermined as usize,
+            };
 
             let report = compile_coverage_report(catalog, outcomes, elapsed_ms, wasm.len());
             let tally = CoverageTally {
@@ -380,8 +318,7 @@ fn stage_release(catalog: &CoverageFile, dir: &Path) -> Result<Release, String> 
                     }
                 })
                 .collect();
-            let breakdown = row_status_breakdown(&report.rows);
-            (Some(tally), None, rows, Some(breakdown))
+            (Some(tally), None, rows, Some(full_tally))
         }
         Err(err) => (None, Some(err), Vec::new(), None),
     };
@@ -397,7 +334,7 @@ fn stage_release(catalog: &CoverageFile, dir: &Path) -> Result<Release, String> 
         coverage,
         coverage_error,
         contradicted_rows,
-        row_status,
+        full_compliance,
     })
 }
 
@@ -487,6 +424,8 @@ fn main() {
 
     let count_status =
         |status: &str| catalog.rows.iter().filter(|row| row.status == status).count();
+    let (full_compliance_rows_in_scope, full_compliance_rows_excluded, full_compliance_probes_judged, full_compliance_probes_in_catalog) =
+        full_compliance_catalog_facts(&catalog);
     let file = HistoryFile {
         schema: SCHEMA,
         generated_by: GENERATED_BY,
@@ -502,6 +441,10 @@ fn main() {
             partial: count_status("Partial"),
             not_implemented: count_status("NotImplemented"),
             out_of_scope: count_status("OutOfScope"),
+            full_compliance_rows_in_scope,
+            full_compliance_rows_excluded,
+            full_compliance_probes_judged,
+            full_compliance_probes_in_catalog,
         },
         releases,
     };
@@ -559,7 +502,7 @@ mod tests {
         }
     }
 
-    // ---- classify_row_for_release ------------------------------------
+    // ---- full_compliance_catalog_facts ---------------------------------
 
     fn catalog_row(status: &str, probe_ids: &[&str]) -> CatalogRow {
         CatalogRow {
@@ -573,212 +516,69 @@ mod tests {
             probe_ids: probe_ids.iter().map(|s| s.to_string()).collect(),
             documented_because: if probe_ids.is_empty() { Some("no wire request can encode this".to_string()) } else { None },
             caveat: None,
-            // The /full-compliance axis plays no part in
-            // `classify_row_for_release`, which reads only `row.status` and
-            // the row's own probe outcomes. Carried here solely because the
-            // shared `CatalogRow` type gained the field -- this dashboard
-            // does not consume it, and no History-side integration was in
-            // scope for that pass.
             full_compliance_gap: None,
         }
     }
 
-    fn probe(id: &str, status: ProbeStatus) -> ProbeOutcome {
-        ProbeOutcome {
-            id: id.to_string(),
-            title: String::new(),
-            kind: "positive".to_string(),
-            asserts: String::new(),
-            falsified_by: String::new(),
-            expected_decision: "Allow".to_string(),
-            status,
-            decision: None,
-            reason: None,
-            mismatch: None,
-        }
-    }
-
-    fn row_outcome(row: CatalogRow, probes: Vec<ProbeOutcome>) -> RowOutcome {
-        // `verdict` plays no part in `classify_row_for_release`, which reads
-        // only `row.row` and `row.probes` -- filled in with whatever
-        // `derive_verdict` would say, for a fixture that stays internally
-        // consistent rather than because the value is read.
-        let refs: Vec<&ProbeOutcome> = probes.iter().collect();
-        let verdict = coverage_catalog::derive_verdict(&row, &refs);
-        RowOutcome { row, verdict, probes }
-    }
-
-    #[test]
-    fn a_documented_implemented_row_with_full_agreement_stays_implemented() {
-        let row = row_outcome(
-            catalog_row("Implemented", &["a", "b"]),
-            vec![probe("a", ProbeStatus::Agreed), probe("b", ProbeStatus::Agreed)],
-        );
-        assert_eq!(classify_row_for_release(&row), DerivedRowStatus::Implemented);
-    }
-
-    #[test]
-    fn a_documented_implemented_row_with_zero_agreement_predates_the_capability() {
-        let row = row_outcome(
-            catalog_row("Implemented", &["a", "b"]),
-            vec![probe("a", ProbeStatus::Disagreed), probe("b", ProbeStatus::Errored)],
-        );
-        assert_eq!(classify_row_for_release(&row), DerivedRowStatus::NotImplemented);
-    }
-
-    #[test]
-    fn a_documented_implemented_row_with_mixed_agreement_is_partial() {
-        let row = row_outcome(
-            catalog_row("Implemented", &["a", "b"]),
-            vec![probe("a", ProbeStatus::Agreed), probe("b", ProbeStatus::Disagreed)],
-        );
-        assert_eq!(classify_row_for_release(&row), DerivedRowStatus::Partial);
-    }
-
-    /// The case the naive rule gets wrong in the *other* direction: a row
-    /// documented `Partial` today, whose own (calibrated-to-partial) probes
-    /// all agree, must stay `Partial` -- never get upgraded to
-    /// `Implemented` for matching exactly the behaviour its own documented
-    /// status already describes as partial.
-    #[test]
-    fn a_documented_partial_row_with_full_agreement_stays_partial_not_implemented() {
-        let row = row_outcome(
-            catalog_row("Partial", &["a", "b"]),
-            vec![probe("a", ProbeStatus::Agreed), probe("b", ProbeStatus::Agreed)],
-        );
-        assert_eq!(classify_row_for_release(&row), DerivedRowStatus::Partial);
-    }
-
-    /// Proves the pinning logic actually fires: a documented `NotImplemented`
-    /// row's own (absence-confirming) probes all agreeing must NOT read as
-    /// "this release implements it" -- the exact trap the naive rule falls
-    /// into.
-    #[test]
-    fn a_documented_not_implemented_row_with_all_absence_probes_agreeing_stays_not_implemented() {
-        let row = row_outcome(
-            catalog_row("NotImplemented", &["gap-control"]),
-            vec![probe("gap-control", ProbeStatus::Agreed)],
-        );
-        assert_eq!(classify_row_for_release(&row), DerivedRowStatus::NotImplemented);
-    }
-
-    #[test]
-    fn a_documented_not_implemented_row_stays_pinned_even_when_some_probes_disagree() {
-        let row = row_outcome(
-            catalog_row("NotImplemented", &["gap-control", "gap-control-2"]),
-            vec![probe("gap-control", ProbeStatus::Agreed), probe("gap-control-2", ProbeStatus::Disagreed)],
-        );
-        assert_eq!(classify_row_for_release(&row), DerivedRowStatus::NotImplemented);
-    }
-
-    /// The same pinning reasoning, extended to `OutOfScope` rows that do
-    /// carry probes (a real shape in this catalog: six of its seven
-    /// `OutOfScope` rows do) -- their probes are control probes proving a
-    /// permanent boundary stays inert, not a capability under test, so
-    /// they must not be reclassified by agreement either.
-    #[test]
-    fn a_documented_out_of_scope_row_with_probes_stays_pinned_regardless_of_agreement() {
-        let fully_agreeing = row_outcome(catalog_row("OutOfScope", &["boundary"]), vec![probe("boundary", ProbeStatus::Agreed)]);
-        assert_eq!(classify_row_for_release(&fully_agreeing), DerivedRowStatus::OutOfScope);
-
-        let disagreeing = row_outcome(catalog_row("OutOfScope", &["boundary"]), vec![probe("boundary", ProbeStatus::Disagreed)]);
-        assert_eq!(classify_row_for_release(&disagreeing), DerivedRowStatus::OutOfScope);
-    }
-
-    #[test]
-    fn a_zero_probe_row_is_out_of_scope_regardless_of_its_documented_status() {
-        for status in ["Implemented", "Partial", "NotImplemented", "OutOfScope"] {
-            let row = row_outcome(catalog_row(status, &[]), vec![]);
-            assert_eq!(classify_row_for_release(&row), DerivedRowStatus::OutOfScope, "status {status}");
+    fn catalog(rows: Vec<CatalogRow>) -> CoverageFile {
+        CoverageFile {
+            schema: String::new(),
+            generated_by: String::new(),
+            spec: String::new(),
+            source_analysis: String::new(),
+            note: String::new(),
+            categories: vec![],
+            rows,
+            probes: vec![],
         }
     }
 
     #[test]
-    fn row_status_breakdown_sums_to_the_number_of_rows() {
-        let rows = vec![
-            row_outcome(catalog_row("Implemented", &["a"]), vec![probe("a", ProbeStatus::Agreed)]),
-            row_outcome(catalog_row("Partial", &["b", "c"]), vec![probe("b", ProbeStatus::Agreed), probe("c", ProbeStatus::Disagreed)]),
-            row_outcome(catalog_row("NotImplemented", &["d"]), vec![probe("d", ProbeStatus::Agreed)]),
-            row_outcome(catalog_row("OutOfScope", &[]), vec![]),
-        ];
-        let breakdown = row_status_breakdown(&rows);
-        assert_eq!(breakdown.implemented, 1);
-        assert_eq!(breakdown.partial, 1);
-        assert_eq!(breakdown.not_implemented, 1);
-        assert_eq!(breakdown.out_of_scope, 1);
-        assert_eq!(
-            breakdown.implemented + breakdown.partial + breakdown.not_implemented + breakdown.out_of_scope,
-            rows.len()
-        );
+    fn full_compliance_catalog_facts_excludes_only_out_of_scope_rows() {
+        let catalog = catalog(vec![
+            catalog_row("Implemented", &["a"]),
+            catalog_row("Partial", &["b", "c"]),
+            catalog_row("NotImplemented", &["d"]),
+            catalog_row("OutOfScope", &["e"]),
+            catalog_row("OutOfScope", &[]),
+        ]);
+        let (rows_in_scope, rows_excluded, probes_judged, probes_in_catalog) = full_compliance_catalog_facts(&catalog);
+        assert_eq!(rows_in_scope, 3, "Implemented/Partial/NotImplemented rows are in scope; OutOfScope is not");
+        assert_eq!(rows_excluded, 2);
+        assert_eq!(probes_judged, 4, "a, b, c, d from the three in-scope rows -- the OutOfScope rows' own \"e\" must not be counted");
+        assert_eq!(probes_in_catalog, 0, "this fixture's own `probes` list, not the rows' `probe_ids`");
+    }
+
+    #[test]
+    fn full_compliance_catalog_facts_counts_a_shared_probe_id_once() {
+        let catalog = catalog(vec![catalog_row("Partial", &["shared"]), catalog_row("NotImplemented", &["shared"])]);
+        let (rows_in_scope, _, probes_judged, _) = full_compliance_catalog_facts(&catalog);
+        assert_eq!(rows_in_scope, 2);
+        assert_eq!(probes_judged, 1, "two in-scope rows naming the same probe id must count it once");
     }
 
     // ---- integration: the committed artifact's newest release ---------
 
-    /// The property named by this feature's own spec: a fully-verified
-    /// release's derived breakdown should equal `CatalogInfo`'s own static
-    /// documented-status distribution exactly, since its own real behaviour
-    /// should reduce to precisely its documented reading.
-    ///
-    /// **This does NOT hold for the real, committed data, and this test
-    /// records the actual discrepancy rather than forcing or hiding it.**
-    /// One row -- `party.collections` -- is documented `NotImplemented`
-    /// today but carries zero probes (it is one of this catalog's two
-    /// documented-only claims, no wire request can encode
-    /// `odrl:PartyCollection` membership at all). Rule 1 above maps every
-    /// zero-probe row to `OutOfScope` unconditionally, *regardless of its
-    /// nominal documented status* -- which is what the spec's own worked
-    /// unit-test bullet requires -- so this one row moves from this
-    /// release's derived `not_implemented` bucket into its derived
-    /// `out_of_scope` bucket, even though `CatalogInfo` itself counts it
-    /// under `not_implemented` (`CatalogInfo.not_implemented` is computed
-    /// straight off each row's `status` field, with no zero-probe
-    /// exception). The discrepancy is exactly one row, in exactly this
-    /// direction, and is structural (a consequence of the classification
-    /// rule itself) rather than data-dependent -- it would reproduce
-    /// identically for any future fully-agreeing release for as long as
-    /// `party.collections` stays a documented-only, zero-probe row.
+    /// The one release whose numbers are independently checkable: the
+    /// newest tag is what the live `/full-compliance` page judges in the
+    /// browser, so its historical row must be addressable and its row
+    /// counts must sum to the catalog's own `full_compliance_rows_in_scope`
+    /// -- the identical shape guarantee
+    /// `site::history_catalog::tests::the_newest_release_agrees_with_the_current_catalog`
+    /// already pins for the coverage axis.
     #[test]
-    fn the_newest_releases_derived_breakdown_is_checked_against_catalog_info_and_the_real_discrepancy_is_recorded() {
+    fn the_newest_releases_full_compliance_tally_sums_to_the_catalogs_in_scope_rows() {
         const COMMITTED: &str = include_str!("../../compliance/reports/release-history.json");
         let value: serde_json::Value = serde_json::from_str(COMMITTED).expect("release-history.json parses");
         let releases = value["releases"].as_array().expect("releases is an array");
         let latest = releases.last().expect("at least one release");
-        let row_status = &latest["row_status"];
-        assert!(!row_status.is_null(), "the newest release must be addressable and therefore carry a row_status breakdown");
+        let full_compliance = &latest["full_compliance"];
+        assert!(!full_compliance.is_null(), "the newest release must be addressable and therefore carry a full_compliance tally");
 
-        let derived_implemented = row_status["implemented"].as_u64().unwrap();
-        let derived_partial = row_status["partial"].as_u64().unwrap();
-        let derived_not_implemented = row_status["not_implemented"].as_u64().unwrap();
-        let derived_out_of_scope = row_status["out_of_scope"].as_u64().unwrap();
-
-        let catalog = &value["catalog"];
-        let doc_implemented = catalog["implemented"].as_u64().unwrap();
-        let doc_partial = catalog["partial"].as_u64().unwrap();
-        let doc_not_implemented = catalog["not_implemented"].as_u64().unwrap();
-        let doc_out_of_scope = catalog["out_of_scope"].as_u64().unwrap();
-
-        assert_eq!(
-            derived_implemented + derived_partial + derived_not_implemented + derived_out_of_scope,
-            catalog["rows"].as_u64().unwrap(),
-            "the four derived buckets must still sum to every row"
-        );
-
-        // The property holds exactly for `implemented` and `partial`: the
-        // newest staged release has zero contradictions against this same
-        // catalog (asserted separately by
-        // `site::history_catalog::tests::the_newest_release_agrees_with_the_current_catalog`),
-        // so every documented Implemented/Partial row's own probes fully
-        // agree and neither classification touches the zero-probe rule.
-        assert_eq!(derived_implemented, doc_implemented, "Implemented rows have no zero-probe members, so this must match exactly");
-        assert_eq!(derived_partial, doc_partial, "Partial rows have no zero-probe members, so this must match exactly");
-
-        // `not_implemented` and `out_of_scope` do NOT match -- the
-        // documented, structural discrepancy this test exists to record,
-        // not hide: exactly one row (the zero-probe `party.collections`,
-        // documented NotImplemented) moves from `not_implemented` into
-        // `out_of_scope` under rule 1's own zero-probes-always-OutOfScope
-        // reading.
-        assert_eq!(doc_not_implemented, derived_not_implemented + 1, "expected exactly one row to have moved out of not_implemented");
-        assert_eq!(doc_out_of_scope, derived_out_of_scope - 1, "expected exactly one row to have moved into out_of_scope");
+        let sum = full_compliance["rows_meets"].as_u64().unwrap()
+            + full_compliance["rows_falls_short"].as_u64().unwrap()
+            + full_compliance["rows_structural_gap"].as_u64().unwrap()
+            + full_compliance["rows_undetermined"].as_u64().unwrap();
+        assert_eq!(sum, value["catalog"]["full_compliance_rows_in_scope"].as_u64().unwrap());
     }
 }

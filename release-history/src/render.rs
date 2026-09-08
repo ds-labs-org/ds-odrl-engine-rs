@@ -27,12 +27,16 @@ use serde_json::Value;
 /// returning visitor can be handed a browser-cached copy of an older
 /// shape, and that must fail loudly rather than half-parse.
 ///
-/// Bumped `@1` -> `@2` when [`Release::row_status`] was added: a real
-/// shape change (a new field on every release, not merely a new optional
-/// leaf an old parser would silently ignore under `#[serde(default)]`),
-/// so a stale cached `@1` artifact must fail loudly rather than parse
-/// with `row_status` silently absent everywhere.
-pub const SCHEMA: &str = "ds-odrl-engine-rs/release-history@2";
+/// Bumped `@2` -> `@3` when [`Release::row_status`]/[`RowStatusBreakdown`]
+/// were retired in favour of [`Release::full_compliance`]/
+/// [`FullComplianceTally`]: the per-release stacked chart and the line
+/// chart's row/probe series on `/history` now measure against full ODRL
+/// 2.2 compliance (`site/src/full_compliance.rs`'s own judgment) rather
+/// than against this study's documentation (`site/src/coverage_catalog.rs`'s
+/// Agreed/Disagreed axis) — a real shape change, not an additive one, so a
+/// stale cached `@2` artifact must fail loudly rather than render a chart
+/// built from fields that no longer exist.
+pub const SCHEMA: &str = "ds-odrl-engine-rs/release-history@3";
 
 pub const GENERATED_BY: &str =
     "release-history (scripts/build-release-history.sh, then cargo run -p release-history --release)";
@@ -46,8 +50,10 @@ pub const NOTE: &str = "Build-time historical record, not a live in-browser run.
 pub const METHOD: &str = "One detached git worktree per tag: build engine.wasm for wasm32-unknown-unknown \
                           --release, run compliance-runner --release, then replay the current \
                           latest-coverage.json catalog against that binary in a wasmi interpreter. The \
-                          verdicts are derived by site/src/coverage_catalog.rs itself -- the same module the \
-                          Coverage page runs in the browser -- included here by path, not reimplemented.";
+                          per-row/per-probe outcomes are derived by site/src/coverage_catalog.rs, and the \
+                          full-ODRL-2.2-compliance tally by site/src/full_compliance.rs -- the same two \
+                          modules the Capability Audit and ODRL 2.2 Full Compliance pages run in the \
+                          browser -- both included here by path, not reimplemented.";
 
 /// The current catalog these historical engines were replayed against.
 /// Recorded so the page can state which catalog produced the numbers: a
@@ -67,6 +73,15 @@ pub struct CatalogInfo {
     pub partial: usize,
     pub not_implemented: usize,
     pub out_of_scope: usize,
+    /// Rows `/full-compliance` judges at all — the catalog's rows minus the
+    /// ones documented `OutOfScope` (see `full_compliance::is_in_scope`).
+    /// Also a static catalog property, identical for every release.
+    pub full_compliance_rows_in_scope: usize,
+    pub full_compliance_rows_excluded: usize,
+    /// Distinct probes named by at least one in-scope row — smaller than
+    /// `probes` above whenever a probe is named only by an excluded row.
+    pub full_compliance_probes_judged: usize,
+    pub full_compliance_probes_in_catalog: usize,
 }
 
 /// One tag's ODRL-Test-Suite result, as that tag's own runner reported it.
@@ -105,37 +120,32 @@ pub struct CoverageTally {
     pub envelope_rejected: usize,
 }
 
-/// One release's own Implemented/Partial/NotImplemented/OutOfScope
-/// breakdown, derived from *that release's* probe agreement rather than
-/// copied from [`CatalogInfo`]'s static, catalog-wide distribution.
+/// One release's own reading against **full ODRL 2.2 compliance**, not
+/// against this study's documentation -- the same distinction
+/// `site/src/full_compliance.rs`'s own module doc comment draws between
+/// `/coverage` and `/full-compliance`. Derived by replaying that release's
+/// probe outcomes through `full_compliance::compile_full_compliance_report`
+/// -- the exact function the live `/full-compliance` page calls in the
+/// browser, included here by path rather than reimplemented, for the same
+/// no-drift reason `coverage_catalog.rs` is.
 ///
-/// Unlike `CatalogInfo.implemented`/`partial`/`not_implemented`/
-/// `out_of_scope` -- a fixed property of the current catalog source, one
-/// number repeated identically for every release by that struct's own
-/// design -- these four fields vary release to release: they are what
-/// *that release's own compiled `engine.wasm`* actually exhibited when
-/// its probe agreement is read alongside each row's own current
-/// documented status. See `release-history/src/main.rs`'s
-/// `classify_row_for_release` for the exact per-row rule, and this
-/// crate's README section ("Release history dashboard") for the full
-/// worked rationale, including why a documented `NotImplemented` (or
-/// `OutOfScope`) row is pinned to its own status rather than reclassified
-/// by probe agreement.
-///
-/// Always sums to [`CatalogInfo::rows`] (52, as of this catalog) when
-/// present at all. `None` on a [`Release`] exactly when
-/// [`Release::coverage`] is `None` -- a release the current catalog
-/// cannot address at all has no per-row verdicts to derive this from
-/// either, and reporting a breakdown of all-`NotImplemented` there would
-/// misrepresent "the catalog cannot address this release" as "this
-/// release implements nothing," the same distinction `coverage`/
-/// `coverage_error` already exists to preserve.
+/// Unlike [`CatalogInfo`]'s static, catalog-wide counts, these fields vary
+/// release to release: they are what *that release's own compiled
+/// `engine.wasm`* actually answered, judged against the spec-ideal target
+/// rather than against the documented one. Row counts always sum to
+/// [`CatalogInfo::full_compliance_rows_in_scope`] when present at all.
+/// `None` on a [`Release`] exactly when [`Release::coverage`] is `None` --
+/// a release the current catalog cannot address at all has no probe
+/// outcomes to judge either, same reasoning as [`Release::coverage_error`].
 #[derive(Debug, Clone, Serialize)]
-pub struct RowStatusBreakdown {
-    pub implemented: usize,
-    pub partial: usize,
-    pub not_implemented: usize,
-    pub out_of_scope: usize,
+pub struct FullComplianceTally {
+    pub rows_meets: usize,
+    pub rows_falls_short: usize,
+    pub rows_structural_gap: usize,
+    pub rows_undetermined: usize,
+    pub probes_meets: usize,
+    pub probes_falls_short: usize,
+    pub probes_undetermined: usize,
 }
 
 /// A row the current catalog documents as holding, that this historical
@@ -177,10 +187,10 @@ pub struct Release {
     /// in the engine's own words wherever the engine had any.
     pub coverage_error: Option<String>,
     pub contradicted_rows: Vec<ContradictedRow>,
-    /// This release's own per-row Implemented/Partial/NotImplemented/
-    /// OutOfScope breakdown -- `None` exactly when `coverage` is `None`.
-    /// See [`RowStatusBreakdown`] for what this is and is not.
-    pub row_status: Option<RowStatusBreakdown>,
+    /// This release's own full-ODRL-2.2-compliance tally -- `None` exactly
+    /// when `coverage` is `None`. See [`FullComplianceTally`] for what this
+    /// is and is not.
+    pub full_compliance: Option<FullComplianceTally>,
 }
 
 #[derive(Debug, Serialize)]
@@ -233,6 +243,10 @@ mod tests {
                 partial: 18,
                 not_implemented: 16,
                 out_of_scope: 7,
+                full_compliance_rows_in_scope: 45,
+                full_compliance_rows_excluded: 7,
+                full_compliance_probes_judged: 120,
+                full_compliance_probes_in_catalog: 125,
             },
             releases: vec![Release {
                 tag: "v0.1.0".to_string(),
@@ -255,7 +269,15 @@ mod tests {
                 }),
                 coverage_error: None,
                 contradicted_rows: vec![],
-                row_status: Some(RowStatusBreakdown { implemented: 11, partial: 18, not_implemented: 16, out_of_scope: 7 }),
+                full_compliance: Some(FullComplianceTally {
+                    rows_meets: 31,
+                    rows_falls_short: 13,
+                    rows_structural_gap: 1,
+                    rows_undetermined: 0,
+                    probes_meets: 105,
+                    probes_falls_short: 15,
+                    probes_undetermined: 0,
+                }),
             }],
         }
     }
@@ -287,29 +309,29 @@ mod tests {
         let mut file = sample();
         file.releases[0].coverage = None;
         file.releases[0].coverage_error = Some("engine.wasm exports no `evaluate`".to_string());
-        file.releases[0].row_status = None;
+        file.releases[0].full_compliance = None;
         let value: Value = serde_json::from_str(&render(&file)).unwrap();
         assert!(value["releases"][0]["coverage"].is_null());
         assert_eq!(value["releases"][0]["coverage_error"], "engine.wasm exports no `evaluate`");
         assert!(
-            value["releases"][0]["row_status"].is_null(),
-            "row_status must be null exactly when coverage is, same as coverage_error's own reasoning"
+            value["releases"][0]["full_compliance"].is_null(),
+            "full_compliance must be null exactly when coverage is, same as coverage_error's own reasoning"
         );
     }
 
     #[test]
-    fn a_releases_row_status_breakdown_round_trips_and_sums_to_the_catalogs_row_count() {
+    fn a_releases_full_compliance_tally_round_trips_and_its_rows_sum_to_the_catalogs_in_scope_count() {
         let file = sample();
         let value: Value = serde_json::from_str(&render(&file)).unwrap();
-        let row_status = &value["releases"][0]["row_status"];
-        assert_eq!(row_status["implemented"], 11);
-        assert_eq!(row_status["partial"], 18);
-        assert_eq!(row_status["not_implemented"], 16);
-        assert_eq!(row_status["out_of_scope"], 7);
-        let sum = row_status["implemented"].as_u64().unwrap()
-            + row_status["partial"].as_u64().unwrap()
-            + row_status["not_implemented"].as_u64().unwrap()
-            + row_status["out_of_scope"].as_u64().unwrap();
-        assert_eq!(sum, file.catalog.rows as u64);
+        let full_compliance = &value["releases"][0]["full_compliance"];
+        assert_eq!(full_compliance["rows_meets"], 31);
+        assert_eq!(full_compliance["rows_falls_short"], 13);
+        assert_eq!(full_compliance["rows_structural_gap"], 1);
+        assert_eq!(full_compliance["rows_undetermined"], 0);
+        let sum = full_compliance["rows_meets"].as_u64().unwrap()
+            + full_compliance["rows_falls_short"].as_u64().unwrap()
+            + full_compliance["rows_structural_gap"].as_u64().unwrap()
+            + full_compliance["rows_undetermined"].as_u64().unwrap();
+        assert_eq!(sum, file.catalog.full_compliance_rows_in_scope as u64);
     }
 }

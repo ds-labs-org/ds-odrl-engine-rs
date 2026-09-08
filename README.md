@@ -1949,11 +1949,11 @@ consistency check over one corpus and one engine source. The page is
 explicit about the boundary: the Turtle→request translation and the
 `report:*` ground truth were computed natively and travel in the
 artifact; what runs in the browser is the engine and its ABI. A fourth
-page, **ODRL 2.2 Coverage**, does the same thing for this study's
-vocabulary claims: it executes all 136 probes of
-`compliance/reports/latest-coverage.json` against that same
+page, **Capability Audit** (named "ODRL 2.2 Coverage" through v0.20.3),
+does the same thing for this study's vocabulary claims: it executes all
+136 probes of `compliance/reports/latest-coverage.json` against that same
 `engine.wasm`, live, and derives a per-row verdict that can come back
-*Contradicted*. A fifth, **Full Compliance**, replays the same probes
+*Contradicted*. A fifth, **ODRL 2.2 Full Compliance**, replays the same probes
 through the same engine and asks the opposite-facing question — not "does
 the engine match its documentation" but "does it meet the full ODRL 2.2
 spec, whether or not that is what we currently claim to support"; see
@@ -2001,8 +2001,8 @@ Pages on every push to `main` that touches `site/`, `engine/`, or
 
 ## Full ODRL 2.2 compliance page
 
-The site's fifth page, **Full Compliance** (`/full-compliance`), asks a
-question the Coverage page deliberately does not.
+The site's fifth page, **ODRL 2.2 Full Compliance** (`/full-compliance`),
+asks a question the Capability Audit page deliberately does not.
 
 * **`/coverage`** asks: *does the engine match what this study documents
   about it?* Its target is each probe's `expect`, which records what this
@@ -2375,141 +2375,115 @@ came from a changelog:
   forever. Genuinely absent capability at every step, never a harness
   artefact.
 
-### A per-release Implemented/Partial/NotImplemented/OutOfScope breakdown
+### A per-release full-compliance breakdown, replacing the documentation-facing one
 
-`CatalogInfo.implemented`/`partial`/`not_implemented`/`out_of_scope` (the
-`11`/`23`/`11`/`7` printed above) is a static property of the *current*
-catalog source — one number, identical for every release, by that
-struct's own design. Stacked over 26 releases it would just repeat the
-same four bars twenty-six times, which is not a chart. `Release` now also
-carries its own `row_status: Option<RowStatusBreakdown>` — the site's new
-stacked chart on `/history` — derived from *that release's own* probe
-agreement, genuinely varying release to release, computed by
-`release-history/src/main.rs`'s `classify_row_for_release`:
+Through v0.20.3, this page's stacked chart and its two non-compliance
+line-chart series were measured against **this study's own
+documentation** — the exact axis `/coverage` (now the Capability Audit
+page) judges. Once `/full-compliance` shipped in v0.20.0 to judge the
+same probes against the **spec ideal** instead, keeping the History
+dashboard's headline charts on the documentation axis read as though this
+page tracked progress toward ODRL 2.2 itself, when it did not. Both
+charts were rewired to the full-compliance axis instead: the stacked
+chart's four bands are now **Meets full spec** / **Undetermined** /
+**Falls short** / **Structural gap**, and the line chart's non-compliance
+pair is now **in-scope rows meeting full spec** (row grain) and
+**individual probes meeting full spec** (probe grain), both fractions of
+the 45 rows / 130 probes `/full-compliance` actually judges — not the
+52 rows / 136 probes `/coverage` does, since the seven `OutOfScope` rows
+sit outside the wire contract for either axis but the full-compliance one
+excludes them from its own denominator rather than folding them into a
+bucket.
 
-```text
-classify_row_for_release(row):
-  if row has zero probes (documented-only claim, no wire request possible):
-    -> OutOfScope                    # timeless, every release alike
-  elif row.status == NotImplemented or row.status == OutOfScope:
-    -> row.status, pinned            # see below
-  else (row.status is Implemented or Partial -- both test positive capability):
-    agreed = probes with ProbeStatus::Agreed; total = row's own probes
-    if agreed == total: -> row.status unchanged
-    elif agreed == 0:   -> NotImplemented
-    else:                -> Partial
-```
+`Release` now carries `full_compliance: Option<FullComplianceTally>`
+instead of the retired `row_status: Option<RowStatusBreakdown>` —
+computed by replaying that release's own probe outcomes through
+`site/src/full_compliance.rs`'s `compile_full_compliance_report`, the
+identical pure function the live `/full-compliance` page calls in the
+browser, included here by path for the same no-drift reason
+`coverage_catalog.rs` already was (see `release-history/src/main.rs`'s
+own `mod full_compliance` doc comment). No bespoke per-release
+classification rule was needed this time, unlike the retired
+`classify_row_for_release`: `compile_full_compliance_report`'s own
+row verdict (`RowSpecVerdict::MeetsFullSpec`/`FallsShort`/
+`StructuralGap`/`Undetermined`) already treats `party.collections`'
+structural gap as release-invariant by construction — the check runs
+*before* any probe outcome is even consulted — so the historical replay
+needed no equivalent of the old pinning logic to keep that band honest.
 
-**Why the naive rule ("all agreed → Implemented, some → Partial, none →
-NotImplemented") is wrong, and pinning both `NotImplemented` and
-`OutOfScope`.** A row's probes are not all the same kind of evidence. For
-a row documented `Implemented`/`Partial` today, its probes test *positive
-capability*: agreement means "this release exhibited the documented
-behaviour." For a row documented `NotImplemented` today, its probe is a
-*control* proving the documented gap's absence is real — agreement there
-means "this release correctly lacks the feature, exactly as still
-documented," which has always been true of a still-open, disclosed gap.
-Applying the naive rule would misclassify every `NotImplemented` row as
-`Implemented` for every release in history, which is backwards: it would
-dress up a real, disclosed, currently-open limitation as historically
-closed. The spec for this feature named only that one case explicitly;
-implementing it surfaced a second, structurally identical one this
-catalog's data actually contains — six of its seven `OutOfScope` rows
-carry one or two probes of their own (an unrecognized profile-declared
-`odrl:Operator` still fails to parse, a profile-declared party role still
-sits inert, …), and those probes are exactly the same kind of control:
-proving a permanent boundary stays correctly inert, not testing a
-capability that grew in. Both statuses are therefore pinned to their own
-documented reading regardless of this release's own probe agreement.
-`ProbeStatus::Errored` counts as not-agreed throughout, the same as
-`Disagreed`.
+A few real, addressable releases across the range (rows, out of the 45
+in-scope; `Meets` / `Undetermined` / `Falls short` / `Structural gap`):
 
-**The consequence, found by writing the tests rather than assumed:**
-because both pinned categories never consult probe agreement, and every
-zero-probe row (there are two: `party.collections`, documented
-`NotImplemented`, and `assets.has-policy`, documented `OutOfScope`) maps
-to `OutOfScope` unconditionally, the derived `out_of_scope` count is the
-same **8** for every addressable release — one more than `CatalogInfo`'s
-own static `out_of_scope` (7), because `party.collections` moves buckets
-under this rule despite `CatalogInfo` counting it as `not_implemented`.
-Symmetrically, the derived `not_implemented` baseline never drops below
-**10** (the catalog's 11 `NotImplemented` rows, minus that same
-zero-probe row) for exactly the same structural reason — real signal, not
-a bug: `site::history_catalog::tests::out_of_scope_is_identical_across_every_addressable_release`
-pins the first half of it, and
-`release-history`'s own
-`the_newest_releases_derived_breakdown_is_checked_against_catalog_info_and_the_real_discrepancy_is_recorded`
-test records the exact 1-row discrepancy rather than forcing the property
-to hold. For the newest release (`v0.17.1`, zero contradictions against
-today's catalog), the two capability-tested buckets match `CatalogInfo`
-exactly (`implemented: 11`, `partial: 23`) and the two pinned buckets are
-the structurally-shifted `not_implemented: 10` / `out_of_scope: 8` above
-— confirming the naive property holds exactly where probes actually test
-capability, and diverges exactly where the pinning rule says it must.
-
-A few real, addressable releases across the range (`Implemented` /
-`Partial` / `NotImplemented` / `OutOfScope`, out of the 52 rows):
-
-| tag | Implemented | Partial | NotImplemented | OutOfScope |
+| tag | Meets | Undetermined | Falls short | Structural gap |
 |---|---|---|---|---|
-| `v0.6.0` (oldest addressable) | 4 | 22 | 18 | 8 |
-| `v0.11.0` | 9 | 21 | 14 | 8 |
-| `v0.16.0` | 11 | 23 | 10 | 8 |
-| `v0.17.1` (newest) | 11 | 23 | 10 | 8 |
+| `v0.6.0` (oldest addressable) | 15 | 20 | 9 | 1 |
+| `v0.11.0` | 24 | 10 | 10 | 1 |
+| `v0.16.0` | 31 | 0 | 13 | 1 |
+| `v0.20.3` (newest) | 31 | 0 | 13 | 1 |
 
-`OutOfScope` never moves; `NotImplemented` only ever falls as far as its
-pinned floor of 10; `Implemented`/`Partial` are the two bars that actually
-tell this engine's growth story. See `/history`'s own new stacked chart
-for the full 26-release picture and its caption for the same rule stated
-in the page's own prose.
+**Worth reading twice: `Falls short` grew from 9 to 13 as capability
+landed, and that is not a regression.** Every row this catalog could not
+yet judge at all sits in `Undetermined` until the engine answers its
+probes one way or the other — v0.6.0's 20 `Undetermined` rows are mostly
+rows whose probes did not exist yet, not rows genuinely ambiguous today.
+As v0.6.0 through v0.16.0 added real coverage, all twenty of those rows
+resolved to exactly one of `Meets` or `Falls short` — sixteen to `Meets`,
+four to `Falls short`, a real, disclosed shortfall against the spec ideal
+rather than the harness previously being unable to ask the question.
+`Structural gap` (`party.collections`) is the one band that never moves,
+for the identical structural reason `OutOfScope` never moved on the
+retired chart. `Falls short` has held at 13 (its underlying probe count
+at 15) since v0.16.0 — this study's own full-compliance research is
+current as of the same commit that added `/full-compliance`, not
+something later engine work has quietly resolved.
 
-**Schema bump.** This is a real shape change — a new field on every
-release, not an optional leaf an `@1` parser would silently ignore — so
+**Schema bump.** This is a real shape change — `row_status` retired and
+`full_compliance` added on every release, plus four new
+`full_compliance_*` fields on `CatalogInfo` — so
 `release-history/src/render.rs`'s `SCHEMA` (and
 `site/src/history_catalog.rs`'s matching `HISTORY_SCHEMA`) moved from
-`ds-odrl-engine-rs/release-history@1` to `@2`. A browser holding an `@1`
+`ds-odrl-engine-rs/release-history@2` to `@3`. A browser holding an `@2`
 copy of the artifact now fails loudly (`declares schema ds-odrl-engine-rs/
-release-history@1, this page speaks ds-odrl-engine-rs/release-history@2`)
-rather than rendering a dashboard with `row_status` silently absent
+release-history@2, this page speaks ds-odrl-engine-rs/release-history@3`)
+rather than rendering a dashboard with the new axis silently absent
 everywhere.
 
-### A probe-level agreement line, and the stat it made visible on the Coverage page too
+### Row and probe grain, on both live pages and on this one
 
-Every earlier figure on this page's line chart, and every row-status
-figure in the stacked chart above, is at **row** granularity: a row
-counts as verified only when *every one* of its own probes agrees. That
-is the right grain for "does this vocabulary claim hold," but it hides a
-real fact the raw data already carries — one disagreeing probe among
-several sinks its whole row, so the row-level share understates how much
-of the corpus actually agrees. `Release::probe_agreement_fraction`
-(`site/src/history_catalog.rs`) adds the finer-grained axis directly from
-each release's own already-committed `CoverageTally.agreed`/
-`.probes_total` — no new data pipeline work, since every release's raw
-tally already carried both numbers; only the line was missing. A new
-test, `probe_agreement_fraction_is_a_finer_grain_than_verified_fraction`,
-pins this as a real invariant against the committed data rather than
-trusting it by construction: for every addressable release, the row-
-verified share never exceeds the probe-agreed share.
+Both of this page's non-compliance line-chart series, and every band in
+the stacked chart above, are at **row** granularity: a row counts as
+meeting full spec only when *every one* of its own judged probes does.
+That is the right grain for "does this vocabulary claim hold against the
+spec," but it hides a real fact the raw data already carries — one
+falls-short probe among several sinks its whole row, so the row-level
+share understates how much of the corpus actually meets the spec.
+`Release::meets_full_spec_probe_fraction` (`site/src/history_catalog.rs`)
+adds the finer-grained axis directly from each release's own
+already-committed `FullComplianceTally.probes_meets`/probe total. A test,
+`meets_full_spec_probe_fraction_is_a_finer_grain_than_the_row_fraction`,
+pins this as a real invariant against the committed data: for every
+addressable release, the row-meets share never exceeds the probe-meets
+share.
 
-The same measure was missing from the **Coverage** page's own live
-report for the identical reason — `CoverageReport.agreed`/`.disagreed`/
-`.errored`/`.total_probes` were computed and used internally (to derive
-the row-level `verified`/`contradicted`/`inconclusive` figures next to
-them) but never surfaced as their own headline. Added as a third stat
-row (probes run/agreed/disagreed/errored) alongside the two existing
-row-granularity rows, which were relabelled ("rows verified live", "rows
-contradicted", "rows inconclusive") to disambiguate now that both grains
-appear on the same page.
+The same row-vs-probe distinction was added to the **Capability Audit**
+page's own live report back at v0.19.0, on the *documentation* axis
+rather than this one: `CoverageReport.agreed`/`.disagreed`/`.errored`/
+`.total_probes` were computed and used internally (to derive the
+row-level `verified`/`contradicted`/`inconclusive` figures next to them)
+but never surfaced as their own headline until that pass added a third
+stat row (probes run/agreed/disagreed/errored) alongside the two existing
+row-granularity ones.
 
 ### Why this page is not live in your browser
 
-The Compliance Results and ODRL 2.2 Coverage pages both re-execute their
-whole corpus against `engine.wasm` in the visitor's browser, and say so.
-This one cannot: its subject is **26 different historical `engine.wasm`
-binaries**, 6.3 MB of them combined, which would have to be shipped and
-instantiated to recompute 3,536 probe evaluations (26 releases × 136
-probes) on page load — for figures that can only change when someone cuts
-a new tag. Both the page's own intro paragraph and this figure are read
+The Compliance Results, Capability Audit and ODRL 2.2 Full Compliance
+pages all re-execute their whole corpus against `engine.wasm` in the
+visitor's browser, and say so. This one cannot: its subject is **34
+different historical `engine.wasm` binaries**, 8.9 MB of them combined,
+which would have to be shipped and instantiated to recompute 4,624 probe
+evaluations (34 releases × 136 probes) on page load, twice over (once for
+each judging axis) — for figures that can only change when someone cuts a
+new tag. Both the page's own intro paragraph and this figure are read
 off the same `HistoryFile` at render time (`site/src/history_page.rs`'s
 `intro`/`build_time_alert`), not repeated here or there as a literal that
 would need updating by hand at the next tag — this README passage is the
@@ -2519,23 +2493,28 @@ above the dashboard, and carries each release's `engine.wasm` SHA-256 so
 the claim is checkable rather than asserted: rebuild any tag and compare.
 
 Two things keep the artifact honest anyway. The verdicts are derived by
-**`site/src/coverage_catalog.rs` itself** — the very module the live
-Coverage page runs in the browser — pulled into the generator with
-`#[path]` rather than reimplemented (`release-history/src/main.rs`'s own
-doc comment on that `mod coverage_catalog` states the reasoning), so the
-two cannot drift into disagreeing about what "contradicted" means; the
-probe catalog itself is likewise read fresh off
+**`site/src/coverage_catalog.rs`** (the Capability Audit axis) **and
+`site/src/full_compliance.rs`** (the ODRL 2.2 Full Compliance axis) —
+the very two modules the live pages of the same names run in the
+browser — both pulled into the generator with `#[path]` rather than
+reimplemented (`release-history/src/main.rs`'s own doc comments on those
+two `mod` declarations state the reasoning), so neither can drift into
+disagreeing with its live counterpart about what its own verdicts mean;
+the probe catalog itself is likewise read fresh off
 `compliance/reports/latest-coverage.json` at generation time
 (`release-history/src/main.rs`'s `main`), never a copy baked in earlier,
 so regenerating after a `coverage-probes` change picks up new probes for
-every historical binary automatically. And a workspace test,
-`site::history_catalog::tests::the_newest_release_agrees_with_the_current_catalog`,
-asserts that the newest staged release's own coverage tally has zero
-contradictions against the catalog it was generated from, so a stale
-regeneration fails `cargo test --workspace` instead of quietly shipping
-an old dashboard. (As of this artifact: 50 verified / 0 contradicted / 0
-inconclusive / 2 documented for `v0.17.1`, the newest tag — matching what
-the live Coverage page itself reports for the same 136-probe catalog.)
+every historical binary automatically. And two workspace tests,
+`site::history_catalog::tests::the_newest_release_agrees_with_the_current_catalog`
+and `release-history`'s own
+`the_newest_releases_full_compliance_tally_sums_to_the_catalogs_in_scope_rows`,
+assert that the newest staged release's own tallies are addressable and
+internally consistent, so a stale regeneration fails `cargo test
+--workspace` instead of quietly shipping an old dashboard. (As of this
+artifact: 50 verified / 0 contradicted / 0 inconclusive / 2 documented,
+and 31 meets / 13 falls short / 1 structural gap of 45 in-scope rows, for
+`v0.20.3`, the newest tag — matching what the live Capability Audit and
+ODRL 2.2 Full Compliance pages themselves report for the same catalog.)
 
 ### Regenerating it
 

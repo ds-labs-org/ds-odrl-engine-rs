@@ -15,9 +15,10 @@
 //!
 //! **This is the one page on this site that does not recompute what it
 //! shows, and it says so in its own first paragraph.** The Compliance
-//! Results and Coverage pages both re-execute their corpora against
-//! `engine.wasm` in the visitor's browser. Reproducing *this* page's
-//! numbers live would mean shipping every historical `engine.wasm`
+//! Results, Capability Audit and ODRL 2.2 Full Compliance pages all
+//! re-execute their corpora against `engine.wasm` in the visitor's
+//! browser. Reproducing *this* page's numbers live would mean shipping
+//! every historical `engine.wasm`
 //! binary — several megabytes of them — instantiating every one, and
 //! running the whole probe catalog against each, on page load, in order
 //! to recompute figures that can only change when someone cuts a new
@@ -178,33 +179,35 @@ const HISTORY_CSS: &str = r#"
 /// Series colours, shared by the chart and its legend so the two cannot
 /// drift apart.
 const COMPLIANCE_COLOR: &str = "#0066cc";
-const COVERAGE_COLOR: &str = "#3e8635";
+const MEETS_ROWS_COLOR: &str = "#3e8635";
 /// A third, genuinely distinct hue from both the line chart's own blue/
 /// green pair above and the stacked chart's amber/red/grey below (those
-/// mean different things -- a documented-status classification, not a
-/// pass rate -- so reusing one of those colours here would visually
-/// imply a connection that does not exist). PatternFly's own purple
-/// chart hue, chosen for exactly this "yet another independent series"
-/// role.
-const PROBE_AGREEMENT_COLOR: &str = "#8f4bd8";
+/// mean different things -- a full-compliance verdict, not a pass rate --
+/// so reusing one of those colours here would visually imply a connection
+/// that does not exist). PatternFly's own purple chart hue, chosen for
+/// exactly this "yet another independent series" role.
+const MEETS_PROBES_COLOR: &str = "#8f4bd8";
 
-/// Stacked-status-chart colours, one per [`RowStatusBreakdown`] field.
+/// Stacked-status-chart colours, one per [`FullComplianceTally`] field.
 /// Reused from elsewhere on this same page rather than invented fresh,
-/// but one: `STATUS_IMPLEMENTED_COLOR` is `COVERAGE_COLOR` itself (the
-/// existing "good" green), `STATUS_NOT_IMPLEMENTED_COLOR` is
-/// `.ds-oe-hist-bad`'s red, `STATUS_OUT_OF_SCOPE_COLOR` is the same subtle
-/// grey `.ds-oe-hist-muted`/`.ds-oe-hist-when` already use for
-/// not-applicable text. `STATUS_PARTIAL_COLOR` is the one new hex value
-/// this page introduces, an amber roughly at PatternFly's own warning hue,
-/// chosen to sit visually between the green and the red it is stacked
-/// between. All four keep enough contrast against both a light and a dark
-/// page background to stay legible in either `prefers-color-scheme`
-/// (the SVG draws no other page-controlled background of its own to clash
-/// against, same as the line chart above it).
-const STATUS_IMPLEMENTED_COLOR: &str = COVERAGE_COLOR;
-const STATUS_PARTIAL_COLOR: &str = "#f0ab00";
-const STATUS_NOT_IMPLEMENTED_COLOR: &str = "#c9190b";
-const STATUS_OUT_OF_SCOPE_COLOR: &str = "#6a6e73";
+/// but one: `STATUS_MEETS_COLOR` is `MEETS_ROWS_COLOR` itself (the
+/// existing "good" green), `STATUS_FALLS_SHORT_COLOR` is
+/// `.ds-oe-hist-bad`'s red, `STATUS_STRUCTURAL_GAP_COLOR` is the same
+/// subtle grey `.ds-oe-hist-muted`/`.ds-oe-hist-when` already use for
+/// not-applicable text -- fitting, since a structural gap is a permanent,
+/// release-invariant wire-contract absence, not a probe outcome, the same
+/// role `/coverage`'s own pinned `OutOfScope` band played here before.
+/// `STATUS_UNDETERMINED_COLOR` is the one new hex value this page
+/// introduces, an amber roughly at PatternFly's own warning hue, for the
+/// rare probe a trap or a malformed response left unjudged either way.
+/// All four keep enough contrast against both a light and a dark page
+/// background to stay legible in either `prefers-color-scheme` (the SVG
+/// draws no other page-controlled background of its own to clash against,
+/// same as the line chart above it).
+const STATUS_MEETS_COLOR: &str = MEETS_ROWS_COLOR;
+const STATUS_UNDETERMINED_COLOR: &str = "#f0ab00";
+const STATUS_FALLS_SHORT_COLOR: &str = "#c9190b";
+const STATUS_STRUCTURAL_GAP_COLOR: &str = "#6a6e73";
 
 /// Chart geometry, in the SVG's own `viewBox` units.
 const CHART_W: f64 = 760.0;
@@ -250,11 +253,13 @@ fn series_dots(points: &[(usize, f64)], count: usize, color: &'static str) -> Ht
 }
 
 /// Three series over the release axis: the ODRL-Test-Suite pass rate each
-/// release actually recorded, the share of probeable vocabulary *rows*
-/// that release's own binary verifies against today's catalog, and the
-/// share of individual *probes* (a strictly finer grain -- see
-/// [`Release::probe_agreement_fraction`]'s own doc comment for why a row
-/// can under-count relative to its own probes) that agree.
+/// release actually recorded, the share of in-scope vocabulary *rows*
+/// that release's own binary meets full ODRL 2.2 compliance on (judged
+/// against today's catalog's `ideal`, not against this study's own
+/// documentation), and the share of individual *probes* (a strictly finer
+/// grain -- see [`Release::meets_full_spec_probe_fraction`]'s own doc
+/// comment for why a row can under-count relative to its own probes) that
+/// meet it.
 ///
 /// Drawn as inline SVG with no charting library, matching this site's
 /// existing diagrams: it has to render in a theme it does not control and
@@ -264,10 +269,10 @@ fn chart(file: &HistoryFile) -> Html {
 
   let compliance: Vec<(usize, f64)> =
     file.releases.iter().enumerate().filter_map(|(i, r)| r.compliance_fraction().map(|f| (i, f))).collect();
-  let coverage: Vec<(usize, f64)> =
-    file.releases.iter().enumerate().filter_map(|(i, r)| r.verified_fraction().map(|f| (i, f))).collect();
-  let probe_agreement: Vec<(usize, f64)> =
-    file.releases.iter().enumerate().filter_map(|(i, r)| r.probe_agreement_fraction().map(|f| (i, f))).collect();
+  let meets_rows: Vec<(usize, f64)> =
+    file.releases.iter().enumerate().filter_map(|(i, r)| r.meets_full_spec_row_fraction().map(|f| (i, f))).collect();
+  let meets_probes: Vec<(usize, f64)> =
+    file.releases.iter().enumerate().filter_map(|(i, r)| r.meets_full_spec_probe_fraction().map(|f| (i, f))).collect();
 
   // The contiguous leading run of releases the current catalog cannot
   // address, shaded and labelled rather than left as a mysterious gap in
@@ -291,7 +296,7 @@ fn chart(file: &HistoryFile) -> Html {
   html!(
     <>
       <svg class="ds-oe-hist-chart" viewBox={format!("0 0 {CHART_W} {CHART_H}")} role="img"
-           aria-label="Per-release ODRL-Test-Suite pass rate, share of probeable ODRL 2.2 vocabulary rows verified, and share of individual probes agreed">
+           aria-label="Per-release ODRL-Test-Suite pass rate, share of in-scope ODRL 2.2 vocabulary rows meeting full compliance, and share of individual probes meeting it">
         { for [0.0, 0.25, 0.5, 0.75, 1.0].iter().map(|f| html!(
             <>
               <line x1={format!("{PLOT_LEFT:.1}")} y1={format!("{:.1}", y_at(*f))}
@@ -311,15 +316,15 @@ fn chart(file: &HistoryFile) -> Html {
           )) }
         { series_dots(&compliance, count, COMPLIANCE_COLOR) }
 
-        { for polyline_points(&coverage, count).map(|points| html!(
-            <polyline points={points} fill="none" stroke={COVERAGE_COLOR} stroke-width="2" />
+        { for polyline_points(&meets_rows, count).map(|points| html!(
+            <polyline points={points} fill="none" stroke={MEETS_ROWS_COLOR} stroke-width="2" />
           )) }
-        { series_dots(&coverage, count, COVERAGE_COLOR) }
+        { series_dots(&meets_rows, count, MEETS_ROWS_COLOR) }
 
-        { for polyline_points(&probe_agreement, count).map(|points| html!(
-            <polyline points={points} fill="none" stroke={PROBE_AGREEMENT_COLOR} stroke-width="2" />
+        { for polyline_points(&meets_probes, count).map(|points| html!(
+            <polyline points={points} fill="none" stroke={MEETS_PROBES_COLOR} stroke-width="2" />
           )) }
-        { series_dots(&probe_agreement, count, PROBE_AGREEMENT_COLOR) }
+        { series_dots(&meets_probes, count, MEETS_PROBES_COLOR) }
 
         { for file.releases.iter().enumerate().map(|(i, release)| {
             // Every other label at 19 releases, or they collide.
@@ -351,12 +356,12 @@ fn chart(file: &HistoryFile) -> Html {
           { "ODRL-Test-Suite fixtures passed, as that release's own runner reported them" }
         </span>
         <span>
-          <span class="ds-oe-hist-swatch" style={format!("background: {COVERAGE_COLOR};")}></span>
-          { "vocabulary rows verified, out of the rows today's catalog can probe" }
+          <span class="ds-oe-hist-swatch" style={format!("background: {MEETS_ROWS_COLOR};")}></span>
+          { "in-scope vocabulary rows meeting full ODRL 2.2 compliance, out of every row today's catalog judges" }
         </span>
         <span>
-          <span class="ds-oe-hist-swatch" style={format!("background: {PROBE_AGREEMENT_COLOR};")}></span>
-          { "individual probes agreed, out of every probe replayed against that release — finer-grained than the row line above, since one disagreeing probe sinks its whole row but counts as only one probe here" }
+          <span class="ds-oe-hist-swatch" style={format!("background: {MEETS_PROBES_COLOR};")}></span>
+          { "individual probes meeting full ODRL 2.2 compliance, out of every probe replayed against that release — finer-grained than the row line above, since one falls-short probe sinks its whole row but counts as only one probe here" }
         </span>
       </div>
     </>
@@ -375,25 +380,26 @@ fn status_y_at(rows: f64, total_rows: f64) -> f64 {
   STATUS_PLOT_BOTTOM - (STATUS_PLOT_BOTTOM - STATUS_PLOT_TOP) * (rows / total_rows).clamp(0.0, 1.0)
 }
 
-/// The new per-release stacked chart: one bar per release, left to right
+/// The per-release stacked chart: one bar per release, left to right
 /// chronological (same x-axis as the line chart above), each split into
-/// its own [`RowStatusBreakdown`] -- Implemented/Partial/NotImplemented
-/// stacked bottom to top by "how close to the documented reading", with
-/// OutOfScope on top. See [`dashboard`]'s caption, printed immediately
-/// below this chart, for the exact classification rule in prose.
+/// its own [`FullComplianceTally`] -- Meets full spec/Undetermined/Falls
+/// short stacked bottom to top by "how close to full ODRL 2.2
+/// compliance", with the always-invariant Structural gap band on top (see
+/// [`dashboard`]'s caption, printed immediately below this chart, for
+/// the exact meaning of each band in prose).
 ///
-/// The nine releases the current catalog cannot address at all (no
-/// `row_status`, same releases [`chart`]'s own shaded region already
+/// The releases the current catalog cannot address at all (no
+/// `full_compliance`, same releases [`chart`]'s own shaded region already
 /// marks) get the identical shaded gap and label here rather than an
 /// absent bar -- an absent bar with nothing beside it could read as "zero
 /// everywhere", which is exactly the misreading the line chart's own gap
 /// treatment above already exists to avoid.
 fn status_chart(file: &HistoryFile) -> Html {
   let count = file.releases.len();
-  let total_rows = file.catalog.rows as f64;
+  let total_rows = file.catalog.full_compliance_rows_in_scope as f64;
   let bar_w = ((PLOT_RIGHT - PLOT_LEFT) / (count.max(1) as f64) * 0.6).max(2.0);
 
-  let addressable_from = file.releases.iter().position(|r| r.row_status.is_some());
+  let addressable_from = file.releases.iter().position(|r| r.full_compliance.is_some());
   let shade = addressable_from.filter(|&first| first > 0).map(|first| {
     let x0 = PLOT_LEFT - 6.0;
     let x1 = x_at(first, count) - 6.0;
@@ -410,21 +416,19 @@ fn status_chart(file: &HistoryFile) -> Html {
   });
 
   let bars = file.releases.iter().enumerate().filter_map(|(i, release)| {
-    let rs = release.row_status.as_ref()?;
+    let fc = release.full_compliance.as_ref()?;
     let cx = x_at(i, count);
     let x = cx - bar_w / 2.0;
-    // Bottom to top: Implemented (closest to the documented reading),
-    // Partial, NotImplemented, OutOfScope on top -- a green foundation a
-    // reader expects to grow over time, with the always-8-rows OutOfScope
-    // band riding unchanged at the top (see `release-history`'s own
-    // `classify_row_for_release`: every OutOfScope-documented row, and
-    // every zero-probe row regardless of its own documented status, pins
-    // to OutOfScope release after release).
+    // Bottom to top: Meets full spec (the green foundation a reader
+    // expects to grow over time), Undetermined, Falls short, with the
+    // Structural gap band riding unchanged at the top -- `party.collections`
+    // is release-invariant by construction (see `derive_row_verdict`:
+    // `full_compliance_gap` is checked before any probe outcome at all).
     let segments = [
-      (rs.implemented as f64, STATUS_IMPLEMENTED_COLOR),
-      (rs.partial as f64, STATUS_PARTIAL_COLOR),
-      (rs.not_implemented as f64, STATUS_NOT_IMPLEMENTED_COLOR),
-      (rs.out_of_scope as f64, STATUS_OUT_OF_SCOPE_COLOR),
+      (fc.rows_meets as f64, STATUS_MEETS_COLOR),
+      (fc.rows_undetermined as f64, STATUS_UNDETERMINED_COLOR),
+      (fc.rows_falls_short as f64, STATUS_FALLS_SHORT_COLOR),
+      (fc.rows_structural_gap as f64, STATUS_STRUCTURAL_GAP_COLOR),
     ];
     let mut cumulative = 0.0;
     let rects: Vec<Html> = segments
@@ -447,7 +451,7 @@ fn status_chart(file: &HistoryFile) -> Html {
   html!(
     <>
       <svg class="ds-oe-hist-chart" viewBox={format!("0 0 {CHART_W} {STATUS_CHART_H}")} role="img"
-           aria-label="Per-release Implemented/Partial/NotImplemented/OutOfScope breakdown of the 52 ODRL 2.2 vocabulary rows, derived from that release's own probe agreement">
+           aria-label="Per-release Meets full spec/Undetermined/Falls short/Structural gap breakdown of the in-scope ODRL 2.2 vocabulary rows, judged against full compliance">
         { for [0.0, 0.25, 0.5, 0.75, 1.0].iter().map(|f| {
             let rows = f * total_rows;
             html!(
@@ -491,44 +495,39 @@ fn status_chart(file: &HistoryFile) -> Html {
 
       <div class="ds-oe-hist-legend">
         <span>
-          <span class="ds-oe-hist-swatch" style={format!("background: {STATUS_IMPLEMENTED_COLOR};")}></span>
-          { "Implemented" }
+          <span class="ds-oe-hist-swatch" style={format!("background: {STATUS_MEETS_COLOR};")}></span>
+          { "Meets full spec" }
         </span>
         <span>
-          <span class="ds-oe-hist-swatch" style={format!("background: {STATUS_PARTIAL_COLOR};")}></span>
-          { "Partial" }
+          <span class="ds-oe-hist-swatch" style={format!("background: {STATUS_UNDETERMINED_COLOR};")}></span>
+          { "Undetermined" }
         </span>
         <span>
-          <span class="ds-oe-hist-swatch" style={format!("background: {STATUS_NOT_IMPLEMENTED_COLOR};")}></span>
-          { "Not implemented" }
+          <span class="ds-oe-hist-swatch" style={format!("background: {STATUS_FALLS_SHORT_COLOR};")}></span>
+          { "Falls short" }
         </span>
         <span>
-          <span class="ds-oe-hist-swatch" style={format!("background: {STATUS_OUT_OF_SCOPE_COLOR};")}></span>
-          { "Out of scope" }
+          <span class="ds-oe-hist-swatch" style={format!("background: {STATUS_STRUCTURAL_GAP_COLOR};")}></span>
+          { "Structural gap" }
         </span>
       </div>
       <Content>
         <p class="ds-oe-hist-note">
-          <strong>{ "How each release's bar is classified. " }</strong>
-          { "A row with no probe at all (a documented-only claim, no wire request can encode it) is always "}
-          <em>{ "Out of scope" }</em>
-          { ", every release alike. A row this catalog documents as " }<em>{ "Not implemented" }</em>
-          { " or " }<em>{ "Out of scope" }</em>{ " today stays pinned to that same reading for every release, \
-             regardless of this release's own probe agreement: both are non-capability statuses whose probes \
-             are controls proving a disclosed gap or a permanent boundary is still correctly there, not tests \
-             of positive capability -- a still-open, disclosed gap has no \"more implemented in the past\" \
-             reading, and treating its probes' agreement as a positive signal would misrepresent a real, \
-             disclosed limitation as historically closed. Every other row -- documented " }
-          <em>{ "Implemented" }</em>{ " or " }<em>{ "Partial" }</em>
-          { " today, the two statuses whose own probes DO test positive capability -- is classified by this \
-             release's own agreement against that row's own probes: every probe agreed keeps the row's \
-             documented status unchanged (a " }<em>{ "Partial" }</em>
-          { " row whose calibrated probes all agree stays " }<em>{ "Partial" }</em>
-          { ", never upgraded to " }<em>{ "Implemented" }</em>
-          { " for matching exactly the behaviour its own documented status already describes as partial); \
-             zero probes agreed means this release predates the documented behaviour entirely (" }
-          <em>{ "Not implemented" }</em>{ "); anything in between is " }<em>{ "Partial" }</em>
-          { "." }
+          <strong>{ "How each release's bar is judged. " }</strong>
+          { "Every row this chart carries at all is in scope for full ODRL 2.2 compliance -- the rows \
+             documented " }<em>{ "OutOfScope" }</em>{ " (profile-extension points, " }
+          <code>{ "odrl:hasPolicy" }</code>{ ") sit outside the wire contract entirely and are excluded from \
+             the total, not scored either way. " }
+          <code>{ "party.collections" }</code>{ " is a " }<em>{ "Structural gap" }</em>
+          { ", every release alike: no request can even pose the question, so this one row is pinned \
+             regardless of what any engine answers -- the same role the pinned " }<em>{ "Out of scope" }</em>
+          { " band played on this page's earlier, documentation-facing chart. Every other row is judged by \
+             that release's own replay against " }<code>{ "ideal" }</code>{ ", the spec-correct answer this \
+             catalog now researches for every probe: " }<em>{ "Meets full spec" }</em>
+          { " when every one of the row's judged probes reaches it, " }<em>{ "Falls short" }</em>
+          { " when at least one does not, and " }<em>{ "Undetermined" }</em>
+          { " only for a probe a trap or a malformed response left unjudged either way -- never a positive \
+             result by default." }
         </p>
       </Content>
     </>
@@ -712,11 +711,11 @@ fn provenance(file: &HistoryFile) -> Html {
             <p>
               <strong>{ "One row here is independently checkable. " }</strong>
               { format!(
-                  "{} is the release this site itself is built from, so the ODRL 2.2 Coverage page \
-                   re-runs that same catalog against that same engine in your own browser. Its numbers \
-                   there and its row here must agree — and a workspace test asserts they do, so a \
-                   regeneration that went stale fails the build rather than quietly showing you an old \
-                   dashboard.",
+                  "{} is the release this site itself is built from, so the Capability Audit and ODRL 2.2 \
+                   Full Compliance pages both re-run that same catalog against that same engine in your \
+                   own browser. Their numbers there and this row here must agree — and a workspace test \
+                   asserts they do, so a regeneration that went stale fails the build rather than quietly \
+                   showing you an old dashboard.",
                   latest.tag
                 ) }
             </p>
@@ -747,7 +746,7 @@ fn dashboard(file: &HistoryFile) -> Html {
         { chart(file) }
       </div>
       <div class="ds-oe-hist-lead">
-        <Title level={Level::H2}>{ "Implemented / Partial / Not implemented / Out of scope, per release" }</Title>
+        <Title level={Level::H2}>{ "Meets full spec / Undetermined / Falls short / Structural gap, per release" }</Title>
         { status_chart(file) }
       </div>
       { provenance(file) }
@@ -800,9 +799,10 @@ fn build_time_alert(file: &HistoryFile) -> Html {
     <Alert inline=true r#type={AlertType::Info} title={"Computed at build time, not in your browser"}>
       <Content>
         <p>
-          { "The " }<strong>{ "Compliance Results" }</strong>{ " and " }
-          <strong>{ "ODRL 2.2 Coverage" }</strong>
-          { " pages both re-execute their whole corpus against " }<code>{ "engine.wasm" }</code>
+          { "The " }<strong>{ "Compliance Results" }</strong>{ ", " }
+          <strong>{ "Capability Audit" }</strong>{ " and " }
+          <strong>{ "ODRL 2.2 Full Compliance" }</strong>
+          { " pages all re-execute their whole corpus against " }<code>{ "engine.wasm" }</code>
           { " in your browser, live, and the numbers they show are computed there. This page does not, \
              and the difference is deliberate: its subject is " }
           { releases.to_string() }{ " " }<em>{ "different" }</em>
@@ -818,7 +818,8 @@ fn build_time_alert(file: &HistoryFile) -> Html {
           { " that produced it, so anyone can rebuild that tag and check the binary matches. The \
              generator is checked in (" }<code>{ "scripts/build-release-history.sh" }</code>{ " and the " }
           <code>{ "release-history" }</code>
-          { " crate) and the verdicts come from the very same module the live Coverage page runs." }
+          { " crate) and the verdicts come from the very same two modules the live Capability Audit and \
+             ODRL 2.2 Full Compliance pages run." }
         </p>
       </Content>
     </Alert>

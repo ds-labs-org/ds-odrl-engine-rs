@@ -1,4 +1,4 @@
-//! The ODRL 2.2 Coverage page.
+//! The Capability Audit page (named "ODRL 2.2 Coverage" through v0.20.3).
 //!
 //! A hand-written coverage table tells you what somebody believed about
 //! an engine when they last edited the table. This page does something
@@ -315,7 +315,7 @@ fn observed_html(row: &RowOutcome) -> Html {
 /// row can hold several probes, and nothing before this distinguished
 /// which specific one, among several agreeing siblings, actually
 /// disagreed — reported directly ("I can't see well the failing
-/// probes"). Same three-way palette the Coverage page's own probe-level
+/// probes"). Same three-way palette this page's own probe-level
 /// stat row already established (`is-agreed`/`is-disagreed`/
 /// `is-errored`), so a reader who has seen the headline numbers
 /// recognises the colours here rather than learning a second scheme.
@@ -622,8 +622,10 @@ fn stat(value: u64, label: &str, modifier: &str) -> Html {
 /// rejection or similar, distinct from a probe that ran and disagreed).
 /// The third row is a strictly finer grain than the second: one
 /// disagreeing probe sinks its whole row in the row-level count above,
-/// but only costs one probe here — see [`Release::probe_agreement_fraction`]
-/// in `history_catalog.rs` for the same distinction drawn out historically.
+/// but only costs one probe here — the same row-vs-probe distinction
+/// `history_catalog.rs`'s own `Release::meets_full_spec_row_fraction`/
+/// `meets_full_spec_probe_fraction` pair draws out historically, on the
+/// full-compliance axis rather than this one.
 /// Reuses `pages::STAT_ROW_CSS`'s layout and adds only the per-bucket
 /// colours this page needs.
 fn stat_rows(report: &CoverageReport) -> Html {
@@ -791,8 +793,9 @@ fn results(report: &CoverageReport, filters: &Filters) -> Html {
   )
 }
 
-/// The ODRL 2.2 Coverage page: 52 documented vocabulary claims, 115 live
-/// `evaluate()` calls, and a per-row verdict computed in this browser.
+/// The Capability Audit page (named "ODRL 2.2 Coverage" through v0.20.3):
+/// 52 documented vocabulary claims, 115 live `evaluate()` calls, and a
+/// per-row verdict computed in this browser.
 #[component]
 pub fn CoveragePage() -> Html {
   let state = use_state(|| RunState::LoadingWasm);
@@ -824,7 +827,7 @@ pub fn CoveragePage() -> Html {
     <>
       <style>{ COVERAGE_CSS }</style>
       <Content>
-        <Title level={Level::H1}>{ "ODRL 2.2 Vocabulary Coverage" }</Title>
+        <Title level={Level::H1}>{ "Capability Audit" }</Title>
         <p>
           { "Every claim this study makes about which parts of the " }
           <a href="https://www.w3.org/TR/odrl-vocab/" target="_blank" rel="noopener noreferrer">

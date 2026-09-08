@@ -33,6 +33,49 @@ fn compliance_summary() -> Result<ComplianceSummary, String> {
     .map_err(|err| format!("could not parse compliance/reports/latest.json: {err}"))
 }
 
+/// This crate's own thin copy of `compliance/reports/release-history.json`'s
+/// shape -- only the newest release's full-compliance tally, the one
+/// number the Home page cites. `release-history/src/render.rs`'s
+/// `FullComplianceTally` is the richer, canonical struct; this one exists
+/// for the identical reason [`ComplianceSummary`] above does not import
+/// `compliance-runner`'s own types: a compile-time-embedded summary reads
+/// only the handful of fields it shows, not the whole per-release history.
+#[derive(Debug, Deserialize)]
+struct FullComplianceTallySummary {
+  rows_meets: u64,
+  rows_falls_short: u64,
+  rows_structural_gap: u64,
+}
+
+#[derive(Debug, Deserialize)]
+struct HistoryReleaseSummary {
+  full_compliance: Option<FullComplianceTallySummary>,
+}
+
+#[derive(Debug, Deserialize)]
+struct HistoryFileSummary {
+  releases: Vec<HistoryReleaseSummary>,
+}
+
+/// Embedded at compile time for the identical reason [`COMPLIANCE_LATEST_JSON`]
+/// is: this is a build-time figure (see `history_page.rs`'s own extensive
+/// reasoning for why the Release History dashboard is the one page that
+/// does not recompute what it shows), so citing it on the Home page reads
+/// it from the same committed artifact rather than running a second live
+/// wasm replay just for a teaser number.
+const RELEASE_HISTORY_JSON: &str = include_str!("../../compliance/reports/release-history.json");
+
+fn full_compliance_summary() -> Result<FullComplianceTallySummary, String> {
+  let file: HistoryFileSummary = serde_json::from_str(RELEASE_HISTORY_JSON)
+    .map_err(|err| format!("could not parse compliance/reports/release-history.json: {err}"))?;
+  file
+    .releases
+    .into_iter()
+    .last()
+    .and_then(|release| release.full_compliance)
+    .ok_or_else(|| "release-history.json's newest release carries no full_compliance tally".to_string())
+}
+
 /// Home page's own layout CSS: a hero band, its decorative mesh
 /// background, and the "what this is not" panel. Kept page-scoped
 /// (loaded via an inline `<style>` tag, `ds-oe-`-prefixed classes) rather
@@ -175,6 +218,32 @@ pub(crate) fn stat_row_html(total: u64, passed: u64, failed: u64, skipped: u64) 
   )
 }
 
+/// Renders the `/full-compliance` axis's own three-bucket stat row,
+/// reusing [`STAT_ROW_CSS`]'s palette rather than [`stat_row_html`]'s
+/// four fixed labels: "meets full spec" (green, like a pass), "falls
+/// short" (red, like a failure), "structural gap" (grey, like a skip --
+/// a permanent wire-contract absence, not a judged outcome). Deliberately
+/// carries no "total" bucket: the three numbers here are exactly what
+/// they say and nothing claims they sum to some other displayed figure.
+pub(crate) fn full_compliance_stat_row_html(meets: u64, falls_short: u64, structural_gap: u64) -> Html {
+  html!(
+    <div class="ds-oe-stats">
+      <div class="ds-oe-stat">
+        <span class="ds-oe-stat-value is-passed">{ meets }</span>
+        <span class="ds-oe-stat-label">{ "meets full spec" }</span>
+      </div>
+      <div class="ds-oe-stat">
+        <span class="ds-oe-stat-value is-failed">{ falls_short }</span>
+        <span class="ds-oe-stat-label">{ "falls short" }</span>
+      </div>
+      <div class="ds-oe-stat">
+        <span class="ds-oe-stat-value is-skipped">{ structural_gap }</span>
+        <span class="ds-oe-stat-label">{ "structural gap" }</span>
+      </div>
+    </div>
+  )
+}
+
 /// Case-study credit, shown on every page (see this crate's own top-level
 /// task note): links back to the ds42.org dataspace study's case study by
 /// naming its file path and repository rather than inventing a URL for a
@@ -295,6 +364,7 @@ pub fn HomePage() -> Html {
           </a>
           <Link<AppRoute> to={AppRoute::Demo} class={classes!("ds-oe-btn")}>{ "Try the Demonstrator" }</Link<AppRoute>>
           <Link<AppRoute> to={AppRoute::Compliance} class={classes!("ds-oe-btn")}>{ "Compliance results" }</Link<AppRoute>>
+          <Link<AppRoute> to={AppRoute::FullCompliance} class={classes!("ds-oe-btn")}>{ "Full ODRL 2.2 compliance" }</Link<AppRoute>>
         </div>
       </section>
 
@@ -348,8 +418,24 @@ pub fn HomePage() -> Html {
 
       <Content>
         <Title level={Level::H2}>{ "Current compliance summary" }</Title>
+        <p>
+          { "The vendored ODRL-Test-Suite (68 fixtures): does this engine match what that suite expects?" }
+        </p>
       </Content>
       { compliance_summary_view() }
+
+      <Content>
+        <Title level={Level::H2}>{ "Current full ODRL 2.2 compliance summary" }</Title>
+        <p>
+          { "A different, harder question: assuming this engine " }<strong>{ "should" }</strong>
+          { " fully implement ODRL 2.2 for every row that is not structurally out of scope, does its \
+             real, live behaviour meet that ideal? See " }
+          <Link<AppRoute> to={AppRoute::FullCompliance}>{ "ODRL 2.2 Full Compliance" }</Link<AppRoute>>
+          { " for the full row-by-row and probe-by-probe breakdown, including the judgment calls this \
+             study made along the way." }
+        </p>
+      </Content>
+      { full_compliance_summary_view() }
 
       <Content>
         <Title level={Level::H2}>{ "Get hands-on" }</Title>
@@ -385,6 +471,20 @@ pub fn HomePage() -> Html {
             </Link<AppRoute>>
           </CardBody>
         </Card>
+        <Card full_height=true>
+          <CardTitle><Title level={Level::H3}>{ "Full ODRL 2.2 compliance" }</Title></CardTitle>
+          <CardBody>
+            <p>
+              { "The same probes, replayed live against the same " }<code>{ "engine.wasm" }</code>
+              { ", judged this time against what full ODRL 2.2 requires rather than against what this \
+                 study documents -- with the contested spec readings and the researcher's own \
+                 uncertainty shown on the page rather than hidden behind a single number." }
+            </p>
+            <Link<AppRoute> to={AppRoute::FullCompliance} class={classes!("ds-oe-btn", "ds-oe-btn--primary")}>
+              { "View full compliance" }
+            </Link<AppRoute>>
+          </CardBody>
+        </Card>
       </Gallery>
 
       { case_study_credit() }
@@ -401,6 +501,22 @@ fn compliance_summary_view() -> Html {
     Ok(summary) => stat_row_html(summary.total, summary.passed, summary.failed, summary.skipped),
     Err(message) => html!(
       <Alert inline=true r#type={AlertType::Danger} title="Could not read compliance/reports/latest.json">
+        <p>{ message }</p>
+      </Alert>
+    ),
+  }
+}
+
+/// Renders the full-compliance stat row from the compile-time-embedded
+/// `compliance/reports/release-history.json`'s newest release, or a plain
+/// error `Alert` if that file's shape ever stops matching
+/// [`FullComplianceTallySummary`] -- same failure discipline as
+/// [`compliance_summary_view`] above.
+fn full_compliance_summary_view() -> Html {
+  match full_compliance_summary() {
+    Ok(summary) => full_compliance_stat_row_html(summary.rows_meets, summary.rows_falls_short, summary.rows_structural_gap),
+    Err(message) => html!(
+      <Alert inline=true r#type={AlertType::Danger} title="Could not read compliance/reports/release-history.json">
         <p>{ message }</p>
       </Alert>
     ),

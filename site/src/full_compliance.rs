@@ -620,9 +620,9 @@ pub fn judge_probe(fixture: &ProbeFixture, outcome: &ProbeOutcome) -> (SpecOutco
     ProbeStatus::Disagreed => (
       SpecOutcome::Undetermined,
       Some(format!(
-        "the engine departed from its own documented behaviour here ({}), which the Coverage page reports \
-         as a contradiction. The full-spec judgment recorded for this probe was researched against the \
-         documented behaviour, so it does not describe what just ran.",
+        "the engine departed from its own documented behaviour here ({}), which the Capability Audit page \
+         reports as a contradiction. The full-spec judgment recorded for this probe was researched against \
+         the documented behaviour, so it does not describe what just ran.",
         outcome.mismatch.clone().unwrap_or_else(|| "no detail".to_string())
       )),
     ),
