@@ -297,7 +297,15 @@ pub const CONTESTED_READINGS: &[ContestedReading] = &[
               3.16.8's \"contains\" as a set relation a bare scalar cannot satisfy.",
     alternative: "Standard mereology makes parthood reflexive, so every value contains itself and the ideal \
                   would be Allow with the reason 'purpose hasPart odrl:Purpose'. ODRL 2.2 says nothing \
-                  about reflexivity either way. Either branch leaves this row falling short.",
+                  about reflexivity either way. Either branch leaves this row falling short. Two \
+                  independent, unrelated signals lean this way, from a 2026-09-08 cross-engine study \
+                  (docs/benchmarks/2026-09-08-odrl-full-compliance-comparative.md in the dataspace repo): \
+                  a spec-literate reader given only this probe's request and told to read the real W3C \
+                  text cold, with no exposure to either reading here, leaned Allow on reflexive-containment \
+                  grounds; and DIPS-Tools/odrl-Engine (OVAL) is the one external engine of three actually \
+                  implementing hasPart as reflexive subset containment, and lands on Allow too. Weaker \
+                  signal than party.assigner-assignee below (one lean plus one engine, not three unrelated \
+                  sources) but pointing the same direction -- worth a second look, not yet acted on.",
   },
   ContestedReading {
     row: "policy-classes.discrimination",
@@ -360,7 +368,22 @@ pub const CONTESTED_READINGS: &[ContestedReading] = &[
               narrowing Deny goes beyond ODRL rather than approximating it.",
     alternative: "3.2.3's clause is about granting, and the spec never says an evaluator MUST NOT narrow -- \
                   under which the current Deny is fine and this row meets full spec. This is the judgment \
-                  in the whole set most likely to be contested.",
+                  in the whole set most likely to be contested. As of a 2026-09-08 cross-engine study \
+                  (docs/benchmarks/2026-09-08-odrl-full-compliance-comparative.md in the dataspace repo), \
+                  it is also the one judgment on this page with real, independent evidence against the \
+                  shipped reading rather than just a second opinion on it: a spec-literate reader given \
+                  only this probe's bare request and told to read the real W3C text cold (no exposure to \
+                  either reading here) landed on Deny, citing IM 2.3.1's own definition of assignee as \"the \
+                  Party that is the recipient of the Rule\"; two real, independently-authored \
+                  ODRL-Test-Suite fixtures never written with this question in mind \
+                  (data/policies/policy-5.ttl + testcase-016-bob.ttl, and the symmetric policy-6.ttl + \
+                  testcase-018-alice.ttl) show that suite's own ground truth treating a Set's assignee \
+                  mismatch as narrowing; and two of the three external engines that cross-engine study ran \
+                  against this same probe (SolidLab, OVAL) already answer Deny, from an unrelated \
+                  undifferentiated party-match rule rather than reasoning about this row at all. None of \
+                  the three is a spec oracle alone, but three unrelated routes landing on the same answer \
+                  is a real reason to re-review this row deliberately, not a reason to have already changed \
+                  it here -- flagged rather than silently flipped.",
   },
   ContestedReading {
     row: "other.uid",
