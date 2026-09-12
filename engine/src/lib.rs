@@ -3,6 +3,7 @@ pub mod claims;
 pub mod constraint;
 pub mod decision;
 pub mod profile;
+pub mod report;
 mod temporal;
 pub mod wire;
 
@@ -13,7 +14,13 @@ pub use decision::{
     DutyAttachment, Policy, Rule, RuleKind, UnrecognizedAction, UnresolvedDuty, MAX_CONSEQUENCE_DEPTH,
 };
 pub use profile::{resolve, ActionDecl, Behaviour, DutyMode, Profile, ResolvedConfig};
+pub use report::{
+    ActivationState, AttemptState, ConstraintNode, DeonticState, DetailedActionReport, DetailedConstraintReport,
+    DetailedDutyReport, DetailedEvaluation, DetailedPermissionReport, DetailedPolicyReport, DetailedPolicyRequest,
+    DetailedPremiseReport, DetailedProhibitionReport, DetailedRuleReport, DetailedTargetReport, PerformanceState,
+    SatisfactionState, SkippedPolicyReport,
+};
 pub use wire::{
-    evaluate_request, left_operands_for_request, parse_error_response, performable_actions_for_request, DutyEntry,
-    Request, RequestConfig, Response, WireDecision, WirePolicy,
+    evaluate_request, evaluate_request_detailed, left_operands_for_request, parse_error_response,
+    performable_actions_for_request, DutyEntry, Request, RequestConfig, Response, WireDecision, WirePolicy,
 };

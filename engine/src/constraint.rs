@@ -574,6 +574,17 @@ impl Constraint {
             return children.iter().all(|c| c.evaluate_bounded(claims, depth + 1));
         }
 
+        self.evaluate_atomic(claims)
+    }
+
+    /// The atomic (non-logical) evaluation, extracted verbatim from
+    /// `evaluate_bounded`'s own former inline tail so `evaluate_report_bounded`
+    /// below can call the identical logic for its own atomic leaves rather
+    /// than a second, hand-re-derived copy. Never called on a logical
+    /// constraint -- `evaluate_bounded` only reaches here once none of
+    /// `xone`/`or`/`and`/`and_sequence` is `Some`, and `evaluate_report_bounded`
+    /// makes the identical check (`is_logical`) before calling this.
+    pub(crate) fn evaluate_atomic(&self, claims: &Claims) -> bool {
         let value = claims.get(&self.left_operand);
 
         if self.operator == Operator::IsNoneOf {
@@ -607,6 +618,94 @@ impl Constraint {
             Operator::Lteq => temporal_matches(value, &self.right_operand, |o| o != Greater),
             Operator::Gt => temporal_matches(value, &self.right_operand, |o| o == Greater),
             Operator::Gteq => temporal_matches(value, &self.right_operand, |o| o != Less),
+        }
+    }
+
+    /// This constraint's own node kind, per the fixed `xone > or > and >
+    /// and_sequence` precedence `evaluate_bounded` already dispatches by —
+    /// without recursing into any children. Used by `evaluate_report_bounded`
+    /// so a constraint nested past `MAX_CONSTRAINT_DEPTH` can still report
+    /// its real shape (fixing the same-named design's own past bug: always
+    /// claiming `Atomic` for a logical node cut off by the depth bound).
+    pub(crate) fn node_kind(&self) -> crate::report::ConstraintNode {
+        use crate::report::ConstraintNode;
+        if self.xone.is_some() {
+            ConstraintNode::Xone
+        } else if self.or.is_some() {
+            ConstraintNode::Or
+        } else if self.and.is_some() {
+            ConstraintNode::And
+        } else if self.and_sequence.is_some() {
+            ConstraintNode::AndSequence
+        } else {
+            ConstraintNode::Atomic {
+                left_operand: self.left_operand.clone(),
+                operator: self.operator,
+                right_operand: self.right_operand.clone(),
+            }
+        }
+    }
+
+    /// The `Vec<Constraint>` behind whichever of `xone`/`or`/`and`/
+    /// `and_sequence` is `Some`, per the same precedence `node_kind` reads —
+    /// empty for the atomic case, which never has children to report.
+    fn logical_children(&self) -> &[Constraint] {
+        if let Some(children) = &self.xone {
+            children
+        } else if let Some(children) = &self.or {
+            children
+        } else if let Some(children) = &self.and {
+            children
+        } else if let Some(children) = &self.and_sequence {
+            children
+        } else {
+            &[]
+        }
+    }
+
+    /// The `report:ConstraintReport`-shaped tree for this constraint against
+    /// `claims` — the detailed-evaluation counterpart of `evaluate`, walking
+    /// the identical structure (same node dispatch, same combining rules,
+    /// same `MAX_CONSTRAINT_DEPTH` bound) but recording each node's own
+    /// `report:satisfactionState` rather than collapsing straight to one
+    /// boolean.
+    pub(crate) fn evaluate_report(&self, claims: &Claims) -> crate::report::DetailedConstraintReport {
+        self.evaluate_report_bounded(claims, 0)
+    }
+
+    fn evaluate_report_bounded(&self, claims: &Claims, depth: usize) -> crate::report::DetailedConstraintReport {
+        use crate::report::{DetailedConstraintReport, SatisfactionState};
+
+        let node = self.node_kind();
+
+        if depth > MAX_CONSTRAINT_DEPTH {
+            // Same bound, same "fail closed" direction `evaluate_bounded`
+            // already takes past it -- but the shape reported is honest:
+            // the real node kind, simply not recursed into.
+            return DetailedConstraintReport { node, satisfaction_state: SatisfactionState::Unsatisfied, children: vec![] };
+        }
+
+        if self.is_logical() {
+            let children: Vec<DetailedConstraintReport> =
+                self.logical_children().iter().map(|c| c.evaluate_report_bounded(claims, depth + 1)).collect();
+            let child_satisfied = |c: &DetailedConstraintReport| c.satisfaction_state == SatisfactionState::Satisfied;
+            let satisfied = if self.xone.is_some() {
+                children.iter().filter(|c| child_satisfied(c)).count() == 1
+            } else if self.or.is_some() {
+                children.iter().any(child_satisfied)
+            } else {
+                // `and` and `and_sequence` share the identical `.all()`
+                // combining rule `evaluate_bounded` already applies -- see
+                // that field's own doc comment for why.
+                children.iter().all(child_satisfied)
+            };
+            return DetailedConstraintReport { node, satisfaction_state: SatisfactionState::of(satisfied), children };
+        }
+
+        DetailedConstraintReport {
+            node,
+            satisfaction_state: SatisfactionState::of(self.evaluate_atomic(claims)),
+            children: vec![],
         }
     }
 }

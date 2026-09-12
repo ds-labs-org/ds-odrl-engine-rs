@@ -1156,9 +1156,374 @@ fn resolve_one(
     Ok(result)
 }
 
-struct Evaluation<'a> {
-    policy: &'a WirePolicy,
+/// One policy that survived `odrl:inheritFrom` resolution and party-role
+/// scoping and therefore actually got a `decide()` call, plus everything
+/// both `response_from_scaffolding` and `detailed_from_scaffolding` need
+/// from that one call without re-deriving or re-running it.
+struct PolicyEvaluation {
+    /// Index into `Scaffolding::policies` (the merged, post-inheritance
+    /// list) naming which policy this is -- kept as an index rather than a
+    /// borrow so `Scaffolding` owns everything it needs with no lifetime
+    /// parameter to thread through two independent consumers.
+    policy_index: usize,
+    /// Exactly the `decision::Policy` `resolve_inherit_from` and the
+    /// conflict-forcing step below produced for this policy -- i.e. already
+    /// conflict-forced when `conflict_values_differ` applied. `decide()`
+    /// and `derive_detailed_rule_reports` both read this same value; there
+    /// is no second, independently-forced copy anywhere.
+    decision_policy: Policy,
+    /// The un-forced, merged `odrl:conflict` value, kept only for
+    /// `report::DetailedPolicyReport::declared_conflict` -- never consulted
+    /// by `decide()` or by the detailed derivation's own combining logic.
+    declared_conflict: ConflictStrategy,
+    conflict_forced_invalid: bool,
     outcome: DecisionOutcome,
+}
+
+/// One policy `resolve_inherit_from`'s output still names but
+/// `party_role_mismatch` removed before `decide()` ever saw it.
+struct SkippedPolicy {
+    policy_id: String,
+    reason: String,
+}
+
+/// Everything `evaluate_request_for_action` and
+/// `evaluate_request_detailed_for_action` share: the empty-policies
+/// default-deny check, `odrl:inheritFrom` resolution (including its
+/// conflict-forcing step), party-role scoping, and each applicable policy's
+/// own `decide()` call -- computed exactly once, so the coarse and detailed
+/// paths cannot disagree about which rule decided anything.
+///
+/// `early`, when `Some`, is one of the two whole-request outcomes that never
+/// reach a per-policy `decide()` call at all (an empty `policies` array, or
+/// a `resolve_inherit_from` error such as a circular `inheritFrom` chain) --
+/// both response consumers return it verbatim, and the detailed consumer
+/// reports empty `policy_reports`/`skipped_policies`, honestly reflecting
+/// that nothing was evaluated.
+struct Scaffolding {
+    dataset_id: String,
+    requested_action: String,
+    config: ResolvedConfig,
+    claims: Claims,
+    requested_target: String,
+    asset_collections: Vec<String>,
+    /// The merged (post-`resolve_inherit_from`), owned policy list -- in
+    /// the same order `req.policies` named them. `PolicyEvaluation::
+    /// policy_index` indexes into this.
+    policies: Vec<WirePolicy>,
+    /// One entry per policy that survived party-role scoping and got a
+    /// `decide()` call -- in request order.
+    evaluations: Vec<PolicyEvaluation>,
+    /// Policies removed by `party_role_mismatch` before `decide()` ever ran.
+    skipped: Vec<SkippedPolicy>,
+    early: Option<Response>,
+}
+
+/// Everything `evaluate_request_for_action` does today up to and including
+/// each applicable policy's own `decide()` call. Byte-identical behavior to
+/// today's inline code -- this is an extraction, not a rewrite. Both
+/// `evaluate_request_for_action` and `evaluate_request_detailed_for_action`
+/// call this and nothing else computes a `decide()` outcome.
+fn build_scaffolding(req: &Request, requested_action: &str) -> Scaffolding {
+    let config = ResolvedConfig::from(&req.config);
+    let claims = req.claims.clone();
+    let requested_target = req.dataset_id.clone();
+    let asset_collections = req.asset_collections.clone();
+
+    if req.policies.is_empty() {
+        return Scaffolding {
+            dataset_id: req.dataset_id.clone(),
+            requested_action: requested_action.to_string(),
+            config,
+            claims,
+            requested_target,
+            asset_collections,
+            policies: Vec::new(),
+            evaluations: Vec::new(),
+            skipped: Vec::new(),
+            early: Some(Response {
+                dataset_id: req.dataset_id.clone(),
+                decision: WireDecision::Deny,
+                reason: "no policies in the request: an empty policy set is a default deny, not the \
+                         open exception Section 4.3 grants a single policy's empty permissions list"
+                    .to_string(),
+                duties: Vec::new(),
+            }),
+        };
+    }
+
+    // `odrl:inheritFrom`, ahead of everything else, including party-role
+    // scoping below: see `resolve_inherit_from`. A circular chain, or a
+    // parent `id` absent from this same request, is a caller configuration
+    // gap rather than a decidable request, so it fails the whole request
+    // here rather than being reported as any one policy's own outcome.
+    let (policies, conflict_values_differ): (Vec<WirePolicy>, HashMap<String, bool>) =
+        match resolve_inherit_from(&req.policies) {
+            Ok(result) => result,
+            Err(reason) => {
+                return Scaffolding {
+                    dataset_id: req.dataset_id.clone(),
+                    requested_action: requested_action.to_string(),
+                    config,
+                    claims,
+                    requested_target,
+                    asset_collections,
+                    policies: Vec::new(),
+                    evaluations: Vec::new(),
+                    skipped: Vec::new(),
+                    early: Some(Response {
+                        dataset_id: req.dataset_id.clone(),
+                        decision: WireDecision::Error,
+                        reason,
+                        duties: Vec::new(),
+                    }),
+                };
+            }
+        };
+
+    // Party-role scoping, ahead of everything past inheritance: a policy
+    // this caller is not the `odrl:assignee` of is **absent from the
+    // request**, not a policy that happens to grant nothing. See
+    // `party_role_mismatch`.
+    let mut skipped = Vec::new();
+    let mut evaluations = Vec::new();
+    for (policy_index, policy) in policies.iter().enumerate() {
+        match party_role_mismatch(policy, &req.claims, &config) {
+            Some(mismatch) => {
+                skipped.push(SkippedPolicy { policy_id: policy.id.clone(), reason: mismatch.describe() });
+            }
+            None => {
+                // Information Model §2.10, validation rule 4's structural
+                // half (`resolve_inherit_from`): this policy's own
+                // `odrl:conflict` and at least one ancestor's it merged
+                // rules from actually disagree. `ConflictStrategy::Invalid`
+                // already has exactly the right shape for the per-request
+                // half -- void *only* when `decide` finds a genuine
+                // permission/prohibition collision for this exact request,
+                // and otherwise a complete no-op -- so forcing it here
+                // reuses that existing machinery outright. The policy's own
+                // *declared* value is kept separately (`declared_conflict`)
+                // for `describe_reason`/`DetailedPolicyReport`, which need
+                // the honest one rather than the forced one.
+                let declared_conflict = policy.conflict;
+                let conflict_forced_invalid = conflict_values_differ.get(&policy.id).copied().unwrap_or(false);
+                let mut decision_policy = policy.as_decision_policy();
+                if conflict_forced_invalid {
+                    decision_policy.conflict = ConflictStrategy::Invalid;
+                }
+                let outcome = decide(
+                    &decision_policy,
+                    &req.claims,
+                    &config,
+                    requested_action,
+                    &req.dataset_id,
+                    &req.asset_collections,
+                );
+                evaluations.push(PolicyEvaluation {
+                    policy_index,
+                    decision_policy,
+                    declared_conflict,
+                    conflict_forced_invalid,
+                    outcome,
+                });
+            }
+        }
+    }
+
+    Scaffolding {
+        dataset_id: req.dataset_id.clone(),
+        requested_action: requested_action.to_string(),
+        config,
+        claims,
+        requested_target,
+        asset_collections,
+        policies,
+        evaluations,
+        skipped,
+        early: None,
+    }
+}
+
+/// Exactly today's post-`decide()` logic (deny-override `.find()` across
+/// `evaluations`, `describe_reason`, the `duties` list assembly) -- reads
+/// `scaffold.evaluations[..].outcome` instead of calling `decide()` again,
+/// since it is already computed. Produces byte-identical `Response` to
+/// today's function for every input.
+fn response_from_scaffolding(scaffold: &Scaffolding) -> Response {
+    if let Some(early) = &scaffold.early {
+        return early.clone();
+    }
+
+    if scaffold.evaluations.is_empty() {
+        // Every policy in the request is addressed to somebody else (the
+        // merged list was non-empty -- the `early` branch above already
+        // handles the genuinely-empty and inheritance-error cases -- but
+        // party-role scoping removed every one of them). The set this
+        // caller is actually being evaluated against is empty, which is the
+        // same default deny an empty `policies` array is -- but it needs
+        // its own trace, because "no policy applies to you" and "no
+        // permission matched" are entirely different things for a host to
+        // act on.
+        return Response {
+            dataset_id: scaffold.dataset_id.clone(),
+            decision: WireDecision::Deny,
+            reason: format!(
+                "no policy in the request applies to this caller: {}",
+                scaffold.skipped.iter().map(|s| s.reason.as_str()).collect::<Vec<_>>().join("; ")
+            ),
+            duties: Vec::new(),
+        };
+    }
+
+    let deciding = scaffold
+        .evaluations
+        .iter()
+        .find(|e| matches!(e.outcome.decision, Decision::Error(_)))
+        .or_else(|| scaffold.evaluations.iter().find(|e| e.outcome.decision == Decision::Deny))
+        .unwrap_or(&scaffold.evaluations[0]);
+
+    let wire_decision = match deciding.outcome.decision {
+        Decision::Allow => WireDecision::Allow,
+        Decision::Deny => WireDecision::Deny,
+        Decision::Error(_) => WireDecision::Error,
+    };
+
+    let deciding_policy = &scaffold.policies[deciding.policy_index];
+
+    let reason = describe_reason(
+        deciding_policy,
+        &deciding.outcome,
+        &scaffold.claims,
+        &scaffold.requested_action,
+        RequestedTarget { target: &scaffold.requested_target, asset_collections: &scaffold.asset_collections },
+        &scaffold.config,
+        deciding.conflict_forced_invalid,
+    );
+
+    // Under `duty_mode: deny`, a policy-level obligation's unresolved state
+    // is exactly what the `Deny` decision already says, so listing it again
+    // is noise. The reasoning does not transfer to the two narrower
+    // attachment points -- see the original doc comment on this same logic
+    // in `evaluate_request_for_action`'s history for the full reasoning.
+    let duties = if matches!(deciding.outcome.decision, Decision::Error(_)) {
+        Vec::new()
+    } else {
+        let suppress_obligations = scaffold.config.duty_mode == DutyMode::Deny;
+        scaffold
+            .evaluations
+            .iter()
+            .flat_map(|e| {
+                let policy_id = scaffold.policies[e.policy_index].id.clone();
+                let entries: Vec<DutyEntry> = e
+                    .outcome
+                    .unresolved_duties
+                    .iter()
+                    .filter(|duty| !(suppress_obligations && duty.is_plain_policy_obligation()))
+                    .map(|duty| DutyEntry {
+                        policy_id: policy_id.clone(),
+                        action: duty.action.clone(),
+                        resolved: false,
+                        source: (!duty.is_plain_policy_obligation()).then(|| duty.path()),
+                    })
+                    .collect();
+                entries
+            })
+            .collect()
+    };
+
+    Response {
+        dataset_id: scaffold.dataset_id.clone(),
+        decision: wire_decision,
+        reason,
+        duties,
+    }
+}
+
+/// One `report::DetailedPolicyReport` per policy that survived party-role
+/// scoping, plus one `report::SkippedPolicyReport` per policy that did not
+/// -- `scaffold.early` (an empty `policies` array, or a `resolve_inherit_from`
+/// error) is reported as an empty `DetailedEvaluation`, since neither case
+/// ever resolves a policy list to walk in the first place.
+fn detailed_from_scaffolding(scaffold: &Scaffolding) -> crate::report::DetailedEvaluation {
+    let policy_reports = scaffold
+        .evaluations
+        .iter()
+        .map(|pe| {
+            let policy = &scaffold.policies[pe.policy_index];
+            let policy_request = crate::report::DetailedPolicyRequest {
+                requested_action: scaffold.requested_action.clone(),
+                requested_target: scaffold.requested_target.clone(),
+            };
+            match &pe.outcome.decision {
+                Decision::Error(unrecognized) => crate::report::DetailedPolicyReport {
+                    policy_id: policy.id.clone(),
+                    policy_request,
+                    rule_reports: Vec::new(),
+                    evaluation_error: Some(unrecognized.clone()),
+                    declared_conflict: pe.declared_conflict,
+                    conflict_forced_invalid: pe.conflict_forced_invalid,
+                },
+                _ => {
+                    let (rule_reports, _obligation_outstanding) = crate::decision::derive_detailed_rule_reports(
+                        &pe.decision_policy,
+                        &scaffold.claims,
+                        &scaffold.config,
+                        &scaffold.requested_action,
+                        &scaffold.requested_target,
+                        &scaffold.asset_collections,
+                    );
+                    crate::report::DetailedPolicyReport {
+                        policy_id: policy.id.clone(),
+                        policy_request,
+                        rule_reports,
+                        evaluation_error: None,
+                        declared_conflict: pe.declared_conflict,
+                        conflict_forced_invalid: pe.conflict_forced_invalid,
+                    }
+                }
+            }
+        })
+        .collect();
+
+    let skipped_policies = scaffold
+        .skipped
+        .iter()
+        .map(|s| crate::report::SkippedPolicyReport { policy_id: s.policy_id.clone(), reason: s.reason.clone() })
+        .collect();
+
+    crate::report::DetailedEvaluation {
+        dataset_id: scaffold.dataset_id.clone(),
+        requested_action: scaffold.requested_action.clone(),
+        policy_reports,
+        skipped_policies,
+    }
+}
+
+/// The `report:`-vocabulary-shaped counterpart of [`evaluate_request`]: the
+/// same decision, plus a full per-rule/per-constraint breakdown suitable for
+/// driving a form-based test-case editor or an RDF-emitting `report:`
+/// document, without asking a caller to re-derive it from `Response` alone
+/// (which deliberately keeps only the coarse `Allow`/`Deny`/`Error` plus a
+/// human-readable `reason` string).
+///
+/// Shares its entire per-policy computation with `evaluate_request` via
+/// `build_scaffolding` -- the two literally cannot disagree about which
+/// rule decided anything, because neither one computes a `decide()` outcome
+/// on its own. Additive: `evaluate_request`'s own signature, behavior, and
+/// the wire JSON contract (`Request`/`Response`) are all unchanged by this
+/// function's existence.
+pub fn evaluate_request_detailed(req: &Request) -> (Response, crate::report::DetailedEvaluation) {
+    evaluate_request_detailed_for_action(req, &req.action)
+}
+
+fn evaluate_request_detailed_for_action(
+    req: &Request,
+    requested_action: &str,
+) -> (Response, crate::report::DetailedEvaluation) {
+    let scaffold = build_scaffolding(req, requested_action);
+    let response = response_from_scaffolding(&scaffold);
+    let detailed = detailed_from_scaffolding(&scaffold);
+    (response, detailed)
 }
 
 /// Section 5.2/7's multi-policy combining rule, chosen and documented here
@@ -1214,186 +1579,14 @@ pub fn evaluate_request(req: &Request) -> Response {
 /// more importantly, without a second copy of Section 5.2's multi-policy
 /// combining rule existing anywhere. `evaluate_request` is this called with
 /// `req.action`, and is otherwise unchanged in every observable respect.
+///
+/// Delegates to `build_scaffolding` + `response_from_scaffolding` --
+/// `response_from_scaffolding` is a direct extraction of the exact steps
+/// this function's body used to run inline, so this produces a
+/// byte-identical `Response` to what it always has, for every input.
 fn evaluate_request_for_action(req: &Request, requested_action: &str) -> Response {
-    let config = ResolvedConfig::from(&req.config);
-
-    if req.policies.is_empty() {
-        return Response {
-            dataset_id: req.dataset_id.clone(),
-            decision: WireDecision::Deny,
-            reason: "no policies in the request: an empty policy set is a default deny, not the \
-                     open exception Section 4.3 grants a single policy's empty permissions list"
-                .to_string(),
-            duties: Vec::new(),
-        };
-    }
-
-    // `odrl:inheritFrom`, ahead of everything else, including party-role
-    // scoping below: see this function's own doc comment and
-    // `resolve_inherit_from`. A circular chain, or a parent `id` absent
-    // from this same request, is a caller configuration gap rather than a
-    // decidable request, so it fails the whole request here rather than
-    // being reported as any one policy's own outcome.
-    let (policies, conflict_values_differ): (Vec<WirePolicy>, HashMap<String, bool>) =
-        match resolve_inherit_from(&req.policies) {
-            Ok(result) => result,
-            Err(reason) => {
-                return Response {
-                    dataset_id: req.dataset_id.clone(),
-                    decision: WireDecision::Error,
-                    reason,
-                    duties: Vec::new(),
-                };
-            }
-        };
-
-    // Party-role scoping, ahead of everything past inheritance: a policy
-    // this caller is not the `odrl:assignee` of is **absent from the
-    // request**, not a policy that happens to grant nothing. The
-    // distinction is the whole decision (see this function's own doc
-    // comment above) — it is why the prohibition of a policy addressed to
-    // somebody else cannot deny this caller, why an unrecognized action
-    // inside one is not this caller's configuration gap, and why
-    // `behaviour: "open"` does not turn one into a vacuous Allow. Off
-    // unless `config.party_identity_claim` names a claim key, so `skipped`
-    // is empty for every request built before this existed and this whole
-    // block is a no-op.
-    let (applicable, skipped): (Vec<&WirePolicy>, Vec<PartyRoleMismatch>) = {
-        let mut applicable = Vec::with_capacity(policies.len());
-        let mut skipped = Vec::new();
-        for policy in &policies {
-            match party_role_mismatch(policy, &req.claims, &config) {
-                Some(mismatch) => skipped.push(mismatch),
-                None => applicable.push(policy),
-            }
-        }
-        (applicable, skipped)
-    };
-
-    if applicable.is_empty() {
-        // Every policy in the request is addressed to somebody else. The
-        // set this caller is actually being evaluated against is empty,
-        // which is the same default deny an empty `policies` array is —
-        // but it needs its own trace, because "no policy applies to you" and
-        // "no permission matched" are entirely different things for a host
-        // to act on, and reporting the second for the first would send a
-        // debugging host looking at its constraints and claims rather than
-        // at who the policy names.
-        return Response {
-            dataset_id: req.dataset_id.clone(),
-            decision: WireDecision::Deny,
-            reason: format!(
-                "no policy in the request applies to this caller: {}",
-                skipped.iter().map(PartyRoleMismatch::describe).collect::<Vec<_>>().join("; ")
-            ),
-            duties: Vec::new(),
-        };
-    }
-
-    let evaluations: Vec<Evaluation> = applicable
-        .into_iter()
-        .map(|policy| {
-            // Information Model §2.10, validation rule 4's structural half
-            // (`resolve_inherit_from`): this policy's own `odrl:conflict`
-            // and at least one ancestor's it merged rules from actually
-            // disagree. `ConflictStrategy::Invalid` already has exactly the
-            // right shape for the per-request half — void *only* when
-            // `decide` finds a genuine permission/prohibition collision for
-            // this exact request, and otherwise a complete no-op — so
-            // forcing it here reuses that existing machinery outright
-            // rather than adding a second conflict-resolution path. The
-            // policy's own *declared* value is left untouched on `policy`
-            // itself for `describe_reason` below, which needs the honest
-            // one (e.g. `prohibit`) rather than the forced one to report
-            // why the policy is actually void.
-            let mut decision_policy = policy.as_decision_policy();
-            if conflict_values_differ.get(&policy.id).copied().unwrap_or(false) {
-                decision_policy.conflict = ConflictStrategy::Invalid;
-            }
-            Evaluation {
-                policy,
-                // `req.dataset_id` is this request's `odrl:target` (see
-                // `Request`'s own doc comment) — the asset each rule's own
-                // `odrl:target`, if it has one, is compared against.
-                // `req.asset_collections` names every `odrl:AssetCollection`
-                // the host asserts `dataset_id` is `odrl:partOf`, so a rule
-                // scoped to a collection IRI is in play for a member too.
-                outcome: decide(
-                    &decision_policy,
-                    &req.claims,
-                    &config,
-                    requested_action,
-                    &req.dataset_id,
-                    &req.asset_collections,
-                ),
-            }
-        })
-        .collect();
-
-    let deciding = evaluations
-        .iter()
-        .find(|e| matches!(e.outcome.decision, Decision::Error(_)))
-        .or_else(|| evaluations.iter().find(|e| e.outcome.decision == Decision::Deny))
-        .unwrap_or(&evaluations[0]);
-
-    let wire_decision = match deciding.outcome.decision {
-        Decision::Allow => WireDecision::Allow,
-        Decision::Deny => WireDecision::Deny,
-        Decision::Error(_) => WireDecision::Error,
-    };
-
-    let reason = describe_reason(
-        deciding.policy,
-        &deciding.outcome,
-        &req.claims,
-        requested_action,
-        RequestedTarget { target: &req.dataset_id, asset_collections: &req.asset_collections },
-        &config,
-        conflict_values_differ.get(&deciding.policy.id).copied().unwrap_or(false),
-    );
-
-    // Under `duty_mode: deny`, a policy-level obligation's unresolved state
-    // is exactly what the `Deny` decision already says, so listing it again
-    // is noise — that suppression is Section 5.2's and is unchanged. The
-    // reasoning does not transfer to the two narrower attachment points:
-    // an unresolved per-permission duty removes one permission from
-    // consideration (the request may still be allowed by another), and an
-    // unresolved remedy never drove the decision at all, so in both cases
-    // the response would otherwise carry no trace of an obligation the host
-    // really does have. A policy set with neither — every fixture in this
-    // workspace — emits exactly the empty list it always did.
-    let duties = if matches!(deciding.outcome.decision, Decision::Error(_)) {
-        Vec::new()
-    } else {
-        let suppress_obligations = config.duty_mode == DutyMode::Deny;
-        evaluations
-            .iter()
-            .flat_map(|e| {
-                e.outcome
-                    .unresolved_duties
-                    .iter()
-                    .filter(move |duty| !(suppress_obligations && duty.is_plain_policy_obligation()))
-                    .map(move |duty| DutyEntry {
-                        policy_id: e.policy.id.clone(),
-                        action: duty.action.clone(),
-                        resolved: false,
-                        // Omitted for Section 4.5's original shape — a
-                        // policy-level obligation outstanding in its own
-                        // right — so every entry this engine emitted
-                        // before nested duties existed is exactly the
-                        // three fields it always was.
-                        source: (!duty.is_plain_policy_obligation()).then(|| duty.path()),
-                    })
-            })
-            .collect()
-    };
-
-    Response {
-        dataset_id: req.dataset_id.clone(),
-        decision: wire_decision,
-        reason,
-        duties,
-    }
+    let scaffold = build_scaffolding(req, requested_action);
+    response_from_scaffolding(&scaffold)
 }
 
 /// Every claim-map key the policies in `req` could actually test, sorted
@@ -1512,6 +1705,9 @@ mod tests {
     use super::*;
     use crate::claims::ClaimValue;
     use crate::decision::MAX_CONSEQUENCE_DEPTH;
+    use crate::report::{
+        ActivationState, AttemptState, DeonticState, DetailedPremiseReport, DetailedRuleReport, PerformanceState,
+    };
 
     const ALLOW_EXAMPLE: &str = r#"{
       "dataset_id": "urn:uuid:example-dataset-1",
@@ -4424,5 +4620,254 @@ mod tests {
                 assert_eq!(evaluate_request(&parsed), baseline, "{label} / {term}");
             }
         }
+    }
+
+    // -- evaluate_request_detailed -----------------------------------------
+
+    fn detailed_from_text(text: &str) -> (Response, crate::report::DetailedEvaluation) {
+        evaluate_request_detailed(&serde_json::from_str::<Request>(text).unwrap())
+    }
+
+    /// The one `DetailedPermissionReport` of the one policy this fixture's
+    /// request names -- every test below builds a single-policy,
+    /// single-permission-or-prohibition request, so "the first rule report
+    /// of the first policy" is unambiguous.
+    fn only_permission(detailed: &crate::report::DetailedEvaluation) -> &crate::report::DetailedPermissionReport {
+        assert_eq!(detailed.policy_reports.len(), 1, "expected exactly one policy report: {detailed:?}");
+        match &detailed.policy_reports[0].rule_reports[0] {
+            DetailedRuleReport::Permission(p) => p,
+            other => panic!("expected the first rule report to be a Permission, got {other:?}"),
+        }
+    }
+
+    fn only_prohibition_at(
+        detailed: &crate::report::DetailedEvaluation,
+        index: usize,
+    ) -> &crate::report::DetailedProhibitionReport {
+        match &detailed.policy_reports[0].rule_reports[index] {
+            DetailedRuleReport::Prohibition(p) => p,
+            other => panic!("expected rule report {index} to be a Prohibition, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn detailed_evaluation_reports_a_simple_granting_permission_as_active() {
+        let req = r#"{
+          "dataset_id": "urn:uuid:ds-detailed-1",
+          "action": "read",
+          "config": {
+            "@type": "odrl:Profile",
+            "@id": "https://example.org/profiles/test",
+            "odrl:action": [{"@id": "read"}],
+            "dutyMode": "advise"
+          },
+          "policies": [{
+            "id": "policy-simple",
+            "kind": "Set",
+            "assigner": "did:web:provider.example",
+            "assignee": null,
+            "permissions": [{"action": "read", "constraints": []}],
+            "prohibitions": [],
+            "obligations": []
+          }],
+          "claims": {}
+        }"#;
+
+        let (response, detailed) = detailed_from_text(req);
+        assert_eq!(response.decision, WireDecision::Allow);
+
+        assert_eq!(detailed.dataset_id, "urn:uuid:ds-detailed-1");
+        assert_eq!(detailed.requested_action, "read");
+        assert!(detailed.skipped_policies.is_empty());
+        assert_eq!(detailed.policy_reports[0].policy_id, "policy-simple");
+        assert_eq!(detailed.policy_reports[0].evaluation_error, None);
+        assert_eq!(detailed.policy_reports[0].declared_conflict, ConflictStrategy::Invalid);
+        assert!(!detailed.policy_reports[0].conflict_forced_invalid);
+
+        let permission = only_permission(&detailed);
+        assert_eq!(permission.rule_index, 0);
+        assert_eq!(permission.activation_state, ActivationState::Active);
+        assert_eq!(permission.attempt_state, AttemptState::Attempted);
+        assert_eq!(permission.performance_state, PerformanceState::Unknown);
+        assert_eq!(permission.deontic_state, DeonticState::NonSet);
+        assert!(permission.condition_report.is_none(), "an unconstrained permission carries no odrl:duty");
+        // One Target premise, one Action premise -- no constraints on this
+        // permission, so nothing else.
+        assert_eq!(permission.premise_reports.len(), 2);
+        assert!(matches!(permission.premise_reports[0], DetailedPremiseReport::Target(_)));
+        assert!(matches!(permission.premise_reports[1], DetailedPremiseReport::Action(_)));
+    }
+
+    #[test]
+    fn detailed_evaluation_reports_a_duty_gated_permission_as_inactive_under_duty_mode_deny_and_excludes_it_from_conflict_resolution(
+    ) {
+        // Mirrors the specification's own Scenario A: a permission whose
+        // sole granting duty is unresolved is not a party to `odrl:conflict`
+        // at all -- `Rule::grants` (which the conflict test itself uses)
+        // already excludes it, so `decide()` denies via the *plain*
+        // prohibition branch, never reaching the `perm` strategy this
+        // policy declares. The `reason` trace proves this: it names no
+        // conflict resolution at all.
+        let req = r#"{
+          "dataset_id": "urn:uuid:ds-detailed-2",
+          "action": "read",
+          "config": {
+            "@type": "odrl:Profile",
+            "@id": "https://example.org/profiles/test",
+            "odrl:action": [{"@id": "read"}, {"@id": "attribute"}],
+            "dutyMode": "deny"
+          },
+          "policies": [{
+            "id": "policy-a",
+            "kind": "Set",
+            "assigner": "did:web:provider.example",
+            "assignee": null,
+            "odrl:conflict": "perm",
+            "permissions": [{
+              "action": "read",
+              "constraints": [],
+              "odrl:duty": [{
+                "action": "attribute",
+                "constraints": [{"left_operand": "attributed", "operator": "eq", "right_operand": "true"}]
+              }]
+            }],
+            "prohibitions": [{"action": "read", "constraints": []}],
+            "obligations": []
+          }],
+          "claims": {}
+        }"#;
+
+        let (response, detailed) = detailed_from_text(req);
+        assert_eq!(response.decision, WireDecision::Deny);
+        assert_eq!(
+            response.reason, "prohibition[0] of policy 'policy-a' matched: action 'read', unconstrained",
+            "a permission gated shut by its own unresolved duty must never surface an \
+             odrl:conflict resolution clause in the trace -- it was never a party to the \
+             conflict at all"
+        );
+
+        let permission = only_permission(&detailed);
+        assert_eq!(
+            permission.activation_state,
+            ActivationState::Inactive,
+            "the permission's own duty gate must make it Inactive under duty_mode: deny"
+        );
+        let condition_report = permission.condition_report.as_ref().expect("duty[0] must be linked");
+        assert_eq!(condition_report.deontic_state, DeonticState::Violated);
+        assert_eq!(condition_report.performance_state, PerformanceState::Unperformed);
+        // The duty itself is genuinely *in force* (the permission it gates
+        // applies and matches) -- `activation_state` says whether the duty's
+        // own condition currently applies, not whether it was fulfilled;
+        // "in force and unsatisfied" is exactly `Violated`/`Unperformed`
+        // *while* `Active`, which is what makes the breach real rather than
+        // moot.
+        assert_eq!(condition_report.activation_state, ActivationState::Active);
+
+        // rule_reports[1] is duty[0]'s own sibling entry (the permission's
+        // gating duty) -- every duty gets one, alongside the single
+        // `condition_report` link above. The prohibition follows it.
+        let prohibition = only_prohibition_at(&detailed, 2);
+        assert_eq!(
+            prohibition.activation_state,
+            ActivationState::Active,
+            "the prohibition genuinely fired and denied the request on its own"
+        );
+    }
+
+    #[test]
+    fn detailed_evaluation_reports_a_genuine_conflict_collision_resolved_by_perm() {
+        // A real permission/prohibition collision this time -- neither rule
+        // is gated shut by anything -- so `odrl:conflict: perm` actually
+        // resolves it in the permission's favour. Both rules genuinely
+        // "fired" in their own right, which the detailed report keeps
+        // visible even though the coarse `Response` only ever surfaces the
+        // permission that won.
+        let req = r#"{
+          "dataset_id": "urn:uuid:ds-detailed-3",
+          "action": "use",
+          "config": {
+            "@type": "odrl:Profile",
+            "@id": "https://example.org/profiles/test",
+            "odrl:action": [{"@id": "use"}],
+            "dutyMode": "advise"
+          },
+          "policies": [{
+            "id": "policy-c",
+            "kind": "Set",
+            "assigner": "did:web:provider.example",
+            "assignee": null,
+            "odrl:conflict": "perm",
+            "permissions": [{"action": "use", "constraints": []}],
+            "prohibitions": [{"action": "use", "constraints": []}],
+            "obligations": []
+          }],
+          "claims": {}
+        }"#;
+
+        let (response, detailed) = detailed_from_text(req);
+        assert_eq!(response.decision, WireDecision::Allow);
+        assert!(response.reason.contains("odrl:conflict 'perm' resolves the conflict"), "{}", response.reason);
+        assert_eq!(detailed.policy_reports[0].declared_conflict, ConflictStrategy::Perm);
+        assert!(!detailed.policy_reports[0].conflict_forced_invalid);
+
+        let permission = only_permission(&detailed);
+        assert_eq!(permission.activation_state, ActivationState::Active);
+
+        let prohibition = match &detailed.policy_reports[0].rule_reports[1] {
+            DetailedRuleReport::Prohibition(p) => p,
+            other => panic!("expected the second rule report to be the Prohibition, got {other:?}"),
+        };
+        assert_eq!(
+            prohibition.activation_state,
+            ActivationState::Active,
+            "the prohibition genuinely fired too -- odrl:conflict never nullifies that fact, \
+             it only decides which side the coarse decision follows"
+        );
+        assert_eq!(prohibition.performance_state, PerformanceState::Unknown);
+    }
+
+    #[test]
+    fn detailed_evaluation_reports_an_inactive_prohibitions_performance_state_as_unknown_not_unperformed() {
+        // A prohibition that never fires (its constraint misses) is
+        // Inactive -- but `performanceState` is `Unknown` in *either*
+        // activation state for a Prohibition, never `Unperformed`: firing a
+        // prohibition asserts nothing about whether the forbidden act
+        // actually happened, and neither does *not* firing one.
+        let req = r#"{
+          "dataset_id": "urn:uuid:ds-detailed-4",
+          "action": "read",
+          "config": {
+            "@type": "odrl:Profile",
+            "@id": "https://example.org/profiles/test",
+            "odrl:action": [{"@id": "read"}],
+            "dutyMode": "advise"
+          },
+          "policies": [{
+            "id": "policy-d",
+            "kind": "Set",
+            "assigner": "did:web:provider.example",
+            "assignee": null,
+            "permissions": [{"action": "read", "constraints": []}],
+            "prohibitions": [{
+              "action": "read",
+              "constraints": [{"left_operand": "region", "operator": "eq", "right_operand": "embargoed"}]
+            }],
+            "obligations": []
+          }],
+          "claims": {"region": "public"}
+        }"#;
+
+        let (response, detailed) = detailed_from_text(req);
+        assert_eq!(response.decision, WireDecision::Allow);
+
+        let prohibition = only_prohibition_at(&detailed, 1);
+        assert_eq!(prohibition.activation_state, ActivationState::Inactive);
+        assert_eq!(
+            prohibition.performance_state,
+            PerformanceState::Unknown,
+            "an Inactive prohibition must report Unknown, never Unperformed -- that state does \
+             not exist on report:ProhibitionReport at all"
+        );
+        assert_eq!(prohibition.attempt_state, AttemptState::Attempted, "the action/target requirement still applied");
     }
 }

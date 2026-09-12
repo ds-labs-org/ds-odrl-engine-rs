@@ -903,7 +903,7 @@ pub struct DecisionOutcome {
 /// fail-closed indistinguishable from an intended `Deny` inside a
 /// `Permission`), so it cannot be left to `Rule::matches` to notice only
 /// incidentally.
-fn first_unrecognized_action(policy: &Policy, config: &ResolvedConfig) -> Option<UnrecognizedAction> {
+pub(crate) fn first_unrecognized_action(policy: &Policy, config: &ResolvedConfig) -> Option<UnrecognizedAction> {
     for (rule_index, rule) in policy.prohibitions.iter().enumerate() {
         if !config.recognizes(&rule.action) {
             return Some(UnrecognizedAction {
@@ -1035,7 +1035,7 @@ fn first_unrecognized_in_duty_chain(
 /// carrying an `odrl:consequence` falls through to it on non-fulfilment
 /// rather than straight to `dutyMode`. A duty with no consequence behaves
 /// exactly as it always did.
-fn unresolved_obligations(policy: &Policy, claims: &Claims) -> Vec<UnresolvedDuty> {
+pub(crate) fn unresolved_obligations(policy: &Policy, claims: &Claims) -> Vec<UnresolvedDuty> {
     policy
         .obligations
         .iter()
@@ -1062,7 +1062,7 @@ fn unresolved_obligations(policy: &Policy, claims: &Claims) -> Vec<UnresolvedDut
 /// reaches — wrong action, wrong asset, constraints missed — imposes
 /// nothing, so reporting its duty would send a host chasing an obligation
 /// it does not have.
-fn unresolved_permission_duties(
+pub(crate) fn unresolved_permission_duties(
     policy: &Policy,
     claims: &Claims,
     config: &ResolvedConfig,
@@ -1097,7 +1097,7 @@ fn unresolved_permission_duties(
 /// so a prohibition that did not fire imposes no remedy: reporting one
 /// would invent an obligation out of a rule that had nothing to say. This
 /// mirrors the permission-duty scoping above, at the opposite polarity.
-fn unresolved_remedies(
+pub(crate) fn unresolved_remedies(
     policy: &Policy,
     claims: &Claims,
     config: &ResolvedConfig,
@@ -1316,6 +1316,38 @@ pub(crate) fn conflicting_rules(
 /// An **unresolved** remedy therefore behaves exactly analogously to an
 /// unresolved obligation under the current `dutyMode` semantics — reported,
 /// and unable to make the decision any more permissive than it already is.
+/// What [`resolve_conflict`] answers: whether a genuine `odrl:conflict`
+/// collision is in play for this policy/request at all, and, if so, which
+/// side wins.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ConflictOutcome {
+    /// `denied_by_prohibition && any_permission_grants` — a genuine
+    /// collision exists at all.
+    pub(crate) conflict_active: bool,
+    /// `conflict_active && conflict == ConflictStrategy::Perm`.
+    pub(crate) permission_wins: bool,
+}
+
+/// The combining rule [`decide`] has always applied, extracted verbatim
+/// from its own former inline
+/// `if denied_by_prohibition && any_permission_grants { match policy.conflict {..} }`
+/// branch — a behavior-preserving refactor, not a new algorithm. Both
+/// `decide` and `derive_detailed_rule_reports` below call this, so the
+/// precedence exists in exactly one place; a future change to
+/// `ConflictStrategy`'s variants or to this precedence has one call site to
+/// update, not three (the codebase's own history flags exactly this kind of
+/// drift as a real recurring bug source — see `conflicting_rules`'s doc
+/// comment for the same lesson learned once already).
+pub(crate) fn resolve_conflict(
+    denied_by_prohibition: bool,
+    any_permission_grants: bool,
+    conflict: ConflictStrategy,
+) -> ConflictOutcome {
+    let conflict_active = denied_by_prohibition && any_permission_grants;
+    let permission_wins = conflict_active && conflict == ConflictStrategy::Perm;
+    ConflictOutcome { conflict_active, permission_wins }
+}
+
 pub fn decide(
     policy: &Policy,
     claims: &Claims,
@@ -1358,13 +1390,21 @@ pub fn decide(
     // reconcile, and the three arms below are unreachable: the ordinary
     // deny-overrides/permission-requirement branches decide exactly as they
     // always have, under every strategy alike.
-    let mut decision = if denied_by_prohibition && any_permission_grants {
-        match policy.conflict {
-            ConflictStrategy::Perm => Decision::Allow,
+    //
+    // The combining rule itself now lives in `resolve_conflict`, extracted
+    // verbatim from this branch's own former inline `match` so the new
+    // detailed-evaluation derivation (`derive_detailed_rule_reports`) can
+    // call the identical precedence rather than re-deriving it a third time.
+    let ConflictOutcome { conflict_active, permission_wins } =
+        resolve_conflict(denied_by_prohibition, any_permission_grants, policy.conflict);
+    let mut decision = if conflict_active {
+        if permission_wins {
+            Decision::Allow
+        } else {
             // Same decision, different reasons — the trace tells a policy
             // that chose prohibition-first apart from a policy that refused
             // to resolve the conflict at all.
-            ConflictStrategy::Prohibit | ConflictStrategy::Invalid => Decision::Deny,
+            Decision::Deny
         }
     } else if denied_by_prohibition {
         Decision::Deny
@@ -1414,6 +1454,330 @@ pub fn decide(
     DecisionOutcome {
         decision,
         unresolved_duties,
+    }
+}
+
+/// The one new function `decide`'s own callers never see and never call. A
+/// second, independent walk over the same `Policy`/`Claims`/`ResolvedConfig`,
+/// calling the same `pub(crate)` predicates `decide` calls (plus the shared
+/// `resolve_conflict`), so the two can never disagree about which rule
+/// granted, denied, or had a duty outstanding. `policy` here is always the
+/// already-conflict-forced value a caller got from resolving
+/// `wire::WirePolicy::odrl:inheritFrom` — the same one `decide` itself was
+/// called with for this policy, so there is exactly one `Policy` value in
+/// play per policy, never two.
+///
+/// Returns the per-rule report list plus whether this policy's own
+/// policy-level obligations are outstanding (mirroring `decide`'s own
+/// `obligation_outstanding` local, for a caller that wants it without
+/// re-deriving it from the returned reports).
+///
+/// **No trace-collector parameter was added to `decide` itself.** Because
+/// this function independently recomputes every state it needs from the
+/// same `pub(crate)` predicates, there is no internal state inside `decide`
+/// that must be threaded out via a collector parameter — `decide`'s
+/// signature is untouched.
+pub(crate) fn derive_detailed_rule_reports(
+    policy: &Policy,
+    claims: &Claims,
+    config: &ResolvedConfig,
+    requested_action: &str,
+    requested_target: &str,
+    asset_collections: &[String],
+) -> (Vec<crate::report::DetailedRuleReport>, bool /* obligation_outstanding */) {
+    use crate::report::{
+        ActivationState, AttemptState, DeonticState, DetailedPermissionReport, DetailedProhibitionReport,
+        DetailedRuleReport, PerformanceState,
+    };
+
+    let prohibition_fires: Vec<bool> = policy
+        .prohibitions
+        .iter()
+        .map(|rule| {
+            rule.applies(requested_action, requested_target, asset_collections, config, claims) && rule.matches(claims)
+        })
+        .collect();
+    let permission_grants: Vec<bool> = policy
+        .permissions
+        .iter()
+        .map(|rule| rule.grants(requested_action, requested_target, asset_collections, config, claims))
+        .collect();
+    let denied_by_prohibition = prohibition_fires.iter().any(|&fired| fired);
+    let any_permission_grants = permission_grants.iter().any(|&granted| granted);
+
+    let ConflictOutcome { conflict_active, permission_wins } =
+        resolve_conflict(denied_by_prohibition, any_permission_grants, policy.conflict);
+    let permission_conflict_voided = conflict_active && !permission_wins;
+
+    let unresolved = unresolved_obligations(policy, claims);
+    let obligation_outstanding = !unresolved.is_empty();
+    let obligation_forces_deny = config.duty_mode == DutyMode::Deny && obligation_outstanding;
+
+    let mut rule_reports = Vec::new();
+
+    // -- Permissions ---------------------------------------------------
+    for (rule_index, rule) in policy.permissions.iter().enumerate() {
+        let applies = rule.applies(requested_action, requested_target, asset_collections, config, claims);
+        let applies_and_matches = applies && rule.matches(claims);
+        let attempt_state = if applies { AttemptState::Attempted } else { AttemptState::NotAttempted };
+
+        // `duty_gate_violated` and `duty_report_for`'s own `Violated`
+        // computation below are the *same* underlying test (in-force &&
+        // `!duty_satisfied`) applied to the identical `duty[0]` — the hard
+        // rule (a Permission Report cannot be `Active` while its linked
+        // Duty Report is `Violated`) holds by construction, not by
+        // cross-checking two independently-derived facts.
+        let duty_gate_violated =
+            rule.duty.first().is_some_and(|d0| applies_and_matches && !d0.duty_satisfied(claims));
+
+        let activation_state = if !permission_grants[rule_index] {
+            ActivationState::Inactive
+        } else if duty_gate_violated {
+            // Fixes the case `grants()` alone misses: under
+            // `DutyMode::Advise`, `grants()` does not gate on duty
+            // resolution at all, so a permission whose own gating duty is
+            // violated would otherwise read `Active` here even though its
+            // own `condition_report` below reports `Violated` -- a direct
+            // hard-rule violation. This clause is what makes the two agree.
+            ActivationState::Inactive
+        } else if permission_conflict_voided || obligation_forces_deny {
+            // Two independent reasons `decide()` itself can still override
+            // an otherwise-granting permission to `Deny` -- a lost
+            // `odrl:conflict` collision, or a policy-level obligation
+            // forcing `Deny` under `duty_mode: deny` -- kept as one clause
+            // (rather than two identical-bodied `else if` arms) since both
+            // produce the identical `Inactive` outcome here.
+            ActivationState::Inactive
+        } else {
+            ActivationState::Active
+        };
+        let performance_state = match activation_state {
+            ActivationState::Active => PerformanceState::Unknown,
+            ActivationState::Inactive => PerformanceState::Unperformed,
+        };
+
+        let premise_reports =
+            rule_premise_reports(rule, requested_action, requested_target, asset_collections, config, claims);
+
+        // Every `duty[j]` gets its own sibling `DetailedRuleReport::Duty`
+        // entry (including `duty[0]`, beyond the single `condition_report`
+        // link below) -- `condition_report` reuses `duty[0]`'s own first
+        // (depth-0) entry rather than deriving it a second time, so the two
+        // can never disagree.
+        let mut duty_reports = Vec::new();
+        let mut condition_report = None;
+        for (duty_index, duty) in rule.duty.iter().enumerate() {
+            let chain =
+                duty_chain_reports(duty, DutyAttachment::PermissionDuty { rule_index }, duty_index, applies_and_matches, claims);
+            if duty_index == 0 {
+                condition_report = chain.first().cloned().map(Box::new);
+            }
+            duty_reports.extend(chain.into_iter().map(DetailedRuleReport::Duty));
+        }
+
+        rule_reports.push(DetailedRuleReport::Permission(DetailedPermissionReport {
+            rule_index,
+            activation_state,
+            attempt_state,
+            performance_state,
+            // Always `NonSet` for a Permission: the vocabulary's declared
+            // domain for `Fulfilled`/`Violated` reasoning is a Duty, and a
+            // bare Permission's own state is already fully expressed by
+            // `activation_state`/`performance_state`.
+            deontic_state: DeonticState::NonSet,
+            premise_reports,
+            condition_report,
+        }));
+        rule_reports.extend(duty_reports);
+    }
+
+    // -- Prohibitions ----------------------------------------------------
+    for (rule_index, rule) in policy.prohibitions.iter().enumerate() {
+        let applies = rule.applies(requested_action, requested_target, asset_collections, config, claims);
+        let attempt_state = if applies { AttemptState::Attempted } else { AttemptState::NotAttempted };
+        let fires = prohibition_fires[rule_index];
+        // Never modified by `policy.conflict` or `obligation_forces_deny` --
+        // a prohibition is outranked by `ConflictStrategy::Perm`, never
+        // nullified.
+        let activation_state = if fires { ActivationState::Active } else { ActivationState::Inactive };
+
+        let premise_reports =
+            rule_premise_reports(rule, requested_action, requested_target, asset_collections, config, claims);
+
+        rule_reports.push(DetailedRuleReport::Prohibition(DetailedProhibitionReport {
+            rule_index,
+            activation_state,
+            attempt_state,
+            // Always `Unknown`, in either activation state: firing a
+            // prohibition asserts nothing about whether the forbidden act
+            // actually happened.
+            performance_state: PerformanceState::Unknown,
+            deontic_state: DeonticState::NonSet,
+            premise_reports,
+        }));
+
+        for (duty_index, remedy) in rule.remedy.iter().enumerate() {
+            let chain = duty_chain_reports(remedy, DutyAttachment::ProhibitionRemedy { rule_index }, duty_index, fires, claims);
+            rule_reports.extend(chain.into_iter().map(DetailedRuleReport::Duty));
+        }
+    }
+
+    // -- Policy-level obligations -----------------------------------------
+    // Always "in force" -- Section 4.5's original, unconditional duty.
+    for (duty_index, duty) in policy.obligations.iter().enumerate() {
+        let chain = duty_chain_reports(duty, DutyAttachment::Obligation, duty_index, true, claims);
+        rule_reports.extend(chain.into_iter().map(DetailedRuleReport::Duty));
+    }
+
+    (rule_reports, obligation_outstanding)
+}
+
+/// The full applicability-and-action-requirement premise set for a
+/// permission or prohibition: one `Target` entry, one `Action` entry
+/// (coverage plus, if `action_refinement.is_some()`, its own tree), then
+/// one `Constraint` entry per top-level member of `constraints`. Shared
+/// between `DetailedPermissionReport` and `DetailedProhibitionReport` --
+/// the two report the identical premise shape, differing only in what each
+/// does with the outcome.
+fn rule_premise_reports(
+    rule: &Rule,
+    requested_action: &str,
+    requested_target: &str,
+    asset_collections: &[String],
+    config: &ResolvedConfig,
+    claims: &Claims,
+) -> Vec<crate::report::DetailedPremiseReport> {
+    use crate::report::{DetailedActionReport, DetailedPremiseReport, DetailedTargetReport, SatisfactionState};
+
+    let mut premises = vec![DetailedPremiseReport::Target(DetailedTargetReport {
+        satisfaction_state: SatisfactionState::of(rule.target_applies(requested_target, asset_collections)),
+    })];
+
+    let covers = rule.covers_action(requested_action, config);
+    let refinement = rule.action_refinement.as_ref().map(|c| c.evaluate_report(claims));
+    premises.push(DetailedPremiseReport::Action(DetailedActionReport {
+        satisfaction_state: SatisfactionState::of(rule.action_applies(requested_action, config, claims)),
+        covers,
+        refinement,
+    }));
+
+    premises.extend(rule.constraints.iter().map(|c| DetailedPremiseReport::Constraint(c.evaluate_report(claims))));
+    premises
+}
+
+/// The premise set for a duty: no `Action`/`Target` entries, ever -- a
+/// duty's own action is what must be *done*, never matched against the
+/// request; its target is descriptive only. One `Constraint` entry per
+/// top-level member of `constraints`, plus -- if `action_refinement.is_some()`
+/// -- one more, flattened as a sibling (mirrors `duty_satisfied`'s own flat
+/// ANDing of `matches`/`refinement_satisfied`, with no separate "action
+/// requirement" step). An unconstrained duty (`constraints.is_empty()`, no
+/// refinement) has an empty premise list -- informative, not a gap:
+/// `duty_satisfied` requires `!constraints.is_empty()`, so such a duty is
+/// never satisfiable, which the empty premise list plus `Violated` (whenever
+/// in force) already makes visible.
+fn duty_premise_reports(duty: &Rule, claims: &Claims) -> Vec<crate::report::DetailedPremiseReport> {
+    let mut premises: Vec<_> =
+        duty.constraints.iter().map(|c| crate::report::DetailedPremiseReport::Constraint(c.evaluate_report(claims))).collect();
+    if let Some(refinement) = &duty.action_refinement {
+        premises.push(crate::report::DetailedPremiseReport::Constraint(refinement.evaluate_report(claims)));
+    }
+    premises
+}
+
+/// One `DetailedDutyReport` per depth of `root`'s own `odrl:consequence`
+/// chain, as independent siblings (never nested) -- depth 0 being `root`
+/// itself. `root_in_force` is the attachment point's own in-force test:
+/// always `true` for `DutyAttachment::Obligation`; `applies() && matches()`
+/// of the owning permission/prohibition for `PermissionDuty`/
+/// `ProhibitionRemedy` (never `grants()` -- would be circular for a
+/// permission's own duty).
+///
+/// A consequence at depth `k > 0` is in force iff its depth-`(k-1)` parent
+/// was in force **and** the parent's own `duty_satisfied` was `false` --
+/// walked for real up through depth [`MAX_CONSEQUENCE_DEPTH`], the same
+/// bound `outstanding_duty` stops at. Exactly one entry *past* that bound is
+/// still reported (if the data actually nests that deep) so a caller can see
+/// the chain continues, but its `activation_state` is unconditionally
+/// forced `Inactive`/`NonSet`/`Unknown` -- honestly reflecting that nothing
+/// past the bound is ever reached by the in-force test -- and recursion
+/// stops there rather than walking an unbounded, caller-supplied chain
+/// depth.
+fn duty_chain_reports(
+    root: &Rule,
+    attachment: DutyAttachment,
+    duty_index: usize,
+    root_in_force: bool,
+    claims: &Claims,
+) -> Vec<crate::report::DetailedDutyReport> {
+    let mut reports = Vec::new();
+    let mut current = root;
+    let mut in_force = root_in_force;
+    let mut depth = 0usize;
+
+    loop {
+        // Past `MAX_CONSEQUENCE_DEPTH`, `outstanding_duty` never reaches
+        // this depth to check its own satisfaction -- so this evaluator
+        // honestly declines to call it in force, regardless of what the
+        // parent chain would otherwise propagate.
+        let effective_in_force = in_force && depth <= MAX_CONSEQUENCE_DEPTH;
+        let satisfied = current.duty_satisfied(claims);
+
+        reports.push(duty_report_for(current, attachment, duty_index, depth, effective_in_force, satisfied, claims));
+
+        if depth > MAX_CONSEQUENCE_DEPTH {
+            break;
+        }
+        match &current.consequence {
+            Some(next) => {
+                in_force = effective_in_force && !satisfied;
+                current = next;
+                depth += 1;
+            }
+            None => break,
+        }
+    }
+
+    reports
+}
+
+/// One duty's own `DetailedDutyReport`, given whether it is in force and
+/// whether its own `duty_satisfied` holds -- the "in force" states table
+/// A.4 (of the specification this implements) restates as code:
+///
+/// - Not in force -> `deontic_state = NonSet`, `performance_state = Unknown`,
+///   `activation_state = Inactive`.
+/// - In force and satisfied -> `Fulfilled` / `Performed` / `Active`.
+/// - In force and not satisfied -> `Violated` / `Unperformed` / `Active`
+///   (holds even when the duty carries a consequence -- the breach genuinely
+///   occurred; the consequence is reported as its own, separate sibling).
+fn duty_report_for(
+    rule: &Rule,
+    attachment: DutyAttachment,
+    duty_index: usize,
+    consequence_depth: usize,
+    in_force: bool,
+    satisfied: bool,
+    claims: &Claims,
+) -> crate::report::DetailedDutyReport {
+    use crate::report::{ActivationState, DeonticState, PerformanceState};
+
+    let (activation_state, performance_state, deontic_state) = if !in_force {
+        (ActivationState::Inactive, PerformanceState::Unknown, DeonticState::NonSet)
+    } else if satisfied {
+        (ActivationState::Active, PerformanceState::Performed, DeonticState::Fulfilled)
+    } else {
+        (ActivationState::Active, PerformanceState::Unperformed, DeonticState::Violated)
+    };
+
+    crate::report::DetailedDutyReport {
+        attachment,
+        duty_index,
+        consequence_depth,
+        activation_state,
+        performance_state,
+        deontic_state,
+        premise_reports: duty_premise_reports(rule, claims),
     }
 }
 
