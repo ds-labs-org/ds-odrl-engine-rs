@@ -1551,9 +1551,18 @@ pub(crate) fn derive_detailed_rule_reports(
         } else {
             ActivationState::Active
         };
-        let performance_state = match activation_state {
-            ActivationState::Active => PerformanceState::Unknown,
-            ActivationState::Inactive => PerformanceState::Unperformed,
+        // `report:deonticState`'s domain in `ComplianceReportModel.ttl` is
+        // the shared `RuleReport` superclass, not `DutyReport` alone -- a
+        // Permission carries `Fulfilled`/`NonSet` exactly as a Duty carries
+        // `Fulfilled`/`Violated`/`NonSet`, mirrored 1:1 off the same
+        // `activation_state` this function already derived above:
+        // `Active` -> the permission was exercised, so it is `Performed`
+        // and `Fulfilled`; `Inactive` -> it was not, so `Unperformed` and
+        // `NonSet` (never `Violated` -- a permission not exercised breaches
+        // nothing).
+        let (performance_state, deontic_state) = match activation_state {
+            ActivationState::Active => (PerformanceState::Performed, DeonticState::Fulfilled),
+            ActivationState::Inactive => (PerformanceState::Unperformed, DeonticState::NonSet),
         };
 
         let premise_reports =
@@ -1580,11 +1589,7 @@ pub(crate) fn derive_detailed_rule_reports(
             activation_state,
             attempt_state,
             performance_state,
-            // Always `NonSet` for a Permission: the vocabulary's declared
-            // domain for `Fulfilled`/`Violated` reasoning is a Duty, and a
-            // bare Permission's own state is already fully expressed by
-            // `activation_state`/`performance_state`.
-            deontic_state: DeonticState::NonSet,
+            deontic_state,
             premise_reports,
             condition_report,
         }));
@@ -1596,28 +1601,47 @@ pub(crate) fn derive_detailed_rule_reports(
         let applies = rule.applies(requested_action, requested_target, asset_collections, config, claims);
         let attempt_state = if applies { AttemptState::Attempted } else { AttemptState::NotAttempted };
         let fires = prohibition_fires[rule_index];
-        // Never modified by `policy.conflict` or `obligation_forces_deny` --
-        // a prohibition is outranked by `ConflictStrategy::Perm`, never
-        // nullified.
-        let activation_state = if fires { ActivationState::Active } else { ActivationState::Inactive };
+        // A prohibition that fires is nonetheless superseded when this
+        // policy's own `odrl:conflict` resolves the collision in the
+        // permission's favor (`resolve_conflict`'s `permission_wins`,
+        // computed once above off the *policy-wide* `denied_by_prohibition`
+        // / `any_permission_grants`, which this specific rule's own `fires`
+        // already contributes to when true). A superseded prohibition never
+        // genuinely fired -- it is reported `Inactive` exactly as one that
+        // never applied at all, and its own remedy chain below is in force
+        // off that same, already-superseded-aware flag: "a remedy of a
+        // superseded prohibition never fires."
+        let superseded = fires && permission_wins;
+        let prohibition_active = fires && !superseded;
+        let activation_state = if prohibition_active { ActivationState::Active } else { ActivationState::Inactive };
 
         let premise_reports =
             rule_premise_reports(rule, requested_action, requested_target, asset_collections, config, claims);
+
+        // Mirrors the permission arm above off the same `activation_state`:
+        // `Active` -> the prohibited act was genuinely performed, in breach
+        // -- `Performed`/`Violated`; `Inactive` -> nothing can be said about
+        // whether the act happened at all (per `report:Inactive`'s own
+        // text, this is the opposite convention from a permission's
+        // `Inactive`, which licenses a definite `Unperformed` -- a
+        // prohibition or duty gets `Unknown` instead), so `Unknown`/`NonSet`.
+        let (performance_state, deontic_state) = match activation_state {
+            ActivationState::Active => (PerformanceState::Performed, DeonticState::Violated),
+            ActivationState::Inactive => (PerformanceState::Unknown, DeonticState::NonSet),
+        };
 
         rule_reports.push(DetailedRuleReport::Prohibition(DetailedProhibitionReport {
             rule_index,
             activation_state,
             attempt_state,
-            // Always `Unknown`, in either activation state: firing a
-            // prohibition asserts nothing about whether the forbidden act
-            // actually happened.
-            performance_state: PerformanceState::Unknown,
-            deontic_state: DeonticState::NonSet,
+            performance_state,
+            deontic_state,
             premise_reports,
         }));
 
         for (duty_index, remedy) in rule.remedy.iter().enumerate() {
-            let chain = duty_chain_reports(remedy, DutyAttachment::ProhibitionRemedy { rule_index }, duty_index, fires, claims);
+            let chain =
+                duty_chain_reports(remedy, DutyAttachment::ProhibitionRemedy { rule_index }, duty_index, prohibition_active, claims);
             rule_reports.extend(chain.into_iter().map(DetailedRuleReport::Duty));
         }
     }

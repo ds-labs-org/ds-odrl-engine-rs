@@ -156,8 +156,9 @@ ignored; `odrl:conflict` is deliberately not among what is replicated
 this contract has no policy-level Asset or `odrl:profile` field to
 replicate in the first place. Not replicating the term does not exempt a
 merge from Information Model §2.10's own validation rule 4, though:
-when a parent and a child it merged rules into declared *differing*
-`odrl:conflict` values and those rules produce a genuine collision, the
+when a parent and a child it merged rules into *both explicitly* declared
+*differing* `odrl:conflict` values and those rules produce a genuine
+collision, the
 entire (child) policy is now void — reusing the same `ConflictStrategy::
 Invalid` machinery a single policy's own undeclared strategy already
 triggers — rather than silently resolved by whichever value happened to
@@ -1456,15 +1457,42 @@ conflicts: the entire Policy MUST be void."** §2.10 states `conflict` of
 above) *and* "conflicts that arise from the merging of Policies" — and
 once `odrl:inheritFrom` actually produces a merge, the second reading
 applies. `resolve_inherit_from` therefore also tracks, per policy,
-**every distinct `odrl:conflict` value declared anywhere in its own
-inheritance chain** (itself and every ancestor it merged rules from,
-folded transitively across a multi-level chain the same way rules and
-party fields already are) — structural information, independent of any
-one request. Whether that divergence actually **voids** the policy still
-depends on this exact request producing a genuine collision
+**every distinct `odrl:conflict` value *explicitly* declared anywhere in
+its own inheritance chain** (itself and every ancestor it merged rules
+from, folded transitively across a multi-level chain the same way rules
+and party fields already are) — structural information, independent of
+any one request. Whether that divergence actually **voids** the policy
+still depends on this exact request producing a genuine collision
 (`conflicting_rules`), exactly as a single policy's own `odrl:conflict`
 already does: a merge that never triggers a real permission/prohibition
 clash is unaffected by carrying more than one declared value.
+
+**"Explicitly" is load-bearing.** An ancestor that never wrote
+`odrl:conflict` at all — falling back to ODRL's own default, `invalid` —
+casts no vote in this check; only ancestors that actually named a
+strategy are compared against each other for disagreement, and an unset
+ancestor defers to whichever explicit value exists elsewhere in the chain
+(the child's own, if the child is the only one that declared one). A
+child that declares its own `odrl:conflict: perm` and inherits from a
+parent that never declares the term at all is therefore **not** a
+divergence — the parent's silent default is not a second, disagreeing
+value, and the child's explicit `perm` decides the collision exactly as
+if there were no inheritance involved at all (see the canonical worked
+example in `ds-odrl-compliance-rdf`'s
+`cases/inherited-agreement-duty-chain-01.ttl`, and
+`engine/src/wire.rs`'s
+`detailed_evaluation_a_childs_explicit_conflict_perm_is_not_overridden_by_a_silently_defaulted_parent`
+test). This is the one direction the wire format's own inherent ambiguity
+— it has no way to represent "unset" distinct from the default value
+itself — can be resolved without inventing a new wire field: a value
+equal to the default is always read as "no opinion," never as an
+explicit `invalid` that could disagree with a sibling ancestor's explicit
+choice. The one case this cannot get right — an ancestor that genuinely,
+explicitly writes `odrl:conflict: invalid` disagreeing with another that
+explicitly writes `perm` or `prohibit` — is indistinguishable on the wire
+from an ancestor that simply never mentioned the term, and is resolved
+the same way (deferring, not voiding) until a wire-level presence marker
+distinct from the enum value exists to tell the two apart.
 
 ```json
 {
@@ -1648,16 +1676,31 @@ strategy `decide()` itself used for this policy — there is exactly one
 `decision::Policy` value in play per policy, read by both the coarse and
 detailed paths, never two independently-forced copies.
 
-`odrl:conflict` decides which side the coarse decision follows; it never
-nullifies that a rule genuinely fired. A permission `perm` lets win, and the
-prohibition it beat, both report their real `activation_state` truthfully
-(the permission `Active`, the prohibition also `Active` — it really did
-apply and match, `odrl:conflict` simply outranked it for the coarse
-decision). Conversely, a permission whose own outstanding duty already
+`odrl:conflict` decides which side the coarse decision follows, and a
+prohibition that *loses* that decision is reported as **superseded**, not
+as having genuinely fired. A permission `perm` lets win reports
+`Active`/`Performed`/`Fulfilled`; the prohibition it beat — even though it
+did apply and match — reports `Inactive`/`Unknown`/`NonSet`, exactly as
+one that never applied at all, because a superseded prohibition never
+actually took effect: nothing came of its having matched. That
+supersession propagates down into the prohibition's own `odrl:remedy`
+chain too — a remedy of a superseded prohibition never fires, so every
+duty in that chain is `Inactive`/`Unknown`/`NonSet` as well, regardless of
+whether its own constraints would otherwise have been satisfied. (An
+earlier cut of this function reported the losing prohibition, and its
+remedy, as genuinely `Active` on the theory that `odrl:conflict` "only
+decides which side the coarse decision follows" — this was found to
+disagree with `ds-odrl-compliance-rdf`'s own hand-authored ground truth
+and has been corrected; see
+`engine/src/wire.rs`'s
+`detailed_evaluation_reports_a_prohibition_superseded_by_conflict_perm_as_inactive_with_its_remedy_chain_also_inactive`
+test.) Conversely, a permission whose own outstanding duty already
 excludes it from `Rule::grants` — the same predicate the conflict test
 itself uses — was never a party to the collision at all: `decide()` falls
 through to the ordinary prohibition-denies branch, and the `reason` trace
-never mentions conflict resolution, because there was none to resolve.
+never mentions conflict resolution, because there was none to resolve; a
+prohibition denying in that ordinary way is not superseded and reports
+its own true `Active`/`Performed`/`Violated` state.
 
 ### Sharing logic with `evaluate_request`, not duplicating it
 

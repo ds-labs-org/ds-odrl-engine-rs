@@ -1075,6 +1075,30 @@ fn resolve_inherit_from(policies: &[WirePolicy]) -> Result<(Vec<WirePolicy>, Has
     Ok((merged_policies, conflict_values_differ))
 }
 
+/// A policy's own `odrl:conflict` field, filtered down to whether it was
+/// **explicitly** declared at all. The wire format has no representation
+/// for "unset" distinct from `ConflictStrategy`'s own default (`Invalid`,
+/// per that type's `Default` impl and this field's `#[serde(default)]`) --
+/// so a policy that never wrote `odrl:conflict` and a policy that wrote
+/// `odrl:conflict odrl:invalid` verbatim are indistinguishable once
+/// deserialized. Given that ambiguity, this resolves it in the one
+/// direction the wire format can actually support: a value equal to the
+/// default is treated as "this ancestor cast no vote" rather than as an
+/// explicit `invalid` that could disagree with a sibling ancestor's
+/// explicit non-default value. The one case this cannot get right -- an
+/// ancestor that genuinely, explicitly wrote `odrl:invalid` disagreeing
+/// with another that explicitly wrote `perm` or `prohibit` -- is the same
+/// disclosed gap this field's own doc comment already accepts for
+/// replication; resolving it for real needs a wire-level presence marker
+/// distinct from the enum value, which is a separate change from this fix.
+fn explicit_conflict_values(conflict: ConflictStrategy) -> Vec<ConflictStrategy> {
+    if conflict == ConflictStrategy::default() {
+        Vec::new()
+    } else {
+        vec![conflict]
+    }
+}
+
 /// One policy's effective, post-inheritance form — see `resolve_inherit_from`
 /// for what "effective" replicates — paired with every distinct
 /// `odrl:conflict` value declared anywhere in its own inheritance chain
@@ -1094,6 +1118,11 @@ fn resolve_inherit_from(policies: &[WirePolicy]) -> Result<(Vec<WirePolicy>, Has
 /// so a value that disagrees only two levels up still marks the merge as
 /// carrying more than one — matching rules and party fields, the two
 /// things §2.9 already replicates the same way.
+///
+/// **Only explicitly-declared values are folded in** — see
+/// [`explicit_conflict_values`], the sole place a policy's own `conflict`
+/// field is turned into an entry of this list, both here and at the
+/// no-parents short-circuit inside `resolve_one`'s own body.
 fn resolve_one(
     id: &str,
     by_id: &HashMap<&str, &WirePolicy>,
@@ -1123,7 +1152,7 @@ fn resolve_one(
     let parent_ids: &[String] = match &policy.inherit_from {
         Some(ids) if !ids.is_empty() => ids,
         _ => {
-            let result = (policy.clone(), vec![policy.conflict]);
+            let result = (policy.clone(), explicit_conflict_values(policy.conflict));
             resolved.insert(id.to_string(), result.clone());
             return Ok(result);
         }
@@ -1131,7 +1160,7 @@ fn resolve_one(
 
     stack.push(id.to_string());
     let mut merged = policy.clone();
-    let mut conflict_values = vec![policy.conflict];
+    let mut conflict_values = explicit_conflict_values(policy.conflict);
     for parent_id in parent_ids {
         let (parent, parent_conflict_values) = resolve_one(parent_id, by_id, resolved, stack)?;
         merged.permissions.extend(parent.permissions.iter().cloned());
@@ -2835,10 +2864,11 @@ mod tests {
         );
         assert_eq!(
             conflict_values_differ.get("child"),
-            Some(&true),
-            "the parent's own 'perm' and the child's own (defaulted) 'invalid' are two distinct \
-             values, even though neither is replicated onto the other -- this is the structural \
-             half of validation rule 4 the void-cross-policy test below exercises end to end"
+            Some(&false),
+            "the child never explicitly declared its own odrl:conflict -- its (defaulted) \
+             'invalid' is not a vote that can disagree with the parent's explicit 'perm'; only \
+             ancestors that actually, explicitly declared a value are compared for divergence \
+             (see `explicit_conflict_values`), and here exactly one (the parent's) exists"
         );
     }
 
@@ -4557,13 +4587,22 @@ mod tests {
     }
 
     #[test]
-    fn a_child_naming_no_odrl_conflict_of_its_own_still_diverges_from_a_differing_parent() {
+    fn a_child_naming_no_odrl_conflict_of_its_own_defers_to_the_parents_sole_explicit_value() {
         // `odrl:conflict` absent from the child is ODRL's own default,
-        // `invalid` -- itself a third distinct value from the parent's
-        // declared `perm`, so this must void exactly as an explicitly
-        // declared `prohibit` does above, and say so honestly (the child
-        // never declared `invalid` on its own account; it is only the
-        // default it fell back to).
+        // `invalid` -- indistinguishable on the wire from a child that
+        // explicitly wrote `odrl:invalid`. Since the wire format cannot
+        // tell those two apart, this engine resolves the ambiguity in the
+        // child's favor: an ancestor (here, the child itself) that never
+        // explicitly declared a value casts no vote in the "distinct
+        // declared values across the chain" check, so this is *not* a
+        // divergence -- only the parent's `perm` was ever explicitly
+        // declared anywhere in the chain. `odrl:conflict` is still not
+        // replicated onto the child (see `resolve_inherit_from`'s own doc
+        // comment), so the child's own effective strategy for its `decide`
+        // call remains its own literal, un-forced default -- `invalid` --
+        // and it is void for that ordinary reason (Information Model
+        // §2.10's rule 4 does not even come into play here), not because
+        // inheritance produced a disagreement.
         let child_undeclared = differing_conflict_request().replace(
             r#""odrl:conflict": "prohibit",
                   "inheritFrom": ["parent"],"#,
@@ -4574,11 +4613,11 @@ mod tests {
         assert_eq!(
             response.reason,
             "policy 'child' is void: permission[0] and prohibition[0] both matched requested \
-             action 'use', and odrl:inheritFrom merged more than one distinct odrl:conflict \
-             value into this policy (its own declared value is 'invalid') — Information Model \
-             §2.10's validation rule 4 requires the entire policy be void when a merge carries \
-             differing conflict values over a genuine collision, rather than resolved by any \
-             one of them"
+             action 'use', and the policy's odrl:conflict strategy is 'invalid' (ODRL's own \
+             default), which voids a conflicting policy rather than resolving it",
+            "not a cross-policy divergence void -- the child's own (defaulted) 'invalid' is an \
+             ordinary intra-policy void, since the parent's 'perm' is the only explicitly \
+             declared value anywhere in the chain"
         );
     }
 
@@ -4688,8 +4727,17 @@ mod tests {
         assert_eq!(permission.rule_index, 0);
         assert_eq!(permission.activation_state, ActivationState::Active);
         assert_eq!(permission.attempt_state, AttemptState::Attempted);
-        assert_eq!(permission.performance_state, PerformanceState::Unknown);
-        assert_eq!(permission.deontic_state, DeonticState::NonSet);
+        assert_eq!(
+            permission.performance_state,
+            PerformanceState::Performed,
+            "an Active permission was exercised -- it is Performed, not merely Unknown"
+        );
+        assert_eq!(
+            permission.deontic_state,
+            DeonticState::Fulfilled,
+            "an Active permission's own deontic state is Fulfilled -- report:deonticState's \
+             domain is the shared RuleReport superclass, not DutyReport alone"
+        );
         assert!(permission.condition_report.is_none(), "an unconstrained permission carries no odrl:duty");
         // One Target premise, one Action premise -- no constraints on this
         // permission, so nothing else.
@@ -4778,10 +4826,13 @@ mod tests {
     fn detailed_evaluation_reports_a_genuine_conflict_collision_resolved_by_perm() {
         // A real permission/prohibition collision this time -- neither rule
         // is gated shut by anything -- so `odrl:conflict: perm` actually
-        // resolves it in the permission's favour. Both rules genuinely
-        // "fired" in their own right, which the detailed report keeps
-        // visible even though the coarse `Response` only ever surfaces the
-        // permission that won.
+        // resolves it in the permission's favour. The prohibition did
+        // genuinely apply and match, but it *lost* the collision -- a
+        // superseded prohibition never fired, so the detailed report marks
+        // it `Inactive` (`Unknown`/`NonSet`), exactly as one that never
+        // applied at all: "a remedy of a superseded prohibition never
+        // fires" (ds-odrl-compliance-rdf's own worked-example description)
+        // generalizes to the prohibition itself.
         let req = r#"{
           "dataset_id": "urn:uuid:ds-detailed-3",
           "action": "use",
@@ -4819,11 +4870,13 @@ mod tests {
         };
         assert_eq!(
             prohibition.activation_state,
-            ActivationState::Active,
-            "the prohibition genuinely fired too -- odrl:conflict never nullifies that fact, \
-             it only decides which side the coarse decision follows"
+            ActivationState::Inactive,
+            "the prohibition applied and matched, but lost the genuine odrl:conflict collision \
+             to the permission -- a superseded prohibition is reported Inactive, never as having \
+             genuinely fired"
         );
         assert_eq!(prohibition.performance_state, PerformanceState::Unknown);
+        assert_eq!(prohibition.deontic_state, DeonticState::NonSet);
     }
 
     #[test]
@@ -4869,5 +4922,238 @@ mod tests {
              not exist on report:ProhibitionReport at all"
         );
         assert_eq!(prohibition.attempt_state, AttemptState::Attempted, "the action/target requirement still applied");
+    }
+
+    // -- Regression pins for the three confirmed bugs in the first cut of --
+    // -- `derive_detailed_rule_reports` / `resolve_inherit_from` -----------
+    //
+    // Each test below is a trimmed, self-contained restatement of the
+    // scenario an independent ground-truth pass caught against
+    // ds-odrl-compliance-rdf/cases/*.ttl (converted from the untracked
+    // `engine/examples/scratch_verify.rs` that first found them into real
+    // `#[test]`s here).
+
+    #[test]
+    fn detailed_evaluation_reports_a_genuinely_firing_prohibition_as_performed_and_violated() {
+        // Bug 1: `derive_detailed_rule_reports` used to hardcode a firing
+        // prohibition's `performance_state`/`deontic_state` to
+        // `Unknown`/`NonSet` regardless of what actually happened. Ground
+        // truth (ds-odrl-compliance-rdf's
+        // closed-behaviour-prohibition-with-remedy-01.ttl, :rr-a-proh-transfer)
+        // requires `Performed`/`Violated` for a prohibition that genuinely
+        // applies, matches, and is not superseded by any `odrl:conflict`
+        // collision -- and its remedy, unresolved, is `Active`/
+        // `Unperformed`/`Violated` in its own right.
+        let req = r#"{
+          "dataset_id": "asset-medical-record",
+          "action": "transfer",
+          "config": {
+            "@type": "odrl:Profile",
+            "@id": "https://example.org/profiles/test",
+            "odrl:action": [{"@id": "transfer"}, {"@id": "inform"}],
+            "dutyMode": "advise"
+          },
+          "policies": [{
+            "id": "policy-a",
+            "kind": "Set",
+            "assigner": "did:web:provider.example",
+            "assignee": null,
+            "permissions": [],
+            "prohibitions": [{
+              "action": "transfer",
+              "constraints": [],
+              "odrl:remedy": [{"action": "inform", "constraints": []}]
+            }],
+            "obligations": []
+          }],
+          "claims": {}
+        }"#;
+
+        let (response, detailed) = detailed_from_text(req);
+        assert_eq!(response.decision, WireDecision::Deny);
+
+        let prohibition = only_prohibition_at(&detailed, 0);
+        assert_eq!(prohibition.activation_state, ActivationState::Active);
+        assert_eq!(prohibition.attempt_state, AttemptState::Attempted);
+        assert_eq!(
+            prohibition.performance_state,
+            PerformanceState::Performed,
+            "bug 1 regression: a genuinely firing prohibition must be Performed, not the old \
+             hardcoded Unknown"
+        );
+        assert_eq!(
+            prohibition.deontic_state,
+            DeonticState::Violated,
+            "bug 1 regression: a genuinely firing prohibition must be Violated, not the old \
+             hardcoded NonSet"
+        );
+
+        let remedy = match &detailed.policy_reports[0].rule_reports[1] {
+            DetailedRuleReport::Duty(d) => d,
+            other => panic!("expected the second rule report to be the remedy Duty, got {other:?}"),
+        };
+        assert_eq!(remedy.activation_state, ActivationState::Active);
+        assert_eq!(remedy.performance_state, PerformanceState::Unperformed);
+        assert_eq!(remedy.deontic_state, DeonticState::Violated);
+    }
+
+    #[test]
+    fn detailed_evaluation_reports_a_prohibition_superseded_by_conflict_perm_as_inactive_with_its_remedy_chain_also_inactive(
+    ) {
+        // Bug 2: a prohibition that loses a genuine `odrl:conflict: perm`
+        // collision used to still be reported as having genuinely fired,
+        // and its remedy chain along with it. Ground truth
+        // (inherited-agreement-duty-chain-01.ttl's :rr-b-proh-print /
+        // :rr-b-remedy) requires the superseded prohibition, and its
+        // entire `odrl:remedy` chain, to read `Inactive`/`Unknown`/
+        // `NonSet` -- "a remedy of a superseded prohibition never fires."
+        let req = r#"{
+          "dataset_id": "urn:uuid:ds-detailed-5",
+          "action": "use",
+          "config": {
+            "@type": "odrl:Profile",
+            "@id": "https://example.org/profiles/test",
+            "odrl:action": [{"@id": "use"}, {"@id": "notify"}],
+            "dutyMode": "advise"
+          },
+          "policies": [{
+            "id": "policy-e",
+            "kind": "Set",
+            "assigner": "did:web:provider.example",
+            "assignee": null,
+            "odrl:conflict": "perm",
+            "permissions": [{"action": "use", "constraints": []}],
+            "prohibitions": [{
+              "action": "use",
+              "constraints": [],
+              "odrl:remedy": [{"action": "notify", "constraints": []}]
+            }],
+            "obligations": []
+          }],
+          "claims": {}
+        }"#;
+
+        let (response, detailed) = detailed_from_text(req);
+        assert_eq!(response.decision, WireDecision::Allow, "{}", response.reason);
+
+        let permission = only_permission(&detailed);
+        assert_eq!(permission.activation_state, ActivationState::Active);
+        assert_eq!(permission.performance_state, PerformanceState::Performed);
+        assert_eq!(permission.deontic_state, DeonticState::Fulfilled);
+
+        let prohibition = match &detailed.policy_reports[0].rule_reports[1] {
+            DetailedRuleReport::Prohibition(p) => p,
+            other => panic!("expected the second rule report to be the Prohibition, got {other:?}"),
+        };
+        assert_eq!(
+            prohibition.activation_state,
+            ActivationState::Inactive,
+            "bug 2 regression: a prohibition that lost the conflict must be Inactive, not \
+             reported as having genuinely fired"
+        );
+        assert_eq!(prohibition.attempt_state, AttemptState::Attempted, "it did apply and match -- it merely lost");
+        assert_eq!(prohibition.performance_state, PerformanceState::Unknown);
+        assert_eq!(prohibition.deontic_state, DeonticState::NonSet);
+
+        let remedy = match &detailed.policy_reports[0].rule_reports[2] {
+            DetailedRuleReport::Duty(d) => d,
+            other => panic!("expected the third rule report to be the remedy Duty, got {other:?}"),
+        };
+        assert_eq!(
+            remedy.activation_state,
+            ActivationState::Inactive,
+            "bug 2 regression: a remedy of a superseded prohibition never fires"
+        );
+        assert_eq!(remedy.performance_state, PerformanceState::Unknown);
+        assert_eq!(remedy.deontic_state, DeonticState::NonSet);
+    }
+
+    #[test]
+    fn detailed_evaluation_a_childs_explicit_conflict_perm_is_not_overridden_by_a_silently_defaulted_parent() {
+        // Bug 3: `wire::resolve_inherit_from` used to treat a parent's
+        // silent, defaulted `odrl:conflict` (the parent never declared one
+        // at all) as an explicit value disagreeing with a child's own
+        // explicit `perm`, forcing the whole inherited chain's effective
+        // strategy to `Invalid` and silently overriding the child's own
+        // choice. Ground truth is inherited-agreement-duty-chain-01.ttl's
+        // own canonical worked example: "resolved by odrl:conflict
+        // odrl:perm in the permission's favor." `parent` here declares only
+        // a permission and no `odrl:conflict` of its own (silently
+        // defaulted); `child` inherits that permission, declares its own
+        // colliding prohibition, and its own explicit `odrl:conflict:
+        // perm` -- which must decide the collision, not be voided by the
+        // parent's silence.
+        let req = r#"{
+          "dataset_id": "dataset-42",
+          "action": "print",
+          "config": {
+            "@type": "odrl:Profile",
+            "@id": "https://example.org/profiles/test",
+            "odrl:action": [{"@id": "print"}],
+            "dutyMode": "advise"
+          },
+          "policies": [
+            {
+              "id": "parent",
+              "kind": "Set",
+              "assigner": "did:web:provider.example",
+              "assignee": null,
+              "permissions": [{"action": "print", "constraints": []}],
+              "prohibitions": [],
+              "obligations": []
+            },
+            {
+              "id": "child",
+              "kind": "Agreement",
+              "assigner": "did:web:provider.example",
+              "assignee": null,
+              "odrl:conflict": "perm",
+              "inheritFrom": ["parent"],
+              "permissions": [],
+              "prohibitions": [{"action": "print", "constraints": []}],
+              "obligations": []
+            }
+          ],
+          "claims": {}
+        }"#;
+
+        let (_, detailed) = detailed_from_text(req);
+        let child = detailed.policy_reports.iter().find(|p| p.policy_id == "child").expect("child policy report");
+
+        assert_eq!(
+            child.declared_conflict,
+            ConflictStrategy::Perm,
+            "the child's own explicitly declared strategy"
+        );
+        assert!(
+            !child.conflict_forced_invalid,
+            "bug 3 regression: the parent's silent default must not count as a disagreeing vote \
+             -- only the child's own explicit 'perm' was ever declared anywhere in this chain, \
+             so nothing here diverges"
+        );
+
+        let permission = match &child.rule_reports[0] {
+            DetailedRuleReport::Permission(p) => p,
+            other => panic!("expected the first rule report to be the inherited Permission, got {other:?}"),
+        };
+        assert_eq!(
+            permission.activation_state,
+            ActivationState::Active,
+            "bug 3 regression: conflict=perm must let the inherited permission win, not be \
+             voided by a phantom divergence"
+        );
+        assert_eq!(permission.performance_state, PerformanceState::Performed);
+        assert_eq!(permission.deontic_state, DeonticState::Fulfilled);
+
+        let prohibition = match &child.rule_reports[1] {
+            DetailedRuleReport::Prohibition(p) => p,
+            other => panic!("expected the second rule report to be the Prohibition, got {other:?}"),
+        };
+        assert_eq!(
+            prohibition.activation_state,
+            ActivationState::Inactive,
+            "the child's own prohibition applies and matches but loses the collision it lost to \
+             its own inherited permission"
+        );
     }
 }
