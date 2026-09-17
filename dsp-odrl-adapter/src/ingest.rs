@@ -1005,6 +1005,62 @@ mod tests {
     }
 
     #[test]
+    fn an_and_sequence_constraint_ingests_its_children_in_document_order() {
+        // README.md's own compatibility table ("not mapped" row for
+        // `odrl:andSequence`) documents this exact gap: `engine::Constraint`
+        // has carried `and_sequence` (the same `.all()` semantics as
+        // `odrl:and` — see that field's own doc comment in
+        // engine/src/constraint.rs) since before this adapter's precedence
+        // loop was written, but `constraint_from`'s loop over the logical
+        // keys still only recognizes `xone`/`or`/`and`. A real document's
+        // `odrl:andSequence` therefore falls through to the atomic
+        // `leftOperand`/`operator`/`rightOperand` path below it, finds none
+        // of the three (the two children live under `odrl:andSequence`, not
+        // at this node), and fails closed with `ConstraintWithoutLeftOperand`
+        // — silently *rejecting* the permission rather than silently
+        // widening it, which is why this is a real ingestion gap and not a
+        // correctness bug in the fail-open sense, but a gap all the same for
+        // a construct `engine` already evaluates once populated.
+        //
+        // Two `dateTime` bounds, deliberately in the order a "not before X,
+        // not after Y" window would actually be written, so a fix that
+        // silently reversed them (or built `and` instead of `and_sequence`)
+        // would still fail this test even though both misencodings evaluate
+        // identically for every claims map this engine could ever see.
+        let doc = r#"{
+          "@context": "https://w3id.org/dspace/2024/1/context.json",
+          "@type": "odrl:Offer",
+          "odrl:permission": [{
+            "odrl:action": "odrl:use",
+            "odrl:constraint": [{
+              "odrl:andSequence": [
+                {
+                  "odrl:leftOperand": "odrl:dateTime",
+                  "odrl:operator": "odrl:gteq",
+                  "odrl:rightOperand": { "@value": "2026-01-01T00:00:00Z", "@type": "xsd:dateTime" }
+                },
+                {
+                  "odrl:leftOperand": "odrl:dateTime",
+                  "odrl:operator": "odrl:lteq",
+                  "odrl:rightOperand": { "@value": "2026-12-31T06:00:00Z", "@type": "xsd:dateTime" }
+                }
+              ]
+            }]
+          }]
+        }"#;
+        let ingested = ingest_policy(doc).expect("odrl:andSequence must ingest, not fail closed");
+        let constraint = ingested.policy.permissions[0].constraints[0].clone();
+        assert_eq!(
+            constraint.and_sequence,
+            Some(vec![
+                Constraint::new("dateTime", Operator::Gteq, "2026-01-01T00:00:00Z"),
+                Constraint::new("dateTime", Operator::Lteq, "2026-12-31T06:00:00Z"),
+            ]),
+            "the two andSequence children must both be present, and in the same order the document gave them"
+        );
+    }
+
+    #[test]
     fn a_rule_given_as_a_bare_reference_is_an_error_not_a_silently_skipped_rule() {
         // A rule stated as `{"@id": …}` points at a rule body defined in
         // some document this adapter does not resolve. Skipping it drops a
