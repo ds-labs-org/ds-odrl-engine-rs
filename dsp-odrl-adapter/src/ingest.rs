@@ -310,14 +310,38 @@ fn policy_from(node: &Node, warnings: &mut Vec<String>) -> Result<WirePolicy, In
                 .to_string(),
         );
     }
-    if !odrl(node, "inheritFrom").is_empty() {
-        warnings.push(
-            "the policy declares odrl:inheritFrom; this adapter does not map it, so \
-             WirePolicy.inherit_from is left empty here -- engine::wire itself now resolves the \
-             field when a caller populates it directly, but this ingestion path still does not"
-                .to_string(),
-        );
-    }
+    // Information Model §2.9 puts no cardinality-of-one limit on
+    // `odrl:inheritFrom` -- `WirePolicy.inherit_from` is itself an
+    // `Option<Vec<String>>` for exactly that reason (`wire.rs`: "the `id`s
+    // of zero or more parent policies"), and `engine::wire::resolve_one`
+    // already folds every named parent's rules transitively, one
+    // `parent_id` at a time, in the order `parent_ids` lists them. So every
+    // value is read, in document order, not just the first.
+    //
+    // Each value is IRI-typed per the bundled JSON-LD context's
+    // `"@type": "@id"` on this term -- the same convention `target` already
+    // gets, not the vocabulary-compaction convention `action`/`leftOperand`
+    // get -- so it is carried through exactly as written, never compacted.
+    // The referenced parent need not resolve to anything *in this same
+    // document*: `ingest_policy` ingests exactly one policy node per call,
+    // so the IRI is carried through uninterpreted, and resolving it against
+    // a request's full `policies` list is `engine::wire::resolve_inherit_from`'s
+    // job, not this adapter's.
+    //
+    // An empty result (the term absent, or present with an empty array --
+    // indistinguishable after expansion) stays `None` rather than
+    // `Some(vec![])`, matching `WirePolicy.inherit_from`'s own "`None` ...
+    // a policy with no parent" doc comment and keeping every document that
+    // never uses this feature at all ingesting byte-for-byte as before.
+    let inherit_from = {
+        let parents: Vec<String> = odrl(node, "inheritFrom").iter().filter_map(as_string).collect();
+        if parents.is_empty() {
+            None
+        } else {
+            Some(parents)
+        }
+    };
+
     // `engine::Policy` really evaluates `odrl:conflict` now, and this
     // adapter maps no conflict term onto it: ingesting one means deciding
     // what an IRI-or-literal `odrl:perm`/`odrl:prohibit`/`odrl:invalid`
@@ -345,8 +369,7 @@ fn policy_from(node: &Node, warnings: &mut Vec<String>) -> Result<WirePolicy, In
         obligations: rules_from(node, "obligation", policy_target.as_deref(), policy_action.as_deref(), warnings)?,
         // Never ingested from the document -- see the warning above.
         conflict: ConflictStrategy::default(),
-        // Never ingested from the document either -- see the odrl:inheritFrom warning above.
-        inherit_from: None,
+        inherit_from,
     })
 }
 

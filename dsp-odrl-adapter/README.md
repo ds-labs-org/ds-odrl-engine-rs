@@ -157,6 +157,7 @@ job with its own "which offer applies" question.
 | `odrl:operator` | `Constraint.operator` | the ten this engine has; anything else is a named error |
 | `odrl:rightOperand` | `Constraint.right_operand` | **never** compacted; several values join with `,`, this engine's own convention for `isAnyOf` and friends |
 | `{"@value": v, "@type": t}` | the lexical form of `v` | the datatype is dropped — `right_operand` is one opaque `String` |
+| `odrl:inheritFrom` (one or several) | `WirePolicy.inherit_from` | IRI-typed like `target`, so **never** compacted; document order preserved; absent or an empty array both map to `None`, not `Some(vec![])`, matching the field's own "no parent" default. Resolved against the rest of a request's `policies` by `engine::wire::resolve_inherit_from`, not by this adapter — see root README, "Policy inheritance (`odrl:inheritFrom`)" |
 
 ### Two naming conventions, and why they differ
 
@@ -303,12 +304,8 @@ cannot audit.
   than one `odrl:consequence` on the same Duty (`engine::Rule::consequence`
   models a single successor, so only the first is ingested);
 - an `odrl:profile` declaration (not loaded, so any term it defines stays
-  an opaque string) and `odrl:inheritFrom` (the engine now resolves policy
-  inheritance for a caller that populates `WirePolicy.inherit_from` itself
-  — root README, "Policy inheritance (`odrl:inheritFrom`)" — but this
-  adapter does not map the DSP document's own `odrl:inheritFrom` node
-  references onto it, so `WirePolicy.inherit_from` is always `None` from
-  this ingestion path);
+  an opaque string; `odrl:inheritFrom` is unrelated to this and *is* now
+  ingested — see the mapping table above);
 - an `odrl:conflict` declaration. The engine really evaluates that term
   now (root README, "Conflict strategy (`odrl:conflict`)"), and this
   adapter ingests none: mapping an IRI-or-literal
