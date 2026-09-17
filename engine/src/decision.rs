@@ -1158,12 +1158,35 @@ pub(crate) fn unresolved_permission_duties(
 }
 
 /// The `odrl:remedy` chains that are outstanding, across every prohibition
-/// that actually **fired** — applied, matched, and so denied.
+/// that actually **fired** — applied, matched, denied, and was not itself
+/// superseded by a genuine `odrl:conflict` collision resolved in a
+/// colliding permission's favor.
 ///
 /// A remedy is what must be done *once the prohibition has been violated*,
 /// so a prohibition that did not fire imposes no remedy: reporting one
 /// would invent an obligation out of a rule that had nothing to say. This
 /// mirrors the permission-duty scoping above, at the opposite polarity.
+///
+/// **`remedies_superseded` is the fix for a real bug** (this engine's own
+/// v0.23.1): every firing prohibition here is, by construction, about the
+/// identical `requested_action`/`requested_target` `decide`'s own
+/// `denied_by_prohibition` already tested — so when `resolve_conflict`
+/// found a genuine collision for that exact request *and* resolved it in
+/// the permission's favor (`permission_wins`), the whole policy's answer
+/// for this action/target is `Allow`: no prohibition here actually
+/// violated anything, and a remedy of a prohibition that never fired is
+/// exactly as invented as a remedy of one that never applied at all.
+/// Before this fix, this function had no way to know that — it is
+/// `decide`'s own, policy-wide `resolve_conflict` call that knows whether
+/// a collision happened, not this per-rule loop — so a superseded
+/// prohibition's remedy still showed up in the coarse
+/// `wire::Response.duties` list even though
+/// `decision::derive_detailed_rule_reports`'s newer, independent
+/// detailed-evaluation path already correctly reported the whole chain
+/// `Inactive`/`NonSet` (see that function's own `superseded` local, which
+/// this mirrors). Caught by `ds-odrl-compliance-rdf`'s
+/// `conflict-perm-supersedes-prohibition-remedy-01.ttl`, via
+/// `compliance-rdf-runner`'s `Response.duties` cross-check.
 pub(crate) fn unresolved_remedies(
     policy: &Policy,
     claims: &Claims,
@@ -1171,7 +1194,11 @@ pub(crate) fn unresolved_remedies(
     requested_action: &str,
     requested_target: &str,
     asset_collections: &[String],
+    remedies_superseded: bool,
 ) -> Vec<UnresolvedDuty> {
+    if remedies_superseded {
+        return Vec::new();
+    }
     let mut outstanding = Vec::new();
     for (rule_index, rule) in policy.prohibitions.iter().enumerate() {
         if !(rule.applies(
@@ -1544,6 +1571,7 @@ pub fn decide(
         requested_action,
         requested_target,
         asset_collections,
+        permission_wins,
     ));
 
     // Deliberately keyed off the *policy-level* obligations alone, not off
@@ -4359,6 +4387,75 @@ mod tests {
                 "{conflict:?}"
             );
         }
+    }
+
+    #[test]
+    fn a_remedy_of_a_prohibition_superseded_by_conflict_perm_is_not_reported_outstanding() {
+        // The v0.23.1 fix: `unresolved_remedies` must consult the exact
+        // same `resolve_conflict` outcome `decide` itself derives, not
+        // just each rule's own `applies() && matches()` -- a prohibition
+        // genuinely superseded by `odrl:conflict odrl:perm` never fired,
+        // so its own `odrl:remedy` never fires either. Before this fix,
+        // the remedy below still showed up in `unresolved_duties` even
+        // though `derive_detailed_rule_reports`'s own, already-correct
+        // `superseded` local reported the whole chain `Inactive`/`NonSet`.
+        // Caught by `ds-odrl-compliance-rdf`'s
+        // `conflict-perm-supersedes-prohibition-remedy-01.ttl`, via
+        // `compliance-rdf-runner`'s `Response.duties` cross-check.
+        let policy = Policy {
+            permissions: vec![Rule::new("read", vec![])],
+            prohibitions: vec![Rule {
+                remedy: vec![asserted_duty("anonymize")],
+                ..Rule::new("read", vec![])
+            }],
+            obligations: vec![],
+            conflict: ConflictStrategy::Perm,
+        };
+        let config = config_recognizing(&["read", "anonymize"]);
+
+        let outcome = decide(&policy, &claims_with(&[]), &config, "read", ASSET, &[]);
+        assert_eq!(
+            outcome.decision,
+            Decision::Allow,
+            "conflict=perm: the permission wins"
+        );
+        assert!(
+            outcome.unresolved_duties.is_empty(),
+            "a remedy of a prohibition superseded by conflict=perm must not be reported \
+             outstanding, got {:?}",
+            outcome.unresolved_duties
+        );
+    }
+
+    #[test]
+    fn a_remedy_of_a_prohibition_that_is_not_superseded_still_reports_outstanding() {
+        // The control for the fix above: with no genuine collision (no
+        // permission grants at all here), the identical prohibition +
+        // remedy shape is entirely unaffected by `conflict: Perm` --
+        // still reported exactly as
+        // `a_remedy_never_lifts_a_prohibition_in_either_direction` already
+        // covers for the default strategy. Guards against a future,
+        // over-eager fix that keys `remedies_superseded` off
+        // `policy.conflict` alone rather than the real, per-request
+        // `resolve_conflict` outcome.
+        let policy = Policy {
+            permissions: vec![],
+            prohibitions: vec![Rule {
+                remedy: vec![asserted_duty("anonymize")],
+                ..Rule::new("read", vec![])
+            }],
+            obligations: vec![],
+            conflict: ConflictStrategy::Perm,
+        };
+        let config = config_recognizing(&["read", "anonymize"]);
+
+        let outcome = decide(&policy, &claims_with(&[]), &config, "read", ASSET, &[]);
+        assert_eq!(outcome.decision, Decision::Deny);
+        assert_eq!(outcome.unresolved_duties.len(), 1);
+        assert_eq!(
+            outcome.unresolved_duties[0].path(),
+            "prohibition[0].remedy[0]"
+        );
     }
 
     #[test]
