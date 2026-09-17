@@ -158,6 +158,7 @@ job with its own "which offer applies" question.
 | `odrl:rightOperand` | `Constraint.right_operand` | **never** compacted; several values join with `,`, this engine's own convention for `isAnyOf` and friends |
 | `{"@value": v, "@type": t}` | the lexical form of `v` | the datatype is dropped — `right_operand` is one opaque `String` |
 | `odrl:inheritFrom` (one or several) | `WirePolicy.inherit_from` | IRI-typed like `target`, so **never** compacted; document order preserved; absent or an empty array both map to `None`, not `Some(vec![])`, matching the field's own "no parent" default. Resolved against the rest of a request's `policies` by `engine::wire::resolve_inherit_from`, not by this adapter — see root README, "Policy inheritance (`odrl:inheritFrom`)" |
+| `odrl:conflict` | `WirePolicy.conflict` | vocabulary-valued like `action`/`leftOperand`, so compacted the same way; one of `perm`/`prohibit`/`invalid` maps to the matching `ConflictStrategy`; absent maps to `ConflictStrategy::default()` (`invalid`); a value outside those three also falls back to `ConflictStrategy::default()`, with a warning (see below) rather than an error |
 
 ### Two naming conventions, and why they differ
 
@@ -306,16 +307,17 @@ cannot audit.
 - an `odrl:profile` declaration (not loaded, so any term it defines stays
   an opaque string; `odrl:inheritFrom` is unrelated to this and *is* now
   ingested — see the mapping table above);
-- an `odrl:conflict` declaration. The engine really evaluates that term
-  now (root README, "Conflict strategy (`odrl:conflict`)"), and this
-  adapter ingests none: mapping an IRI-or-literal
-  `odrl:perm`/`odrl:prohibit`/`odrl:invalid`, and deciding what an
-  unrecognized term should do, is its own decision rather than a side
-  effect of the engine gaining the field. The engine's default (`invalid`
-  — a policy whose permission and prohibition both match is void) applies
-  instead, which is the *opposite* answer for an offer asking for `perm`,
-  so the warning names it rather than letting one strategy stand in for
-  another;
+- an `odrl:conflict` value outside odrl's own `perm`/`prohibit`/`invalid`
+  three (a profile-declared strategy such as `ex:assigneeWins`, say). The
+  engine really evaluates `odrl:conflict` now (root README, "Conflict
+  strategy (`odrl:conflict`)"), and the three real terms *are* ingested
+  into `WirePolicy.conflict` (mapping table above) — this warning fires
+  only for a term this adapter cannot map at all. Falling back to
+  `ConflictStrategy::default()` (`invalid`: a policy whose permission and
+  prohibition both match is void) is safe rather than fail-open here,
+  since `invalid` never resolves a genuine collision any more permissively
+  than `prohibit` already does — but it is still named rather than let
+  stand in silently for whatever the profile term actually meant;
 - a missing `@id` or `odrl:assigner`.
 
 Everything else is an error rather than a warning, all for one reason —

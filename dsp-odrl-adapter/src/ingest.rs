@@ -342,22 +342,38 @@ fn policy_from(node: &Node, warnings: &mut Vec<String>) -> Result<WirePolicy, In
         }
     };
 
-    // `engine::Policy` really evaluates `odrl:conflict` now, and this
-    // adapter maps no conflict term onto it: ingesting one means deciding
-    // what an IRI-or-literal `odrl:perm`/`odrl:prohibit`/`odrl:invalid`
-    // expands to and what an unrecognized term should do, which is its own
-    // decision rather than a side effect of the engine gaining the field.
-    // Until then the engine's default (`invalid` -- void a conflicting
-    // policy) applies, so an offer asking for `perm` would get the opposite
-    // answer, and that has to be said out loud.
-    if !odrl(node, "conflict").is_empty() {
-        warnings.push(
-            "the policy declares odrl:conflict; this adapter ingests no conflict strategy, so the \
-             engine's own default applies (invalid: a policy whose permission and prohibition both \
-             match is void)"
-                .to_string(),
-        );
-    }
+    // `engine::Policy` really evaluates `odrl:conflict` now (root README,
+    // "Conflict strategy (`odrl:conflict`)"), and `WirePolicy::conflict`
+    // mirrors it field for field -- so it is read with the same
+    // vocabulary-compaction convention `action`/`leftOperand` already use
+    // (`odrl:conflict` is `@type: @vocab` in the bundled context, unlike the
+    // IRI-typed `odrl:inheritFrom` above), not carried through as an opaque
+    // string. Absent, it stays `ConflictStrategy::default()` -- ODRL's own
+    // `invalid`, unchanged from before this field was read at all.
+    let conflict = match first_string(node, "conflict").map(|term| compact(&term)) {
+        None => ConflictStrategy::default(),
+        Some(term) => conflict_strategy_from(&term).unwrap_or_else(|| {
+            // A term outside odrl's own perm/prohibit/invalid three is
+            // *not* `IngestError`, unlike an unsupported `odrl:operator` or
+            // an empty `odrl:and`/`odrl:andSequence`: those fail closed
+            // because dropping them would leave a rule *less* constrained
+            // (fail-open for a permission). Falling back to
+            // `ConflictStrategy::default()` here does the opposite --
+            // `invalid` voids a genuine conflict outright, which a
+            // `Decision` never distinguishes from `prohibit`'s own
+            // deny-overrides outcome, so no policy becomes *more*
+            // permissive than it already was before this mapping existed.
+            // So this is warned about, the same convention
+            // `warn_wrong_domain` below already uses for a shape this
+            // adapter cannot map without guessing.
+            warnings.push(format!(
+                "the policy declares \"odrl:conflict\": \"{term}\", which is not one of odrl's own \
+                 perm/prohibit/invalid; the engine's own default applies instead (invalid: a policy \
+                 whose permission and prohibition both match is void)"
+            ));
+            ConflictStrategy::default()
+        }),
+    };
 
     Ok(WirePolicy {
         id,
@@ -367,10 +383,24 @@ fn policy_from(node: &Node, warnings: &mut Vec<String>) -> Result<WirePolicy, In
         permissions: rules_from(node, "permission", policy_target.as_deref(), policy_action.as_deref(), warnings)?,
         prohibitions: rules_from(node, "prohibition", policy_target.as_deref(), policy_action.as_deref(), warnings)?,
         obligations: rules_from(node, "obligation", policy_target.as_deref(), policy_action.as_deref(), warnings)?,
-        // Never ingested from the document -- see the warning above.
-        conflict: ConflictStrategy::default(),
+        conflict,
         inherit_from,
     })
+}
+
+/// This adapter's mapping for `odrl:conflict`'s three real terms onto
+/// `engine::decision::ConflictStrategy` -- exactly the `odrl:ConflictTerm`
+/// enumeration Information Model §2.10 defines, nothing invented. `None`
+/// for anything else, including a real term this engine cannot evaluate
+/// (there are none: all three are) and a profile-declared one
+/// (`ex:assigneeWins`) -- see the caller for what happens then.
+fn conflict_strategy_from(term: &str) -> Option<ConflictStrategy> {
+    match term {
+        "perm" => Some(ConflictStrategy::Perm),
+        "prohibit" => Some(ConflictStrategy::Prohibit),
+        "invalid" => Some(ConflictStrategy::Invalid),
+        _ => None,
+    }
 }
 
 fn rules_from(
@@ -894,29 +924,39 @@ mod tests {
     }
 
     #[test]
-    fn a_declared_odrl_conflict_term_is_warned_about_rather_than_silently_dropped() {
-        // `engine::Policy` now really evaluates `odrl:conflict`, and this
-        // adapter does not ingest one -- it maps no conflict term onto
-        // `WirePolicy::conflict`, so an offer asking for `perm` would be
-        // evaluated under ODRL's default `invalid` instead, which is the
-        // opposite answer for a policy that actually conflicts. Silently
-        // substituting one strategy for another is exactly the class of
-        // loss every other warning here exists for.
+    fn an_unrecognized_odrl_conflict_value_is_warned_about_and_falls_back_to_the_engines_own_default() {
+        // This test used to be
+        // `a_declared_odrl_conflict_term_is_warned_about_rather_than_silently_dropped`,
+        // documenting that *no* `odrl:conflict` value was ever ingested --
+        // not even a real, recognized `"perm"`. Now that `policy_from`
+        // actually maps the three real terms (see
+        // `a_declared_odrl_conflict_value_ingests_into_wire_policys_conflict_field`
+        // above), that premise is false for `"perm"` specifically, so this
+        // test is repointed at the one case where a warning-and-fallback is
+        // still the right answer: a `conflict` value that is not one of
+        // odrl's own perm/prohibit/invalid three (`ex:assigneeWins`, say --
+        // a profile-declared strategy this engine has no way to run). This
+        // adapter cannot guess what an unrecognized strategy should do, so
+        // it warns and falls back to `ConflictStrategy::default()`, exactly
+        // the "wrong-domain" convention `warn_wrong_domain` already uses --
+        // rather than an `IngestError`, because unlike dropping a
+        // constraint or a rule, falling back to `invalid` here never makes
+        // the policy *more* permissive than it already was.
         let doc = r#"{
           "@context": "http://www.w3.org/ns/odrl.jsonld",
           "@type": "Offer",
           "@id": "urn:uuid:conflicting-offer",
           "assigner": "did:web:provider.example",
           "target": "urn:asset:A",
-          "conflict": "perm",
+          "conflict": "ex:assigneeWins",
           "permission": [{ "action": "use" }],
           "prohibition": [{ "action": "use" }]
         }"#;
-        let ingested = ingest_policy(doc).expect("a policy declaring odrl:conflict still ingests");
+        let ingested = ingest_policy(doc).expect("a policy declaring an unrecognized odrl:conflict still ingests");
         assert_eq!(
             ingested.policy.conflict,
             ConflictStrategy::default(),
-            "the strategy really is dropped -- which is what makes the warning load-bearing"
+            "an unrecognized strategy falls back to the engine's own default rather than being invented"
         );
         assert!(
             ingested.warnings.iter().any(|w| w.contains("odrl:conflict")),
@@ -926,9 +966,9 @@ mod tests {
 
         // The control: an otherwise identical offer that declares no
         // conflict term warns about nothing of the sort, so the assertion
-        // above is about the declaration and not about a warning this
-        // adapter emits for every policy.
-        let quiet = ingest_policy(&doc.replace("\"conflict\": \"perm\",", "")).expect("must ingest");
+        // above is about the unrecognized declaration and not about a
+        // warning this adapter emits for every policy.
+        let quiet = ingest_policy(&doc.replace("\"conflict\": \"ex:assigneeWins\",", "")).expect("must ingest");
         assert!(
             !quiet.warnings.iter().any(|w| w.contains("odrl:conflict")),
             "warnings: {:?}",
