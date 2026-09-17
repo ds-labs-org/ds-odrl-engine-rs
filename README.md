@@ -540,17 +540,19 @@ suite's 68 passing cases is translated; it still declines `odrl:xone`
 fixtures with a cited, honest reason rather than silently mistranslating
 them, since DNF cannot express "exactly one." Migrating that adapter onto
 this native support instead is a deliberate, separate later decision, not
-made by this change. `odrl:andSequence` is likewise not mapped by either
-host-side adapter in this workspace: no vendored `ODRL-Test-Suite` fixture
-uses it (`to_dnf` has nothing to translate), and `dsp-odrl-adapter`'s own
-`ingest.rs::constraint_from` — a separate, JSON-LD-shaped mapping from a
-real DSP contract offer, not this wire contract — still recognizes only
-`xone`/`or`/`and` and would reject a real document's `odrl:andSequence`
-constraint as `ConstraintWithoutLeftOperand` (fail-closed, not silently
-wrong, but still a real ingestion gap for that one adapter). Engine-level
-support and adapter-level ingestion are separate decisions, the same
-posture `odrl:inheritFrom` and `odrl:duty`/`odrl:consequence`/`odrl:remedy`
-already have in this README.
+made by this change. `odrl:andSequence` is still not mapped by
+`compliance-runner`'s host-side adapter: no vendored `ODRL-Test-Suite`
+fixture uses it, so `to_dnf` has nothing to translate. `dsp-odrl-adapter`'s
+own `ingest.rs::constraint_from` — a separate, JSON-LD-shaped mapping from
+a real DSP contract offer, not this wire contract — now maps it too,
+alongside `xone`/`or`/`and`, onto `Constraint::and_sequence` (see its own
+README's "The mapping, term by term"); that closed what was a real
+ingestion gap for a real document's `odrl:andSequence` constraint, which
+used to fail closed as `ConstraintWithoutLeftOperand` rather than being
+silently mistranslated. Engine-level support and adapter-level ingestion
+remain separate decisions — `dsp-odrl-adapter` closing its own gap here,
+on its own schedule, is that same posture in action, not an exception to
+it.
 
 ## Action refinement (`odrl:refinement`)
 
@@ -1368,13 +1370,18 @@ policies it sends sets it on the policies it builds.
 
 `compliance-runner` leaves it at the default and the 68/68 result is
 unchanged: no Turtle document in the vendored suite declares
-`odrl:conflict` at all. `dsp-odrl-adapter` does **not** ingest one — mapping
-an IRI-or-literal `odrl:perm`/`odrl:prohibit`/`odrl:invalid`, and deciding
-what an unrecognized term should do, is its own decision rather than a side
-effect of the engine gaining the field — so it emits a warning naming the
-dropped term rather than substituting a strategy silently. The demonstrator
-site's own request types mirror the engine's only as far as they always
-did, and still do not model `odrl:conflict` (see `site/README.md`).
+`odrl:conflict` at all. `dsp-odrl-adapter` **does** ingest one now —
+mapping the compacted `odrl:perm`/`odrl:prohibit`/`odrl:invalid` vocabulary
+term onto the matching `ConflictStrategy`, and deciding what an
+unrecognized term should do, was its own decision rather than a side
+effect of the engine gaining the field: an unrecognized term falls back to
+`ConflictStrategy::default()` (`invalid`) with a warning naming the term,
+rather than an error, since falling back to `invalid` never resolves a
+genuine collision any more permissively than `prohibit` already does (see
+its own README's "What is warned about rather than silently dropped"). The
+demonstrator site's own request types mirror the engine's only as far as
+they always did, and still do not model `odrl:conflict` (see
+`site/README.md`).
 
 ## Policy inheritance (`odrl:inheritFrom`)
 
@@ -1548,14 +1555,17 @@ from` coverage row) and `engine/src/wire.rs`'s
 and `the_same_declared_conflict_value_across_inheritance_is_not_a_divergence`
 tests.
 
-Neither `compliance-runner` nor `dsp-odrl-adapter` resolves
-`odrl:inheritFrom` through this new field: no Turtle document in the
-vendored 68-fixture suite declares one, so `compliance-runner`'s own
-adapter never sets it, and `dsp-odrl-adapter`'s `ingest.rs` still only
-emits a warning naming the dropped term (`WirePolicy.inherit_from` stays
-`None` from that ingestion path) — mapping a DSP contract's own
-`odrl:inheritFrom` node references is a separate decision from the engine
-gaining the field, exactly as `odrl:conflict` ingestion already is.
+`compliance-runner` still never sets this field: no Turtle document in the
+vendored 68-fixture suite declares `odrl:inheritFrom`, so there is nothing
+for its own adapter to translate. `dsp-odrl-adapter`'s `ingest.rs` **does**
+now — every `odrl:inheritFrom` IRI on the ingested policy node is carried,
+uncompacted and in document order, into `WirePolicy.inherit_from`, which
+`engine::wire::resolve_inherit_from` then resolves the same as any other
+populated field, once per `evaluate_request` call (see its own README's
+mapping table). Mapping a DSP contract's own `odrl:inheritFrom` node
+references was a separate decision from the engine gaining the field,
+exactly as `odrl:conflict` ingestion already was — both have since been
+closed.
 
 ## Detailed evaluation (`evaluate_request_detailed`)
 
@@ -2011,14 +2021,13 @@ property-key spelling — and both ingest to one identical `WirePolicy`.
 and `odrl:action` alike — Information Model §2.7.1's "Compact Policy"
 shorthand, the spec's own Example 28 — with a rule's own action still
 winning when it names one,
-constraints including nested `odrl:and`/`odrl:or`/`odrl:xone` (but **not**
-`odrl:andSequence`, added to `engine` after this adapter's own
-`constraint_from` was written — a real document's `odrl:andSequence`
-constraint is rejected rather than silently mistranslated), a permission's
-`odrl:duty`, a prohibition's `odrl:remedy` and a duty's `odrl:consequence`,
-and an action's `odrl:refinement`), and nothing else — no negotiation, no
-signature or credential verification, no collection-membership resolution,
-no evaluation. `@base`/relative-IRI resolution, property-scoped contexts,
+constraints including nested `odrl:and`/`odrl:or`/`odrl:xone`/
+`odrl:andSequence`, a permission's `odrl:duty`, a prohibition's
+`odrl:remedy` and a duty's `odrl:consequence`, an action's
+`odrl:refinement`, a policy's `odrl:inheritFrom` and its `odrl:conflict`
+strategy), and nothing else — no negotiation, no signature or credential
+verification, no collection-membership resolution, no evaluation.
+`@base`/relative-IRI resolution, property-scoped contexts,
 `@container`/`@list`, language maps, `@reverse`, `@nest`, `@graph` and RDF
 conversion are all unimplemented and named as such. `minimal_config` is a
 floor that declares the actions the policy names so `engine` does not
@@ -2026,8 +2035,10 @@ answer `Error` for a vocabulary gap — it declares no `odrl:includedIn`
 edges, so real action-taxonomy coverage still comes from
 `profile-interpreter` and real Profile documents. A `rightOperand` is
 carried byte for byte (including one that itself begins `odrl:`) while
-actions, policy classes and `leftOperand`s are compacted out of the ODRL
-namespace, since the first is data and the rest are vocabulary.
+actions, policy classes, `leftOperand`s and `odrl:conflict` are compacted
+out of the ODRL namespace, since the first is data and the rest are
+vocabulary; `odrl:inheritFrom` is IRI-typed and so, like `target`, never
+compacted.
 
 **Not yet corpus-tested against a real DSP conformance suite.** Everything
 else in this repo is measured against an external corpus — 68 vendored
