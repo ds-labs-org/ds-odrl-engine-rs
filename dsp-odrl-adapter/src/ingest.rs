@@ -1162,6 +1162,80 @@ mod tests {
     }
 
     #[test]
+    fn a_declared_odrl_conflict_value_ingests_into_wire_policys_conflict_field() {
+        // `engine::decision::ConflictStrategy` really is consulted by
+        // `decide` now (see `conflicting_rules`/`decide` in
+        // `engine/src/decision.rs`), and `WirePolicy::conflict` mirrors it
+        // field for field -- but `policy_from` still hardcodes
+        // `conflict: ConflictStrategy::default()` unconditionally, exactly
+        // the way it used to hardcode `inherit_from: None`. A document that
+        // actually declares `"conflict": "perm"` therefore ingests as if it
+        // had declared nothing at all, and a policy whose author wrote
+        // `perm` to make a matching permission win over a matching
+        // prohibition gets evaluated under `invalid` instead -- the
+        // opposite answer, silently.
+        // `a_declared_odrl_conflict_term_is_warned_about_rather_than_silently_dropped`
+        // above documents that this loss is at least *warned* about; this
+        // test is the ingestion half that warning is not a substitute for.
+        //
+        // `odrl:conflict` is `@type: @vocab` in the bundled context (like
+        // `action`/`leftOperand`, unlike the IRI-typed `inheritFrom`), so a
+        // real fix reads it with the same compaction convention those
+        // fields already use -- `first_string` + `compact`, not a new
+        // helper -- and the three cases below are exactly ODRL 2.2's own
+        // `odrl:ConflictTerm` enumeration, nothing invented.
+        for (term, expected) in [
+            ("perm", ConflictStrategy::Perm),
+            ("prohibit", ConflictStrategy::Prohibit),
+            ("invalid", ConflictStrategy::Invalid),
+        ] {
+            let doc = format!(
+                r#"{{
+                  "@context": "http://www.w3.org/ns/odrl.jsonld",
+                  "@type": "Offer",
+                  "@id": "urn:uuid:conflicting-offer",
+                  "assigner": "did:web:provider.example",
+                  "target": "urn:asset:A",
+                  "conflict": "{term}",
+                  "permission": [{{ "action": "use" }}],
+                  "prohibition": [{{ "action": "use" }}]
+                }}"#
+            );
+            let ingested = ingest_policy(&doc).expect("a policy declaring odrl:conflict must still ingest");
+            assert_eq!(
+                ingested.policy.conflict, expected,
+                "\"conflict\": \"{term}\" must ingest to {expected:?}, not silently fall back to \
+                 the engine's own default"
+            );
+        }
+    }
+
+    #[test]
+    fn no_odrl_conflict_term_leaves_wire_policys_conflict_at_the_engines_own_default() {
+        // The regression guard for the common case: the overwhelming
+        // majority of fixtures in this workspace (both DSP fixtures above
+        // included) declare no `odrl:conflict` at all, and a fix that reads
+        // the term must not start inventing a strategy for a document that
+        // never named one -- `ConflictStrategy::default()` (`invalid`) has
+        // to keep meaning "the document said nothing", exactly as
+        // `WirePolicy::conflict`'s own doc comment states.
+        let doc = r#"{
+          "@context": "http://www.w3.org/ns/odrl.jsonld",
+          "@type": "Offer",
+          "@id": "urn:uuid:no-conflict-offer",
+          "assigner": "did:web:provider.example",
+          "target": "urn:asset:A",
+          "permission": [{ "action": "use" }]
+        }"#;
+        let ingested = ingest_policy(doc).expect("a policy declaring no odrl:conflict must still ingest");
+        assert_eq!(
+            ingested.policy.conflict,
+            ConflictStrategy::default(),
+            "no odrl:conflict term in the document must still map to the engine's own default"
+        );
+    }
+
+    #[test]
     fn a_rule_given_as_a_bare_reference_is_an_error_not_a_silently_skipped_rule() {
         // A rule stated as `{"@id": …}` points at a rule body defined in
         // some document this adapter does not resolve. Skipping it drops a
