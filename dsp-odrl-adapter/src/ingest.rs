@@ -647,24 +647,30 @@ fn constraint_from(value: &Expanded, depth: usize) -> Result<Constraint, IngestE
         return Err(IngestError::ConstraintNestedTooDeep(depth));
     }
 
-    // `xone`, then `or`, then `and` — **the same fixed precedence
-    // `engine::Constraint::evaluate` applies** when a hand-written object
-    // sets more than one of them (see `Constraint`'s own doc comment).
-    // Choosing a different order here would make an ingested policy decide
-    // differently from the identical policy written straight into Section
-    // 5.2 JSON, for exactly the input the engine documents a rule for.
+    // `xone`, then `or`, then `and`, then `and_sequence` — **the same fixed
+    // precedence `engine::Constraint::evaluate` applies** when a
+    // hand-written object sets more than one of them (see `Constraint`'s
+    // own doc comment). Choosing a different order here would make an
+    // ingested policy decide differently from the identical policy written
+    // straight into Section 5.2 JSON, for exactly the input the engine
+    // documents a rule for. `andSequence` is listed last so it stays behind
+    // the other three exactly as `engine::Constraint::evaluate` does; it
+    // does not change `.all()` semantics from `and` (see `and_sequence`'s
+    // own doc comment in engine/src/constraint.rs), only the order its
+    // children are read back in once ingested.
     for (local, build) in [
         ("xone", Constraint::xone as fn(Vec<Constraint>) -> Constraint),
         ("or", Constraint::or),
         ("and", Constraint::and),
+        ("andSequence", Constraint::and_sequence),
     ] {
         // An `"odrl:and": []` is indistinguishable from an absent one after
         // expansion (an empty array contributes no values), so it falls
         // through to the atomic path below and surfaces as
         // `ConstraintWithoutLeftOperand` — still an error, which is the
-        // part that matters: an empty `odrl:and` is *vacuously satisfied*
-        // in this engine, so accepting one would silently make a permission
-        // unconditional.
+        // part that matters: an empty `odrl:and` (or `odrl:andSequence`) is
+        // *vacuously satisfied* in this engine, so accepting one would
+        // silently make a permission unconditional.
         let children = odrl(node, local);
         if children.is_empty() {
             continue;

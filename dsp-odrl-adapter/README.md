@@ -152,8 +152,7 @@ job with its own "which offer applies" question.
 | `odrl:target` on the **policy** | pushed down onto every rule that names none | ODRL scopes a policy-level target to its rules; `engine::Rule` has no policy-level target to hold it |
 | `odrl:action` on the **policy** | pushed down onto every rule that names none | Information Model §2.7.1 "Compact Policy": the spec's own Example 28 states `target`/`assigner`/`action` once at the Policy level, with each `permission` naming only its own `assignee` — the exact document this pushdown exists to ingest. Before it existed, `ingest_policy` failed that document outright with `IngestError::RuleWithoutAction`. A rule naming its own `odrl:action` still wins over the policy-level default. |
 | `odrl:constraint[]` | `Rule.constraints` | |
-| `odrl:and` / `odrl:or` / `odrl:xone` | `Constraint::and`/`or`/`xone` | nested to `engine::MAX_CONSTRAINT_DEPTH`, the same bound evaluation stops at; an object setting more than one resolves by the engine's own `xone > or > and > and_sequence` precedence, so an ingested policy decides identically to the same policy hand-written into Section 5.2 JSON |
-| `odrl:andSequence` | **not mapped** | `engine::Constraint` gained `and_sequence` (same `.all()` semantics as `odrl:and`) after this table's other rows; `constraint_from` here still recognizes only `xone`/`or`/`and`, so a real document's `odrl:andSequence` constraint falls through to the atomic path below and is rejected as `ConstraintWithoutLeftOperand` — fail-closed, not silently wrong, but a real ingestion gap for a construct the engine itself now supports |
+| `odrl:and` / `odrl:or` / `odrl:xone` / `odrl:andSequence` | `Constraint::and`/`or`/`xone`/`and_sequence` | nested to `engine::MAX_CONSTRAINT_DEPTH`, the same bound evaluation stops at; an object setting more than one resolves by the engine's own `xone > or > and > and_sequence` precedence, so an ingested policy decides identically to the same policy hand-written into Section 5.2 JSON. `and_sequence` shares `and`'s `.all()` semantics — only the order its children are read back matters — and its children are kept in document order. |
 | `odrl:leftOperand` | `Constraint.left_operand` | compacted (see below) |
 | `odrl:operator` | `Constraint.operator` | the ten this engine has; anything else is a named error |
 | `odrl:rightOperand` | `Constraint.right_operand` | **never** compacted; several values join with `,`, this engine's own convention for `isAnyOf` and friends |
@@ -327,12 +326,12 @@ carrying on would leave a rule *less* constrained, or a policy *fewer*
 rules, than its author wrote, which is the fail-open direction:
 
 - `IngestError::ConstraintWithoutOperator` / `WithoutLeftOperand` /
-  `WithoutRightOperand`. An `"odrl:and": []` lands here too: an empty array
-  contributes no values, so it is indistinguishable from an absent one
-  after expansion and falls through to the atomic path. Still an error,
-  which is the part that matters — an empty `odrl:and` is *vacuously
-  satisfied* in this engine, so accepting one would make a permission
-  unconditional.
+  `WithoutRightOperand`. An `"odrl:and": []` (or `"odrl:andSequence": []`)
+  lands here too: an empty array contributes no values, so it is
+  indistinguishable from an absent one after expansion and falls through to
+  the atomic path. Still an error, which is the part that matters — an
+  empty `odrl:and`/`odrl:andSequence` is *vacuously satisfied* in this
+  engine, so accepting one would make a permission unconditional.
 - `IngestError::UnsupportedOperator(iri)` — a real ODRL 2.2 operator this
   engine has no evaluation for (`odrl:isA`, `odrl:hasPart`), or one a
   profile invented.
