@@ -37,9 +37,24 @@ jobs:
           # scripts/build-release-history.sh builds every historical tag's
           # engine.wasm for this target.
           targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+
+      - name: cargo fmt --check
+        run: cargo fmt --all -- --check
 
       - name: cargo build
         run: cargo build --workspace
+
+      - name: cargo clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      # dsp-odrl-adapter's whole capability is behind a default-off Cargo
+      # feature, so the default-feature clippy run above never lints its
+      # real code at all -- same reason the "opt-in feature" test run
+      # below exists as its own step rather than being trusted to stay
+      # warning-free.
+      - name: cargo clippy (dsp-odrl-adapter opt-in feature)
+        run: cargo clippy --workspace --all-targets --features dsp-odrl-adapter/dsp-ingest -- -D warnings
 
       - name: cargo test
         run: cargo test --workspace
