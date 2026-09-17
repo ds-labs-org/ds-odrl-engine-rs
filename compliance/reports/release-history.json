@@ -2678,6 +2678,78 @@
       },
       "summary": "README: catch up four passages that called andSequence/inheritFrom/conflict adapter gaps still open",
       "tag": "v0.23.0"
+    },
+    {
+      "commit": "8be5d6a6d4958aff63206c9e670833bdcf515918",
+      "compliance": {
+        "failed": 0,
+        "passed": 68,
+        "skipped": 0,
+        "total": 68
+      },
+      "contradicted_rows": [],
+      "coverage": {
+        "agreed": 136,
+        "contradicted": 0,
+        "disagreed": 0,
+        "documented": 2,
+        "envelope_rejected": 4,
+        "errored": 0,
+        "inconclusive": 0,
+        "probes_total": 136,
+        "verified": 50
+      },
+      "coverage_error": null,
+      "date": "2026-09-17T08:59:01+02:00",
+      "engine_wasm_bytes": 321205,
+      "engine_wasm_sha256": "5918d710facfc088d4c36cb868ffb92a4ed66df56f24d3da993a7e5c9ca1673b",
+      "full_compliance": {
+        "probes_falls_short": 15,
+        "probes_meets": 115,
+        "probes_undetermined": 0,
+        "rows_falls_short": 13,
+        "rows_meets": 31,
+        "rows_structural_gap": 1,
+        "rows_undetermined": 0
+      },
+      "summary": "green: unresolved_remedies must consult odrl:conflict resolution (v0.23.1)",
+      "tag": "v0.23.1"
+    },
+    {
+      "commit": "2424d8d90829c2d047cf8f977aad4433b09e8be8",
+      "compliance": {
+        "failed": 0,
+        "passed": 68,
+        "skipped": 0,
+        "total": 68
+      },
+      "contradicted_rows": [],
+      "coverage": {
+        "agreed": 136,
+        "contradicted": 0,
+        "disagreed": 0,
+        "documented": 2,
+        "envelope_rejected": 4,
+        "errored": 0,
+        "inconclusive": 0,
+        "probes_total": 136,
+        "verified": 50
+      },
+      "coverage_error": null,
+      "date": "2026-09-17T09:19:23+02:00",
+      "engine_wasm_bytes": 321204,
+      "engine_wasm_sha256": "6f243989f8845892f39d022013a8793e88a865fb35dbdf3953e6969f2e85dec1",
+      "full_compliance": {
+        "probes_falls_short": 15,
+        "probes_meets": 115,
+        "probes_undetermined": 0,
+        "rows_falls_short": 13,
+        "rows_meets": 31,
+        "rows_structural_gap": 1,
+        "rows_undetermined": 0
+      },
+      "summary": "green: duty_gate_violated must check every sibling odrl:duty, not only the first (v0.23.2)",
+      "tag": "v0.23.2"
     }
   ],
   "schema": "ds-odrl-engine-rs/release-history@3"
