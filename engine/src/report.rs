@@ -77,7 +77,11 @@ impl SatisfactionState {
 /// shape 1:1 (atomic vs. one of the four logical kinds).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ConstraintNode {
-    Atomic { left_operand: String, operator: Operator, right_operand: String },
+    Atomic {
+        left_operand: String,
+        operator: Operator,
+        right_operand: String,
+    },
     And,
     Or,
     Xone,

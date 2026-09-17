@@ -48,43 +48,45 @@ pub const FRAME_MS: f64 = 16.0;
 ///   Neither runner contains artificial delay of any other kind either --
 ///   the elapsed time a finished report prints is real work, measured.
 pub async fn yield_for_paint() {
-  let promise = js_sys::Promise::new(&mut |resolve, _reject| {
-    match web_sys::window() {
-      Some(window) => {
-        let _ = window.set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, 0);
-      }
-      // No `window` never happens in a browser, but a never-resolving
-      // promise here would hang the whole run rather than degrade it --
-      // so resolve immediately instead.
-      None => {
-        let _ = resolve.call0(&wasm_bindgen::JsValue::undefined());
-      }
-    }
-  });
-  let _ = wasm_bindgen_futures::JsFuture::from(promise).await;
+    let promise = js_sys::Promise::new(&mut |resolve, _reject| {
+        match web_sys::window() {
+            Some(window) => {
+                let _ = window.set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, 0);
+            }
+            // No `window` never happens in a browser, but a never-resolving
+            // promise here would hang the whole run rather than degrade it --
+            // so resolve immediately instead.
+            None => {
+                let _ = resolve.call0(&wasm_bindgen::JsValue::undefined());
+            }
+        }
+    });
+    let _ = wasm_bindgen_futures::JsFuture::from(promise).await;
 }
 
 /// `fetch(url)` as text, with every failure path rendered as a message a
 /// visitor can actually read (see this module's header on the duplicate
 /// formatter this replaced).
 pub async fn fetch_text(url: &str) -> Result<String, String> {
-  use wasm_bindgen::JsCast;
+    use wasm_bindgen::JsCast;
 
-  let window = web_sys::window().ok_or_else(|| "no `window` (not running in a browser)".to_string())?;
+    let window =
+        web_sys::window().ok_or_else(|| "no `window` (not running in a browser)".to_string())?;
 
-  let response: web_sys::Response = wasm_bindgen_futures::JsFuture::from(window.fetch_with_str(url))
-    .await
-    .map_err(describe_js_error)?
-    .dyn_into()
-    .map_err(|_| "fetch() did not resolve to a Response".to_string())?;
+    let response: web_sys::Response =
+        wasm_bindgen_futures::JsFuture::from(window.fetch_with_str(url))
+            .await
+            .map_err(describe_js_error)?
+            .dyn_into()
+            .map_err(|_| "fetch() did not resolve to a Response".to_string())?;
 
-  if !response.ok() {
-    return Err(format!("{url} fetch returned HTTP {}", response.status()));
-  }
+    if !response.ok() {
+        return Err(format!("{url} fetch returned HTTP {}", response.status()));
+    }
 
-  wasm_bindgen_futures::JsFuture::from(response.text().map_err(describe_js_error)?)
-    .await
-    .map_err(describe_js_error)?
-    .as_string()
-    .ok_or_else(|| format!("{url}: response.text() did not resolve to a string"))
+    wasm_bindgen_futures::JsFuture::from(response.text().map_err(describe_js_error)?)
+        .await
+        .map_err(describe_js_error)?
+        .as_string()
+        .ok_or_else(|| format!("{url}: response.text() did not resolve to a string"))
 }

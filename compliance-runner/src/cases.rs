@@ -26,7 +26,8 @@ use serde::Serialize;
 /// shape must fail loudly rather than half-parse).
 pub const SCHEMA: &str = "ds-odrl-engine-rs/compliance-cases@1";
 
-const SUITE: &str = "SolidLabResearch/ODRL-Test-Suite, vendored at compliance/vendor/odrl-test-suite";
+const SUITE: &str =
+    "SolidLabResearch/ODRL-Test-Suite, vendored at compliance/vendor/odrl-test-suite";
 
 const NOTE: &str = "Each `request` is the exact engine::wire::Request compliance-runner fed to \
                     engine::evaluate_request natively for this case; `expected_decision` is \
@@ -44,8 +45,13 @@ pub enum FixtureData {
     /// unboxed one makes every `Skipped` entry of the 68-case `Vec` in
     /// `main.rs` carry a `Request`-sized hole. No serialization consequence
     /// — `fixture_view` borrows straight through the box.
-    Ready { request: Box<Request>, expected: WireDecision },
-    Skipped { reason: String },
+    Ready {
+        request: Box<Request>,
+        expected: WireDecision,
+    },
+    Skipped {
+        reason: String,
+    },
 }
 
 /// One case as it appears in the exported file. A case is either
@@ -127,7 +133,12 @@ pub fn fixture_view<'a>(slug: &'a str, title: &'a str, data: &'a FixtureData) ->
 /// version of this file that lacked this indirection producing a
 /// different byte sequence on every single run).
 pub fn render(cases: &[CaseFixture<'_>]) -> String {
-    let file = CaseFile { schema: SCHEMA, suite: SUITE, note: NOTE, cases };
+    let file = CaseFile {
+        schema: SCHEMA,
+        suite: SUITE,
+        note: NOTE,
+        cases,
+    };
     let value = serde_json::to_value(&file).expect("CaseFile always serializes");
     serde_json::to_string_pretty(&value).expect("a serde_json::Value always serializes")
 }
@@ -147,7 +158,10 @@ mod tests {
             config: RequestConfig {
                 type_: "odrl:Profile".to_string(),
                 id: "https://ds42.org/profiles/compliance-runner".to_string(),
-                actions: vec![WireActionDecl { id: "read".to_string(), included_in: None }],
+                actions: vec![WireActionDecl {
+                    id: "read".to_string(),
+                    included_in: None,
+                }],
                 duty_mode: DutyMode::Advise,
                 behaviour: Behaviour::Closed,
                 // This suite evaluates whole policies against a caller the
@@ -163,7 +177,10 @@ mod tests {
                 kind: "Set".to_string(),
                 assigner: "urn:uuid:assigner".to_string(),
                 assignee: None,
-                permissions: vec![Rule::new("read", vec![Constraint::new("sub", Operator::Eq, "alice")])],
+                permissions: vec![Rule::new(
+                    "read",
+                    vec![Constraint::new("sub", Operator::Eq, "alice")],
+                )],
                 prohibitions: vec![],
                 obligations: vec![],
                 conflict: engine::ConflictStrategy::default(),
@@ -183,29 +200,46 @@ mod tests {
     fn a_ready_fixture_serializes_the_request_verbatim_and_no_skip_reason() {
         let request = a_request();
         let expected_request = serde_json::to_value(&request).unwrap();
-        let file = rendered(FixtureData::Ready { request: Box::new(request), expected: WireDecision::Allow });
+        let file = rendered(FixtureData::Ready {
+            request: Box::new(request),
+            expected: WireDecision::Allow,
+        });
 
         let case = &file["cases"][0];
         assert_eq!(case["slug"], "testcase-001-alice");
         assert_eq!(case["title"], "A title.");
         assert_eq!(case["expected_decision"], "Allow");
         assert_eq!(case["request"], expected_request);
-        assert!(case.get("skip_reason").is_none(), "a ready case must carry no skip_reason");
+        assert!(
+            case.get("skip_reason").is_none(),
+            "a ready case must carry no skip_reason"
+        );
     }
 
     #[test]
     fn a_skipped_fixture_serializes_the_reason_and_neither_request_nor_expected_decision() {
-        let file = rendered(FixtureData::Skipped { reason: "odrl:xone is not expressible".to_string() });
+        let file = rendered(FixtureData::Skipped {
+            reason: "odrl:xone is not expressible".to_string(),
+        });
 
         let case = &file["cases"][0];
         assert_eq!(case["skip_reason"], "odrl:xone is not expressible");
-        assert!(case.get("request").is_none(), "a skipped case must carry no request");
-        assert!(case.get("expected_decision").is_none(), "a skipped case must carry no expected_decision");
+        assert!(
+            case.get("request").is_none(),
+            "a skipped case must carry no request"
+        );
+        assert!(
+            case.get("expected_decision").is_none(),
+            "a skipped case must carry no expected_decision"
+        );
     }
 
     #[test]
     fn the_envelope_carries_the_schema_tag_and_no_tally_of_its_own() {
-        let file = rendered(FixtureData::Ready { request: Box::new(a_request()), expected: WireDecision::Deny });
+        let file = rendered(FixtureData::Ready {
+            request: Box::new(a_request()),
+            expected: WireDecision::Deny,
+        });
 
         assert_eq!(file["schema"], SCHEMA);
         assert!(file["suite"].as_str().unwrap().contains("ODRL-Test-Suite"));
@@ -213,8 +247,14 @@ mod tests {
         // The whole point of this artifact: nothing in it may pre-decide
         // the outcome the browser is supposed to compute.
         for forbidden in ["total", "passed", "failed", "skipped", "decision", "actual"] {
-            assert!(file.get(forbidden).is_none(), "envelope must not carry `{forbidden}`");
-            assert!(file["cases"][0].get(forbidden).is_none(), "a case must not carry `{forbidden}`");
+            assert!(
+                file.get(forbidden).is_none(),
+                "envelope must not carry `{forbidden}`"
+            );
+            assert!(
+                file["cases"][0].get(forbidden).is_none(),
+                "a case must not carry `{forbidden}`"
+            );
         }
     }
 
@@ -248,18 +288,30 @@ mod tests {
 
         let mut claims_a: engine::Claims = std::collections::HashMap::new();
         claims_a.insert("sub".to_string(), "alice".to_string().into());
-        claims_a.insert("dateTime".to_string(), "2024-02-12T11:20:10.999Z".to_string().into());
+        claims_a.insert(
+            "dateTime".to_string(),
+            "2024-02-12T11:20:10.999Z".to_string().into(),
+        );
         claims_a.insert("nationality".to_string(), "DE".to_string().into());
         claims_a.insert("scope".to_string(), "read".to_string().into());
 
         let mut claims_b: engine::Claims = std::collections::HashMap::new();
         claims_b.insert("scope".to_string(), "read".to_string().into());
         claims_b.insert("nationality".to_string(), "DE".to_string().into());
-        claims_b.insert("dateTime".to_string(), "2024-02-12T11:20:10.999Z".to_string().into());
+        claims_b.insert(
+            "dateTime".to_string(),
+            "2024-02-12T11:20:10.999Z".to_string().into(),
+        );
         claims_b.insert("sub".to_string(), "alice".to_string().into());
 
-        let data_a = FixtureData::Ready { request: Box::new(request_with_claims(claims_a)), expected: WireDecision::Allow };
-        let data_b = FixtureData::Ready { request: Box::new(request_with_claims(claims_b)), expected: WireDecision::Allow };
+        let data_a = FixtureData::Ready {
+            request: Box::new(request_with_claims(claims_a)),
+            expected: WireDecision::Allow,
+        };
+        let data_b = FixtureData::Ready {
+            request: Box::new(request_with_claims(claims_b)),
+            expected: WireDecision::Allow,
+        };
         let view_a = fixture_view("testcase-x", "title", &data_a);
         let view_b = fixture_view("testcase-x", "title", &data_b);
 

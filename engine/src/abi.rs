@@ -14,7 +14,8 @@ use std::alloc::{alloc as sys_alloc, dealloc as sys_dealloc, Layout};
 use crate::wire::{evaluate_request, parse_error_response, Request};
 
 fn layout_for(len: usize) -> Layout {
-    Layout::from_size_align(len.max(1), 1).expect("byte-buffer layout with alignment 1 is always valid")
+    Layout::from_size_align(len.max(1), 1)
+        .expect("byte-buffer layout with alignment 1 is always valid")
 }
 
 /// Guest allocates `len` bytes and returns the pointer, for a host to
@@ -43,7 +44,8 @@ pub extern "C" fn dealloc(ptr: i32, len: i32) {
 /// buffer it wrote and this response buffer.
 #[no_mangle]
 pub extern "C" fn evaluate(req_ptr: i32, req_len: i32) -> i64 {
-    let bytes = unsafe { std::slice::from_raw_parts(req_ptr as *const u8, req_len.max(0) as usize) };
+    let bytes =
+        unsafe { std::slice::from_raw_parts(req_ptr as *const u8, req_len.max(0) as usize) };
 
     let response_json = match serde_json::from_slice::<Request>(bytes) {
         Ok(req) => serde_json::to_vec(&evaluate_request(&req)),

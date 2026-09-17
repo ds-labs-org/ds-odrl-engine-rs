@@ -35,9 +35,7 @@ impl ClaimValue {
     pub fn matches_any(&self, candidates: &[&str]) -> bool {
         match self {
             ClaimValue::Single(value) => candidates.contains(&value.as_str()),
-            ClaimValue::Multi(values) => values
-                .iter()
-                .any(|v| candidates.contains(&v.as_str())),
+            ClaimValue::Multi(values) => values.iter().any(|v| candidates.contains(&v.as_str())),
         }
     }
 
@@ -123,7 +121,11 @@ mod tests {
         assert!(!single.matches_all(&["read", "write"]));
         assert!(!single.matches_all(&["write"]));
 
-        let multi = ClaimValue::Multi(vec!["read".to_string(), "write".to_string(), "delete".to_string()]);
+        let multi = ClaimValue::Multi(vec![
+            "read".to_string(),
+            "write".to_string(),
+            "delete".to_string(),
+        ]);
         assert!(multi.matches_all(&["read", "write"]));
         assert!(multi.matches_all(&["delete", "read", "write"]));
         assert!(!multi.matches_all(&["read", "admin"]));

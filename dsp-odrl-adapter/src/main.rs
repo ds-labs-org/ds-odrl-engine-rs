@@ -34,7 +34,10 @@ use dsp_odrl_adapter::{bundled_context_urls, ingest_policy, request_for};
 /// in this repository was exactly this step being skipped.
 fn print_canonical<T: serde::Serialize>(value: &T) -> Result<(), String> {
     let canonical = serde_json::to_value(value).map_err(|e| e.to_string())?;
-    println!("{}", serde_json::to_string_pretty(&canonical).map_err(|e| e.to_string())?);
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&canonical).map_err(|e| e.to_string())?
+    );
     Ok(())
 }
 
@@ -42,7 +45,9 @@ fn parse_duty_mode(s: &str) -> Result<DutyMode, String> {
     match s {
         "advise" => Ok(DutyMode::Advise),
         "deny" => Ok(DutyMode::Deny),
-        other => Err(format!("--duty-mode must be \"advise\" or \"deny\", got {other:?}")),
+        other => Err(format!(
+            "--duty-mode must be \"advise\" or \"deny\", got {other:?}"
+        )),
     }
 }
 
@@ -50,7 +55,9 @@ fn parse_behaviour(s: &str) -> Result<Behaviour, String> {
     match s {
         "open" => Ok(Behaviour::Open),
         "closed" | "default" => Ok(Behaviour::Closed),
-        other => Err(format!("--behaviour must be \"open\", \"closed\", or \"default\", got {other:?}")),
+        other => Err(format!(
+            "--behaviour must be \"open\", \"closed\", or \"default\", got {other:?}"
+        )),
     }
 }
 
@@ -58,13 +65,18 @@ fn parse_behaviour(s: &str) -> Result<Behaviour, String> {
 /// multi-valued claim (`engine::ClaimValue::Multi`), which is the shape
 /// `scope`/`nationality` already use in Section 4.1.
 fn add_claim(claims: &mut Claims, arg: &str) -> Result<(), String> {
-    let (key, value) = arg.split_once('=').ok_or_else(|| format!("--claim expects key=value, got {arg:?}"))?;
+    let (key, value) = arg
+        .split_once('=')
+        .ok_or_else(|| format!("--claim expects key=value, got {arg:?}"))?;
     match claims.remove(key) {
         None => {
             claims.insert(key.to_string(), ClaimValue::Single(value.to_string()));
         }
         Some(ClaimValue::Single(first)) => {
-            claims.insert(key.to_string(), ClaimValue::Multi(vec![first, value.to_string()]));
+            claims.insert(
+                key.to_string(),
+                ClaimValue::Multi(vec![first, value.to_string()]),
+            );
         }
         Some(ClaimValue::Multi(mut values)) => {
             values.push(value.to_string());
@@ -94,7 +106,11 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
     };
     let mut i = 0;
     while i < args.len() {
-        let need = |name: &str| args.get(i + 1).cloned().ok_or_else(|| format!("{name} needs a value"));
+        let need = |name: &str| {
+            args.get(i + 1)
+                .cloned()
+                .ok_or_else(|| format!("{name} needs a value"))
+        };
         match args[i].as_str() {
             "--dataset-id" => {
                 parsed.dataset_id = Some(need("--dataset-id")?);
@@ -145,7 +161,10 @@ fn run() -> Result<(), String> {
 
     let args = parse_args(&argv[1..])?;
     let [path] = args.files.as_slice() else {
-        return Err(format!("{command} takes exactly one input document, got {}", args.files.len()));
+        return Err(format!(
+            "{command} takes exactly one input document, got {}",
+            args.files.len()
+        ));
     };
     let body = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
     let ingested = ingest_policy(&body).map_err(|e| format!("{}: {e}", path.display()))?;
@@ -156,7 +175,9 @@ fn run() -> Result<(), String> {
     match command.as_str() {
         "ingest" => print_canonical(&ingested.policy),
         "request" => {
-            let dataset_id = args.dataset_id.ok_or("request needs --dataset-id (the request's own odrl:target)")?;
+            let dataset_id = args
+                .dataset_id
+                .ok_or("request needs --dataset-id (the request's own odrl:target)")?;
             let action = args.action.ok_or("request needs --action")?;
             let request = request_for(
                 &ingested.policy,
@@ -168,7 +189,9 @@ fn run() -> Result<(), String> {
             );
             print_canonical(&request)
         }
-        other => Err(format!("unknown command {other:?} — expected \"ingest\", \"request\" or \"contexts\"")),
+        other => Err(format!(
+            "unknown command {other:?} — expected \"ingest\", \"request\" or \"contexts\""
+        )),
     }
 }
 

@@ -17,6 +17,6 @@ use crate::run_support::fetch_text;
 
 /// Fetches and validates `compliance-data/release-history.json`.
 pub async fn fetch_history() -> Result<HistoryFile, String> {
-  let text = fetch_text(HISTORY_URL).await?;
-  parse_release_history(&text)
+    let text = fetch_text(HISTORY_URL).await?;
+    parse_release_history(&text)
 }

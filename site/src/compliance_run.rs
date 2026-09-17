@@ -20,8 +20,8 @@
 use yew::prelude::*;
 
 use crate::compliance_cases::{
-  BASELINE_URL, CASES_URL, CaseOutcome, CaseStatus, LiveReport, compile_report, errored_outcome, evaluated_outcome,
-  non_evaluated_outcome, parse_baseline, parse_case_file, request_json,
+    compile_report, errored_outcome, evaluated_outcome, non_evaluated_outcome, parse_baseline,
+    parse_case_file, request_json, CaseOutcome, CaseStatus, LiveReport, BASELINE_URL, CASES_URL,
 };
 use crate::engine_bridge;
 use crate::run_support::{fetch_text, yield_for_paint, FRAME_MS};
@@ -29,102 +29,124 @@ use crate::run_support::{fetch_text, yield_for_paint, FRAME_MS};
 /// The four steps the page shows, in the order they run.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Stage {
-  LoadingWasm,
-  LoadingCases,
-  Evaluating,
-  Compiling,
+    LoadingWasm,
+    LoadingCases,
+    Evaluating,
+    Compiling,
 }
 
 impl Stage {
-  pub const ALL: [Stage; 4] = [Stage::LoadingWasm, Stage::LoadingCases, Stage::Evaluating, Stage::Compiling];
+    pub const ALL: [Stage; 4] = [
+        Stage::LoadingWasm,
+        Stage::LoadingCases,
+        Stage::Evaluating,
+        Stage::Compiling,
+    ];
 
-  pub fn label(self) -> &'static str {
-    match self {
-      Stage::LoadingWasm => "Loading engine.wasm",
-      Stage::LoadingCases => "Loading test cases",
-      Stage::Evaluating => "Performing tests",
-      Stage::Compiling => "Compiling result report",
+    pub fn label(self) -> &'static str {
+        match self {
+            Stage::LoadingWasm => "Loading engine.wasm",
+            Stage::LoadingCases => "Loading test cases",
+            Stage::Evaluating => "Performing tests",
+            Stage::Compiling => "Compiling result report",
+        }
     }
-  }
 
-  fn order(self) -> usize {
-    match self {
-      Stage::LoadingWasm => 0,
-      Stage::LoadingCases => 1,
-      Stage::Evaluating => 2,
-      Stage::Compiling => 3,
+    fn order(self) -> usize {
+        match self {
+            Stage::LoadingWasm => 0,
+            Stage::LoadingCases => 1,
+            Stage::Evaluating => 2,
+            Stage::Compiling => 3,
+        }
     }
-  }
 }
 
 /// Live counts while the evaluation loop runs — what the "Performing
 /// tests" step's description and progress bar are drawn from.
 #[derive(Clone, PartialEq, Default)]
 pub struct RunProgress {
-  pub done: usize,
-  pub total: usize,
-  pub passed: usize,
-  pub failed: usize,
-  pub errored: usize,
-  pub skipped: usize,
+    pub done: usize,
+    pub total: usize,
+    pub passed: usize,
+    pub failed: usize,
+    pub errored: usize,
+    pub skipped: usize,
 }
 
 impl RunProgress {
-  fn record(&mut self, status: CaseStatus) {
-    self.done += 1;
-    match status {
-      CaseStatus::Passed => self.passed += 1,
-      CaseStatus::Failed => self.failed += 1,
-      CaseStatus::Skipped => self.skipped += 1,
-      CaseStatus::Errored => self.errored += 1,
+    fn record(&mut self, status: CaseStatus) {
+        self.done += 1;
+        match status {
+            CaseStatus::Passed => self.passed += 1,
+            CaseStatus::Failed => self.failed += 1,
+            CaseStatus::Skipped => self.skipped += 1,
+            CaseStatus::Errored => self.errored += 1,
+        }
     }
-  }
 }
 
 #[derive(Clone, PartialEq)]
 pub enum RunState {
-  LoadingWasm,
-  LoadingCases { engine_bytes: usize },
-  Evaluating { engine_bytes: usize, progress: RunProgress },
-  Compiling { engine_bytes: usize, progress: RunProgress },
-  Done(LiveReport),
-  Failed { stage: Stage, message: String },
+    LoadingWasm,
+    LoadingCases {
+        engine_bytes: usize,
+    },
+    Evaluating {
+        engine_bytes: usize,
+        progress: RunProgress,
+    },
+    Compiling {
+        engine_bytes: usize,
+        progress: RunProgress,
+    },
+    Done(LiveReport),
+    Failed {
+        stage: Stage,
+        message: String,
+    },
 }
 
 impl RunState {
-  /// Which step the stepper should paint as current, and whether the run
-  /// has ended. `None` once the run is `Done`.
-  pub fn current_stage(&self) -> Option<Stage> {
-    match self {
-      RunState::LoadingWasm => Some(Stage::LoadingWasm),
-      RunState::LoadingCases { .. } => Some(Stage::LoadingCases),
-      RunState::Evaluating { .. } => Some(Stage::Evaluating),
-      RunState::Compiling { .. } => Some(Stage::Compiling),
-      RunState::Done(_) => None,
-      RunState::Failed { stage, .. } => Some(*stage),
+    /// Which step the stepper should paint as current, and whether the run
+    /// has ended. `None` once the run is `Done`.
+    pub fn current_stage(&self) -> Option<Stage> {
+        match self {
+            RunState::LoadingWasm => Some(Stage::LoadingWasm),
+            RunState::LoadingCases { .. } => Some(Stage::LoadingCases),
+            RunState::Evaluating { .. } => Some(Stage::Evaluating),
+            RunState::Compiling { .. } => Some(Stage::Compiling),
+            RunState::Done(_) => None,
+            RunState::Failed { stage, .. } => Some(*stage),
+        }
     }
-  }
 
-  pub fn progress(&self) -> Option<&RunProgress> {
-    match self {
-      RunState::Evaluating { progress, .. } | RunState::Compiling { progress, .. } => Some(progress),
-      _ => None,
+    pub fn progress(&self) -> Option<&RunProgress> {
+        match self {
+            RunState::Evaluating { progress, .. } | RunState::Compiling { progress, .. } => {
+                Some(progress)
+            }
+            _ => None,
+        }
     }
-  }
 
-  /// Whether `stage` has already finished successfully — every step
-  /// before the current one, and (for a completed run) all of them.
-  pub fn is_complete(&self, stage: Stage) -> bool {
-    match self {
-      RunState::Done(_) => true,
-      RunState::Failed { stage: failed_at, .. } => stage.order() < failed_at.order(),
-      _ => self.current_stage().is_some_and(|current| stage.order() < current.order()),
+    /// Whether `stage` has already finished successfully — every step
+    /// before the current one, and (for a completed run) all of them.
+    pub fn is_complete(&self, stage: Stage) -> bool {
+        match self {
+            RunState::Done(_) => true,
+            RunState::Failed {
+                stage: failed_at, ..
+            } => stage.order() < failed_at.order(),
+            _ => self
+                .current_stage()
+                .is_some_and(|current| stage.order() < current.order()),
+        }
     }
-  }
 
-  pub fn failed_at(&self, stage: Stage) -> bool {
-    matches!(self, RunState::Failed { stage: failed_at, .. } if *failed_at == stage)
-  }
+    pub fn failed_at(&self, stage: Stage) -> bool {
+        matches!(self, RunState::Failed { stage: failed_at, .. } if *failed_at == stage)
+    }
 }
 
 /// Runs the whole four-stage sequence, publishing each transition through
@@ -146,61 +168,92 @@ impl RunState {
 /// bug). The explicit `yield_for_paint()` forces a real macrotask
 /// boundary regardless of whether `ensure_loaded` actually suspends.
 pub async fn run(state: UseStateHandle<RunState>) {
-  state.set(RunState::LoadingWasm);
-  yield_for_paint().await;
-  let engine_bytes = match engine_bridge::ensure_loaded().await {
-    Ok(bytes) => bytes,
-    Err(message) => return state.set(RunState::Failed { stage: Stage::LoadingWasm, message }),
-  };
-
-  state.set(RunState::LoadingCases { engine_bytes });
-  let case_file = match fetch_text(CASES_URL).await.and_then(|text| parse_case_file(&text)) {
-    Ok(file) => file,
-    Err(message) => return state.set(RunState::Failed { stage: Stage::LoadingCases, message }),
-  };
-  let baseline = match fetch_text(BASELINE_URL).await {
-    Ok(text) => parse_baseline(&text).ok(),
-    Err(_) => None,
-  };
-
-  let mut progress = RunProgress { total: case_file.cases.len(), ..RunProgress::default() };
-  state.set(RunState::Evaluating { engine_bytes, progress: progress.clone() });
-
-  let mut outcomes: Vec<CaseOutcome> = Vec::with_capacity(case_file.cases.len());
-  let started = js_sys::Date::now();
-  let mut last_yield = started;
-
-  for fixture in &case_file.cases {
-    let outcome = match request_json(fixture) {
-      None => non_evaluated_outcome(fixture),
-      Some(request) => match engine_bridge::evaluate(request).await {
-        Ok(response) => evaluated_outcome(fixture, &response),
-        // One case failing at the ABI boundary can never hide the other
-        // 67, nor strand the UI on this stage: it is recorded as an
-        // errored case and the loop continues.
-        Err(message) => errored_outcome(fixture, &message),
-      },
+    state.set(RunState::LoadingWasm);
+    yield_for_paint().await;
+    let engine_bytes = match engine_bridge::ensure_loaded().await {
+        Ok(bytes) => bytes,
+        Err(message) => {
+            return state.set(RunState::Failed {
+                stage: Stage::LoadingWasm,
+                message,
+            })
+        }
     };
 
-    progress.record(outcome.status);
-    outcomes.push(outcome);
-    state.set(RunState::Evaluating { engine_bytes, progress: progress.clone() });
+    state.set(RunState::LoadingCases { engine_bytes });
+    let case_file = match fetch_text(CASES_URL)
+        .await
+        .and_then(|text| parse_case_file(&text))
+    {
+        Ok(file) => file,
+        Err(message) => {
+            return state.set(RunState::Failed {
+                stage: Stage::LoadingCases,
+                message,
+            })
+        }
+    };
+    let baseline = match fetch_text(BASELINE_URL).await {
+        Ok(text) => parse_baseline(&text).ok(),
+        Err(_) => None,
+    };
 
-    if js_sys::Date::now() - last_yield >= FRAME_MS {
-      yield_for_paint().await;
-      last_yield = js_sys::Date::now();
+    let mut progress = RunProgress {
+        total: case_file.cases.len(),
+        ..RunProgress::default()
+    };
+    state.set(RunState::Evaluating {
+        engine_bytes,
+        progress: progress.clone(),
+    });
+
+    let mut outcomes: Vec<CaseOutcome> = Vec::with_capacity(case_file.cases.len());
+    let started = js_sys::Date::now();
+    let mut last_yield = started;
+
+    for fixture in &case_file.cases {
+        let outcome = match request_json(fixture) {
+            None => non_evaluated_outcome(fixture),
+            Some(request) => match engine_bridge::evaluate(request).await {
+                Ok(response) => evaluated_outcome(fixture, &response),
+                // One case failing at the ABI boundary can never hide the other
+                // 67, nor strand the UI on this stage: it is recorded as an
+                // errored case and the loop continues.
+                Err(message) => errored_outcome(fixture, &message),
+            },
+        };
+
+        progress.record(outcome.status);
+        outcomes.push(outcome);
+        state.set(RunState::Evaluating {
+            engine_bytes,
+            progress: progress.clone(),
+        });
+
+        if js_sys::Date::now() - last_yield >= FRAME_MS {
+            yield_for_paint().await;
+            last_yield = js_sys::Date::now();
+        }
     }
-  }
 
-  let elapsed_ms = js_sys::Date::now() - started;
-  state.set(RunState::Compiling { engine_bytes, progress: progress.clone() });
-  // Without a real await between this `set` and the next one, Yew has no
-  // chance to render in between -- the two updates coalesce into a
-  // single render and "Compiling result report" is never actually
-  // painted, found by an adversarial review driving this exact code path
-  // under CPU throttling with a per-millisecond DOM sampler. `and_then`
-  // et al on a `UseStateHandle` don't yield either; only a real
-  // microtask/macrotask boundary does.
-  yield_for_paint().await;
-  state.set(RunState::Done(compile_report(outcomes, case_file.suite, elapsed_ms, engine_bytes, baseline.as_ref())));
+    let elapsed_ms = js_sys::Date::now() - started;
+    state.set(RunState::Compiling {
+        engine_bytes,
+        progress: progress.clone(),
+    });
+    // Without a real await between this `set` and the next one, Yew has no
+    // chance to render in between -- the two updates coalesce into a
+    // single render and "Compiling result report" is never actually
+    // painted, found by an adversarial review driving this exact code path
+    // under CPU throttling with a per-millisecond DOM sampler. `and_then`
+    // et al on a `UseStateHandle` don't yield either; only a real
+    // microtask/macrotask boundary does.
+    yield_for_paint().await;
+    state.set(RunState::Done(compile_report(
+        outcomes,
+        case_file.suite,
+        elapsed_ms,
+        engine_bytes,
+        baseline.as_ref(),
+    )));
 }

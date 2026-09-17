@@ -30,63 +30,88 @@ use crate::full_compliance_state::{RunState, SpecProgress, Stage};
 use crate::run_support::{fetch_text, yield_for_paint};
 
 pub async fn run(state: UseStateHandle<RunState>) {
-  state.set(RunState::LoadingWasm);
-  yield_for_paint().await;
-  let engine_bytes = match engine_bridge::ensure_loaded().await {
-    Ok(bytes) => bytes,
-    Err(message) => return state.set(RunState::Failed { stage: Stage::LoadingWasm, message }),
-  };
-
-  state.set(RunState::LoadingCatalog { engine_bytes });
-  let catalog = match fetch_text(COVERAGE_URL).await.and_then(|text| parse_coverage_catalog(&text)) {
-    Ok(catalog) => catalog,
-    Err(message) => return state.set(RunState::Failed { stage: Stage::LoadingCatalog, message }),
-  };
-
-  // Every probe in the catalog is replayed — the engine is driven exactly
-  // as `/coverage` drives it — but the live counter counts only the probes
-  // this page actually judges, so the number a visitor watches climb and
-  // the number the finished report prints share one denominator. The six
-  // probes named only by `OutOfScope` rows are replayed and not counted.
-  let judged_ids: Vec<&str> = {
-    let mut ids: Vec<&str> = Vec::new();
-    for row in catalog.rows.iter().filter(|row| is_in_scope(row)) {
-      for id in &row.probe_ids {
-        if !ids.contains(&id.as_str()) {
-          ids.push(id.as_str());
+    state.set(RunState::LoadingWasm);
+    yield_for_paint().await;
+    let engine_bytes = match engine_bridge::ensure_loaded().await {
+        Ok(bytes) => bytes,
+        Err(message) => {
+            return state.set(RunState::Failed {
+                stage: Stage::LoadingWasm,
+                message,
+            })
         }
-      }
-    }
-    ids
-  };
+    };
 
-  let mut progress = SpecProgress { total: judged_ids.len(), ..SpecProgress::default() };
-  state.set(RunState::Replaying { engine_bytes, progress: progress.clone() });
+    state.set(RunState::LoadingCatalog { engine_bytes });
+    let catalog = match fetch_text(COVERAGE_URL)
+        .await
+        .and_then(|text| parse_coverage_catalog(&text))
+    {
+        Ok(catalog) => catalog,
+        Err(message) => {
+            return state.set(RunState::Failed {
+                stage: Stage::LoadingCatalog,
+                message,
+            })
+        }
+    };
 
-  let (outcomes, elapsed_ms) = replay_all(&catalog, |outcome| {
-    if !judged_ids.contains(&outcome.id.as_str()) {
-      return;
-    }
-    // The same `judge_probe` the finished report runs, called here purely
-    // so the live counter is the real judgment rather than a placeholder
-    // that a visitor would later see contradicted by the summary.
-    if let Some(fixture) = catalog.probes.iter().find(|probe| probe.id == outcome.id) {
-      progress.record(judge_probe(fixture, outcome).0);
-      state.set(RunState::Replaying { engine_bytes, progress: progress.clone() });
-    }
-  })
-  .await;
+    // Every probe in the catalog is replayed — the engine is driven exactly
+    // as `/coverage` drives it — but the live counter counts only the probes
+    // this page actually judges, so the number a visitor watches climb and
+    // the number the finished report prints share one denominator. The six
+    // probes named only by `OutOfScope` rows are replayed and not counted.
+    let judged_ids: Vec<&str> = {
+        let mut ids: Vec<&str> = Vec::new();
+        for row in catalog.rows.iter().filter(|row| is_in_scope(row)) {
+            for id in &row.probe_ids {
+                if !ids.contains(&id.as_str()) {
+                    ids.push(id.as_str());
+                }
+            }
+        }
+        ids
+    };
 
-  state.set(RunState::Judging { engine_bytes, progress: progress.clone() });
-  // Without a real await between this `set` and the next, Yew coalesces
-  // the two updates into one render and "Judging against ODRL 2.2" is
-  // never painted. That stage is not decoration: it derives 45 row
-  // verdicts and both tallies.
-  yield_for_paint().await;
-  state.set(RunState::Done(Box::new(compile_full_compliance_report(
-    &catalog,
-    outcomes,
-    elapsed_ms,
-    engine_bytes,
-  ))));
+    let mut progress = SpecProgress {
+        total: judged_ids.len(),
+        ..SpecProgress::default()
+    };
+    state.set(RunState::Replaying {
+        engine_bytes,
+        progress: progress.clone(),
+    });
+
+    let (outcomes, elapsed_ms) = replay_all(&catalog, |outcome| {
+        if !judged_ids.contains(&outcome.id.as_str()) {
+            return;
+        }
+        // The same `judge_probe` the finished report runs, called here purely
+        // so the live counter is the real judgment rather than a placeholder
+        // that a visitor would later see contradicted by the summary.
+        if let Some(fixture) = catalog.probes.iter().find(|probe| probe.id == outcome.id) {
+            progress.record(judge_probe(fixture, outcome).0);
+            state.set(RunState::Replaying {
+                engine_bytes,
+                progress: progress.clone(),
+            });
+        }
+    })
+    .await;
+
+    state.set(RunState::Judging {
+        engine_bytes,
+        progress: progress.clone(),
+    });
+    // Without a real await between this `set` and the next, Yew coalesces
+    // the two updates into one render and "Judging against ODRL 2.2" is
+    // never painted. That stage is not decoration: it derives 45 row
+    // verdicts and both tallies.
+    yield_for_paint().await;
+    state.set(RunState::Done(Box::new(compile_full_compliance_report(
+        &catalog,
+        outcomes,
+        elapsed_ms,
+        engine_bytes,
+    ))));
 }

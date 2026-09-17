@@ -87,7 +87,9 @@ impl Graph {
     /// tests that don't exercise any SOTW-derived feature.
     #[cfg(test)]
     pub fn empty() -> Self {
-        Self { triples: Vec::new() }
+        Self {
+            triples: Vec::new(),
+        }
     }
 
     pub fn triples(&self) -> &[Triple] {
@@ -131,10 +133,17 @@ impl Graph {
     /// "what is `<subject>` `partOf` (or similar)", starting only from a
     /// local name (the shape `RequestInfo`'s `assignee`/`target` are
     /// already reduced to) rather than a full IRI.
-    pub fn objects_by_subject_local_name(&self, subject_local: &str, predicate: &str) -> Vec<String> {
+    pub fn objects_by_subject_local_name(
+        &self,
+        subject_local: &str,
+        predicate: &str,
+    ) -> Vec<String> {
         self.triples
             .iter()
-            .filter(|t| local_name(&subject_id(&t.subject)) == subject_local && t.predicate.as_str() == predicate)
+            .filter(|t| {
+                local_name(&subject_id(&t.subject)) == subject_local
+                    && t.predicate.as_str() == predicate
+            })
             .filter_map(|t| term_id(&t.object))
             .collect()
     }
@@ -143,7 +152,11 @@ impl Graph {
     /// matching `object_local` by local name — the reverse direction from
     /// `objects_by_subject_local_name`, used to find (e.g.) the
     /// `report:DutyReport` node whose `report:rule` names a given duty.
-    pub fn subjects_by_object_local_name(&self, predicate: &str, object_local: &str) -> Vec<String> {
+    pub fn subjects_by_object_local_name(
+        &self,
+        predicate: &str,
+        object_local: &str,
+    ) -> Vec<String> {
         self.triples
             .iter()
             .filter(|t| t.predicate.as_str() == predicate)
@@ -176,7 +189,10 @@ impl Graph {
     pub fn subject_with_any_type(&self, type_iris: &[String]) -> Option<String> {
         self.triples
             .iter()
-            .find(|t| t.predicate.as_str() == RDF_TYPE && term_id(&t.object).is_some_and(|id| type_iris.contains(&id)))
+            .find(|t| {
+                t.predicate.as_str() == RDF_TYPE
+                    && term_id(&t.object).is_some_and(|id| type_iris.contains(&id))
+            })
             .map(|t| subject_id(&t.subject))
     }
 }
@@ -189,13 +205,19 @@ mod tests {
     fn local_name_splits_on_last_slash_or_hash() {
         assert_eq!(local_name("http://example.org/alice"), "alice");
         assert_eq!(local_name("http://www.w3.org/ns/odrl/2/read"), "read");
-        assert_eq!(local_name("http://www.w3.org/1999/02/22-rdf-syntax-ns#type"), "type");
+        assert_eq!(
+            local_name("http://www.w3.org/1999/02/22-rdf-syntax-ns#type"),
+            "type"
+        );
         assert_eq!(local_name("no-separator"), "no-separator");
     }
 
     #[test]
     fn parses_a_minimal_turtle_fixture_into_queryable_triples() {
-        let dir = std::env::temp_dir().join(format!("compliance-runner-graph-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!(
+            "compliance-runner-graph-test-{}",
+            std::process::id()
+        ));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("fixture.ttl");
         std::fs::write(
@@ -208,9 +230,13 @@ ex:alice a odrl:Permission;
         .unwrap();
 
         let g = Graph::parse(&path).unwrap();
-        assert_eq!(g.type_of("http://example.org/alice").as_deref(), Some(odrl("Permission").as_str()));
         assert_eq!(
-            g.object_node("http://example.org/alice", &odrl("action")).as_deref(),
+            g.type_of("http://example.org/alice").as_deref(),
+            Some(odrl("Permission").as_str())
+        );
+        assert_eq!(
+            g.object_node("http://example.org/alice", &odrl("action"))
+                .as_deref(),
             Some(odrl("read").as_str())
         );
 
@@ -218,7 +244,10 @@ ex:alice a odrl:Permission;
     }
 
     fn write_fixture(name: &str, content: &str) -> Graph {
-        let dir = std::env::temp_dir().join(format!("compliance-runner-graph-test-{name}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!(
+            "compliance-runner-graph-test-{name}-{}",
+            std::process::id()
+        ));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("fixture.ttl");
         std::fs::write(&path, content).unwrap();
@@ -239,7 +268,9 @@ ex:alice odrl:partOf ex:partyCollection."#,
             g.objects_by_subject_local_name("alice", &odrl("partOf")),
             vec![odrl2("partyCollection")]
         );
-        assert!(g.objects_by_subject_local_name("bob", &odrl("partOf")).is_empty());
+        assert!(g
+            .objects_by_subject_local_name("bob", &odrl("partOf"))
+            .is_empty());
     }
 
     fn odrl2(local: &str) -> String {
@@ -270,7 +301,8 @@ ex:report1 report:rule ex:duty1."#,
 temp:currentTime dct:issued "2024-02-12T11:20:10.999Z"^^xsd:dateTime."#,
         );
         assert_eq!(
-            g.first_literal_for_predicate("http://purl.org/dc/terms/issued").as_deref(),
+            g.first_literal_for_predicate("http://purl.org/dc/terms/issued")
+                .as_deref(),
             Some("2024-02-12T11:20:10.999Z")
         );
     }

@@ -218,14 +218,14 @@ const PLOT_TOP: f64 = 18.0;
 const PLOT_BOTTOM: f64 = 224.0;
 
 fn x_at(index: usize, count: usize) -> f64 {
-  if count <= 1 {
-    return (PLOT_LEFT + PLOT_RIGHT) / 2.0;
-  }
-  PLOT_LEFT + (PLOT_RIGHT - PLOT_LEFT) * (index as f64) / ((count - 1) as f64)
+    if count <= 1 {
+        return (PLOT_LEFT + PLOT_RIGHT) / 2.0;
+    }
+    PLOT_LEFT + (PLOT_RIGHT - PLOT_LEFT) * (index as f64) / ((count - 1) as f64)
 }
 
 fn y_at(fraction: f64) -> f64 {
-  PLOT_BOTTOM - (PLOT_BOTTOM - PLOT_TOP) * fraction.clamp(0.0, 1.0)
+    PLOT_BOTTOM - (PLOT_BOTTOM - PLOT_TOP) * fraction.clamp(0.0, 1.0)
 }
 
 /// Turns a run of `(index, fraction)` points into an SVG polyline, or
@@ -236,20 +236,26 @@ fn y_at(fraction: f64) -> f64 {
 /// line through that region would invent nine data points that the
 /// generator explicitly declined to produce.
 fn polyline_points(points: &[(usize, f64)], count: usize) -> Option<String> {
-  if points.len() < 2 {
-    return None;
-  }
-  Some(points.iter().map(|(i, f)| format!("{:.1},{:.1}", x_at(*i, count), y_at(*f))).collect::<Vec<_>>().join(" "))
+    if points.len() < 2 {
+        return None;
+    }
+    Some(
+        points
+            .iter()
+            .map(|(i, f)| format!("{:.1},{:.1}", x_at(*i, count), y_at(*f)))
+            .collect::<Vec<_>>()
+            .join(" "),
+    )
 }
 
 fn series_dots(points: &[(usize, f64)], count: usize, color: &'static str) -> Html {
-  html!(
-    <>
-      { for points.iter().map(|(i, f)| html!(
-          <circle cx={format!("{:.1}", x_at(*i, count))} cy={format!("{:.1}", y_at(*f))} r="3.2" fill={color} />
-        )) }
-    </>
-  )
+    html!(
+      <>
+        { for points.iter().map(|(i, f)| html!(
+            <circle cx={format!("{:.1}", x_at(*i, count))} cy={format!("{:.1}", y_at(*f))} r="3.2" fill={color} />
+          )) }
+      </>
+    )
 }
 
 /// Three series over the release axis: the ODRL-Test-Suite pass rate each
@@ -265,20 +271,32 @@ fn series_dots(points: &[(usize, f64)], count: usize, color: &'static str) -> Ht
 /// existing diagrams: it has to render in a theme it does not control and
 /// stay legible at whatever width the page is.
 fn chart(file: &HistoryFile) -> Html {
-  let count = file.releases.len();
+    let count = file.releases.len();
 
-  let compliance: Vec<(usize, f64)> =
-    file.releases.iter().enumerate().filter_map(|(i, r)| r.compliance_fraction().map(|f| (i, f))).collect();
-  let meets_rows: Vec<(usize, f64)> =
-    file.releases.iter().enumerate().filter_map(|(i, r)| r.meets_full_spec_row_fraction().map(|f| (i, f))).collect();
-  let meets_probes: Vec<(usize, f64)> =
-    file.releases.iter().enumerate().filter_map(|(i, r)| r.meets_full_spec_probe_fraction().map(|f| (i, f))).collect();
+    let compliance: Vec<(usize, f64)> = file
+        .releases
+        .iter()
+        .enumerate()
+        .filter_map(|(i, r)| r.compliance_fraction().map(|f| (i, f)))
+        .collect();
+    let meets_rows: Vec<(usize, f64)> = file
+        .releases
+        .iter()
+        .enumerate()
+        .filter_map(|(i, r)| r.meets_full_spec_row_fraction().map(|f| (i, f)))
+        .collect();
+    let meets_probes: Vec<(usize, f64)> = file
+        .releases
+        .iter()
+        .enumerate()
+        .filter_map(|(i, r)| r.meets_full_spec_probe_fraction().map(|f| (i, f)))
+        .collect();
 
-  // The contiguous leading run of releases the current catalog cannot
-  // address, shaded and labelled rather than left as a mysterious gap in
-  // the green series.
-  let unaddressable_upto = file.releases.iter().position(|r| r.coverage.is_some());
-  let shade = unaddressable_upto.filter(|&first| first > 0).map(|first| {
+    // The contiguous leading run of releases the current catalog cannot
+    // address, shaded and labelled rather than left as a mysterious gap in
+    // the green series.
+    let unaddressable_upto = file.releases.iter().position(|r| r.coverage.is_some());
+    let shade = unaddressable_upto.filter(|&first| first > 0).map(|first| {
     let x0 = PLOT_LEFT - 6.0;
     let x1 = x_at(first, count) - 6.0;
     html!(
@@ -293,79 +311,79 @@ fn chart(file: &HistoryFile) -> Html {
     )
   });
 
-  html!(
-    <>
-      <svg class="ds-oe-hist-chart" viewBox={format!("0 0 {CHART_W} {CHART_H}")} role="img"
-           aria-label="Per-release ODRL-Test-Suite pass rate, share of in-scope ODRL 2.2 vocabulary rows meeting full compliance, and share of individual probes meeting it">
-        { for [0.0, 0.25, 0.5, 0.75, 1.0].iter().map(|f| html!(
-            <>
-              <line x1={format!("{PLOT_LEFT:.1}")} y1={format!("{:.1}", y_at(*f))}
-                    x2={format!("{PLOT_RIGHT:.1}")} y2={format!("{:.1}", y_at(*f))}
-                    stroke="currentColor" stroke-width="0.5" opacity="0.18" />
-              <text x={format!("{:.1}", PLOT_LEFT - 8.0)} y={format!("{:.1}", y_at(*f) + 3.5)}
-                    text-anchor="end" font-size="10" fill="currentColor" opacity="0.6">
-                { format!("{}%", (f * 100.0).round() as i64) }
-              </text>
-            </>
-          )) }
-
-        { shade }
-
-        { for polyline_points(&compliance, count).map(|points| html!(
-            <polyline points={points} fill="none" stroke={COMPLIANCE_COLOR} stroke-width="2" />
-          )) }
-        { series_dots(&compliance, count, COMPLIANCE_COLOR) }
-
-        { for polyline_points(&meets_rows, count).map(|points| html!(
-            <polyline points={points} fill="none" stroke={MEETS_ROWS_COLOR} stroke-width="2" />
-          )) }
-        { series_dots(&meets_rows, count, MEETS_ROWS_COLOR) }
-
-        { for polyline_points(&meets_probes, count).map(|points| html!(
-            <polyline points={points} fill="none" stroke={MEETS_PROBES_COLOR} stroke-width="2" />
-          )) }
-        { series_dots(&meets_probes, count, MEETS_PROBES_COLOR) }
-
-        { for file.releases.iter().enumerate().map(|(i, release)| {
-            // Every other label at 19 releases, or they collide.
-            let show = count <= 10 || i % 2 == 0 || i + 1 == count;
-            html!(
+    html!(
+      <>
+        <svg class="ds-oe-hist-chart" viewBox={format!("0 0 {CHART_W} {CHART_H}")} role="img"
+             aria-label="Per-release ODRL-Test-Suite pass rate, share of in-scope ODRL 2.2 vocabulary rows meeting full compliance, and share of individual probes meeting it">
+          { for [0.0, 0.25, 0.5, 0.75, 1.0].iter().map(|f| html!(
               <>
-                <line x1={format!("{:.1}", x_at(i, count))} y1={format!("{PLOT_BOTTOM:.1}")}
-                      x2={format!("{:.1}", x_at(i, count))} y2={format!("{:.1}", PLOT_BOTTOM + 4.0)}
-                      stroke="currentColor" stroke-width="0.6" opacity="0.4" />
-                if show {
-                  <text x={format!("{:.1}", x_at(i, count))} y={format!("{:.1}", PLOT_BOTTOM + 20.0)}
-                        text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.75"
-                        transform={format!("rotate(-38 {:.1} {:.1})", x_at(i, count), PLOT_BOTTOM + 20.0)}>
-                    { release.tag.clone() }
-                  </text>
-                }
+                <line x1={format!("{PLOT_LEFT:.1}")} y1={format!("{:.1}", y_at(*f))}
+                      x2={format!("{PLOT_RIGHT:.1}")} y2={format!("{:.1}", y_at(*f))}
+                      stroke="currentColor" stroke-width="0.5" opacity="0.18" />
+                <text x={format!("{:.1}", PLOT_LEFT - 8.0)} y={format!("{:.1}", y_at(*f) + 3.5)}
+                      text-anchor="end" font-size="10" fill="currentColor" opacity="0.6">
+                  { format!("{}%", (f * 100.0).round() as i64) }
+                </text>
               </>
-            )
-          }) }
+            )) }
 
-        <line x1={format!("{PLOT_LEFT:.1}")} y1={format!("{PLOT_BOTTOM:.1}")}
-              x2={format!("{PLOT_RIGHT:.1}")} y2={format!("{PLOT_BOTTOM:.1}")}
-              stroke="currentColor" stroke-width="1" opacity="0.45" />
-      </svg>
+          { shade }
 
-      <div class="ds-oe-hist-legend">
-        <span>
-          <span class="ds-oe-hist-swatch" style={format!("background: {COMPLIANCE_COLOR};")}></span>
-          { "ODRL-Test-Suite fixtures passed, as that release's own runner reported them" }
-        </span>
-        <span>
-          <span class="ds-oe-hist-swatch" style={format!("background: {MEETS_ROWS_COLOR};")}></span>
-          { "in-scope vocabulary rows meeting full ODRL 2.2 compliance, out of every row today's catalog judges" }
-        </span>
-        <span>
-          <span class="ds-oe-hist-swatch" style={format!("background: {MEETS_PROBES_COLOR};")}></span>
-          { "individual probes meeting full ODRL 2.2 compliance, out of every probe replayed against that release — finer-grained than the row line above, since one falls-short probe sinks its whole row but counts as only one probe here" }
-        </span>
-      </div>
-    </>
-  )
+          { for polyline_points(&compliance, count).map(|points| html!(
+              <polyline points={points} fill="none" stroke={COMPLIANCE_COLOR} stroke-width="2" />
+            )) }
+          { series_dots(&compliance, count, COMPLIANCE_COLOR) }
+
+          { for polyline_points(&meets_rows, count).map(|points| html!(
+              <polyline points={points} fill="none" stroke={MEETS_ROWS_COLOR} stroke-width="2" />
+            )) }
+          { series_dots(&meets_rows, count, MEETS_ROWS_COLOR) }
+
+          { for polyline_points(&meets_probes, count).map(|points| html!(
+              <polyline points={points} fill="none" stroke={MEETS_PROBES_COLOR} stroke-width="2" />
+            )) }
+          { series_dots(&meets_probes, count, MEETS_PROBES_COLOR) }
+
+          { for file.releases.iter().enumerate().map(|(i, release)| {
+              // Every other label at 19 releases, or they collide.
+              let show = count <= 10 || i % 2 == 0 || i + 1 == count;
+              html!(
+                <>
+                  <line x1={format!("{:.1}", x_at(i, count))} y1={format!("{PLOT_BOTTOM:.1}")}
+                        x2={format!("{:.1}", x_at(i, count))} y2={format!("{:.1}", PLOT_BOTTOM + 4.0)}
+                        stroke="currentColor" stroke-width="0.6" opacity="0.4" />
+                  if show {
+                    <text x={format!("{:.1}", x_at(i, count))} y={format!("{:.1}", PLOT_BOTTOM + 20.0)}
+                          text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.75"
+                          transform={format!("rotate(-38 {:.1} {:.1})", x_at(i, count), PLOT_BOTTOM + 20.0)}>
+                      { release.tag.clone() }
+                    </text>
+                  }
+                </>
+              )
+            }) }
+
+          <line x1={format!("{PLOT_LEFT:.1}")} y1={format!("{PLOT_BOTTOM:.1}")}
+                x2={format!("{PLOT_RIGHT:.1}")} y2={format!("{PLOT_BOTTOM:.1}")}
+                stroke="currentColor" stroke-width="1" opacity="0.45" />
+        </svg>
+
+        <div class="ds-oe-hist-legend">
+          <span>
+            <span class="ds-oe-hist-swatch" style={format!("background: {COMPLIANCE_COLOR};")}></span>
+            { "ODRL-Test-Suite fixtures passed, as that release's own runner reported them" }
+          </span>
+          <span>
+            <span class="ds-oe-hist-swatch" style={format!("background: {MEETS_ROWS_COLOR};")}></span>
+            { "in-scope vocabulary rows meeting full ODRL 2.2 compliance, out of every row today's catalog judges" }
+          </span>
+          <span>
+            <span class="ds-oe-hist-swatch" style={format!("background: {MEETS_PROBES_COLOR};")}></span>
+            { "individual probes meeting full ODRL 2.2 compliance, out of every probe replayed against that release — finer-grained than the row line above, since one falls-short probe sinks its whole row but counts as only one probe here" }
+          </span>
+        </div>
+      </>
+    )
 }
 
 /// Geometry for the stacked status chart below, sharing [`x_at`]'s x-axis
@@ -377,7 +395,8 @@ const STATUS_PLOT_BOTTOM: f64 = 190.0;
 const STATUS_CHART_H: f64 = 250.0;
 
 fn status_y_at(rows: f64, total_rows: f64) -> f64 {
-  STATUS_PLOT_BOTTOM - (STATUS_PLOT_BOTTOM - STATUS_PLOT_TOP) * (rows / total_rows).clamp(0.0, 1.0)
+    STATUS_PLOT_BOTTOM
+        - (STATUS_PLOT_BOTTOM - STATUS_PLOT_TOP) * (rows / total_rows).clamp(0.0, 1.0)
 }
 
 /// The per-release stacked chart: one bar per release, left to right
@@ -395,12 +414,15 @@ fn status_y_at(rows: f64, total_rows: f64) -> f64 {
 /// everywhere", which is exactly the misreading the line chart's own gap
 /// treatment above already exists to avoid.
 fn status_chart(file: &HistoryFile) -> Html {
-  let count = file.releases.len();
-  let total_rows = file.catalog.full_compliance_rows_in_scope as f64;
-  let bar_w = ((PLOT_RIGHT - PLOT_LEFT) / (count.max(1) as f64) * 0.6).max(2.0);
+    let count = file.releases.len();
+    let total_rows = file.catalog.full_compliance_rows_in_scope as f64;
+    let bar_w = ((PLOT_RIGHT - PLOT_LEFT) / (count.max(1) as f64) * 0.6).max(2.0);
 
-  let addressable_from = file.releases.iter().position(|r| r.full_compliance.is_some());
-  let shade = addressable_from.filter(|&first| first > 0).map(|first| {
+    let addressable_from = file
+        .releases
+        .iter()
+        .position(|r| r.full_compliance.is_some());
+    let shade = addressable_from.filter(|&first| first > 0).map(|first| {
     let x0 = PLOT_LEFT - 6.0;
     let x1 = x_at(first, count) - 6.0;
     html!(
@@ -415,348 +437,352 @@ fn status_chart(file: &HistoryFile) -> Html {
     )
   });
 
-  let bars = file.releases.iter().enumerate().filter_map(|(i, release)| {
-    let fc = release.full_compliance.as_ref()?;
-    let cx = x_at(i, count);
-    let x = cx - bar_w / 2.0;
-    // Bottom to top: Meets full spec (the green foundation a reader
-    // expects to grow over time), Undetermined, Falls short, with the
-    // Structural gap band riding unchanged at the top -- `party.collections`
-    // is release-invariant by construction (see `derive_row_verdict`:
-    // `full_compliance_gap` is checked before any probe outcome at all).
-    let segments = [
-      (fc.rows_meets as f64, STATUS_MEETS_COLOR),
-      (fc.rows_undetermined as f64, STATUS_UNDETERMINED_COLOR),
-      (fc.rows_falls_short as f64, STATUS_FALLS_SHORT_COLOR),
-      (fc.rows_structural_gap as f64, STATUS_STRUCTURAL_GAP_COLOR),
-    ];
-    let mut cumulative = 0.0;
-    let rects: Vec<Html> = segments
-      .iter()
-      .map(|(value, color)| {
-        let y0 = status_y_at(cumulative, total_rows);
-        cumulative += value;
-        let y1 = status_y_at(cumulative, total_rows);
-        html!(
-          <rect x={format!("{x:.1}")} y={format!("{y1:.1}")} width={format!("{bar_w:.1}")}
-                height={format!("{:.1}", (y0 - y1).max(0.0))} fill={*color}>
-            <title>{ format!("{}: {} rows", release.tag, *value as u64) }</title>
-          </rect>
-        )
-      })
-      .collect();
-    Some(html!(<>{ for rects }</>))
-  });
+    let bars = file.releases.iter().enumerate().filter_map(|(i, release)| {
+        let fc = release.full_compliance.as_ref()?;
+        let cx = x_at(i, count);
+        let x = cx - bar_w / 2.0;
+        // Bottom to top: Meets full spec (the green foundation a reader
+        // expects to grow over time), Undetermined, Falls short, with the
+        // Structural gap band riding unchanged at the top -- `party.collections`
+        // is release-invariant by construction (see `derive_row_verdict`:
+        // `full_compliance_gap` is checked before any probe outcome at all).
+        let segments = [
+            (fc.rows_meets as f64, STATUS_MEETS_COLOR),
+            (fc.rows_undetermined as f64, STATUS_UNDETERMINED_COLOR),
+            (fc.rows_falls_short as f64, STATUS_FALLS_SHORT_COLOR),
+            (fc.rows_structural_gap as f64, STATUS_STRUCTURAL_GAP_COLOR),
+        ];
+        let mut cumulative = 0.0;
+        let rects: Vec<Html> = segments
+            .iter()
+            .map(|(value, color)| {
+                let y0 = status_y_at(cumulative, total_rows);
+                cumulative += value;
+                let y1 = status_y_at(cumulative, total_rows);
+                html!(
+                  <rect x={format!("{x:.1}")} y={format!("{y1:.1}")} width={format!("{bar_w:.1}")}
+                        height={format!("{:.1}", (y0 - y1).max(0.0))} fill={*color}>
+                    <title>{ format!("{}: {} rows", release.tag, *value as u64) }</title>
+                  </rect>
+                )
+            })
+            .collect();
+        Some(html!(<>{ for rects }</>))
+    });
 
-  html!(
-    <>
-      <svg class="ds-oe-hist-chart" viewBox={format!("0 0 {CHART_W} {STATUS_CHART_H}")} role="img"
-           aria-label="Per-release Meets full spec/Undetermined/Falls short/Structural gap breakdown of the in-scope ODRL 2.2 vocabulary rows, judged against full compliance">
-        { for [0.0, 0.25, 0.5, 0.75, 1.0].iter().map(|f| {
-            let rows = f * total_rows;
-            html!(
-              <>
-                <line x1={format!("{PLOT_LEFT:.1}")} y1={format!("{:.1}", status_y_at(rows, total_rows))}
-                      x2={format!("{PLOT_RIGHT:.1}")} y2={format!("{:.1}", status_y_at(rows, total_rows))}
-                      stroke="currentColor" stroke-width="0.5" opacity="0.18" />
-                <text x={format!("{:.1}", PLOT_LEFT - 8.0)} y={format!("{:.1}", status_y_at(rows, total_rows) + 3.5)}
-                      text-anchor="end" font-size="10" fill="currentColor" opacity="0.6">
-                  { format!("{}", rows.round() as i64) }
-                </text>
-              </>
-            )
-          }) }
-
-        { shade }
-        { for bars }
-
-        { for file.releases.iter().enumerate().map(|(i, release)| {
-            let show = count <= 10 || i % 2 == 0 || i + 1 == count;
-            html!(
-              <>
-                <line x1={format!("{:.1}", x_at(i, count))} y1={format!("{STATUS_PLOT_BOTTOM:.1}")}
-                      x2={format!("{:.1}", x_at(i, count))} y2={format!("{:.1}", STATUS_PLOT_BOTTOM + 4.0)}
-                      stroke="currentColor" stroke-width="0.6" opacity="0.4" />
-                if show {
-                  <text x={format!("{:.1}", x_at(i, count))} y={format!("{:.1}", STATUS_PLOT_BOTTOM + 20.0)}
-                        text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.75"
-                        transform={format!("rotate(-38 {:.1} {:.1})", x_at(i, count), STATUS_PLOT_BOTTOM + 20.0)}>
-                    { release.tag.clone() }
+    html!(
+      <>
+        <svg class="ds-oe-hist-chart" viewBox={format!("0 0 {CHART_W} {STATUS_CHART_H}")} role="img"
+             aria-label="Per-release Meets full spec/Undetermined/Falls short/Structural gap breakdown of the in-scope ODRL 2.2 vocabulary rows, judged against full compliance">
+          { for [0.0, 0.25, 0.5, 0.75, 1.0].iter().map(|f| {
+              let rows = f * total_rows;
+              html!(
+                <>
+                  <line x1={format!("{PLOT_LEFT:.1}")} y1={format!("{:.1}", status_y_at(rows, total_rows))}
+                        x2={format!("{PLOT_RIGHT:.1}")} y2={format!("{:.1}", status_y_at(rows, total_rows))}
+                        stroke="currentColor" stroke-width="0.5" opacity="0.18" />
+                  <text x={format!("{:.1}", PLOT_LEFT - 8.0)} y={format!("{:.1}", status_y_at(rows, total_rows) + 3.5)}
+                        text-anchor="end" font-size="10" fill="currentColor" opacity="0.6">
+                    { format!("{}", rows.round() as i64) }
                   </text>
-                }
-              </>
-            )
-          }) }
+                </>
+              )
+            }) }
 
-        <line x1={format!("{PLOT_LEFT:.1}")} y1={format!("{STATUS_PLOT_BOTTOM:.1}")}
-              x2={format!("{PLOT_RIGHT:.1}")} y2={format!("{STATUS_PLOT_BOTTOM:.1}")}
-              stroke="currentColor" stroke-width="1" opacity="0.45" />
-      </svg>
+          { shade }
+          { for bars }
 
-      <div class="ds-oe-hist-legend">
-        <span>
-          <span class="ds-oe-hist-swatch" style={format!("background: {STATUS_MEETS_COLOR};")}></span>
-          { "Meets full spec" }
-        </span>
-        <span>
-          <span class="ds-oe-hist-swatch" style={format!("background: {STATUS_UNDETERMINED_COLOR};")}></span>
-          { "Undetermined" }
-        </span>
-        <span>
-          <span class="ds-oe-hist-swatch" style={format!("background: {STATUS_FALLS_SHORT_COLOR};")}></span>
-          { "Falls short" }
-        </span>
-        <span>
-          <span class="ds-oe-hist-swatch" style={format!("background: {STATUS_STRUCTURAL_GAP_COLOR};")}></span>
-          { "Structural gap" }
-        </span>
-      </div>
-      <Content>
-        <p class="ds-oe-hist-note">
-          <strong>{ "How each release's bar is judged. " }</strong>
-          { "Every row this chart carries at all is in scope for full ODRL 2.2 compliance -- the rows \
-             documented " }<em>{ "OutOfScope" }</em>{ " (profile-extension points, " }
-          <code>{ "odrl:hasPolicy" }</code>{ ") sit outside the wire contract entirely and are excluded from \
-             the total, not scored either way. " }
-          <code>{ "party.collections" }</code>{ " is a " }<em>{ "Structural gap" }</em>
-          { ", every release alike: no request can even pose the question, so this one row is pinned \
-             regardless of what any engine answers -- the same role the pinned " }<em>{ "Out of scope" }</em>
-          { " band played on this page's earlier, documentation-facing chart. Every other row is judged by \
-             that release's own replay against " }<code>{ "ideal" }</code>{ ", the spec-correct answer this \
-             catalog now researches for every probe: " }<em>{ "Meets full spec" }</em>
-          { " when every one of the row's judged probes reaches it, " }<em>{ "Falls short" }</em>
-          { " when at least one does not, and " }<em>{ "Undetermined" }</em>
-          { " only for a probe a trap or a malformed response left unjudged either way -- never a positive \
-             result by default." }
-        </p>
-      </Content>
-    </>
-  )
+          { for file.releases.iter().enumerate().map(|(i, release)| {
+              let show = count <= 10 || i % 2 == 0 || i + 1 == count;
+              html!(
+                <>
+                  <line x1={format!("{:.1}", x_at(i, count))} y1={format!("{STATUS_PLOT_BOTTOM:.1}")}
+                        x2={format!("{:.1}", x_at(i, count))} y2={format!("{:.1}", STATUS_PLOT_BOTTOM + 4.0)}
+                        stroke="currentColor" stroke-width="0.6" opacity="0.4" />
+                  if show {
+                    <text x={format!("{:.1}", x_at(i, count))} y={format!("{:.1}", STATUS_PLOT_BOTTOM + 20.0)}
+                          text-anchor="middle" font-size="9.5" fill="currentColor" opacity="0.75"
+                          transform={format!("rotate(-38 {:.1} {:.1})", x_at(i, count), STATUS_PLOT_BOTTOM + 20.0)}>
+                      { release.tag.clone() }
+                    </text>
+                  }
+                </>
+              )
+            }) }
+
+          <line x1={format!("{PLOT_LEFT:.1}")} y1={format!("{STATUS_PLOT_BOTTOM:.1}")}
+                x2={format!("{PLOT_RIGHT:.1}")} y2={format!("{STATUS_PLOT_BOTTOM:.1}")}
+                stroke="currentColor" stroke-width="1" opacity="0.45" />
+        </svg>
+
+        <div class="ds-oe-hist-legend">
+          <span>
+            <span class="ds-oe-hist-swatch" style={format!("background: {STATUS_MEETS_COLOR};")}></span>
+            { "Meets full spec" }
+          </span>
+          <span>
+            <span class="ds-oe-hist-swatch" style={format!("background: {STATUS_UNDETERMINED_COLOR};")}></span>
+            { "Undetermined" }
+          </span>
+          <span>
+            <span class="ds-oe-hist-swatch" style={format!("background: {STATUS_FALLS_SHORT_COLOR};")}></span>
+            { "Falls short" }
+          </span>
+          <span>
+            <span class="ds-oe-hist-swatch" style={format!("background: {STATUS_STRUCTURAL_GAP_COLOR};")}></span>
+            { "Structural gap" }
+          </span>
+        </div>
+        <Content>
+          <p class="ds-oe-hist-note">
+            <strong>{ "How each release's bar is judged. " }</strong>
+            { "Every row this chart carries at all is in scope for full ODRL 2.2 compliance -- the rows \
+               documented " }<em>{ "OutOfScope" }</em>{ " (profile-extension points, " }
+            <code>{ "odrl:hasPolicy" }</code>{ ") sit outside the wire contract entirely and are excluded from \
+               the total, not scored either way. " }
+            <code>{ "party.collections" }</code>{ " is a " }<em>{ "Structural gap" }</em>
+            { ", every release alike: no request can even pose the question, so this one row is pinned \
+               regardless of what any engine answers -- the same role the pinned " }<em>{ "Out of scope" }</em>
+            { " band played on this page's earlier, documentation-facing chart. Every other row is judged by \
+               that release's own replay against " }<code>{ "ideal" }</code>{ ", the spec-correct answer this \
+               catalog now researches for every probe: " }<em>{ "Meets full spec" }</em>
+            { " when every one of the row's judged probes reaches it, " }<em>{ "Falls short" }</em>
+            { " when at least one does not, and " }<em>{ "Undetermined" }</em>
+            { " only for a probe a trap or a malformed response left unjudged either way -- never a positive \
+               result by default." }
+          </p>
+        </Content>
+      </>
+    )
 }
 
 fn compliance_cell(release: &Release) -> Html {
-  match &release.compliance {
-    Some(c) => {
-      let class = if c.failed == 0 && c.skipped == 0 { "ds-oe-hist-good" } else { "ds-oe-hist-bad" };
-      html!(
-        <>
-          <span class={classes!("ds-oe-hist-num", class)}>{ format!("{}/{}", c.passed, c.total) }</span>
-          if c.failed > 0 || c.skipped > 0 {
-            <div class="ds-oe-hist-when">
-              { format!("{} failed, {} skipped", c.failed, c.skipped) }
-            </div>
-          }
-        </>
-      )
+    match &release.compliance {
+        Some(c) => {
+            let class = if c.failed == 0 && c.skipped == 0 {
+                "ds-oe-hist-good"
+            } else {
+                "ds-oe-hist-bad"
+            };
+            html!(
+              <>
+                <span class={classes!("ds-oe-hist-num", class)}>{ format!("{}/{}", c.passed, c.total) }</span>
+                if c.failed > 0 || c.skipped > 0 {
+                  <div class="ds-oe-hist-when">
+                    { format!("{} failed, {} skipped", c.failed, c.skipped) }
+                  </div>
+                }
+              </>
+            )
+        }
+        None => html!(<span class="ds-oe-hist-muted">{ "not reproduced" }</span>),
     }
-    None => html!(<span class="ds-oe-hist-muted">{ "not reproduced" }</span>),
-  }
 }
 
 fn gap_detail(row: &ContradictedRow) -> Html {
-  html!(
-    <div class="ds-oe-hist-gap">
-      <code>{ row.id.clone() }</code>
-      { " — " }
-      { row.term.clone() }
-      <span class="ds-oe-hist-reason">{ format!("{} · {}", row.probe_id.clone(), row.mismatch.clone()) }</span>
-      if !row.engine_reason.is_empty() {
-        <span class="ds-oe-hist-reason">{ format!("engine said: {}", row.engine_reason) }</span>
-      }
-    </div>
-  )
+    html!(
+      <div class="ds-oe-hist-gap">
+        <code>{ row.id.clone() }</code>
+        { " — " }
+        { row.term.clone() }
+        <span class="ds-oe-hist-reason">{ format!("{} · {}", row.probe_id.clone(), row.mismatch.clone()) }</span>
+        if !row.engine_reason.is_empty() {
+          <span class="ds-oe-hist-reason">{ format!("engine said: {}", row.engine_reason) }</span>
+        }
+      </div>
+    )
 }
 
 fn coverage_cell(release: &Release) -> Html {
-  match &release.coverage {
-    None => html!(
-      <>
-        <span class="ds-oe-hist-muted">{ "not addressable" }</span>
-        <details class="ds-oe-hist-details">
-          <summary>{ "why" }</summary>
-          <div class="ds-oe-hist-gap">
-            { release.coverage_error.clone().unwrap_or_default() }
-          </div>
-        </details>
-      </>
-    ),
-    Some(coverage) => html!(
-      <>
-        <span class="ds-oe-hist-num ds-oe-hist-good">{ coverage.verified }</span>
-        { " verified · " }
-        <span class={classes!(
-          "ds-oe-hist-num",
-          if coverage.contradicted > 0 { "ds-oe-hist-bad" } else { "ds-oe-hist-muted" }
-        )}>{ coverage.contradicted }</span>
-        { " contradicted" }
-        <div class="ds-oe-hist-when">
-          { format!(
-              "{} agreed / {} disagreed / {} errored of {} probes · {} documented-only rows",
-              coverage.agreed, coverage.disagreed, coverage.errored, coverage.probes_total, coverage.documented
-            ) }
-        </div>
-        if !release.contradicted_rows.is_empty() {
-          <details class="ds-oe-hist-details">
-            <summary>{ format!("{} capabilities this release did not have yet", release.contradicted_rows.len()) }</summary>
-            { for release.contradicted_rows.iter().map(gap_detail) }
-          </details>
-        }
-      </>
-    ),
-  }
+    match &release.coverage {
+        None => html!(
+          <>
+            <span class="ds-oe-hist-muted">{ "not addressable" }</span>
+            <details class="ds-oe-hist-details">
+              <summary>{ "why" }</summary>
+              <div class="ds-oe-hist-gap">
+                { release.coverage_error.clone().unwrap_or_default() }
+              </div>
+            </details>
+          </>
+        ),
+        Some(coverage) => html!(
+          <>
+            <span class="ds-oe-hist-num ds-oe-hist-good">{ coverage.verified }</span>
+            { " verified · " }
+            <span class={classes!(
+              "ds-oe-hist-num",
+              if coverage.contradicted > 0 { "ds-oe-hist-bad" } else { "ds-oe-hist-muted" }
+            )}>{ coverage.contradicted }</span>
+            { " contradicted" }
+            <div class="ds-oe-hist-when">
+              { format!(
+                  "{} agreed / {} disagreed / {} errored of {} probes · {} documented-only rows",
+                  coverage.agreed, coverage.disagreed, coverage.errored, coverage.probes_total, coverage.documented
+                ) }
+            </div>
+            if !release.contradicted_rows.is_empty() {
+              <details class="ds-oe-hist-details">
+                <summary>{ format!("{} capabilities this release did not have yet", release.contradicted_rows.len()) }</summary>
+                { for release.contradicted_rows.iter().map(gap_detail) }
+              </details>
+            }
+          </>
+        ),
+    }
 }
 
 fn release_row(release: &Release) -> Html {
-  html!(
-    <tr role="row">
-      <td role="cell">
-        <div class="ds-oe-hist-tag">{ release.tag.clone() }</div>
-        <div class="ds-oe-hist-when" title={release.date.clone()}>
-          { format!("{} {}", release.day(), release.time_of_day()) }
-        </div>
-        <div class="ds-oe-hist-when">{ release.short_commit().to_string() }</div>
-      </td>
-      <td role="cell">{ compliance_cell(release) }</td>
-      <td role="cell">{ coverage_cell(release) }</td>
-      <td role="cell">
-        <div class="ds-oe-hist-summary">{ release.summary.clone() }</div>
-        <div class="ds-oe-hist-sha" title="SHA-256 of that tag's compiled engine.wasm">
-          { format!("{} B · {}", release.engine_wasm_bytes, release.engine_wasm_sha256) }
-        </div>
-      </td>
-    </tr>
-  )
+    html!(
+      <tr role="row">
+        <td role="cell">
+          <div class="ds-oe-hist-tag">{ release.tag.clone() }</div>
+          <div class="ds-oe-hist-when" title={release.date.clone()}>
+            { format!("{} {}", release.day(), release.time_of_day()) }
+          </div>
+          <div class="ds-oe-hist-when">{ release.short_commit().to_string() }</div>
+        </td>
+        <td role="cell">{ compliance_cell(release) }</td>
+        <td role="cell">{ coverage_cell(release) }</td>
+        <td role="cell">
+          <div class="ds-oe-hist-summary">{ release.summary.clone() }</div>
+          <div class="ds-oe-hist-sha" title="SHA-256 of that tag's compiled engine.wasm">
+            { format!("{} B · {}", release.engine_wasm_bytes, release.engine_wasm_sha256) }
+          </div>
+        </td>
+      </tr>
+    )
 }
 
 fn release_table(file: &HistoryFile) -> Html {
-  html!(
-    <div class="ds-oe-hist-table-wrap">
-      <table class="pf-v6-c-table" role="grid">
-        <thead>
-          <tr role="row">
-            <th role="columnheader">{ "Release" }</th>
-            <th role="columnheader">{ "ODRL-Test-Suite" }</th>
-            <th role="columnheader">{ "ODRL 2.2 rows, today's catalog" }</th>
-            <th role="columnheader">{ "What shipped" }</th>
-          </tr>
-        </thead>
-        <tbody role="rowgroup">
-          { for file.releases.iter().map(release_row) }
-        </tbody>
-      </table>
-    </div>
-  )
+    html!(
+      <div class="ds-oe-hist-table-wrap">
+        <table class="pf-v6-c-table" role="grid">
+          <thead>
+            <tr role="row">
+              <th role="columnheader">{ "Release" }</th>
+              <th role="columnheader">{ "ODRL-Test-Suite" }</th>
+              <th role="columnheader">{ "ODRL 2.2 rows, today's catalog" }</th>
+              <th role="columnheader">{ "What shipped" }</th>
+            </tr>
+          </thead>
+          <tbody role="rowgroup">
+            { for file.releases.iter().map(release_row) }
+          </tbody>
+        </table>
+      </div>
+    )
 }
 
 /// The cross-release view no single row shows: which vocabulary rows
 /// stayed contradicted across the most releases, i.e. what took longest
 /// to land.
 fn longest_standing_gaps(file: &HistoryFile) -> Html {
-  let counts = file.contradiction_counts();
-  if counts.is_empty() {
-    return html!();
-  }
-  let addressable = file.releases.len() - file.unaddressable().len();
-  html!(
-    <div class="ds-oe-hist-section">
-      <Title level={Level::H2}>{ "What took longest to land" }</Title>
-      <Content>
-        <p>
-          { format!(
-              "Of the {addressable} releases today's catalog can address, how many each vocabulary row \
-               was still contradicted in. A row near the top is one this engine carried as a documented \
-               gap for most of its history."
-            ) }
-        </p>
-      </Content>
-      <div class="ds-oe-hist-table-wrap">
-        <table class="pf-v6-c-table" role="grid">
-          <thead>
-            <tr role="row">
-              <th role="columnheader">{ "Row" }</th>
-              <th role="columnheader">{ "Term" }</th>
-              <th role="columnheader">{ "Releases contradicted" }</th>
-            </tr>
-          </thead>
-          <tbody role="rowgroup">
-            { for counts.iter().map(|(id, term, n)| html!(
-                <tr role="row">
-                  <td role="cell"><code>{ id.clone() }</code></td>
-                  <td role="cell">{ term.clone() }</td>
-                  <td role="cell">
-                    <span class="ds-oe-hist-num">{ format!("{n} of {addressable}") }</span>
-                  </td>
-                </tr>
-              )) }
-          </tbody>
-        </table>
-      </div>
-    </div>
-  )
-}
-
-fn provenance(file: &HistoryFile) -> Html {
-  html!(
-    <Card>
-      <CardBody>
+    let counts = file.contradiction_counts();
+    if counts.is_empty() {
+        return html!();
+    }
+    let addressable = file.releases.len() - file.unaddressable().len();
+    html!(
+      <div class="ds-oe-hist-section">
+        <Title level={Level::H2}>{ "What took longest to land" }</Title>
         <Content>
           <p>
-            <strong>{ "How these numbers were produced. " }</strong>
-            { file.method.clone() }
-          </p>
-          <p class="ds-oe-hist-note">
-            { format!("Generated by {} · catalog: {}", file.generated_by, file.catalog.generated_by) }
-          </p>
-          if let Some(latest) = file.latest() {
-            <p>
-              <strong>{ "One row here is independently checkable. " }</strong>
-              { format!(
-                  "{} is the release this site itself is built from, so the Capability Audit and ODRL 2.2 \
-                   Full Compliance pages both re-run that same catalog against that same engine in your \
-                   own browser. Their numbers there and this row here must agree — and a workspace test \
-                   asserts they do, so a regeneration that went stale fails the build rather than quietly \
-                   showing you an old dashboard.",
-                  latest.tag
-                ) }
-            </p>
-          }
-          <p class="ds-oe-hist-note">
             { format!(
-                "Catalog under replay: {} rows ({} implemented, {} partial, {} not implemented, {} out of \
-                 scope) and {} probes, from {}",
-                file.catalog.rows,
-                file.catalog.implemented,
-                file.catalog.partial,
-                file.catalog.not_implemented,
-                file.catalog.out_of_scope,
-                file.catalog.probes,
-                file.catalog.source_analysis
+                "Of the {addressable} releases today's catalog can address, how many each vocabulary row \
+                 was still contradicted in. A row near the top is one this engine carried as a documented \
+                 gap for most of its history."
               ) }
           </p>
         </Content>
-      </CardBody>
-    </Card>
-  )
+        <div class="ds-oe-hist-table-wrap">
+          <table class="pf-v6-c-table" role="grid">
+            <thead>
+              <tr role="row">
+                <th role="columnheader">{ "Row" }</th>
+                <th role="columnheader">{ "Term" }</th>
+                <th role="columnheader">{ "Releases contradicted" }</th>
+              </tr>
+            </thead>
+            <tbody role="rowgroup">
+              { for counts.iter().map(|(id, term, n)| html!(
+                  <tr role="row">
+                    <td role="cell"><code>{ id.clone() }</code></td>
+                    <td role="cell">{ term.clone() }</td>
+                    <td role="cell">
+                      <span class="ds-oe-hist-num">{ format!("{n} of {addressable}") }</span>
+                    </td>
+                  </tr>
+                )) }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    )
+}
+
+fn provenance(file: &HistoryFile) -> Html {
+    html!(
+      <Card>
+        <CardBody>
+          <Content>
+            <p>
+              <strong>{ "How these numbers were produced. " }</strong>
+              { file.method.clone() }
+            </p>
+            <p class="ds-oe-hist-note">
+              { format!("Generated by {} · catalog: {}", file.generated_by, file.catalog.generated_by) }
+            </p>
+            if let Some(latest) = file.latest() {
+              <p>
+                <strong>{ "One row here is independently checkable. " }</strong>
+                { format!(
+                    "{} is the release this site itself is built from, so the Capability Audit and ODRL 2.2 \
+                     Full Compliance pages both re-run that same catalog against that same engine in your \
+                     own browser. Their numbers there and this row here must agree — and a workspace test \
+                     asserts they do, so a regeneration that went stale fails the build rather than quietly \
+                     showing you an old dashboard.",
+                    latest.tag
+                  ) }
+              </p>
+            }
+            <p class="ds-oe-hist-note">
+              { format!(
+                  "Catalog under replay: {} rows ({} implemented, {} partial, {} not implemented, {} out of \
+                   scope) and {} probes, from {}",
+                  file.catalog.rows,
+                  file.catalog.implemented,
+                  file.catalog.partial,
+                  file.catalog.not_implemented,
+                  file.catalog.out_of_scope,
+                  file.catalog.probes,
+                  file.catalog.source_analysis
+                ) }
+            </p>
+          </Content>
+        </CardBody>
+      </Card>
+    )
 }
 
 fn dashboard(file: &HistoryFile) -> Html {
-  html!(
-    <>
-      <div class="ds-oe-hist-lead">
-        { chart(file) }
-      </div>
-      <div class="ds-oe-hist-lead">
-        <Title level={Level::H2}>{ "Meets full spec / Undetermined / Falls short / Structural gap, per release" }</Title>
-        { status_chart(file) }
-      </div>
-      { provenance(file) }
-      <div class="ds-oe-hist-section">
-        <Title level={Level::H2}>{ "Every tagged release" }</Title>
-        { release_table(file) }
-      </div>
-      { longest_standing_gaps(file) }
-    </>
-  )
+    html!(
+      <>
+        <div class="ds-oe-hist-lead">
+          { chart(file) }
+        </div>
+        <div class="ds-oe-hist-lead">
+          <Title level={Level::H2}>{ "Meets full spec / Undetermined / Falls short / Structural gap, per release" }</Title>
+          { status_chart(file) }
+        </div>
+        { provenance(file) }
+        <div class="ds-oe-hist-section">
+          <Title level={Level::H2}>{ "Every tagged release" }</Title>
+          { release_table(file) }
+        </div>
+        { longest_standing_gaps(file) }
+      </>
+    )
 }
 
 /// The page's own introductory paragraph — reads `file.catalog.probes`
@@ -767,25 +793,25 @@ fn dashboard(file: &HistoryFile) -> Html {
 /// loaded, which is why `HistoryPage` calls this inside its own
 /// `Some(Ok(file))` arm rather than unconditionally.
 fn intro(file: &HistoryFile) -> Html {
-  html!(
-    <Content>
-      <p>
-        { "Every tagged release of this engine, rebuilt from its own tag and put back through both of \
-           this repo's measuring instruments: the vendored " }
-        <a href="https://github.com/SolidLabResearch/ODRL-Test-Suite" target="_blank" rel="noopener noreferrer">
-          { "ODRL-Test-Suite" }
-        </a>
-        { ", run by that release's own " }<code>{ "compliance-runner" }</code>
-        { " against the suite revision that release pinned; and the current " }
-        { file.catalog.probes.to_string() }
-        { "-probe ODRL 2.2 coverage catalog, replayed against that release's compiled " }
-        <code>{ "engine.wasm" }</code>
-        { " through the same " }<code>{ "alloc" }</code>{ "/" }<code>{ "evaluate" }</code>{ "/" }
-        <code>{ "dealloc" }</code>{ " C ABI a browser drives, in a " }<code>{ "wasmi" }</code>
-        { " interpreter." }
-      </p>
-    </Content>
-  )
+    html!(
+      <Content>
+        <p>
+          { "Every tagged release of this engine, rebuilt from its own tag and put back through both of \
+             this repo's measuring instruments: the vendored " }
+          <a href="https://github.com/SolidLabResearch/ODRL-Test-Suite" target="_blank" rel="noopener noreferrer">
+            { "ODRL-Test-Suite" }
+          </a>
+          { ", run by that release's own " }<code>{ "compliance-runner" }</code>
+          { " against the suite revision that release pinned; and the current " }
+          { file.catalog.probes.to_string() }
+          { "-probe ODRL 2.2 coverage catalog, replayed against that release's compiled " }
+          <code>{ "engine.wasm" }</code>
+          { " through the same " }<code>{ "alloc" }</code>{ "/" }<code>{ "evaluate" }</code>{ "/" }
+          <code>{ "dealloc" }</code>{ " C ABI a browser drives, in a " }<code>{ "wasmi" }</code>
+          { " interpreter." }
+        </p>
+      </Content>
+    )
 }
 
 /// The "computed at build time" explainer — same reasoning as `intro`
@@ -793,37 +819,37 @@ fn intro(file: &HistoryFile) -> Html {
 /// derived from `file` rather than repeated as separate literals that
 /// would need to be kept in lockstep with it by hand.
 fn build_time_alert(file: &HistoryFile) -> Html {
-  let releases = file.releases.len();
-  let evaluations = releases * file.catalog.probes;
-  html!(
-    <Alert inline=true r#type={AlertType::Info} title={"Computed at build time, not in your browser"}>
-      <Content>
-        <p>
-          { "The " }<strong>{ "Compliance Results" }</strong>{ ", " }
-          <strong>{ "Capability Audit" }</strong>{ " and " }
-          <strong>{ "ODRL 2.2 Full Compliance" }</strong>
-          { " pages all re-execute their whole corpus against " }<code>{ "engine.wasm" }</code>
-          { " in your browser, live, and the numbers they show are computed there. This page does not, \
-             and the difference is deliberate: its subject is " }
-          { releases.to_string() }{ " " }<em>{ "different" }</em>
-          { " historical engine binaries. Reproducing it live would mean downloading and instantiating \
-             all " }{ releases.to_string() }{ " — several megabytes of wasm — and running " }
-          { evaluations.to_string() }
-          { " evaluations on page load, to recompute figures that can only change when someone cuts a \
-             new tag." }
-        </p>
-        <p>
-          { "So these are build-time figures with their provenance attached: every release's row carries \
-             the SHA-256 of the exact " }<code>{ "engine.wasm" }</code>
-          { " that produced it, so anyone can rebuild that tag and check the binary matches. The \
-             generator is checked in (" }<code>{ "scripts/build-release-history.sh" }</code>{ " and the " }
-          <code>{ "release-history" }</code>
-          { " crate) and the verdicts come from the very same two modules the live Capability Audit and \
-             ODRL 2.2 Full Compliance pages run." }
-        </p>
-      </Content>
-    </Alert>
-  )
+    let releases = file.releases.len();
+    let evaluations = releases * file.catalog.probes;
+    html!(
+      <Alert inline=true r#type={AlertType::Info} title={"Computed at build time, not in your browser"}>
+        <Content>
+          <p>
+            { "The " }<strong>{ "Compliance Results" }</strong>{ ", " }
+            <strong>{ "Capability Audit" }</strong>{ " and " }
+            <strong>{ "ODRL 2.2 Full Compliance" }</strong>
+            { " pages all re-execute their whole corpus against " }<code>{ "engine.wasm" }</code>
+            { " in your browser, live, and the numbers they show are computed there. This page does not, \
+               and the difference is deliberate: its subject is " }
+            { releases.to_string() }{ " " }<em>{ "different" }</em>
+            { " historical engine binaries. Reproducing it live would mean downloading and instantiating \
+               all " }{ releases.to_string() }{ " — several megabytes of wasm — and running " }
+            { evaluations.to_string() }
+            { " evaluations on page load, to recompute figures that can only change when someone cuts a \
+               new tag." }
+          </p>
+          <p>
+            { "So these are build-time figures with their provenance attached: every release's row carries \
+               the SHA-256 of the exact " }<code>{ "engine.wasm" }</code>
+            { " that produced it, so anyone can rebuild that tag and check the binary matches. The \
+               generator is checked in (" }<code>{ "scripts/build-release-history.sh" }</code>{ " and the " }
+            <code>{ "release-history" }</code>
+            { " crate) and the verdicts come from the very same two modules the live Capability Audit and \
+               ODRL 2.2 Full Compliance pages run." }
+          </p>
+        </Content>
+      </Alert>
+    )
 }
 
 /// The Release History page: a build-time-computed record of what every
@@ -831,75 +857,75 @@ fn build_time_alert(file: &HistoryFile) -> Html {
 /// instruments rather than by reading commit messages.
 #[component]
 pub fn HistoryPage() -> Html {
-  let state: UseStateHandle<Option<Result<HistoryFile, String>>> = use_state(|| None);
+    let state: UseStateHandle<Option<Result<HistoryFile, String>>> = use_state(|| None);
 
-  {
-    let state = state.clone();
-    use_effect_with((), move |_| {
-      spawn_local(async move {
-        state.set(Some(fetch_history().await));
-      });
-      || ()
-    });
-  }
+    {
+        let state = state.clone();
+        use_effect_with((), move |_| {
+            spawn_local(async move {
+                state.set(Some(fetch_history().await));
+            });
+            || ()
+        });
+    }
 
-  html!(
-    <>
-      <style>{ HISTORY_CSS }</style>
-      <Content>
-        <Title level={Level::H1}>{ "Release History" }</Title>
-      </Content>
+    html!(
+      <>
+        <style>{ HISTORY_CSS }</style>
+        <Content>
+          <Title level={Level::H1}>{ "Release History" }</Title>
+        </Content>
 
-      {
-        match &*state {
-          None => html!(
-            <Card><CardBody>
-              <Spinner />
-              { " Loading the release record…" }
-            </CardBody></Card>
-          ),
-          Some(Err(err)) => html!(
-            <Alert inline=true r#type={AlertType::Danger} title={"Could not load the release record"}>
-              <Content><p>{ err.clone() }</p></Content>
-            </Alert>
-          ),
-          Some(Ok(file)) => {
-            let unaddressable = file.unaddressable().len();
-            html!(
-              <>
-                { intro(file) }
-                <div class="ds-oe-hist-lead">
-                  { build_time_alert(file) }
-                </div>
-                if unaddressable > 0 {
+        {
+          match &*state {
+            None => html!(
+              <Card><CardBody>
+                <Spinner />
+                { " Loading the release record…" }
+              </CardBody></Card>
+            ),
+            Some(Err(err)) => html!(
+              <Alert inline=true r#type={AlertType::Danger} title={"Could not load the release record"}>
+                <Content><p>{ err.clone() }</p></Content>
+              </Alert>
+            ),
+            Some(Ok(file)) => {
+              let unaddressable = file.unaddressable().len();
+              html!(
+                <>
+                  { intro(file) }
                   <div class="ds-oe-hist-lead">
-                    <Alert inline=true r#type={AlertType::Warning}
-                           title={format!("{unaddressable} early releases predate the current wire shape")}>
-                      <Content>
-                        <p>
-                          { "v0.6.0 reshaped the request's " }<code>{ "config" }</code>{ " object from " }
-                          <code>{ "{\"recognized_actions\": [...]}" }</code>
-                          { " into real JSON-LD vocabulary. That was a rename, not an addition, and the field \
-                             it replaced had no " }<code>{ "#[serde(default)]" }</code>
-                          { " to fall back on — so an engine built before it refuses every one of today's \
-                             probe requests at its own deserializer, before any policy logic runs. Those \
-                             releases therefore show their real ODRL-Test-Suite results and " }
-                          <em>{ "no" }</em>{ " coverage figure at all, rather than a zero that would read as \
-                             \"this release supported nothing\". Every wire change after v0.6.0 was additive, \
-                             which is exactly why the replay works from there on." }
-                        </p>
-                      </Content>
-                    </Alert>
+                    { build_time_alert(file) }
                   </div>
-                }
-                { dashboard(file) }
-              </>
-            )
+                  if unaddressable > 0 {
+                    <div class="ds-oe-hist-lead">
+                      <Alert inline=true r#type={AlertType::Warning}
+                             title={format!("{unaddressable} early releases predate the current wire shape")}>
+                        <Content>
+                          <p>
+                            { "v0.6.0 reshaped the request's " }<code>{ "config" }</code>{ " object from " }
+                            <code>{ "{\"recognized_actions\": [...]}" }</code>
+                            { " into real JSON-LD vocabulary. That was a rename, not an addition, and the field \
+                               it replaced had no " }<code>{ "#[serde(default)]" }</code>
+                            { " to fall back on — so an engine built before it refuses every one of today's \
+                               probe requests at its own deserializer, before any policy logic runs. Those \
+                               releases therefore show their real ODRL-Test-Suite results and " }
+                            <em>{ "no" }</em>{ " coverage figure at all, rather than a zero that would read as \
+                               \"this release supported nothing\". Every wire change after v0.6.0 was additive, \
+                               which is exactly why the replay works from there on." }
+                          </p>
+                        </Content>
+                      </Alert>
+                    </div>
+                  }
+                  { dashboard(file) }
+                </>
+              )
+            }
           }
         }
-      }
 
-      { case_study_credit() }
-    </>
-  )
+        { case_study_credit() }
+      </>
+    )
 }

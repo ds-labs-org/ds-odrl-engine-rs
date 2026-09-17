@@ -16,11 +16,16 @@ use translate::Translation;
 
 fn main() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let repo_root = manifest_dir.parent().expect("compliance-runner has a parent directory");
+    let repo_root = manifest_dir
+        .parent()
+        .expect("compliance-runner has a parent directory");
     let vendor_root = repo_root.join("compliance/vendor/odrl-test-suite");
 
     let entries = index::parse_index(&vendor_root).unwrap_or_else(|e| {
-        eprintln!("failed to parse {}: {e}", vendor_root.join("data/index.ttl").display());
+        eprintln!(
+            "failed to parse {}: {e}",
+            vendor_root.join("data/index.ttl").display()
+        );
         std::process::exit(1);
     });
 
@@ -44,7 +49,11 @@ fn main() {
 
             match translate::translate(&policy, &request, &sotw_graph, &entry.id) {
                 Translation::Skip(reason) => Ok((
-                    CaseResult::Skipped { slug: slug.clone(), title: title.clone(), reason: reason.clone() },
+                    CaseResult::Skipped {
+                        slug: slug.clone(),
+                        title: title.clone(),
+                        reason: reason.clone(),
+                    },
                     FixtureData::Skipped { reason },
                 )),
                 Translation::Ready(wire_request) => {
@@ -55,7 +64,11 @@ fn main() {
                     let actual = response.decision;
 
                     let result = if actual == expected {
-                        CaseResult::Passed { slug: slug.clone(), title: title.clone(), decision: actual }
+                        CaseResult::Passed {
+                            slug: slug.clone(),
+                            title: title.clone(),
+                            decision: actual,
+                        }
                     } else {
                         CaseResult::Failed {
                             slug: slug.clone(),
@@ -66,7 +79,13 @@ fn main() {
                         }
                     };
 
-                    Ok((result, FixtureData::Ready { request: wire_request, expected }))
+                    Ok((
+                        result,
+                        FixtureData::Ready {
+                            request: wire_request,
+                            expected,
+                        },
+                    ))
                 }
             }
         })();
@@ -94,13 +113,28 @@ fn main() {
     // the per-case fixtures the site re-executes against `engine.wasm` in a
     // visitor's browser (see cases.rs). Nothing above it changes — the two
     // reports are byte-for-byte what they were before this existed.
-    let fixture_views: Vec<_> =
-        fixtures.iter().map(|(slug, title, data)| cases::fixture_view(slug, title, data)).collect();
-    fs::write(reports_dir.join("latest-cases.json"), cases::render(&fixture_views)).expect("write latest-cases.json");
+    let fixture_views: Vec<_> = fixtures
+        .iter()
+        .map(|(slug, title, data)| cases::fixture_view(slug, title, data))
+        .collect();
+    fs::write(
+        reports_dir.join("latest-cases.json"),
+        cases::render(&fixture_views),
+    )
+    .expect("write latest-cases.json");
 
-    let passed = results.iter().filter(|r| matches!(r, CaseResult::Passed { .. })).count();
-    let failed = results.iter().filter(|r| matches!(r, CaseResult::Failed { .. })).count();
-    let skipped = results.iter().filter(|r| matches!(r, CaseResult::Skipped { .. })).count();
+    let passed = results
+        .iter()
+        .filter(|r| matches!(r, CaseResult::Passed { .. }))
+        .count();
+    let failed = results
+        .iter()
+        .filter(|r| matches!(r, CaseResult::Failed { .. }))
+        .count();
+    let skipped = results
+        .iter()
+        .filter(|r| matches!(r, CaseResult::Skipped { .. }))
+        .count();
     println!(
         "ODRL-Test-Suite compliance: {} total, {passed} passed, {failed} failed, {skipped} skipped -> {}",
         results.len(),

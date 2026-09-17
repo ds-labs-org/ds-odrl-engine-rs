@@ -100,7 +100,10 @@ pub fn parse_index(vendor_root: &Path) -> Result<Vec<TestCaseEntry>, String> {
 
 fn sequence_number(path: &Path) -> u32 {
     let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
-    stem.split('-').nth(1).and_then(|n| n.parse().ok()).unwrap_or(0)
+    stem.split('-')
+        .nth(1)
+        .and_then(|n| n.parse().ok())
+        .unwrap_or(0)
 }
 
 pub fn case_slug(entry: &TestCaseEntry) -> String {

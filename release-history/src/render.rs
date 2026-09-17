@@ -218,7 +218,8 @@ pub struct HistoryFile {
 /// two independent processes and diffs the bytes.
 pub fn render(file: &HistoryFile) -> String {
     let value: Value = serde_json::to_value(file).expect("HistoryFile always serializes");
-    let mut text = serde_json::to_string_pretty(&value).expect("a serde_json::Value always serializes");
+    let mut text =
+        serde_json::to_string_pretty(&value).expect("a serde_json::Value always serializes");
     text.push('\n');
     text
 }
@@ -255,7 +256,12 @@ mod tests {
                 summary: "first tag".to_string(),
                 engine_wasm_bytes: 198862,
                 engine_wasm_sha256: "abc".to_string(),
-                compliance: Some(ComplianceTally { total: 68, passed: 20, failed: 0, skipped: 48 }),
+                compliance: Some(ComplianceTally {
+                    total: 68,
+                    passed: 20,
+                    failed: 0,
+                    skipped: 48,
+                }),
                 coverage: Some(CoverageTally {
                     probes_total: 125,
                     agreed: 40,
@@ -301,7 +307,10 @@ mod tests {
         let value: Value = serde_json::from_str(&text).unwrap();
         assert_eq!(value["schema"], SCHEMA);
         assert_eq!(value["releases"].as_array().unwrap().len(), 1);
-        assert!(text.ends_with("}\n"), "committed artifacts end in exactly one newline");
+        assert!(
+            text.ends_with("}\n"),
+            "committed artifacts end in exactly one newline"
+        );
     }
 
     #[test]
@@ -312,7 +321,10 @@ mod tests {
         file.releases[0].full_compliance = None;
         let value: Value = serde_json::from_str(&render(&file)).unwrap();
         assert!(value["releases"][0]["coverage"].is_null());
-        assert_eq!(value["releases"][0]["coverage_error"], "engine.wasm exports no `evaluate`");
+        assert_eq!(
+            value["releases"][0]["coverage_error"],
+            "engine.wasm exports no `evaluate`"
+        );
         assert!(
             value["releases"][0]["full_compliance"].is_null(),
             "full_compliance must be null exactly when coverage is, same as coverage_error's own reasoning"
@@ -320,7 +332,8 @@ mod tests {
     }
 
     #[test]
-    fn a_releases_full_compliance_tally_round_trips_and_its_rows_sum_to_the_catalogs_in_scope_count() {
+    fn a_releases_full_compliance_tally_round_trips_and_its_rows_sum_to_the_catalogs_in_scope_count(
+    ) {
         let file = sample();
         let value: Value = serde_json::from_str(&render(&file)).unwrap();
         let full_compliance = &value["releases"][0]["full_compliance"];

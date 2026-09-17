@@ -5,15 +5,15 @@ use crate::demo_page::DemoPage;
 use crate::full_compliance_page::FullCompliancePage;
 use crate::history_page::HistoryPage;
 use crate::pages::HomePage;
-use yew::{Html, html};
+use yew::{html, Html};
 
 pub fn switch_app_route(target: AppRoute) -> Html {
-  match target {
-    AppRoute::Home => html! { <HomePage /> },
-    AppRoute::Demo => html! { <DemoPage /> },
-    AppRoute::Compliance => html! { <CompliancePage /> },
-    AppRoute::Coverage => html! { <CoveragePage /> },
-    AppRoute::FullCompliance => html! { <FullCompliancePage /> },
-    AppRoute::History => html! { <HistoryPage /> },
-  }
+    match target {
+        AppRoute::Home => html! { <HomePage /> },
+        AppRoute::Demo => html! { <DemoPage /> },
+        AppRoute::Compliance => html! { <CompliancePage /> },
+        AppRoute::Coverage => html! { <CoveragePage /> },
+        AppRoute::FullCompliance => html! { <FullCompliancePage /> },
+        AppRoute::History => html! { <HistoryPage /> },
+    }
 }

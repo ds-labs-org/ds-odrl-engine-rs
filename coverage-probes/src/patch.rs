@@ -29,8 +29,15 @@ use serde_json::Value;
 /// exists.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Patch {
-    Set { pointer: String, key: String, value: Value },
-    Remove { pointer: String, key: String },
+    Set {
+        pointer: String,
+        key: String,
+        value: Value,
+    },
+    Remove {
+        pointer: String,
+        key: String,
+    },
 }
 
 impl Patch {
@@ -38,11 +45,18 @@ impl Patch {
     /// the request object itself, `/policies/0` for the first policy, and
     /// so on).
     pub fn set(pointer: &str, key: &str, value: Value) -> Self {
-        Patch::Set { pointer: pointer.to_string(), key: key.to_string(), value }
+        Patch::Set {
+            pointer: pointer.to_string(),
+            key: key.to_string(),
+            value,
+        }
     }
 
     pub fn remove(pointer: &str, key: &str) -> Self {
-        Patch::Remove { pointer: pointer.to_string(), key: key.to_string() }
+        Patch::Remove {
+            pointer: pointer.to_string(),
+            key: key.to_string(),
+        }
     }
 
     fn pointer(&self) -> &str {
@@ -81,17 +95,21 @@ pub fn apply_patches(value: &mut Value, patches: &[Patch]) -> Result<(), String>
             .pointer_mut(&pointer)
             .ok_or_else(|| format!("patch pointer `{pointer}` does not resolve in this request"))?;
         let kind = kind_of(target);
-        let object = target
-            .as_object_mut()
-            .ok_or_else(|| format!("patch pointer `{pointer}` resolves to a {kind}, not an object"))?;
+        let object = target.as_object_mut().ok_or_else(|| {
+            format!("patch pointer `{pointer}` resolves to a {kind}, not an object")
+        })?;
 
         match patch {
-            Patch::Set { value: new_value, .. } => {
+            Patch::Set {
+                value: new_value, ..
+            } => {
                 object.insert(key, new_value.clone());
             }
             Patch::Remove { .. } => {
                 if object.remove(&key).is_none() {
-                    return Err(format!("patch pointer `{pointer}` carries no key `{key}` to remove"));
+                    return Err(format!(
+                        "patch pointer `{pointer}` carries no key `{key}` to remove"
+                    ));
                 }
             }
         }
@@ -114,14 +132,22 @@ mod tests {
     #[test]
     fn set_inserts_a_key_the_typed_request_could_never_carry() {
         let mut value = document();
-        apply_patches(&mut value, &[Patch::set("/policies/0", "conflict", json!("perm"))]).unwrap();
+        apply_patches(
+            &mut value,
+            &[Patch::set("/policies/0", "conflict", json!("perm"))],
+        )
+        .unwrap();
         assert_eq!(value["policies"][0]["conflict"], json!("perm"));
     }
 
     #[test]
     fn set_replaces_an_existing_key_rather_than_duplicating_it() {
         let mut value = document();
-        apply_patches(&mut value, &[Patch::set("/config", "behaviour", json!("default"))]).unwrap();
+        apply_patches(
+            &mut value,
+            &[Patch::set("/config", "behaviour", json!("default"))],
+        )
+        .unwrap();
         assert_eq!(value["config"]["behaviour"], json!("default"));
         assert_eq!(value["config"].as_object().unwrap().len(), 1);
     }
@@ -129,7 +155,11 @@ mod tests {
     #[test]
     fn set_reaches_the_request_root_through_the_empty_pointer() {
         let mut value = document();
-        apply_patches(&mut value, &[Patch::set("", "inheritFrom", json!("parent"))]).unwrap();
+        apply_patches(
+            &mut value,
+            &[Patch::set("", "inheritFrom", json!("parent"))],
+        )
+        .unwrap();
         assert_eq!(value["inheritFrom"], json!("parent"));
     }
 
@@ -147,17 +177,26 @@ mod tests {
         // probe would still reach its expected decision while having
         // injected nothing at all.
         let mut value = document();
-        let err = apply_patches(&mut value, &[Patch::set("/policies/7", "conflict", json!("perm"))]).unwrap_err();
+        let err = apply_patches(
+            &mut value,
+            &[Patch::set("/policies/7", "conflict", json!("perm"))],
+        )
+        .unwrap_err();
         assert!(err.contains("does not resolve"), "{err}");
     }
 
     #[test]
     fn a_pointer_resolving_to_a_non_object_is_an_error_naming_what_it_found() {
         let mut value = document();
-        let err = apply_patches(&mut value, &[Patch::set("/policies", "conflict", json!("perm"))]).unwrap_err();
+        let err = apply_patches(
+            &mut value,
+            &[Patch::set("/policies", "conflict", json!("perm"))],
+        )
+        .unwrap_err();
         assert!(err.contains("resolves to a array"), "{err}");
 
-        let err = apply_patches(&mut value, &[Patch::set("/policies/0/id", "x", json!(1))]).unwrap_err();
+        let err =
+            apply_patches(&mut value, &[Patch::set("/policies/0/id", "x", json!(1))]).unwrap_err();
         assert!(err.contains("resolves to a string"), "{err}");
     }
 
@@ -171,10 +210,13 @@ mod tests {
     #[test]
     fn patches_apply_in_order_so_a_later_one_sees_an_earlier_ones_object() {
         let mut value = document();
-        apply_patches(&mut value, &[
-            Patch::set("/policies/0", "duty", json!({})),
-            Patch::set("/policies/0/duty", "action", json!("compensate")),
-        ])
+        apply_patches(
+            &mut value,
+            &[
+                Patch::set("/policies/0", "duty", json!({})),
+                Patch::set("/policies/0/duty", "action", json!("compensate")),
+            ],
+        )
         .unwrap();
         assert_eq!(value["policies"][0]["duty"]["action"], json!("compensate"));
     }

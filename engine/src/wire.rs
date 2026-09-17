@@ -37,7 +37,8 @@ use serde::{Deserialize, Serialize};
 use crate::claims::Claims;
 use crate::constraint::{Constraint, Operator, MAX_CONSTRAINT_DEPTH};
 use crate::decision::{
-    conflicting_rules, decide, ConflictStrategy, Decision, DecisionOutcome, DutyAttachment, Policy, Rule,
+    conflicting_rules, decide, ConflictStrategy, Decision, DecisionOutcome, DutyAttachment, Policy,
+    Rule,
 };
 use crate::profile::{ActionDecl, Behaviour, DutyMode, ResolvedConfig};
 
@@ -61,19 +62,29 @@ pub struct WireNodeRef {
 pub struct WireActionDecl {
     #[serde(rename = "@id")]
     pub id: String,
-    #[serde(rename = "odrl:includedIn", default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "odrl:includedIn",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub included_in: Option<WireNodeRef>,
 }
 
 impl From<&ActionDecl> for WireActionDecl {
     fn from(a: &ActionDecl) -> Self {
-        WireActionDecl { id: a.id.clone(), included_in: a.included_in.clone().map(|id| WireNodeRef { id }) }
+        WireActionDecl {
+            id: a.id.clone(),
+            included_in: a.included_in.clone().map(|id| WireNodeRef { id }),
+        }
     }
 }
 
 impl From<&WireActionDecl> for ActionDecl {
     fn from(a: &WireActionDecl) -> Self {
-        ActionDecl { id: a.id.clone(), included_in: a.included_in.as_ref().map(|r| r.id.clone()) }
+        ActionDecl {
+            id: a.id.clone(),
+            included_in: a.included_in.as_ref().map(|r| r.id.clone()),
+        }
     }
 }
 
@@ -148,9 +159,17 @@ pub struct RequestConfig {
     pub duty_mode: DutyMode,
     #[serde(default)]
     pub behaviour: Behaviour,
-    #[serde(rename = "partyIdentityClaim", default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "partyIdentityClaim",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub party_identity_claim: Option<String>,
-    #[serde(rename = "agreementAssigneeClaim", default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "agreementAssigneeClaim",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub agreement_assignee_claim: Option<String>,
 }
 
@@ -207,7 +226,11 @@ pub struct WirePolicy {
     /// `invalid`, and a policy meaning the default serializes without the
     /// key — so every request and every stored fixture built before this
     /// field existed parses and re-serializes byte-for-byte unchanged.
-    #[serde(rename = "odrl:conflict", default, skip_serializing_if = "ConflictStrategy::is_default")]
+    #[serde(
+        rename = "odrl:conflict",
+        default,
+        skip_serializing_if = "ConflictStrategy::is_default"
+    )]
     pub conflict: ConflictStrategy,
     /// `odrl:inheritFrom` — Information Model §2.9's Policy Inheritance:
     /// the `id`s of zero or more parent policies **elsewhere in this same
@@ -227,7 +250,11 @@ pub struct WirePolicy {
     /// list this replicates, what it deliberately does not (this contract
     /// has no policy-level Asset or `odrl:profile` field to replicate),
     /// and how a cycle is rejected.
-    #[serde(rename = "inheritFrom", default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "inheritFrom",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub inherit_from: Option<Vec<String>>,
 }
 
@@ -379,7 +406,11 @@ fn describe_constraint(constraint: &Constraint, depth: usize) -> String {
     // Same xone > or > and > and_sequence > atomic precedence
     // `Constraint::evaluate` uses.
     if let Some(xone) = &constraint.xone {
-        let joined = xone.iter().map(|c| describe_constraint(c, depth + 1)).collect::<Vec<_>>().join(", ");
+        let joined = xone
+            .iter()
+            .map(|c| describe_constraint(c, depth + 1))
+            .collect::<Vec<_>>()
+            .join(", ");
         return format!("xone({joined})");
     }
     if let Some(or) = &constraint.or {
@@ -391,11 +422,20 @@ fn describe_constraint(constraint: &Constraint, depth: usize) -> String {
     if let Some(and_sequence) = &constraint.and_sequence {
         return join_children(and_sequence, " && ", depth);
     }
-    format!("{} {} {}", constraint.left_operand, operator_wire_name(constraint.operator), constraint.right_operand)
+    format!(
+        "{} {} {}",
+        constraint.left_operand,
+        operator_wire_name(constraint.operator),
+        constraint.right_operand
+    )
 }
 
 fn join_children(children: &[Constraint], separator: &str, depth: usize) -> String {
-    let joined = children.iter().map(|c| describe_constraint(c, depth + 1)).collect::<Vec<_>>().join(separator);
+    let joined = children
+        .iter()
+        .map(|c| describe_constraint(c, depth + 1))
+        .collect::<Vec<_>>()
+        .join(separator);
     format!("({joined})")
 }
 
@@ -438,7 +478,10 @@ fn describe_permission_duties(rule: &Rule, claims: &Claims, duty_mode: DutyMode)
     let mut out = String::new();
     for (duty_index, duty) in rule.duty.iter().enumerate() {
         match crate::decision::outstanding_duty(duty, claims) {
-            None => out.push_str(&format!("; odrl:duty[{duty_index}] '{}' satisfied", duty.action)),
+            None => out.push_str(&format!(
+                "; odrl:duty[{duty_index}] '{}' satisfied",
+                duty.action
+            )),
             Some(outstanding) => out.push_str(&format!(
                 "; odrl:duty[{duty_index}]{} '{}' unresolved (advisory under duty_mode: {})",
                 ".consequence".repeat(outstanding.consequence_depth),
@@ -486,7 +529,12 @@ fn duty_mode_wire_name(duty_mode: DutyMode) -> &'static str {
 
 fn describe_rule(rule: &Rule, requested_action: &str) -> String {
     let action_clause = if rule.action == requested_action {
-        format!("action '{}'{}{}", rule.action, describe_refinement(rule), describe_target(rule))
+        format!(
+            "action '{}'{}{}",
+            rule.action,
+            describe_refinement(rule),
+            describe_target(rule)
+        )
     } else {
         format!(
             "action '{}'{} covers requested '{requested_action}'{}",
@@ -573,7 +621,13 @@ fn describe_reason(
     // found for `behaviour: "closed"`). A per-rule target left out here
     // would reproduce exactly that bug for exactly that input shape.
     let covers_and_matches = |rule: &Rule| {
-        rule.applies(requested_action, requested_target, asset_collections, config, claims) && rule.matches(claims)
+        rule.applies(
+            requested_action,
+            requested_target,
+            asset_collections,
+            config,
+            claims,
+        ) && rule.matches(claims)
     };
     // A rule that would have applied in every other respect and is
     // inapplicable *purely* because it is about a different asset — the
@@ -659,7 +713,11 @@ fn describe_reason(
                 }
             }
 
-            if let Some((index, rule)) = policy.prohibitions.iter().enumerate().find(|(_, rule)| covers_and_matches(rule))
+            if let Some((index, rule)) = policy
+                .prohibitions
+                .iter()
+                .enumerate()
+                .find(|(_, rule)| covers_and_matches(rule))
             {
                 // The conflict clause is appended only where a permission
                 // really did hold too and `prohibit` really did settle it,
@@ -702,8 +760,15 @@ fn describe_reason(
             // and a trace reconstructing the requirement without that
             // gating would once again conclude the requirement was met for
             // a rule `decide` had correctly found not to grant.
-            let any_permission_grants =
-                policy.permissions.iter().any(|rule| rule.grants(requested_action, requested_target, asset_collections, config, claims));
+            let any_permission_grants = policy.permissions.iter().any(|rule| {
+                rule.grants(
+                    requested_action,
+                    requested_target,
+                    asset_collections,
+                    config,
+                    claims,
+                )
+            });
             let permission_requirement_met = match config.behaviour {
                 Behaviour::Open => policy.permissions.is_empty() || any_permission_grants,
                 Behaviour::Closed => any_permission_grants,
@@ -716,15 +781,16 @@ fn describe_reason(
                 // refinement branches below are: "no permission covered
                 // and matched" is flatly wrong here — one did, and a duty
                 // it carries is the whole story.
-                if let Some((index, rule)) =
-                    policy.permissions.iter().enumerate().find(|(_, rule)| covers_and_matches(rule))
+                if let Some((index, rule)) = policy
+                    .permissions
+                    .iter()
+                    .enumerate()
+                    .find(|(_, rule)| covers_and_matches(rule))
                 {
-                    if let Some(outstanding) = rule
-                        .duty
-                        .iter()
-                        .enumerate()
-                        .find_map(|(duty_index, duty)| {
-                            crate::decision::outstanding_duty(duty, claims).map(|found| (duty_index, found))
+                    if let Some(outstanding) =
+                        rule.duty.iter().enumerate().find_map(|(duty_index, duty)| {
+                            crate::decision::outstanding_duty(duty, claims)
+                                .map(|found| (duty_index, found))
                         })
                     {
                         let (duty_index, found) = outstanding;
@@ -742,26 +808,36 @@ fn describe_reason(
                 // action requirement to hold, which includes the
                 // refinement), so the order is for reading, not for
                 // correctness.
-                if let Some((index, rule)) =
-                    policy.permissions.iter().enumerate().find(|(_, rule)| blocked_only_by_target(rule))
+                if let Some((index, rule)) = policy
+                    .permissions
+                    .iter()
+                    .enumerate()
+                    .find(|(_, rule)| blocked_only_by_target(rule))
                 {
                     return format!(
                         "permission[{index}] of policy '{}' covers requested action \
                          '{requested_action}' but targets '{}', not the requested \
                          '{requested_target}'",
                         policy.id,
-                        rule.target.as_deref().expect("blocked_only_by_target implies Some"),
+                        rule.target
+                            .as_deref()
+                            .expect("blocked_only_by_target implies Some"),
                     );
                 }
-                if let Some((index, rule)) =
-                    policy.permissions.iter().enumerate().find(|(_, rule)| blocked_only_by_refinement(rule))
+                if let Some((index, rule)) = policy
+                    .permissions
+                    .iter()
+                    .enumerate()
+                    .find(|(_, rule)| blocked_only_by_refinement(rule))
                 {
                     return format!(
                         "permission[{index}] of policy '{}' covers requested action \
                          '{requested_action}' but its action refinement was not satisfied: [{}]",
                         policy.id,
                         describe_constraint(
-                            rule.action_refinement.as_ref().expect("blocked_only_by_refinement implies Some"),
+                            rule.action_refinement
+                                .as_ref()
+                                .expect("blocked_only_by_refinement implies Some"),
                             0
                         )
                     );
@@ -781,7 +857,11 @@ fn describe_reason(
             // `duty[0].consequence` once a consequence is what is actually
             // outstanding, so the message says which without a second
             // branch.
-            match outcome.unresolved_duties.iter().find(|duty| duty.attachment == DutyAttachment::Obligation) {
+            match outcome
+                .unresolved_duties
+                .iter()
+                .find(|duty| duty.attachment == DutyAttachment::Obligation)
+            {
                 Some(duty) => format!(
                     "{} '{}' of policy '{}' is unresolved under duty_mode: deny",
                     duty.path(),
@@ -798,12 +878,15 @@ fn describe_reason(
             if policy.permissions.is_empty() {
                 return format!("policy '{}' has no permissions (open default)", policy.id);
             }
-            match policy
-                .permissions
-                .iter()
-                .enumerate()
-                .find(|(_, rule)| rule.grants(requested_action, requested_target, asset_collections, config, claims))
-            {
+            match policy.permissions.iter().enumerate().find(|(_, rule)| {
+                rule.grants(
+                    requested_action,
+                    requested_target,
+                    asset_collections,
+                    config,
+                    claims,
+                )
+            }) {
                 Some((index, rule)) => {
                     // `perm` is the only strategy that can reach an Allow
                     // over a matching prohibition, so this clause names the
@@ -1046,9 +1129,12 @@ fn party_role_mismatch<'a>(
 /// caller's own policy set is the thing that does not parse into a tree —
 /// which is exactly the "configuration gap" distinction `Decision::Error`
 /// exists to preserve elsewhere in this module.
-fn resolve_inherit_from(policies: &[WirePolicy]) -> Result<(Vec<WirePolicy>, HashMap<String, bool>), String> {
+fn resolve_inherit_from(
+    policies: &[WirePolicy],
+) -> Result<(Vec<WirePolicy>, HashMap<String, bool>), String> {
     let by_id: HashMap<&str, &WirePolicy> = policies.iter().map(|p| (p.id.as_str(), p)).collect();
-    let mut resolved: HashMap<String, (WirePolicy, Vec<ConflictStrategy>)> = HashMap::with_capacity(policies.len());
+    let mut resolved: HashMap<String, (WirePolicy, Vec<ConflictStrategy>)> =
+        HashMap::with_capacity(policies.len());
     let mut stack: Vec<String> = Vec::new();
 
     for policy in policies {
@@ -1163,9 +1249,15 @@ fn resolve_one(
     let mut conflict_values = explicit_conflict_values(policy.conflict);
     for parent_id in parent_ids {
         let (parent, parent_conflict_values) = resolve_one(parent_id, by_id, resolved, stack)?;
-        merged.permissions.extend(parent.permissions.iter().cloned());
-        merged.prohibitions.extend(parent.prohibitions.iter().cloned());
-        merged.obligations.extend(parent.obligations.iter().cloned());
+        merged
+            .permissions
+            .extend(parent.permissions.iter().cloned());
+        merged
+            .prohibitions
+            .extend(parent.prohibitions.iter().cloned());
+        merged
+            .obligations
+            .extend(parent.obligations.iter().cloned());
         if merged.assigner.is_empty() {
             merged.assigner = parent.assigner.clone();
         }
@@ -1273,9 +1365,10 @@ fn build_scaffolding(req: &Request, requested_action: &str) -> Scaffolding {
             early: Some(Response {
                 dataset_id: req.dataset_id.clone(),
                 decision: WireDecision::Deny,
-                reason: "no policies in the request: an empty policy set is a default deny, not the \
+                reason:
+                    "no policies in the request: an empty policy set is a default deny, not the \
                          open exception Section 4.3 grants a single policy's empty permissions list"
-                    .to_string(),
+                        .to_string(),
                 duties: Vec::new(),
             }),
         };
@@ -1319,7 +1412,10 @@ fn build_scaffolding(req: &Request, requested_action: &str) -> Scaffolding {
     for (policy_index, policy) in policies.iter().enumerate() {
         match party_role_mismatch(policy, &req.claims, &config) {
             Some(mismatch) => {
-                skipped.push(SkippedPolicy { policy_id: policy.id.clone(), reason: mismatch.describe() });
+                skipped.push(SkippedPolicy {
+                    policy_id: policy.id.clone(),
+                    reason: mismatch.describe(),
+                });
             }
             None => {
                 // Information Model §2.10, validation rule 4's structural
@@ -1335,7 +1431,10 @@ fn build_scaffolding(req: &Request, requested_action: &str) -> Scaffolding {
                 // for `describe_reason`/`DetailedPolicyReport`, which need
                 // the honest one rather than the forced one.
                 let declared_conflict = policy.conflict;
-                let conflict_forced_invalid = conflict_values_differ.get(&policy.id).copied().unwrap_or(false);
+                let conflict_forced_invalid = conflict_values_differ
+                    .get(&policy.id)
+                    .copied()
+                    .unwrap_or(false);
                 let mut decision_policy = policy.as_decision_policy();
                 if conflict_forced_invalid {
                     decision_policy.conflict = ConflictStrategy::Invalid;
@@ -1398,7 +1497,12 @@ fn response_from_scaffolding(scaffold: &Scaffolding) -> Response {
             decision: WireDecision::Deny,
             reason: format!(
                 "no policy in the request applies to this caller: {}",
-                scaffold.skipped.iter().map(|s| s.reason.as_str()).collect::<Vec<_>>().join("; ")
+                scaffold
+                    .skipped
+                    .iter()
+                    .map(|s| s.reason.as_str())
+                    .collect::<Vec<_>>()
+                    .join("; ")
             ),
             duties: Vec::new(),
         };
@@ -1408,7 +1512,12 @@ fn response_from_scaffolding(scaffold: &Scaffolding) -> Response {
         .evaluations
         .iter()
         .find(|e| matches!(e.outcome.decision, Decision::Error(_)))
-        .or_else(|| scaffold.evaluations.iter().find(|e| e.outcome.decision == Decision::Deny))
+        .or_else(|| {
+            scaffold
+                .evaluations
+                .iter()
+                .find(|e| e.outcome.decision == Decision::Deny)
+        })
         .unwrap_or(&scaffold.evaluations[0]);
 
     let wire_decision = match deciding.outcome.decision {
@@ -1424,7 +1533,10 @@ fn response_from_scaffolding(scaffold: &Scaffolding) -> Response {
         &deciding.outcome,
         &scaffold.claims,
         &scaffold.requested_action,
-        RequestedTarget { target: &scaffold.requested_target, asset_collections: &scaffold.asset_collections },
+        RequestedTarget {
+            target: &scaffold.requested_target,
+            asset_collections: &scaffold.asset_collections,
+        },
         &scaffold.config,
         deciding.conflict_forced_invalid,
     );
@@ -1493,14 +1605,15 @@ fn detailed_from_scaffolding(scaffold: &Scaffolding) -> crate::report::DetailedE
                     conflict_forced_invalid: pe.conflict_forced_invalid,
                 },
                 _ => {
-                    let (rule_reports, _obligation_outstanding) = crate::decision::derive_detailed_rule_reports(
-                        &pe.decision_policy,
-                        &scaffold.claims,
-                        &scaffold.config,
-                        &scaffold.requested_action,
-                        &scaffold.requested_target,
-                        &scaffold.asset_collections,
-                    );
+                    let (rule_reports, _obligation_outstanding) =
+                        crate::decision::derive_detailed_rule_reports(
+                            &pe.decision_policy,
+                            &scaffold.claims,
+                            &scaffold.config,
+                            &scaffold.requested_action,
+                            &scaffold.requested_target,
+                            &scaffold.asset_collections,
+                        );
                     crate::report::DetailedPolicyReport {
                         policy_id: policy.id.clone(),
                         policy_request,
@@ -1517,7 +1630,10 @@ fn detailed_from_scaffolding(scaffold: &Scaffolding) -> crate::report::DetailedE
     let skipped_policies = scaffold
         .skipped
         .iter()
-        .map(|s| crate::report::SkippedPolicyReport { policy_id: s.policy_id.clone(), reason: s.reason.clone() })
+        .map(|s| crate::report::SkippedPolicyReport {
+            policy_id: s.policy_id.clone(),
+            reason: s.reason.clone(),
+        })
         .collect();
 
     crate::report::DetailedEvaluation {
@@ -1659,7 +1775,11 @@ pub fn left_operands_for_request(req: &Request) -> Vec<String> {
     // of *which* rule lists a policy has, which is exactly the kind of
     // thing that silently drifts: a walk that missed one list would
     // under-report claim keys with no symptom at the call site.
-    let policies: Vec<Policy> = req.policies.iter().map(WirePolicy::as_decision_policy).collect();
+    let policies: Vec<Policy> = req
+        .policies
+        .iter()
+        .map(WirePolicy::as_decision_policy)
+        .collect();
     crate::decision::referenced_left_operands(&policies)
 }
 
@@ -1735,7 +1855,8 @@ mod tests {
     use crate::claims::ClaimValue;
     use crate::decision::MAX_CONSEQUENCE_DEPTH;
     use crate::report::{
-        ActivationState, AttemptState, DeonticState, DetailedPremiseReport, DetailedRuleReport, PerformanceState,
+        ActivationState, AttemptState, DeonticState, DetailedPremiseReport, DetailedRuleReport,
+        PerformanceState,
     };
 
     const ALLOW_EXAMPLE: &str = r#"{
@@ -1824,10 +1945,15 @@ mod tests {
             type_: "odrl:Profile".to_string(),
             id: "https://example.org/profiles/default".to_string(),
             actions: vec![
-                WireActionDecl { id: "use".to_string(), included_in: None },
+                WireActionDecl {
+                    id: "use".to_string(),
+                    included_in: None,
+                },
                 WireActionDecl {
                     id: "sell".to_string(),
-                    included_in: Some(WireNodeRef { id: "transfer".to_string() }),
+                    included_in: Some(WireNodeRef {
+                        id: "transfer".to_string(),
+                    }),
                 },
             ],
             duty_mode: DutyMode::Advise,
@@ -1839,7 +1965,10 @@ mod tests {
         assert_eq!(value["@type"], "odrl:Profile");
         assert_eq!(value["@id"], "https://example.org/profiles/default");
         assert_eq!(value["odrl:action"][0]["@id"], "use");
-        assert_eq!(value["odrl:action"][1]["odrl:includedIn"]["@id"], "transfer");
+        assert_eq!(
+            value["odrl:action"][1]["odrl:includedIn"]["@id"],
+            "transfer"
+        );
         assert_eq!(value["dutyMode"], "advise");
         assert_eq!(value["behaviour"], "closed");
         assert!(
@@ -1866,7 +1995,10 @@ mod tests {
     }
 
     fn action(id: &str) -> WireActionDecl {
-        WireActionDecl { id: id.to_string(), included_in: None }
+        WireActionDecl {
+            id: id.to_string(),
+            included_in: None,
+        }
     }
 
     fn deny_config(actions: &[&str]) -> RequestConfig {
@@ -1916,9 +2048,12 @@ mod tests {
                 conflict: ConflictStrategy::Prohibit,
                 inherit_from: None,
             }],
-            claims: [("nationality".to_string(), ClaimValue::Single("US".to_string()))]
-                .into_iter()
-                .collect(),
+            claims: [(
+                "nationality".to_string(),
+                ClaimValue::Single("US".to_string()),
+            )]
+            .into_iter()
+            .collect(),
             asset_collections: Vec::new(),
         };
 
@@ -1968,8 +2103,14 @@ mod tests {
                 inherit_from: None,
             }],
             claims: [
-                ("nationality".to_string(), ClaimValue::Single("US".to_string())),
-                ("scope".to_string(), ClaimValue::Single("embargoed".to_string())),
+                (
+                    "nationality".to_string(),
+                    ClaimValue::Single("US".to_string()),
+                ),
+                (
+                    "scope".to_string(),
+                    ClaimValue::Single("embargoed".to_string()),
+                ),
             ]
             .into_iter()
             .collect(),
@@ -1986,7 +2127,8 @@ mod tests {
     }
 
     #[test]
-    fn a_permission_whose_constraint_carries_odrl_and_sequence_alongside_its_atomic_fields_is_honoured_at_the_wire_level() {
+    fn a_permission_whose_constraint_carries_odrl_and_sequence_alongside_its_atomic_fields_is_honoured_at_the_wire_level(
+    ) {
         // The exact distinguishing example this backlog item names, run
         // through real JSON deserialization (not `Constraint`'s Rust
         // constructors) end to end through `evaluate_request`: a permission
@@ -2055,7 +2197,8 @@ mod tests {
     }
 
     #[test]
-    fn a_permission_for_a_broader_action_covers_the_requested_specific_one_and_says_so_in_the_reason() {
+    fn a_permission_for_a_broader_action_covers_the_requested_specific_one_and_says_so_in_the_reason(
+    ) {
         let req = Request {
             dataset_id: "urn:uuid:ds".to_string(),
             action: "sell".to_string(),
@@ -2064,7 +2207,12 @@ mod tests {
                 id: "https://example.org/profiles/test".to_string(),
                 actions: vec![
                     action("transfer"),
-                    WireActionDecl { id: "sell".to_string(), included_in: Some(WireNodeRef { id: "transfer".to_string() }) },
+                    WireActionDecl {
+                        id: "sell".to_string(),
+                        included_in: Some(WireNodeRef {
+                            id: "transfer".to_string(),
+                        }),
+                    },
                 ],
                 duty_mode: DutyMode::Advise,
                 behaviour: Behaviour::Open,
@@ -2189,7 +2337,8 @@ mod tests {
     }
 
     #[test]
-    fn an_empty_permissions_list_under_closed_behaviour_traces_the_closed_default_not_a_non_answer() {
+    fn an_empty_permissions_list_under_closed_behaviour_traces_the_closed_default_not_a_non_answer()
+    {
         // The regression guard for `describe_reason`'s own copy of the
         // permission-requirement rule: `decide` branches on
         // `config.behaviour`, and this trace has to branch the same way or
@@ -2251,7 +2400,10 @@ mod tests {
 
         let response = evaluate_request(&req);
         assert_eq!(response.decision, WireDecision::Allow);
-        assert_eq!(response.reason, "policy 'policy-empty' has no permissions (open default)");
+        assert_eq!(
+            response.reason,
+            "policy 'policy-empty' has no permissions (open default)"
+        );
     }
 
     #[test]
@@ -2279,7 +2431,11 @@ mod tests {
                     )],
                     prohibitions: vec![Rule::new(
                         "use",
-                        vec![crate::constraint::Constraint::new("embargo", Operator::Eq, "true")],
+                        vec![crate::constraint::Constraint::new(
+                            "embargo",
+                            Operator::Eq,
+                            "true",
+                        )],
                     )],
                     obligations: vec![],
                     conflict: ConflictStrategy::default(),
@@ -2294,7 +2450,11 @@ mod tests {
                     prohibitions: vec![],
                     obligations: vec![Rule::new(
                         "notify",
-                        vec![crate::constraint::Constraint::new("sub", Operator::Eq, "alice")],
+                        vec![crate::constraint::Constraint::new(
+                            "sub",
+                            Operator::Eq,
+                            "alice",
+                        )],
                     )],
                     conflict: ConflictStrategy::default(),
                     inherit_from: None,
@@ -2306,7 +2466,11 @@ mod tests {
 
         assert_eq!(
             left_operands_for_request(&req),
-            vec!["embargo".to_string(), "nationality".to_string(), "sub".to_string()],
+            vec![
+                "embargo".to_string(),
+                "nationality".to_string(),
+                "sub".to_string()
+            ],
             "sorted, deduped, across every policy in the request and into nested logical \
              constraints"
         );
@@ -2332,7 +2496,10 @@ mod tests {
         // the whole point of the call: a host pushing all three was
         // pushing two it never needed to.
         let req: Request = serde_json::from_str(ALLOW_EXAMPLE).unwrap();
-        assert_eq!(left_operands_for_request(&req), vec!["nationality".to_string()]);
+        assert_eq!(
+            left_operands_for_request(&req),
+            vec!["nationality".to_string()]
+        );
     }
 
     // -- odrl:refinement on an action --------------------------------------
@@ -2510,7 +2677,11 @@ mod tests {
                 assignee: None,
                 permissions: vec![Rule::refined(
                     "print",
-                    vec![crate::constraint::Constraint::new("sub", Operator::Eq, "alice")],
+                    vec![crate::constraint::Constraint::new(
+                        "sub",
+                        Operator::Eq,
+                        "alice",
+                    )],
                     crate::constraint::Constraint::new("copies", Operator::Lteq, "2"),
                 )],
                 prohibitions: vec![],
@@ -2742,9 +2913,15 @@ mod tests {
     fn a_prohibition_on_a_collection_denies_a_request_for_an_asserted_member_at_the_wire_level() {
         // Request A: the collection IRI itself — already correctly denied
         // today by plain string equality, unaffected by this addition.
-        let for_collection: Request =
-            serde_json::from_str(&collection_prohibition_request("urn:asset:collection-X", &[])).unwrap();
-        assert_eq!(evaluate_request(&for_collection).decision, WireDecision::Deny);
+        let for_collection: Request = serde_json::from_str(&collection_prohibition_request(
+            "urn:asset:collection-X",
+            &[],
+        ))
+        .unwrap();
+        assert_eq!(
+            evaluate_request(&for_collection).decision,
+            WireDecision::Deny
+        );
 
         // Request B: a member of the collection, with the host asserting the
         // membership via `asset_collections` — the fail-open gap this field
@@ -2778,7 +2955,8 @@ mod tests {
         // prohibition names — the same behaviour this contract always had,
         // and still correct absent the host's own fact.
         let req: Request =
-            serde_json::from_str(&collection_prohibition_request("urn:asset:member-1", &[])).unwrap();
+            serde_json::from_str(&collection_prohibition_request("urn:asset:member-1", &[]))
+                .unwrap();
         assert_eq!(evaluate_request(&req).decision, WireDecision::Allow);
     }
 
@@ -2801,7 +2979,11 @@ mod tests {
 
     // -- odrl:inheritFrom (Policy Inheritance, Information Model §2.9) ------
 
-    fn inheriting_policy(id: &str, assignee: Option<&str>, inherit_from: Option<&[&str]>) -> WirePolicy {
+    fn inheriting_policy(
+        id: &str,
+        assignee: Option<&str>,
+        inherit_from: Option<&[&str]>,
+    ) -> WirePolicy {
         WirePolicy {
             id: id.to_string(),
             kind: "Set".to_string(),
@@ -2921,15 +3103,19 @@ mod tests {
             config,
             policies: vec![
                 {
-                    let mut p = inheriting_policy("parent", Some("did:web:someone-else.example"), None);
+                    let mut p =
+                        inheriting_policy("parent", Some("did:web:someone-else.example"), None);
                     p.prohibitions = vec![Rule::new("use", vec![])];
                     p
                 },
                 inheriting_policy("child", Some("did:web:alice.example"), Some(&["parent"])),
             ],
-            claims: [("sub".to_string(), ClaimValue::Single("did:web:alice.example".to_string()))]
-                .into_iter()
-                .collect(),
+            claims: [(
+                "sub".to_string(),
+                ClaimValue::Single("did:web:alice.example".to_string()),
+            )]
+            .into_iter()
+            .collect(),
             asset_collections: Vec::new(),
         };
 
@@ -2988,7 +3174,8 @@ mod tests {
         let response = evaluate_request(&req);
         assert_eq!(response.decision, WireDecision::Error);
         assert!(
-            response.reason.contains("no-such-parent") && response.reason.contains("not the id of any policy"),
+            response.reason.contains("no-such-parent")
+                && response.reason.contains("not the id of any policy"),
             "reason was: {}",
             response.reason
         );
@@ -3078,7 +3265,11 @@ mod tests {
         for action in ["use", "distribute", "notify", "anonymize", ""] {
             let mut variant = req.clone();
             variant.action = action.to_string();
-            assert_eq!(performable_actions_for_request(&variant), baseline, "action field {action:?}");
+            assert_eq!(
+                performable_actions_for_request(&variant),
+                baseline,
+                "action field {action:?}"
+            );
         }
     }
 
@@ -3093,8 +3284,16 @@ mod tests {
             action: "read".to_string(),
             config: deny_config(&["read", "write"]),
             policies: vec![
-                wire_policy("policy-a", vec![Rule::new("read", vec![]), Rule::new("write", vec![])], vec![]),
-                wire_policy("policy-b", vec![Rule::new("read", vec![]), Rule::new("write", vec![])], vec![Rule::new("read", vec![])]),
+                wire_policy(
+                    "policy-a",
+                    vec![Rule::new("read", vec![]), Rule::new("write", vec![])],
+                    vec![],
+                ),
+                wire_policy(
+                    "policy-b",
+                    vec![Rule::new("read", vec![]), Rule::new("write", vec![])],
+                    vec![Rule::new("read", vec![])],
+                ),
             ],
             claims: Claims::new(),
             asset_collections: Vec::new(),
@@ -3143,7 +3342,11 @@ mod tests {
             dataset_id: "urn:uuid:ds".to_string(),
             action: "read".to_string(),
             config: deny_config(&["read"]),
-            policies: vec![wire_policy("policy-bad", vec![Rule::new("anonymize", vec![])], vec![])],
+            policies: vec![wire_policy(
+                "policy-bad",
+                vec![Rule::new("anonymize", vec![])],
+                vec![],
+            )],
             claims: Claims::new(),
             asset_collections: Vec::new(),
         };
@@ -3213,7 +3416,12 @@ mod tests {
     /// raw JSON fragment for whatever new key is under test) and whose
     /// obligations are `obligations_json`, evaluated under `duty_mode` with
     /// `claims_json`.
-    fn duty_request(duty_mode: &str, permission_extra: &str, obligations_json: &str, claims_json: &str) -> String {
+    fn duty_request(
+        duty_mode: &str,
+        permission_extra: &str,
+        obligations_json: &str,
+        claims_json: &str,
+    ) -> String {
         format!(
             r#"{{
               "dataset_id": "urn:uuid:ds",
@@ -3511,7 +3719,8 @@ mod tests {
     #[test]
     fn a_consequence_duty_that_is_itself_unresolved_leaves_duty_mode_governing() {
         let advise: Request =
-            serde_json::from_str(&duty_request("advise", "", NOTIFY_WITH_CONSEQUENCE, "{}")).unwrap();
+            serde_json::from_str(&duty_request("advise", "", NOTIFY_WITH_CONSEQUENCE, "{}"))
+                .unwrap();
         let advised = evaluate_request(&advise);
         assert_eq!(advised.decision, WireDecision::Allow);
         assert_eq!(
@@ -3601,7 +3810,12 @@ mod tests {
                   ], "odrl:consequence": {duty} }}"#
             );
         }
-        duty_request("deny", "", &format!("[{duty}]"), r#"{ "duty:deepest": "fulfilled" }"#)
+        duty_request(
+            "deny",
+            "",
+            &format!("[{duty}]"),
+            r#"{ "duty:deepest": "fulfilled" }"#,
+        )
     }
 
     #[test]
@@ -3632,7 +3846,10 @@ mod tests {
         let json = r#"{ "action": "notify", "constraints": [],
                         "odrl:consequence": { "action": "compensate", "constraints": [] } }"#;
         let rule: Rule = serde_json::from_str(json).unwrap();
-        assert_eq!(rule.consequence.as_ref().map(|c| c.action.as_str()), Some("compensate"));
+        assert_eq!(
+            rule.consequence.as_ref().map(|c| c.action.as_str()),
+            Some("compensate")
+        );
         assert_eq!(
             serde_json::to_value(&rule).unwrap(),
             serde_json::from_str::<serde_json::Value>(json).unwrap()
@@ -3820,7 +4037,14 @@ mod tests {
         );
         // And the constructor every existing call site uses builds the same
         // thing.
-        let built = Rule::new("use", vec![crate::constraint::Constraint::new("sub", Operator::Eq, "alice")]);
+        let built = Rule::new(
+            "use",
+            vec![crate::constraint::Constraint::new(
+                "sub",
+                Operator::Eq,
+                "alice",
+            )],
+        );
         assert_eq!(built, rule);
     }
 
@@ -3895,8 +4119,9 @@ mod tests {
 
     #[test]
     fn a_config_carrying_no_party_identity_claim_serializes_without_the_key() {
-        let config: RequestConfig =
-            serde_json::from_str::<Request>(ALLOW_EXAMPLE).unwrap().config;
+        let config: RequestConfig = serde_json::from_str::<Request>(ALLOW_EXAMPLE)
+            .unwrap()
+            .config;
         let value = serde_json::to_value(&config).unwrap();
         assert!(
             value.get("partyIdentityClaim").is_none(),
@@ -4002,7 +4227,8 @@ mod tests {
         ));
         assert_eq!(miss.decision, WireDecision::Deny);
         assert!(
-            miss.reason.contains("[\"did:web:mallory.example\",\"did:web:bob.example\"]"),
+            miss.reason
+                .contains("[\"did:web:mallory.example\",\"did:web:bob.example\"]"),
             "the trace must show what the caller actually presented: {}",
             miss.reason
         );
@@ -4020,7 +4246,9 @@ mod tests {
             .replace("\"behaviour\": \"closed\"", "\"behaviour\": \"open\"");
         let response = evaluate_text(&open);
         assert_eq!(response.decision, WireDecision::Deny);
-        assert!(response.reason.contains("no policy in the request applies to this caller"));
+        assert!(response
+            .reason
+            .contains("no policy in the request applies to this caller"));
     }
 
     /// Two policies, one addressed to a stranger: `p-forbid` prohibits
@@ -4100,22 +4328,32 @@ mod tests {
         // A policy absent from the request cannot contribute a
         // `Decision::Error` either: Section 4.4's fail-closed posture is
         // about the policies actually being applied to this caller.
-        let text = two_policy_request(SUB_IS_THE_IDENTITY, MALLORY_CLAIMS)
-            .replace("\"prohibitions\": [{\"action\": \"use\"", "\"prohibitions\": [{\"action\": \"ex:undeclared\"");
+        let text = two_policy_request(SUB_IS_THE_IDENTITY, MALLORY_CLAIMS).replace(
+            "\"prohibitions\": [{\"action\": \"use\"",
+            "\"prohibitions\": [{\"action\": \"ex:undeclared\"",
+        );
         let response = evaluate_text(&text);
-        assert_eq!(response.decision, WireDecision::Allow, "{}", response.reason);
+        assert_eq!(
+            response.decision,
+            WireDecision::Allow,
+            "{}",
+            response.reason
+        );
 
         // The same request with the capability off is the control: there the
         // stranger's policy *is* in play, and its unrecognized action wins.
-        let control_text = two_policy_request("", MALLORY_CLAIMS)
-            .replace("\"prohibitions\": [{\"action\": \"use\"", "\"prohibitions\": [{\"action\": \"ex:undeclared\"");
+        let control_text = two_policy_request("", MALLORY_CLAIMS).replace(
+            "\"prohibitions\": [{\"action\": \"use\"",
+            "\"prohibitions\": [{\"action\": \"ex:undeclared\"",
+        );
         assert_eq!(evaluate_text(&control_text).decision, WireDecision::Error);
     }
 
     #[test]
     fn performable_actions_for_request_is_empty_for_a_caller_no_policy_applies_to() {
         let req: Request =
-            serde_json::from_str(&party_request(SUB_IS_THE_IDENTITY, ALICE, MALLORY_CLAIMS)).unwrap();
+            serde_json::from_str(&party_request(SUB_IS_THE_IDENTITY, ALICE, MALLORY_CLAIMS))
+                .unwrap();
         assert!(
             performable_actions_for_request(&req).is_empty(),
             "party-role scoping is inherited by the enumeration entry point, not re-implemented \
@@ -4124,7 +4362,10 @@ mod tests {
 
         let addressed: Request =
             serde_json::from_str(&party_request(SUB_IS_THE_IDENTITY, ALICE, ALICE_CLAIMS)).unwrap();
-        assert_eq!(performable_actions_for_request(&addressed), vec!["use".to_string()]);
+        assert_eq!(
+            performable_actions_for_request(&addressed),
+            vec!["use".to_string()]
+        );
     }
 
     #[test]
@@ -4133,7 +4374,8 @@ mod tests {
         // to gather in the first place, so it must not start depending on
         // the claims it is being asked about. A policy skipped for this
         // caller still reports the keys its rules read.
-        let req: Request = serde_json::from_str(&two_policy_request(SUB_IS_THE_IDENTITY, MALLORY_CLAIMS)).unwrap();
+        let req: Request =
+            serde_json::from_str(&two_policy_request(SUB_IS_THE_IDENTITY, MALLORY_CLAIMS)).unwrap();
         let with_constraint: Request = serde_json::from_str(
             &two_policy_request(SUB_IS_THE_IDENTITY, MALLORY_CLAIMS)
                 .replace("\"prohibitions\": [{\"action\": \"use\", \"constraints\": []}]",
@@ -4141,7 +4383,10 @@ mod tests {
         )
         .unwrap();
         assert!(left_operands_for_request(&req).is_empty());
-        assert_eq!(left_operands_for_request(&with_constraint), vec!["nationality".to_string()]);
+        assert_eq!(
+            left_operands_for_request(&with_constraint),
+            vec!["nationality".to_string()]
+        );
     }
 
     // -- odrl:Agreement (`agreementAssigneeClaim`) and odrl:Offer inertness -
@@ -4149,7 +4394,12 @@ mod tests {
     /// `party_request` with the policy `kind` also a variable, so these
     /// tests can prove `agreementAssigneeClaim` and Offer inertness are
     /// scoped to the exact `kind` they claim to be and no other.
-    fn kind_request(kind: &str, config_extra: &str, assignee_json: &str, claims_json: &str) -> String {
+    fn kind_request(
+        kind: &str,
+        config_extra: &str,
+        assignee_json: &str,
+        claims_json: &str,
+    ) -> String {
         format!(
             r#"{{
               "dataset_id": "urn:uuid:ds",
@@ -4177,10 +4427,12 @@ mod tests {
         )
     }
 
-    const SUB_IS_THE_AGREEMENT_ASSIGNEE: &str = ",\n                \"agreementAssigneeClaim\": \"sub\"";
+    const SUB_IS_THE_AGREEMENT_ASSIGNEE: &str =
+        ",\n                \"agreementAssigneeClaim\": \"sub\"";
 
     #[test]
-    fn an_agreement_assignee_claim_excludes_an_agreement_whose_assignee_does_not_match_the_caller() {
+    fn an_agreement_assignee_claim_excludes_an_agreement_whose_assignee_does_not_match_the_caller()
+    {
         // Item 1's exact case: `agreementAssigneeClaim` names `sub`, the
         // Agreement is addressed to alice, and mallory is asking. §3.2.1's
         // own MUST ("grant ... from the Assigner to the Assignee") is
@@ -4248,25 +4500,41 @@ mod tests {
     }
 
     #[test]
-    fn party_identity_claim_alone_already_excludes_a_mismatched_agreement_without_agreement_assignee_claim() {
+    fn party_identity_claim_alone_already_excludes_a_mismatched_agreement_without_agreement_assignee_claim(
+    ) {
         // The two mechanisms do not need to be reconciled because either one
         // alone is sufficient: with only `partyIdentityClaim` configured (no
         // `agreementAssigneeClaim` at all), a mismatched Agreement is
         // already excluded, exactly as it was before this field existed.
-        let response = evaluate_text(&kind_request("Agreement", SUB_IS_THE_IDENTITY, ALICE, MALLORY_CLAIMS));
+        let response = evaluate_text(&kind_request(
+            "Agreement",
+            SUB_IS_THE_IDENTITY,
+            ALICE,
+            MALLORY_CLAIMS,
+        ));
         assert_eq!(response.decision, WireDecision::Deny);
-        assert!(response.reason.contains("no policy in the request applies to this caller"));
+        assert!(response
+            .reason
+            .contains("no policy in the request applies to this caller"));
     }
 
     #[test]
-    fn both_party_identity_claim_and_agreement_assignee_claim_configured_still_exclude_a_mismatched_agreement() {
+    fn both_party_identity_claim_and_agreement_assignee_claim_configured_still_exclude_a_mismatched_agreement(
+    ) {
         // Decision: the two switches do not fight each other. Both
         // configured and both applying to the same mismatched Agreement
         // still excludes it, under whichever reason fires.
         let both_config = format!("{SUB_IS_THE_IDENTITY}{SUB_IS_THE_AGREEMENT_ASSIGNEE}");
-        let response = evaluate_text(&kind_request("Agreement", &both_config, ALICE, MALLORY_CLAIMS));
+        let response = evaluate_text(&kind_request(
+            "Agreement",
+            &both_config,
+            ALICE,
+            MALLORY_CLAIMS,
+        ));
         assert_eq!(response.decision, WireDecision::Deny);
-        assert!(response.reason.contains("no policy in the request applies to this caller"));
+        assert!(response
+            .reason
+            .contains("no policy in the request applies to this caller"));
     }
 
     #[test]
@@ -4277,8 +4545,18 @@ mod tests {
         // that Party") means the assignee must never be consulted at all —
         // so this must be behaviourally identical to the same Offer with no
         // assignee whatsoever, not merely "still allowed".
-        let with_assignee = evaluate_text(&kind_request("Offer", SUB_IS_THE_IDENTITY, ALICE, ALICE_CLAIMS));
-        let no_assignee = evaluate_text(&kind_request("Offer", SUB_IS_THE_IDENTITY, "null", ALICE_CLAIMS));
+        let with_assignee = evaluate_text(&kind_request(
+            "Offer",
+            SUB_IS_THE_IDENTITY,
+            ALICE,
+            ALICE_CLAIMS,
+        ));
+        let no_assignee = evaluate_text(&kind_request(
+            "Offer",
+            SUB_IS_THE_IDENTITY,
+            "null",
+            ALICE_CLAIMS,
+        ));
         assert_eq!(with_assignee.decision, WireDecision::Allow);
         assert_eq!(with_assignee.decision, no_assignee.decision);
         assert_eq!(with_assignee.reason, no_assignee.reason);
@@ -4291,8 +4569,18 @@ mod tests {
         // else" logic that is correct for an Agreement but wrong for an
         // Offer, whose assignee was never supposed to single anyone in or
         // out. It must now apply exactly as if it carried no assignee.
-        let with_assignee = evaluate_text(&kind_request("Offer", SUB_IS_THE_IDENTITY, ALICE, MALLORY_CLAIMS));
-        let no_assignee = evaluate_text(&kind_request("Offer", SUB_IS_THE_IDENTITY, "null", MALLORY_CLAIMS));
+        let with_assignee = evaluate_text(&kind_request(
+            "Offer",
+            SUB_IS_THE_IDENTITY,
+            ALICE,
+            MALLORY_CLAIMS,
+        ));
+        let no_assignee = evaluate_text(&kind_request(
+            "Offer",
+            SUB_IS_THE_IDENTITY,
+            "null",
+            MALLORY_CLAIMS,
+        ));
         assert_eq!(with_assignee.decision, WireDecision::Allow);
         assert_eq!(with_assignee.decision, no_assignee.decision);
         assert_eq!(with_assignee.reason, no_assignee.reason);
@@ -4362,7 +4650,8 @@ mod tests {
                                than resolving it";
 
     #[test]
-    fn a_policy_declaring_no_conflict_strategy_is_void_when_a_permission_and_a_prohibition_collide() {
+    fn a_policy_declaring_no_conflict_strategy_is_void_when_a_permission_and_a_prohibition_collide()
+    {
         // The deliberate behaviour change: before `odrl:conflict` existed
         // this engine resolved every collision prohibition-first,
         // unconditionally. ODRL's own default for a policy that declares no
@@ -4392,7 +4681,12 @@ mod tests {
         // permission wins over a matching prohibition, because the policy
         // says so.
         let response = evaluate_text(&conflicting_request(r#""odrl:conflict": "perm","#));
-        assert_eq!(response.decision, WireDecision::Allow, "{}", response.reason);
+        assert_eq!(
+            response.decision,
+            WireDecision::Allow,
+            "{}",
+            response.reason
+        );
         assert_eq!(
             response.reason,
             "permission[0] of policy 'policy-c' matched: action 'use', unconstrained; \
@@ -4424,10 +4718,14 @@ mod tests {
         // mistypes `prohibit`, or names a profile-declared strategy this
         // engine never implemented, must hear about it rather than be
         // handed some other strategy's answer.
-        let err = serde_json::from_str::<Request>(&conflicting_request(r#""odrl:conflict": "ex:assigneeWins","#))
-            .expect_err("an unknown odrl:conflict term must not parse");
+        let err = serde_json::from_str::<Request>(&conflicting_request(
+            r#""odrl:conflict": "ex:assigneeWins","#,
+        ))
+        .expect_err("an unknown odrl:conflict term must not parse");
         assert!(
-            err.to_string().starts_with("unknown variant `ex:assigneeWins`, expected one of `perm`, `prohibit`, `invalid`"),
+            err.to_string().starts_with(
+                "unknown variant `ex:assigneeWins`, expected one of `perm`, `prohibit`, `invalid`"
+            ),
             "{err}"
         );
     }
@@ -4463,9 +4761,17 @@ mod tests {
             1,
         );
 
-        for (label, text) in [("undeclared", two_policies.as_str()), ("perm on policy-c", with_perm.as_str())] {
+        for (label, text) in [
+            ("undeclared", two_policies.as_str()),
+            ("perm on policy-c", with_perm.as_str()),
+        ] {
             let response = evaluate_text(text);
-            assert_eq!(response.decision, WireDecision::Deny, "{label}: {}", response.reason);
+            assert_eq!(
+                response.decision,
+                WireDecision::Deny,
+                "{label}: {}",
+                response.reason
+            );
             assert_eq!(
                 response.reason,
                 "prohibition[0] of policy 'policy-d' matched: action 'use', unconstrained",
@@ -4574,8 +4880,10 @@ mod tests {
         // `child` on the copies it inherited), and `parent` comes first.
         // That is exactly the point -- neither is void, so there is
         // nothing here for §2.10's rule 4 to say about either one.
-        let same_value =
-            differing_conflict_request().replace(r#""odrl:conflict": "perm","#, r#""odrl:conflict": "prohibit","#);
+        let same_value = differing_conflict_request().replace(
+            r#""odrl:conflict": "perm","#,
+            r#""odrl:conflict": "prohibit","#,
+        );
         let response = evaluate_text(&same_value);
         assert_eq!(response.decision, WireDecision::Deny);
         assert_eq!(
@@ -4640,8 +4948,14 @@ mod tests {
 
         for (label, text) in [
             ("the Section 5.2 worked example", ALLOW_EXAMPLE.to_string()),
-            ("a prohibition with no permission beside it", prohibition_only),
-            ("a permission whose prohibition misses on a constraint", permission_misses),
+            (
+                "a prohibition with no permission beside it",
+                prohibition_only,
+            ),
+            (
+                "a permission whose prohibition misses on a constraint",
+                permission_misses,
+            ),
         ] {
             let baseline = evaluate_text(&text);
             for (term, strategy) in [
@@ -4649,7 +4963,11 @@ mod tests {
                 ("prohibit", ConflictStrategy::Prohibit),
                 ("invalid", ConflictStrategy::Invalid),
             ] {
-                let declared = text.replacen(r#""kind":"#, &format!(r#""odrl:conflict": "{term}", "kind":"#), 1);
+                let declared = text.replacen(
+                    r#""kind":"#,
+                    &format!(r#""odrl:conflict": "{term}", "kind":"#),
+                    1,
+                );
                 let parsed: Request = serde_json::from_str(&declared).unwrap();
                 assert_eq!(
                     parsed.policies[0].conflict, strategy,
@@ -4671,8 +4989,14 @@ mod tests {
     /// request names -- every test below builds a single-policy,
     /// single-permission-or-prohibition request, so "the first rule report
     /// of the first policy" is unambiguous.
-    fn only_permission(detailed: &crate::report::DetailedEvaluation) -> &crate::report::DetailedPermissionReport {
-        assert_eq!(detailed.policy_reports.len(), 1, "expected exactly one policy report: {detailed:?}");
+    fn only_permission(
+        detailed: &crate::report::DetailedEvaluation,
+    ) -> &crate::report::DetailedPermissionReport {
+        assert_eq!(
+            detailed.policy_reports.len(),
+            1,
+            "expected exactly one policy report: {detailed:?}"
+        );
         match &detailed.policy_reports[0].rule_reports[0] {
             DetailedRuleReport::Permission(p) => p,
             other => panic!("expected the first rule report to be a Permission, got {other:?}"),
@@ -4720,7 +5044,10 @@ mod tests {
         assert!(detailed.skipped_policies.is_empty());
         assert_eq!(detailed.policy_reports[0].policy_id, "policy-simple");
         assert_eq!(detailed.policy_reports[0].evaluation_error, None);
-        assert_eq!(detailed.policy_reports[0].declared_conflict, ConflictStrategy::Invalid);
+        assert_eq!(
+            detailed.policy_reports[0].declared_conflict,
+            ConflictStrategy::Invalid
+        );
         assert!(!detailed.policy_reports[0].conflict_forced_invalid);
 
         let permission = only_permission(&detailed);
@@ -4738,12 +5065,21 @@ mod tests {
             "an Active permission's own deontic state is Fulfilled -- report:deonticState's \
              domain is the shared RuleReport superclass, not DutyReport alone"
         );
-        assert!(permission.condition_report.is_none(), "an unconstrained permission carries no odrl:duty");
+        assert!(
+            permission.condition_report.is_none(),
+            "an unconstrained permission carries no odrl:duty"
+        );
         // One Target premise, one Action premise -- no constraints on this
         // permission, so nothing else.
         assert_eq!(permission.premise_reports.len(), 2);
-        assert!(matches!(permission.premise_reports[0], DetailedPremiseReport::Target(_)));
-        assert!(matches!(permission.premise_reports[1], DetailedPremiseReport::Action(_)));
+        assert!(matches!(
+            permission.premise_reports[0],
+            DetailedPremiseReport::Target(_)
+        ));
+        assert!(matches!(
+            permission.premise_reports[1],
+            DetailedPremiseReport::Action(_)
+        ));
     }
 
     #[test]
@@ -4788,7 +5124,8 @@ mod tests {
         let (response, detailed) = detailed_from_text(req);
         assert_eq!(response.decision, WireDecision::Deny);
         assert_eq!(
-            response.reason, "prohibition[0] of policy 'policy-a' matched: action 'read', unconstrained",
+            response.reason,
+            "prohibition[0] of policy 'policy-a' matched: action 'read', unconstrained",
             "a permission gated shut by its own unresolved duty must never surface an \
              odrl:conflict resolution clause in the trace -- it was never a party to the \
              conflict at all"
@@ -4800,9 +5137,15 @@ mod tests {
             ActivationState::Inactive,
             "the permission's own duty gate must make it Inactive under duty_mode: deny"
         );
-        let condition_report = permission.condition_report.as_ref().expect("duty[0] must be linked");
+        let condition_report = permission
+            .condition_report
+            .as_ref()
+            .expect("duty[0] must be linked");
         assert_eq!(condition_report.deontic_state, DeonticState::Violated);
-        assert_eq!(condition_report.performance_state, PerformanceState::Unperformed);
+        assert_eq!(
+            condition_report.performance_state,
+            PerformanceState::Unperformed
+        );
         // The duty itself is genuinely *in force* (the permission it gates
         // applies and matches) -- `activation_state` says whether the duty's
         // own condition currently applies, not whether it was fulfilled;
@@ -4857,8 +5200,17 @@ mod tests {
 
         let (response, detailed) = detailed_from_text(req);
         assert_eq!(response.decision, WireDecision::Allow);
-        assert!(response.reason.contains("odrl:conflict 'perm' resolves the conflict"), "{}", response.reason);
-        assert_eq!(detailed.policy_reports[0].declared_conflict, ConflictStrategy::Perm);
+        assert!(
+            response
+                .reason
+                .contains("odrl:conflict 'perm' resolves the conflict"),
+            "{}",
+            response.reason
+        );
+        assert_eq!(
+            detailed.policy_reports[0].declared_conflict,
+            ConflictStrategy::Perm
+        );
         assert!(!detailed.policy_reports[0].conflict_forced_invalid);
 
         let permission = only_permission(&detailed);
@@ -4880,7 +5232,8 @@ mod tests {
     }
 
     #[test]
-    fn detailed_evaluation_reports_an_inactive_prohibitions_performance_state_as_unknown_not_unperformed() {
+    fn detailed_evaluation_reports_an_inactive_prohibitions_performance_state_as_unknown_not_unperformed(
+    ) {
         // A prohibition that never fires (its constraint misses) is
         // Inactive -- but `performanceState` is `Unknown` in *either*
         // activation state for a Prohibition, never `Unperformed`: firing a
@@ -4921,7 +5274,11 @@ mod tests {
             "an Inactive prohibition must report Unknown, never Unperformed -- that state does \
              not exist on report:ProhibitionReport at all"
         );
-        assert_eq!(prohibition.attempt_state, AttemptState::Attempted, "the action/target requirement still applied");
+        assert_eq!(
+            prohibition.attempt_state,
+            AttemptState::Attempted,
+            "the action/target requirement still applied"
+        );
     }
 
     // -- Regression pins for the three confirmed bugs in the first cut of --
@@ -5034,7 +5391,12 @@ mod tests {
         }"#;
 
         let (response, detailed) = detailed_from_text(req);
-        assert_eq!(response.decision, WireDecision::Allow, "{}", response.reason);
+        assert_eq!(
+            response.decision,
+            WireDecision::Allow,
+            "{}",
+            response.reason
+        );
 
         let permission = only_permission(&detailed);
         assert_eq!(permission.activation_state, ActivationState::Active);
@@ -5051,7 +5413,11 @@ mod tests {
             "bug 2 regression: a prohibition that lost the conflict must be Inactive, not \
              reported as having genuinely fired"
         );
-        assert_eq!(prohibition.attempt_state, AttemptState::Attempted, "it did apply and match -- it merely lost");
+        assert_eq!(
+            prohibition.attempt_state,
+            AttemptState::Attempted,
+            "it did apply and match -- it merely lost"
+        );
         assert_eq!(prohibition.performance_state, PerformanceState::Unknown);
         assert_eq!(prohibition.deontic_state, DeonticState::NonSet);
 
@@ -5069,7 +5435,8 @@ mod tests {
     }
 
     #[test]
-    fn detailed_evaluation_a_childs_explicit_conflict_perm_is_not_overridden_by_a_silently_defaulted_parent() {
+    fn detailed_evaluation_a_childs_explicit_conflict_perm_is_not_overridden_by_a_silently_defaulted_parent(
+    ) {
         // Bug 3: `wire::resolve_inherit_from` used to treat a parent's
         // silent, defaulted `odrl:conflict` (the parent never declared one
         // at all) as an explicit value disagreeing with a child's own
@@ -5118,7 +5485,11 @@ mod tests {
         }"#;
 
         let (_, detailed) = detailed_from_text(req);
-        let child = detailed.policy_reports.iter().find(|p| p.policy_id == "child").expect("child policy report");
+        let child = detailed
+            .policy_reports
+            .iter()
+            .find(|p| p.policy_id == "child")
+            .expect("child policy report");
 
         assert_eq!(
             child.declared_conflict,
@@ -5134,7 +5505,9 @@ mod tests {
 
         let permission = match &child.rule_reports[0] {
             DetailedRuleReport::Permission(p) => p,
-            other => panic!("expected the first rule report to be the inherited Permission, got {other:?}"),
+            other => panic!(
+                "expected the first rule report to be the inherited Permission, got {other:?}"
+            ),
         };
         assert_eq!(
             permission.activation_state,

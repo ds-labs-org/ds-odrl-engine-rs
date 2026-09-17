@@ -61,7 +61,8 @@ impl HistoricalEngine {
         let mut config = wasmi::Config::default();
         config.consume_fuel(true);
         let engine = Engine::new(&config);
-        let module = Module::new(&engine, wasm).map_err(|e| format!("engine.wasm did not parse as a module: {e}"))?;
+        let module = Module::new(&engine, wasm)
+            .map_err(|e| format!("engine.wasm did not parse as a module: {e}"))?;
         let mut store = Store::new(&engine, ());
 
         // An empty linker on purpose: Section 5.1's ABI is self-contained,
@@ -73,9 +74,12 @@ impl HistoricalEngine {
         // instantiate/start: a cdylib built by rustc has no `start`
         // section to run separately, and folding both into one call keeps
         // a trap in either half attributable to the same release.
-        let instance: Instance = linker
-            .instantiate_and_start(&mut store, &module)
-            .map_err(|e| format!("engine.wasm could not be instantiated with no host imports: {e}"))?;
+        let instance: Instance =
+            linker
+                .instantiate_and_start(&mut store, &module)
+                .map_err(|e| {
+                    format!("engine.wasm could not be instantiated with no host imports: {e}")
+                })?;
 
         let memory = instance
             .get_memory(&store, "memory")
@@ -90,17 +94,29 @@ impl HistoricalEngine {
             .get_typed_func::<(i32, i32), i64>(&store, "evaluate")
             .map_err(|e| format!("engine.wasm exports no `evaluate(i32, i32) -> i64`: {e}"))?;
 
-        Ok(Self { store, memory, alloc, dealloc, evaluate })
+        Ok(Self {
+            store,
+            memory,
+            alloc,
+            dealloc,
+            evaluate,
+        })
     }
 
     /// One round trip: request JSON in, response JSON out.
     pub fn evaluate(&mut self, request_json: &str) -> Result<String, String> {
         let bytes = request_json.as_bytes();
-        let len = i32::try_from(bytes.len()).map_err(|_| "request larger than 2 GiB".to_string())?;
+        let len =
+            i32::try_from(bytes.len()).map_err(|_| "request larger than 2 GiB".to_string())?;
 
-        self.store.set_fuel(FUEL_PER_CALL).map_err(|e| format!("could not set fuel: {e}"))?;
+        self.store
+            .set_fuel(FUEL_PER_CALL)
+            .map_err(|e| format!("could not set fuel: {e}"))?;
 
-        let ptr = self.alloc.call(&mut self.store, len).map_err(|e| format!("alloc trapped: {e}"))?;
+        let ptr = self
+            .alloc
+            .call(&mut self.store, len)
+            .map_err(|e| format!("alloc trapped: {e}"))?;
         self.memory
             .write(&mut self.store, ptr as usize, bytes)
             .map_err(|e| format!("writing the request into guest memory failed: {e}"))?;
@@ -120,7 +136,9 @@ impl HistoricalEngine {
         let mut out = vec![0u8; out_len.max(0) as usize];
         let read = self.memory.read(&self.store, out_ptr as usize, &mut out);
 
-        self.dealloc.call(&mut self.store, (ptr, len)).map_err(|e| format!("dealloc(request) trapped: {e}"))?;
+        self.dealloc
+            .call(&mut self.store, (ptr, len))
+            .map_err(|e| format!("dealloc(request) trapped: {e}"))?;
         self.dealloc
             .call(&mut self.store, (out_ptr, out_len))
             .map_err(|e| format!("dealloc(response) trapped: {e}"))?;

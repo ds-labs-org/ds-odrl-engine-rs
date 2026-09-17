@@ -280,14 +280,32 @@ mod tests {
         // neutralizes it.
         let mut a: Claims = HashMap::new();
         a.insert("sub".to_string(), ClaimValue::Single("alice".to_string()));
-        a.insert("dateTime".to_string(), ClaimValue::Single("2026-09-05T12:00:00Z".to_string()));
-        a.insert("nationality".to_string(), ClaimValue::Single("DE".to_string()));
-        a.insert("scope".to_string(), ClaimValue::Multi(vec!["read".to_string(), "write".to_string()]));
+        a.insert(
+            "dateTime".to_string(),
+            ClaimValue::Single("2026-09-05T12:00:00Z".to_string()),
+        );
+        a.insert(
+            "nationality".to_string(),
+            ClaimValue::Single("DE".to_string()),
+        );
+        a.insert(
+            "scope".to_string(),
+            ClaimValue::Multi(vec!["read".to_string(), "write".to_string()]),
+        );
 
         let mut b: Claims = HashMap::new();
-        b.insert("scope".to_string(), ClaimValue::Multi(vec!["read".to_string(), "write".to_string()]));
-        b.insert("nationality".to_string(), ClaimValue::Single("DE".to_string()));
-        b.insert("dateTime".to_string(), ClaimValue::Single("2026-09-05T12:00:00Z".to_string()));
+        b.insert(
+            "scope".to_string(),
+            ClaimValue::Multi(vec!["read".to_string(), "write".to_string()]),
+        );
+        b.insert(
+            "nationality".to_string(),
+            ClaimValue::Single("DE".to_string()),
+        );
+        b.insert(
+            "dateTime".to_string(),
+            ClaimValue::Single("2026-09-05T12:00:00Z".to_string()),
+        );
         b.insert("sub".to_string(), ClaimValue::Single("alice".to_string()));
 
         assert_eq!(
@@ -307,9 +325,17 @@ mod tests {
         assert_eq!(value["probes"].as_array().unwrap().len(), 1);
         // The whole point of this artifact: nothing in it may pre-decide
         // what the browser is supposed to compute.
-        for forbidden in ["decision", "actual", "observed", "total", "passed", "failed"] {
-            assert!(value.get(forbidden).is_none(), "envelope must not carry `{forbidden}`");
-            assert!(value["probes"][0].get(forbidden).is_none(), "a probe must not carry `{forbidden}`");
+        for forbidden in [
+            "decision", "actual", "observed", "total", "passed", "failed",
+        ] {
+            assert!(
+                value.get(forbidden).is_none(),
+                "envelope must not carry `{forbidden}`"
+            );
+            assert!(
+                value["probes"][0].get(forbidden).is_none(),
+                "a probe must not carry `{forbidden}`"
+            );
         }
         // `expect.decision` is the one decision-shaped field, and it is the
         // *expectation*, not an observation.

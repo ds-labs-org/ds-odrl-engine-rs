@@ -29,7 +29,8 @@ use profile_interpreter::interpret::interpret;
 
 /// The vocabulary document, embedded at *this generator's* compile time
 /// (never in the wasm build — the site fetches the finished catalog).
-const TAXONOMY_TTL: &str = include_str!("../../profile-interpreter/examples/odrl-2.2-common-actions.ttl");
+const TAXONOMY_TTL: &str =
+    include_str!("../../profile-interpreter/examples/odrl-2.2-common-actions.ttl");
 
 /// The number of `odrl:Action`-typed subjects that document declares: 2
 /// core roots (`use`, `transfer`), 40 native common actions, 9 Creative
@@ -43,7 +44,8 @@ pub const TAXONOMY_ACTION_COUNT: usize = 51;
 /// a catalog generated against a taxonomy that failed to parse would be a
 /// silently weaker catalog.
 pub fn taxonomy_actions() -> Vec<WireActionDecl> {
-    let graph = Graph::from_turtle(TAXONOMY_TTL.as_bytes()).expect("the shipped ODRL 2.2 taxonomy parses as Turtle");
+    let graph = Graph::from_turtle(TAXONOMY_TTL.as_bytes())
+        .expect("the shipped ODRL 2.2 taxonomy parses as Turtle");
     let interpreted = interpret(&graph, None, DutyMode::Advise, Behaviour::Closed);
 
     let actions: Vec<WireActionDecl> = interpreted
@@ -82,7 +84,12 @@ mod tests {
     use super::*;
 
     fn parent_of(actions: &[WireActionDecl], id: &str) -> Option<String> {
-        actions.iter().find(|a| a.id == id)?.included_in.as_ref().map(|r| r.id.clone())
+        actions
+            .iter()
+            .find(|a| a.id == id)?
+            .included_in
+            .as_ref()
+            .map(|r| r.id.clone())
     }
 
     #[test]

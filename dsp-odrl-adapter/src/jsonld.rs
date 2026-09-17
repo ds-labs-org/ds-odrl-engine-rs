@@ -39,10 +39,22 @@ pub const ODRL_NS: &str = "http://www.w3.org/ns/odrl/2/";
 /// are listed because real documents use both and they are the same
 /// document.
 const REGISTRY: &[(&str, &str)] = &[
-    ("http://www.w3.org/ns/odrl.jsonld", include_str!("../contexts/w3c-odrl-2.2.jsonld")),
-    ("https://www.w3.org/ns/odrl.jsonld", include_str!("../contexts/w3c-odrl-2.2.jsonld")),
-    ("https://w3id.org/dspace/2024/1/context.json", include_str!("../contexts/dsp-2024-1-context.json")),
-    ("https://w3id.org/dspace/2025/1/context.jsonld", include_str!("../contexts/dsp-2025-1-dspace.jsonld")),
+    (
+        "http://www.w3.org/ns/odrl.jsonld",
+        include_str!("../contexts/w3c-odrl-2.2.jsonld"),
+    ),
+    (
+        "https://www.w3.org/ns/odrl.jsonld",
+        include_str!("../contexts/w3c-odrl-2.2.jsonld"),
+    ),
+    (
+        "https://w3id.org/dspace/2024/1/context.json",
+        include_str!("../contexts/dsp-2024-1-context.json"),
+    ),
+    (
+        "https://w3id.org/dspace/2025/1/context.jsonld",
+        include_str!("../contexts/dsp-2025-1-dspace.jsonld"),
+    ),
     (
         "https://w3id.org/dspace/2025/1/odrl-profile.jsonld",
         include_str!("../contexts/dsp-2025-1-odrl-profile.jsonld"),
@@ -89,7 +101,11 @@ impl Node {
     /// document order. An absent property is an empty slice, not an error:
     /// most of an ODRL policy's properties are optional.
     pub fn get(&self, iri: &str) -> &[Expanded] {
-        self.props.iter().find(|(k, _)| k == iri).map(|(_, v)| v.as_slice()).unwrap_or(&[])
+        self.props
+            .iter()
+            .find(|(k, _)| k == iri)
+            .map(|(_, v)| v.as_slice())
+            .unwrap_or(&[])
     }
 
     fn push(&mut self, iri: String, mut values: Vec<Expanded>) {
@@ -183,14 +199,17 @@ struct RawDef {
 const MAX_PREFIX_CHAIN: usize = 8;
 
 fn registry_lookup(url: &str) -> Option<&'static str> {
-    REGISTRY.iter().find(|(u, _)| *u == url).map(|(_, body)| *body)
+    REGISTRY
+        .iter()
+        .find(|(u, _)| *u == url)
+        .map(|(_, body)| *body)
 }
 
 /// Reads the `@context` value out of a bundled registry document.
 fn registry_context(url: &str) -> Result<serde_json::Value, JsonLdError> {
     let body = registry_lookup(url).ok_or_else(|| JsonLdError::UnknownContext(url.to_string()))?;
-    let doc: serde_json::Value =
-        serde_json::from_str(body).map_err(|e| JsonLdError::MalformedContext(format!("{url}: {e}")))?;
+    let doc: serde_json::Value = serde_json::from_str(body)
+        .map_err(|e| JsonLdError::MalformedContext(format!("{url}: {e}")))?;
     doc.get("@context")
         .cloned()
         .ok_or_else(|| JsonLdError::MalformedContext(format!("{url}: no @context member")))
@@ -216,7 +235,9 @@ fn process_context(ctx: &mut Ctx, local: &serde_json::Value) -> Result<(), JsonL
             *ctx = Ctx::default();
             Ok(())
         }
-        other => Err(JsonLdError::MalformedContext(format!("expected a string, array or object, got {other}"))),
+        other => Err(JsonLdError::MalformedContext(format!(
+            "expected a string, array or object, got {other}"
+        ))),
     }
 }
 
@@ -265,7 +286,10 @@ fn process_context_object(
                         .and_then(|v| v.as_str())
                         .map(str::to_string)
                         .or_else(|| Some(key.clone())),
-                    type_mapping: def.get("@type").and_then(|v| v.as_str()).map(str::to_string),
+                    type_mapping: def
+                        .get("@type")
+                        .and_then(|v| v.as_str())
+                        .map(str::to_string),
                     scoped,
                     propagate,
                 }
@@ -276,7 +300,9 @@ fn process_context_object(
                 continue;
             }
             other => {
-                return Err(JsonLdError::MalformedContext(format!("term {key:?} is neither a string nor an object: {other}")))
+                return Err(JsonLdError::MalformedContext(format!(
+                    "term {key:?} is neither a string nor an object: {other}"
+                )))
             }
         };
         raw.insert(key.clone(), def);
@@ -302,7 +328,12 @@ fn process_context_object(
 /// Resolves one raw term definition's IRI mapping, consulting other raw
 /// definitions in the same context object (a prefix defined later in the
 /// same object) and then the inherited active context.
-fn resolve_raw_term(ctx: &Ctx, raw: &BTreeMap<String, RawDef>, term: &str, depth: usize) -> Option<String> {
+fn resolve_raw_term(
+    ctx: &Ctx,
+    raw: &BTreeMap<String, RawDef>,
+    term: &str,
+    depth: usize,
+) -> Option<String> {
     if depth > MAX_PREFIX_CHAIN {
         return None;
     }
@@ -313,7 +344,9 @@ fn resolve_raw_term(ctx: &Ctx, raw: &BTreeMap<String, RawDef>, term: &str, depth
         return Some(value.clone());
     }
     if let Some((prefix, suffix)) = split_compact(value) {
-        if let Some(base) = resolve_raw_term(ctx, raw, prefix, depth + 1).or_else(|| term_iri(ctx, prefix)) {
+        if let Some(base) =
+            resolve_raw_term(ctx, raw, prefix, depth + 1).or_else(|| term_iri(ctx, prefix))
+        {
             return Some(format!("{base}{suffix}"));
         }
         return Some(value.clone());
@@ -327,7 +360,10 @@ fn resolve_raw_term(ctx: &Ctx, raw: &BTreeMap<String, RawDef>, term: &str, depth
 }
 
 fn term_iri(ctx: &Ctx, term: &str) -> Option<String> {
-    ctx.terms.get(term).and_then(|d| d.iri.clone()).filter(|iri| !iri.starts_with('@'))
+    ctx.terms
+        .get(term)
+        .and_then(|d| d.iri.clone())
+        .filter(|iri| !iri.starts_with('@'))
 }
 
 /// Splits `value` into `(prefix, suffix)` **only if** it is a compact IRI
@@ -503,7 +539,10 @@ fn expand_value(
                 // because `engine::Constraint::right_operand` is a single
                 // opaque `String` compared against a host claim — see the
                 // README's "What is dropped".
-                return Ok(scalar_to_string(v).map(Expanded::Literal).into_iter().collect());
+                return Ok(scalar_to_string(v)
+                    .map(Expanded::Literal)
+                    .into_iter()
+                    .collect());
             }
             // `{"@id": "..."}` and nothing else is a bare node reference,
             // which every ODRL `@type: @id` position uses.
@@ -513,7 +552,9 @@ fn expand_value(
                     return Ok(vec![Expanded::Iri(iri)]);
                 }
             }
-            Ok(vec![Expanded::Node(expand_node(child_base, map, warnings)?)])
+            Ok(vec![Expanded::Node(expand_node(
+                child_base, map, warnings,
+            )?)])
         }
         serde_json::Value::Null => Ok(Vec::new()),
         scalar => {
@@ -563,15 +604,19 @@ fn expand_node(
             Key::Type => {
                 let raw: Vec<&str> = match value {
                     serde_json::Value::String(s) => vec![s.as_str()],
-                    serde_json::Value::Array(items) => items.iter().filter_map(|i| i.as_str()).collect(),
+                    serde_json::Value::Array(items) => {
+                        items.iter().filter_map(|i| i.as_str()).collect()
+                    }
                     _ => Vec::new(),
                 };
-                node.types.extend(raw.into_iter().map(|t| expand_iri(&ctx, t, true).0));
+                node.types
+                    .extend(raw.into_iter().map(|t| expand_iri(&ctx, t, true).0));
             }
             Key::Dropped => {}
             Key::Property(iri) => {
                 let type_mapping = ctx.terms.get(key).and_then(|d| d.type_mapping.clone());
-                let values = expand_value(&child_base, &ctx, type_mapping.as_deref(), value, warnings)?;
+                let values =
+                    expand_value(&child_base, &ctx, type_mapping.as_deref(), value, warnings)?;
                 node.push(iri, values);
             }
         }
@@ -605,7 +650,10 @@ mod tests {
             "target": "ex:asset"
         }));
         assert_eq!(node.types, vec!["https://example.org/ns#Thing".to_string()]);
-        assert_eq!(node.get("https://example.org/ns#name"), [Expanded::Literal("plain".to_string())]);
+        assert_eq!(
+            node.get("https://example.org/ns#name"),
+            [Expanded::Literal("plain".to_string())]
+        );
         assert_eq!(
             node.get("https://example.org/ns#target"),
             [Expanded::Iri("https://example.org/ns#asset".to_string())],
@@ -614,7 +662,8 @@ mod tests {
     }
 
     #[test]
-    fn a_value_in_a_position_with_no_type_coercion_stays_a_literal_even_when_it_looks_like_a_compact_iri() {
+    fn a_value_in_a_position_with_no_type_coercion_stays_a_literal_even_when_it_looks_like_a_compact_iri(
+    ) {
         // The whole difference between this and a recursive prefix-strip:
         // whether a string is an IRI is decided by the active context, not
         // by what the string happens to start with.
@@ -638,7 +687,10 @@ mod tests {
                           "ref": { "@id": "ex:ref", "@type": "@id" } },
             "ref": "https://example.org/x"
         }));
-        assert_eq!(node.get("https://example.org/ns#ref"), [Expanded::Iri("https://example.org/x".to_string())]);
+        assert_eq!(
+            node.get("https://example.org/ns#ref"),
+            [Expanded::Iri("https://example.org/x".to_string())]
+        );
     }
 
     #[test]
@@ -658,7 +710,10 @@ mod tests {
         let Some(Expanded::Node(inner)) = node.get("https://example.org/ns#inner").first() else {
             panic!("`inner` must have resolved through the type-scoped context");
         };
-        assert_eq!(inner.get("https://example.org/ns#name"), [Expanded::Literal("deep".to_string())]);
+        assert_eq!(
+            inner.get("https://example.org/ns#name"),
+            [Expanded::Literal("deep".to_string())]
+        );
     }
 
     #[test]
@@ -708,7 +763,10 @@ mod tests {
         // routed through vocab concatenation, which would otherwise
         // silently produce the nonsensical
         // `https://example.org/ns#http://www.w3.org/ns/odrl/2/use`.
-        let ctx = Ctx { vocab: Some("https://example.org/ns#".to_string()), ..Ctx::default() };
+        let ctx = Ctx {
+            vocab: Some("https://example.org/ns#".to_string()),
+            ..Ctx::default()
+        };
         assert_eq!(
             expand_iri(&ctx, "http://www.w3.org/ns/odrl/2/use", true),
             ("http://www.w3.org/ns/odrl/2/use".to_string(), true)
@@ -747,7 +805,10 @@ mod tests {
         assert!(urls.contains(&"http://www.w3.org/ns/odrl.jsonld"));
         for url in urls {
             let node = expanded(json!({ "@context": url }));
-            assert!(node.props.is_empty(), "{url}: an empty document under a real context expands to nothing");
+            assert!(
+                node.props.is_empty(),
+                "{url}: an empty document under a real context expands to nothing"
+            );
         }
     }
 }

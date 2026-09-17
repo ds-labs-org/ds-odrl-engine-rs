@@ -13,10 +13,10 @@ use yew_nested_router::components::Link;
 /// richer struct without this one needing to change).
 #[derive(Debug, Deserialize)]
 struct ComplianceSummary {
-  total: u64,
-  passed: u64,
-  failed: u64,
-  skipped: u64,
+    total: u64,
+    passed: u64,
+    failed: u64,
+    skipped: u64,
 }
 
 /// Embedded at compile time so the Home page's compliance summary can
@@ -29,8 +29,8 @@ struct ComplianceSummary {
 const COMPLIANCE_LATEST_JSON: &str = include_str!("../../compliance/reports/latest.json");
 
 fn compliance_summary() -> Result<ComplianceSummary, String> {
-  serde_json::from_str(COMPLIANCE_LATEST_JSON)
-    .map_err(|err| format!("could not parse compliance/reports/latest.json: {err}"))
+    serde_json::from_str(COMPLIANCE_LATEST_JSON)
+        .map_err(|err| format!("could not parse compliance/reports/latest.json: {err}"))
 }
 
 /// This crate's own thin copy of `compliance/reports/release-history.json`'s
@@ -42,19 +42,19 @@ fn compliance_summary() -> Result<ComplianceSummary, String> {
 /// only the handful of fields it shows, not the whole per-release history.
 #[derive(Debug, Deserialize)]
 struct FullComplianceTallySummary {
-  rows_meets: u64,
-  rows_falls_short: u64,
-  rows_structural_gap: u64,
+    rows_meets: u64,
+    rows_falls_short: u64,
+    rows_structural_gap: u64,
 }
 
 #[derive(Debug, Deserialize)]
 struct HistoryReleaseSummary {
-  full_compliance: Option<FullComplianceTallySummary>,
+    full_compliance: Option<FullComplianceTallySummary>,
 }
 
 #[derive(Debug, Deserialize)]
 struct HistoryFileSummary {
-  releases: Vec<HistoryReleaseSummary>,
+    releases: Vec<HistoryReleaseSummary>,
 }
 
 /// Embedded at compile time for the identical reason [`COMPLIANCE_LATEST_JSON`]
@@ -66,14 +66,15 @@ struct HistoryFileSummary {
 const RELEASE_HISTORY_JSON: &str = include_str!("../../compliance/reports/release-history.json");
 
 fn full_compliance_summary() -> Result<FullComplianceTallySummary, String> {
-  let file: HistoryFileSummary = serde_json::from_str(RELEASE_HISTORY_JSON)
-    .map_err(|err| format!("could not parse compliance/reports/release-history.json: {err}"))?;
-  file
-    .releases
-    .into_iter()
-    .last()
-    .and_then(|release| release.full_compliance)
-    .ok_or_else(|| "release-history.json's newest release carries no full_compliance tally".to_string())
+    let file: HistoryFileSummary = serde_json::from_str(RELEASE_HISTORY_JSON)
+        .map_err(|err| format!("could not parse compliance/reports/release-history.json: {err}"))?;
+    file.releases
+        .into_iter()
+        .last()
+        .and_then(|release| release.full_compliance)
+        .ok_or_else(|| {
+            "release-history.json's newest release carries no full_compliance tally".to_string()
+        })
 }
 
 /// Home page's own layout CSS: a hero band, its decorative mesh
@@ -196,26 +197,26 @@ pub(crate) const STAT_ROW_CSS: &str = r#"
 /// Home page (compile-time counts) and the Compliance Results page
 /// (runtime-fetched counts) -- see [`STAT_ROW_CSS`] for its styling.
 pub(crate) fn stat_row_html(total: u64, passed: u64, failed: u64, skipped: u64) -> Html {
-  html!(
-    <div class="ds-oe-stats">
-      <div class="ds-oe-stat">
-        <span class="ds-oe-stat-value is-total">{ total }</span>
-        <span class="ds-oe-stat-label">{ "total" }</span>
+    html!(
+      <div class="ds-oe-stats">
+        <div class="ds-oe-stat">
+          <span class="ds-oe-stat-value is-total">{ total }</span>
+          <span class="ds-oe-stat-label">{ "total" }</span>
+        </div>
+        <div class="ds-oe-stat">
+          <span class="ds-oe-stat-value is-passed">{ passed }</span>
+          <span class="ds-oe-stat-label">{ "passed" }</span>
+        </div>
+        <div class="ds-oe-stat">
+          <span class="ds-oe-stat-value is-failed">{ failed }</span>
+          <span class="ds-oe-stat-label">{ "failed" }</span>
+        </div>
+        <div class="ds-oe-stat">
+          <span class="ds-oe-stat-value is-skipped">{ skipped }</span>
+          <span class="ds-oe-stat-label">{ "skipped" }</span>
+        </div>
       </div>
-      <div class="ds-oe-stat">
-        <span class="ds-oe-stat-value is-passed">{ passed }</span>
-        <span class="ds-oe-stat-label">{ "passed" }</span>
-      </div>
-      <div class="ds-oe-stat">
-        <span class="ds-oe-stat-value is-failed">{ failed }</span>
-        <span class="ds-oe-stat-label">{ "failed" }</span>
-      </div>
-      <div class="ds-oe-stat">
-        <span class="ds-oe-stat-value is-skipped">{ skipped }</span>
-        <span class="ds-oe-stat-label">{ "skipped" }</span>
-      </div>
-    </div>
-  )
+    )
 }
 
 /// Renders the `/full-compliance` axis's own three-bucket stat row,
@@ -225,23 +226,27 @@ pub(crate) fn stat_row_html(total: u64, passed: u64, failed: u64, skipped: u64) 
 /// a permanent wire-contract absence, not a judged outcome). Deliberately
 /// carries no "total" bucket: the three numbers here are exactly what
 /// they say and nothing claims they sum to some other displayed figure.
-pub(crate) fn full_compliance_stat_row_html(meets: u64, falls_short: u64, structural_gap: u64) -> Html {
-  html!(
-    <div class="ds-oe-stats">
-      <div class="ds-oe-stat">
-        <span class="ds-oe-stat-value is-passed">{ meets }</span>
-        <span class="ds-oe-stat-label">{ "meets full spec" }</span>
+pub(crate) fn full_compliance_stat_row_html(
+    meets: u64,
+    falls_short: u64,
+    structural_gap: u64,
+) -> Html {
+    html!(
+      <div class="ds-oe-stats">
+        <div class="ds-oe-stat">
+          <span class="ds-oe-stat-value is-passed">{ meets }</span>
+          <span class="ds-oe-stat-label">{ "meets full spec" }</span>
+        </div>
+        <div class="ds-oe-stat">
+          <span class="ds-oe-stat-value is-failed">{ falls_short }</span>
+          <span class="ds-oe-stat-label">{ "falls short" }</span>
+        </div>
+        <div class="ds-oe-stat">
+          <span class="ds-oe-stat-value is-skipped">{ structural_gap }</span>
+          <span class="ds-oe-stat-label">{ "structural gap" }</span>
+        </div>
       </div>
-      <div class="ds-oe-stat">
-        <span class="ds-oe-stat-value is-failed">{ falls_short }</span>
-        <span class="ds-oe-stat-label">{ "falls short" }</span>
-      </div>
-      <div class="ds-oe-stat">
-        <span class="ds-oe-stat-value is-skipped">{ structural_gap }</span>
-        <span class="ds-oe-stat-label">{ "structural gap" }</span>
-      </div>
-    </div>
-  )
+    )
 }
 
 /// Case-study credit, shown on every page (see this crate's own top-level
@@ -250,26 +255,26 @@ pub(crate) fn full_compliance_stat_row_html(meets: u64, falls_short: u64, struct
 /// repo this crate doesn't know a real address for. `pub(crate)` so the
 /// Demonstrator page (`demo_page.rs`) can reuse it too.
 pub(crate) fn case_study_credit() -> Html {
-  html!(
-    <Content>
-      <p>
-        <em>
-          { "ds-odrl-engine-rs implements the design proposed in " }
-          <code>{ "docs/case-studies/2026-08-30-attribute-based-odrl-policy-enforcement.md" }</code>
-          { " (\"Attribute-Based ODRL Policy Enforcement over Eclipse EDC\"), in the " }
-          <code>{ "Deepthought-Solutions/dataspace" }</code>
-          { " repository's ds42.org dataspace study. Read that document for the design rationale behind every decision this site demonstrates." }
-        </em>
-      </p>
-    </Content>
-  )
+    html!(
+      <Content>
+        <p>
+          <em>
+            { "ds-odrl-engine-rs implements the design proposed in " }
+            <code>{ "docs/case-studies/2026-08-30-attribute-based-odrl-policy-enforcement.md" }</code>
+            { " (\"Attribute-Based ODRL Policy Enforcement over Eclipse EDC\"), in the " }
+            <code>{ "Deepthought-Solutions/dataspace" }</code>
+            { " repository's ds42.org dataspace study. Read that document for the design rationale behind every decision this site demonstrates." }
+          </em>
+        </p>
+      </Content>
+    )
 }
 
 #[derive(Clone, PartialEq)]
 enum EngineModuleStatus {
-  Loading,
-  Ready { byte_len: usize },
-  Failed { message: String },
+    Loading,
+    Ready { byte_len: usize },
+    Failed { message: String },
 }
 
 /// The real Home page: a branded hero, an honest "what this is not"
@@ -282,214 +287,214 @@ enum EngineModuleStatus {
 /// on to work under a GitHub Pages subpath actually resolves.
 #[component]
 pub fn HomePage() -> Html {
-  let status = use_state(|| EngineModuleStatus::Loading);
+    let status = use_state(|| EngineModuleStatus::Loading);
 
-  {
-    let status = status.clone();
-    use_effect_with((), move |()| {
-      spawn_local(async move {
-        status.set(match fetch_engine_wasm_len().await {
-          Ok(byte_len) => EngineModuleStatus::Ready { byte_len },
-          Err(message) => EngineModuleStatus::Failed { message },
+    {
+        let status = status.clone();
+        use_effect_with((), move |()| {
+            spawn_local(async move {
+                status.set(match fetch_engine_wasm_len().await {
+                    Ok(byte_len) => EngineModuleStatus::Ready { byte_len },
+                    Err(message) => EngineModuleStatus::Failed { message },
+                });
+            });
+            || ()
         });
-      });
-      || ()
-    });
-  }
+    }
 
-  let engine_status = match &*status {
-    EngineModuleStatus::Loading => html!(
-      <Alert inline=true r#type={AlertType::Info} title="Fetching engine.wasm...">
-        { "Requesting engine.wasm relative to this page's own base URL." }
-      </Alert>
-    ),
-    EngineModuleStatus::Ready { byte_len } => html!(
-      <Alert inline=true r#type={AlertType::Success} title="engine.wasm reachable">
-        <p>{ format!("Fetched {byte_len} bytes via a relative fetch(\"engine.wasm\") resolved against this page's <base href>.") }</p>
-      </Alert>
-    ),
-    EngineModuleStatus::Failed { message } => html!(
-      <Alert inline=true r#type={AlertType::Danger} title="engine.wasm fetch failed">
-        <p>{ message.clone() }</p>
-      </Alert>
-    ),
-  };
+    let engine_status = match &*status {
+        EngineModuleStatus::Loading => html!(
+          <Alert inline=true r#type={AlertType::Info} title="Fetching engine.wasm...">
+            { "Requesting engine.wasm relative to this page's own base URL." }
+          </Alert>
+        ),
+        EngineModuleStatus::Ready { byte_len } => html!(
+          <Alert inline=true r#type={AlertType::Success} title="engine.wasm reachable">
+            <p>{ format!("Fetched {byte_len} bytes via a relative fetch(\"engine.wasm\") resolved against this page's <base href>.") }</p>
+          </Alert>
+        ),
+        EngineModuleStatus::Failed { message } => html!(
+          <Alert inline=true r#type={AlertType::Danger} title="engine.wasm fetch failed">
+            <p>{ message.clone() }</p>
+          </Alert>
+        ),
+    };
 
-  html!(
-    <>
-      <style>{ HOME_CSS }</style>
-      <style>{ STAT_ROW_CSS }</style>
+    html!(
+      <>
+        <style>{ HOME_CSS }</style>
+        <style>{ STAT_ROW_CSS }</style>
 
-      <section class="ds-oe-hero">
-        <svg class="ds-oe-hero-mesh" viewBox="0 0 200 200" aria-hidden="true" focusable="false">
-          <g stroke="currentColor" stroke-width="1.4" fill="none">
-            <line x1="100" y1="20" x2="170" y2="70" />
-            <line x1="170" y1="70" x2="150" y2="150" />
-            <line x1="150" y1="150" x2="60" y2="170" />
-            <line x1="60" y1="170" x2="20" y2="90" />
-            <line x1="20" y1="90" x2="100" y2="20" />
-            <line x1="100" y1="20" x2="150" y2="150" />
-            <line x1="170" y1="70" x2="60" y2="170" />
-            <line x1="20" y1="90" x2="150" y2="150" />
-          </g>
-          <g fill="currentColor">
-            { for [(100, 20), (170, 70), (150, 150), (60, 170), (20, 90)].iter()
-                .map(|(x, y)| html!(<circle cx={x.to_string()} cy={y.to_string()} r="5" />)) }
-          </g>
-        </svg>
+        <section class="ds-oe-hero">
+          <svg class="ds-oe-hero-mesh" viewBox="0 0 200 200" aria-hidden="true" focusable="false">
+            <g stroke="currentColor" stroke-width="1.4" fill="none">
+              <line x1="100" y1="20" x2="170" y2="70" />
+              <line x1="170" y1="70" x2="150" y2="150" />
+              <line x1="150" y1="150" x2="60" y2="170" />
+              <line x1="60" y1="170" x2="20" y2="90" />
+              <line x1="20" y1="90" x2="100" y2="20" />
+              <line x1="100" y1="20" x2="150" y2="150" />
+              <line x1="170" y1="70" x2="60" y2="170" />
+              <line x1="20" y1="90" x2="150" y2="150" />
+            </g>
+            <g fill="currentColor">
+              { for [(100, 20), (170, 70), (150, 150), (60, 170), (20, 90)].iter()
+                  .map(|(x, y)| html!(<circle cx={x.to_string()} cy={y.to_string()} r="5" />)) }
+            </g>
+          </svg>
 
-        <p class="ds-oe-eyebrow">{ "ODRL policy decision engine · compiled to WebAssembly" }</p>
-        <h1 class="ds-oe-title">{ "ds-odrl-engine-rs" }</h1>
-        <p class="ds-oe-lede">
-          { "A portable, stateless " }
-          <code>{ "(policy, claims) -> decision" }</code>
-          { " evaluator, built once to " }
-          <code>{ "wasm32-unknown-unknown" }</code>
-          { " and driven identically from a Rust host (" }
-          <code>{ "wasmi" }</code>
-          { "), a JVM host (Chicory), or -- as the page below proves -- a browser, all speaking \
-             the same Section 5.2 JSON request/response contract over a four-export C ABI." }
-        </p>
-        <p class="ds-oe-cite">
-          { "Implements the design proposed in " }
-          <code>{ "docs/case-studies/2026-08-30-attribute-based-odrl-policy-enforcement.md" }</code>
-          { " (\"Attribute-Based ODRL Policy Enforcement over Eclipse EDC\") in the " }
-          <code>{ "Deepthought-Solutions/dataspace" }</code>
-          { " repository's ds42.org dataspace study -- see the credit at the foot of this page \
-             for the full citation." }
-        </p>
-        <div class="ds-oe-cta">
-          <a class="ds-oe-btn ds-oe-btn--primary" href="https://github.com/ds-labs-org/ds-odrl-engine-rs" target="_blank" rel="noopener noreferrer">
-            { "View on GitHub" }
-          </a>
-          <Link<AppRoute> to={AppRoute::Demo} class={classes!("ds-oe-btn")}>{ "Try the Demonstrator" }</Link<AppRoute>>
-          <Link<AppRoute> to={AppRoute::Compliance} class={classes!("ds-oe-btn")}>{ "Compliance results" }</Link<AppRoute>>
-          <Link<AppRoute> to={AppRoute::FullCompliance} class={classes!("ds-oe-btn")}>{ "Full ODRL 2.2 compliance" }</Link<AppRoute>>
+          <p class="ds-oe-eyebrow">{ "ODRL policy decision engine · compiled to WebAssembly" }</p>
+          <h1 class="ds-oe-title">{ "ds-odrl-engine-rs" }</h1>
+          <p class="ds-oe-lede">
+            { "A portable, stateless " }
+            <code>{ "(policy, claims) -> decision" }</code>
+            { " evaluator, built once to " }
+            <code>{ "wasm32-unknown-unknown" }</code>
+            { " and driven identically from a Rust host (" }
+            <code>{ "wasmi" }</code>
+            { "), a JVM host (Chicory), or -- as the page below proves -- a browser, all speaking \
+               the same Section 5.2 JSON request/response contract over a four-export C ABI." }
+          </p>
+          <p class="ds-oe-cite">
+            { "Implements the design proposed in " }
+            <code>{ "docs/case-studies/2026-08-30-attribute-based-odrl-policy-enforcement.md" }</code>
+            { " (\"Attribute-Based ODRL Policy Enforcement over Eclipse EDC\") in the " }
+            <code>{ "Deepthought-Solutions/dataspace" }</code>
+            { " repository's ds42.org dataspace study -- see the credit at the foot of this page \
+               for the full citation." }
+          </p>
+          <div class="ds-oe-cta">
+            <a class="ds-oe-btn ds-oe-btn--primary" href="https://github.com/ds-labs-org/ds-odrl-engine-rs" target="_blank" rel="noopener noreferrer">
+              { "View on GitHub" }
+            </a>
+            <Link<AppRoute> to={AppRoute::Demo} class={classes!("ds-oe-btn")}>{ "Try the Demonstrator" }</Link<AppRoute>>
+            <Link<AppRoute> to={AppRoute::Compliance} class={classes!("ds-oe-btn")}>{ "Compliance results" }</Link<AppRoute>>
+            <Link<AppRoute> to={AppRoute::FullCompliance} class={classes!("ds-oe-btn")}>{ "Full ODRL 2.2 compliance" }</Link<AppRoute>>
+          </div>
+        </section>
+
+        { engine_status }
+
+        <Content>
+          <Title level={Level::H2}>{ "What this is not" }</Title>
+        </Content>
+        <div class="ds-oe-not">
+          <p>
+            { "This is " }<strong>{ "not a full ODRL implementation" }</strong>{ ". Condensed from the \
+               repository's own README -- read it in full before relying on any of this:" }
+          </p>
+          <ul>
+            <li>
+              { "The Default Profile has seven constraint operators (" }
+              <code>{ "eq" }</code>{ "/" }<code>{ "neq" }</code>{ "/" }<code>{ "isAnyOf" }</code>
+              { ", plus " }<code>{ "lt" }</code>{ "/" }<code>{ "lteq" }</code>{ "/" }<code>{ "gt" }</code>{ "/" }<code>{ "gteq" }</code>
+              { " for UTC " }<code>{ "dateTime" }</code>{ " comparison) over a flat string/string-array claims model." }
+            </li>
+            <li>
+              { "Actions are matched by exact string, with one narrow, vocabulary-sourced exception (" }
+              <code>{ "odrl:use" }</code>{ " covers everything except the transfer-category actions) -- \
+                 no general " }<code>{ "includedIn" }</code>{ "/" }<code>{ "implies" }</code>{ " inference otherwise." }
+            </li>
+            <li>
+              { "Nested " }<code>{ "odrl:and" }</code>{ "/" }<code>{ "odrl:or" }</code>{ " logical constraints and \
+                 party/asset collection membership are resolved by " }<code>{ "compliance-runner" }</code>
+              { "'s own adapter, not by any change to the engine's wire contract -- a real host would \
+                 need equivalent adapter logic, not just this engine." }
+            </li>
+            <li>
+              <code>{ "odrl:xone" }</code>{ " remains genuinely unsupported (no \"exactly one\" exclusivity)." }
+            </li>
+            <li>
+              { "Per-permission " }<code>{ "odrl:duty" }</code>{ " is resolved only by this specific compliance \
+                 suite's own state-of-the-world fact; the engine itself still evaluates policy-level \
+                 obligations only." }
+            </li>
+          </ul>
+          <p style="margin: 0.75rem 0 0;">
+            { "The README also records known adapter fragility (local-name-only node matching, blank-node \
+               duties, first-triple-wins lookups) found by an independent review -- none exercised by the \
+               vendored corpus, but not fixed either. See the " }
+            <a href="https://github.com/ds-labs-org/ds-odrl-engine-rs#what-this-is-not" target="_blank" rel="noopener noreferrer">
+              { "README's own \"What this is not\" section" }
+            </a>
+            { " for the complete list." }
+          </p>
         </div>
-      </section>
 
-      { engine_status }
+        <Content>
+          <Title level={Level::H2}>{ "Current compliance summary" }</Title>
+          <p>
+            { "The vendored ODRL-Test-Suite (68 fixtures): does this engine match what that suite expects?" }
+          </p>
+        </Content>
+        { compliance_summary_view() }
 
-      <Content>
-        <Title level={Level::H2}>{ "What this is not" }</Title>
-      </Content>
-      <div class="ds-oe-not">
-        <p>
-          { "This is " }<strong>{ "not a full ODRL implementation" }</strong>{ ". Condensed from the \
-             repository's own README -- read it in full before relying on any of this:" }
-        </p>
-        <ul>
-          <li>
-            { "The Default Profile has seven constraint operators (" }
-            <code>{ "eq" }</code>{ "/" }<code>{ "neq" }</code>{ "/" }<code>{ "isAnyOf" }</code>
-            { ", plus " }<code>{ "lt" }</code>{ "/" }<code>{ "lteq" }</code>{ "/" }<code>{ "gt" }</code>{ "/" }<code>{ "gteq" }</code>
-            { " for UTC " }<code>{ "dateTime" }</code>{ " comparison) over a flat string/string-array claims model." }
-          </li>
-          <li>
-            { "Actions are matched by exact string, with one narrow, vocabulary-sourced exception (" }
-            <code>{ "odrl:use" }</code>{ " covers everything except the transfer-category actions) -- \
-               no general " }<code>{ "includedIn" }</code>{ "/" }<code>{ "implies" }</code>{ " inference otherwise." }
-          </li>
-          <li>
-            { "Nested " }<code>{ "odrl:and" }</code>{ "/" }<code>{ "odrl:or" }</code>{ " logical constraints and \
-               party/asset collection membership are resolved by " }<code>{ "compliance-runner" }</code>
-            { "'s own adapter, not by any change to the engine's wire contract -- a real host would \
-               need equivalent adapter logic, not just this engine." }
-          </li>
-          <li>
-            <code>{ "odrl:xone" }</code>{ " remains genuinely unsupported (no \"exactly one\" exclusivity)." }
-          </li>
-          <li>
-            { "Per-permission " }<code>{ "odrl:duty" }</code>{ " is resolved only by this specific compliance \
-               suite's own state-of-the-world fact; the engine itself still evaluates policy-level \
-               obligations only." }
-          </li>
-        </ul>
-        <p style="margin: 0.75rem 0 0;">
-          { "The README also records known adapter fragility (local-name-only node matching, blank-node \
-             duties, first-triple-wins lookups) found by an independent review -- none exercised by the \
-             vendored corpus, but not fixed either. See the " }
-          <a href="https://github.com/ds-labs-org/ds-odrl-engine-rs#what-this-is-not" target="_blank" rel="noopener noreferrer">
-            { "README's own \"What this is not\" section" }
-          </a>
-          { " for the complete list." }
-        </p>
-      </div>
+        <Content>
+          <Title level={Level::H2}>{ "Current full ODRL 2.2 compliance summary" }</Title>
+          <p>
+            { "A different, harder question: assuming this engine " }<strong>{ "should" }</strong>
+            { " fully implement ODRL 2.2 for every row that is not structurally out of scope, does its \
+               real, live behaviour meet that ideal? See " }
+            <Link<AppRoute> to={AppRoute::FullCompliance}>{ "ODRL 2.2 Full Compliance" }</Link<AppRoute>>
+            { " for the full row-by-row and probe-by-probe breakdown, including the judgment calls this \
+               study made along the way." }
+          </p>
+        </Content>
+        { full_compliance_summary_view() }
 
-      <Content>
-        <Title level={Level::H2}>{ "Current compliance summary" }</Title>
-        <p>
-          { "The vendored ODRL-Test-Suite (68 fixtures): does this engine match what that suite expects?" }
-        </p>
-      </Content>
-      { compliance_summary_view() }
+        <Content>
+          <Title level={Level::H2}>{ "Get hands-on" }</Title>
+        </Content>
+        <Gallery gutter=true style={AttrValue::from("margin-bottom: 1.5rem;")}>
+          <Card full_height=true>
+            <CardTitle><Title level={Level::H3}>{ "Try it in your browser" }</Title></CardTitle>
+            <CardBody>
+              <p>
+                { "Build a Section 5.2 request by hand -- claims, a policy, permissions, prohibitions, \
+                   obligations -- and evaluate it against a real " }<code>{ "engine.wasm" }</code>
+                { " instance running right here, driven through its raw " }
+                <code>{ "alloc" }</code>{ "/" }<code>{ "evaluate" }</code>{ "/" }<code>{ "dealloc" }</code>
+                { " C ABI, exactly as a real host would call it." }
+              </p>
+              <Link<AppRoute> to={AppRoute::Demo} class={classes!("ds-oe-btn", "ds-oe-btn--primary")}>
+                { "Open the Demonstrator" }
+              </Link<AppRoute>>
+            </CardBody>
+          </Card>
+          <Card full_height=true>
+            <CardTitle><Title level={Level::H3}>{ "Compliance results" }</Title></CardTitle>
+            <CardBody>
+              <p>
+                { "Every case from the vendored ODRL Test Suite, re-run live in your own browser \
+                   against the compiled " }<code>{ "engine.wasm" }</code>
+                { " -- expected vs. actual decision, the engine's own reason for each, and, for \
+                   anything skipped, the specific cited reason. The summary above is the native \
+                   run's; that page computes its own and cross-checks the two." }
+              </p>
+              <Link<AppRoute> to={AppRoute::Compliance} class={classes!("ds-oe-btn", "ds-oe-btn--primary")}>
+                { "View compliance results" }
+              </Link<AppRoute>>
+            </CardBody>
+          </Card>
+          <Card full_height=true>
+            <CardTitle><Title level={Level::H3}>{ "Full ODRL 2.2 compliance" }</Title></CardTitle>
+            <CardBody>
+              <p>
+                { "The same probes, replayed live against the same " }<code>{ "engine.wasm" }</code>
+                { ", judged this time against what full ODRL 2.2 requires rather than against what this \
+                   study documents -- with the contested spec readings and the researcher's own \
+                   uncertainty shown on the page rather than hidden behind a single number." }
+              </p>
+              <Link<AppRoute> to={AppRoute::FullCompliance} class={classes!("ds-oe-btn", "ds-oe-btn--primary")}>
+                { "View full compliance" }
+              </Link<AppRoute>>
+            </CardBody>
+          </Card>
+        </Gallery>
 
-      <Content>
-        <Title level={Level::H2}>{ "Current full ODRL 2.2 compliance summary" }</Title>
-        <p>
-          { "A different, harder question: assuming this engine " }<strong>{ "should" }</strong>
-          { " fully implement ODRL 2.2 for every row that is not structurally out of scope, does its \
-             real, live behaviour meet that ideal? See " }
-          <Link<AppRoute> to={AppRoute::FullCompliance}>{ "ODRL 2.2 Full Compliance" }</Link<AppRoute>>
-          { " for the full row-by-row and probe-by-probe breakdown, including the judgment calls this \
-             study made along the way." }
-        </p>
-      </Content>
-      { full_compliance_summary_view() }
-
-      <Content>
-        <Title level={Level::H2}>{ "Get hands-on" }</Title>
-      </Content>
-      <Gallery gutter=true style={AttrValue::from("margin-bottom: 1.5rem;")}>
-        <Card full_height=true>
-          <CardTitle><Title level={Level::H3}>{ "Try it in your browser" }</Title></CardTitle>
-          <CardBody>
-            <p>
-              { "Build a Section 5.2 request by hand -- claims, a policy, permissions, prohibitions, \
-                 obligations -- and evaluate it against a real " }<code>{ "engine.wasm" }</code>
-              { " instance running right here, driven through its raw " }
-              <code>{ "alloc" }</code>{ "/" }<code>{ "evaluate" }</code>{ "/" }<code>{ "dealloc" }</code>
-              { " C ABI, exactly as a real host would call it." }
-            </p>
-            <Link<AppRoute> to={AppRoute::Demo} class={classes!("ds-oe-btn", "ds-oe-btn--primary")}>
-              { "Open the Demonstrator" }
-            </Link<AppRoute>>
-          </CardBody>
-        </Card>
-        <Card full_height=true>
-          <CardTitle><Title level={Level::H3}>{ "Compliance results" }</Title></CardTitle>
-          <CardBody>
-            <p>
-              { "Every case from the vendored ODRL Test Suite, re-run live in your own browser \
-                 against the compiled " }<code>{ "engine.wasm" }</code>
-              { " -- expected vs. actual decision, the engine's own reason for each, and, for \
-                 anything skipped, the specific cited reason. The summary above is the native \
-                 run's; that page computes its own and cross-checks the two." }
-            </p>
-            <Link<AppRoute> to={AppRoute::Compliance} class={classes!("ds-oe-btn", "ds-oe-btn--primary")}>
-              { "View compliance results" }
-            </Link<AppRoute>>
-          </CardBody>
-        </Card>
-        <Card full_height=true>
-          <CardTitle><Title level={Level::H3}>{ "Full ODRL 2.2 compliance" }</Title></CardTitle>
-          <CardBody>
-            <p>
-              { "The same probes, replayed live against the same " }<code>{ "engine.wasm" }</code>
-              { ", judged this time against what full ODRL 2.2 requires rather than against what this \
-                 study documents -- with the contested spec readings and the researcher's own \
-                 uncertainty shown on the page rather than hidden behind a single number." }
-            </p>
-            <Link<AppRoute> to={AppRoute::FullCompliance} class={classes!("ds-oe-btn", "ds-oe-btn--primary")}>
-              { "View full compliance" }
-            </Link<AppRoute>>
-          </CardBody>
-        </Card>
-      </Gallery>
-
-      { case_study_credit() }
-    </>
-  )
+        { case_study_credit() }
+      </>
+    )
 }
 
 /// Renders the compliance stat row from the compile-time-embedded
@@ -497,14 +502,19 @@ pub fn HomePage() -> Html {
 /// file's shape ever stops matching `ComplianceSummary` -- fails loudly
 /// on the page rather than silently showing stale or fabricated numbers.
 fn compliance_summary_view() -> Html {
-  match compliance_summary() {
-    Ok(summary) => stat_row_html(summary.total, summary.passed, summary.failed, summary.skipped),
-    Err(message) => html!(
-      <Alert inline=true r#type={AlertType::Danger} title="Could not read compliance/reports/latest.json">
-        <p>{ message }</p>
-      </Alert>
-    ),
-  }
+    match compliance_summary() {
+        Ok(summary) => stat_row_html(
+            summary.total,
+            summary.passed,
+            summary.failed,
+            summary.skipped,
+        ),
+        Err(message) => html!(
+          <Alert inline=true r#type={AlertType::Danger} title="Could not read compliance/reports/latest.json">
+            <p>{ message }</p>
+          </Alert>
+        ),
+    }
 }
 
 /// Renders the full-compliance stat row from the compile-time-embedded
@@ -513,12 +523,16 @@ fn compliance_summary_view() -> Html {
 /// [`FullComplianceTallySummary`] -- same failure discipline as
 /// [`compliance_summary_view`] above.
 fn full_compliance_summary_view() -> Html {
-  match full_compliance_summary() {
-    Ok(summary) => full_compliance_stat_row_html(summary.rows_meets, summary.rows_falls_short, summary.rows_structural_gap),
-    Err(message) => html!(
-      <Alert inline=true r#type={AlertType::Danger} title="Could not read compliance/reports/release-history.json">
-        <p>{ message }</p>
-      </Alert>
-    ),
-  }
+    match full_compliance_summary() {
+        Ok(summary) => full_compliance_stat_row_html(
+            summary.rows_meets,
+            summary.rows_falls_short,
+            summary.rows_structural_gap,
+        ),
+        Err(message) => html!(
+          <Alert inline=true r#type={AlertType::Danger} title="Could not read compliance/reports/release-history.json">
+            <p>{ message }</p>
+          </Alert>
+        ),
+    }
 }

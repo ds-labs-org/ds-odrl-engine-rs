@@ -22,8 +22,8 @@
 use yew::prelude::*;
 
 use crate::coverage_catalog::{
-  compile_coverage_report, errored_probe_outcome, evaluated_probe_outcome, parse_coverage_catalog, probe_json,
-  CoverageFile, ProbeOutcome, COVERAGE_URL,
+    compile_coverage_report, errored_probe_outcome, evaluated_probe_outcome,
+    parse_coverage_catalog, probe_json, CoverageFile, ProbeOutcome, COVERAGE_URL,
 };
 use crate::coverage_state::{CoverageProgress, RunState, Stage};
 use crate::engine_bridge;
@@ -54,29 +54,29 @@ use crate::run_support::{fetch_text, yield_for_paint, FRAME_MS};
 /// outcome and the loop continues, so one failure can neither hide the
 /// others nor strand the UI on this stage.
 pub async fn replay_all(
-  catalog: &CoverageFile,
-  mut on_outcome: impl FnMut(&ProbeOutcome),
+    catalog: &CoverageFile,
+    mut on_outcome: impl FnMut(&ProbeOutcome),
 ) -> (Vec<ProbeOutcome>, f64) {
-  let mut outcomes: Vec<ProbeOutcome> = Vec::with_capacity(catalog.probes.len());
-  let started = js_sys::Date::now();
-  let mut last_yield = started;
+    let mut outcomes: Vec<ProbeOutcome> = Vec::with_capacity(catalog.probes.len());
+    let started = js_sys::Date::now();
+    let mut last_yield = started;
 
-  for probe in &catalog.probes {
-    let outcome = match engine_bridge::evaluate(probe_json(probe)).await {
-      Ok(response) => evaluated_probe_outcome(probe, &response),
-      Err(message) => errored_probe_outcome(probe, &message),
-    };
+    for probe in &catalog.probes {
+        let outcome = match engine_bridge::evaluate(probe_json(probe)).await {
+            Ok(response) => evaluated_probe_outcome(probe, &response),
+            Err(message) => errored_probe_outcome(probe, &message),
+        };
 
-    on_outcome(&outcome);
-    outcomes.push(outcome);
+        on_outcome(&outcome);
+        outcomes.push(outcome);
 
-    if js_sys::Date::now() - last_yield >= FRAME_MS {
-      yield_for_paint().await;
-      last_yield = js_sys::Date::now();
+        if js_sys::Date::now() - last_yield >= FRAME_MS {
+            yield_for_paint().await;
+            last_yield = js_sys::Date::now();
+        }
     }
-  }
 
-  (outcomes, js_sys::Date::now() - started)
+    (outcomes, js_sys::Date::now() - started)
 }
 
 /// Runs the whole four-stage sequence, publishing each transition through
@@ -105,36 +105,66 @@ pub async fn replay_all(
 ///   two, which is exactly the case that broke before, so it takes an
 ///   explicit `yield_for_paint()`.
 pub async fn run(state: UseStateHandle<RunState>) {
-  state.set(RunState::LoadingWasm);
-  yield_for_paint().await;
-  let engine_bytes = match engine_bridge::ensure_loaded().await {
-    Ok(bytes) => bytes,
-    Err(message) => return state.set(RunState::Failed { stage: Stage::LoadingWasm, message }),
-  };
+    state.set(RunState::LoadingWasm);
+    yield_for_paint().await;
+    let engine_bytes = match engine_bridge::ensure_loaded().await {
+        Ok(bytes) => bytes,
+        Err(message) => {
+            return state.set(RunState::Failed {
+                stage: Stage::LoadingWasm,
+                message,
+            })
+        }
+    };
 
-  state.set(RunState::LoadingCatalog { engine_bytes });
-  let catalog = match fetch_text(COVERAGE_URL).await.and_then(|text| parse_coverage_catalog(&text)) {
-    Ok(catalog) => catalog,
-    Err(message) => return state.set(RunState::Failed { stage: Stage::LoadingCatalog, message }),
-  };
+    state.set(RunState::LoadingCatalog { engine_bytes });
+    let catalog = match fetch_text(COVERAGE_URL)
+        .await
+        .and_then(|text| parse_coverage_catalog(&text))
+    {
+        Ok(catalog) => catalog,
+        Err(message) => {
+            return state.set(RunState::Failed {
+                stage: Stage::LoadingCatalog,
+                message,
+            })
+        }
+    };
 
-  let mut progress = CoverageProgress { total: catalog.probes.len(), ..CoverageProgress::default() };
-  state.set(RunState::Probing { engine_bytes, progress: progress.clone() });
+    let mut progress = CoverageProgress {
+        total: catalog.probes.len(),
+        ..CoverageProgress::default()
+    };
+    state.set(RunState::Probing {
+        engine_bytes,
+        progress: progress.clone(),
+    });
 
-  // The loop itself lives in `replay_all`, shared verbatim with
-  // `/full-compliance`. What stays here is this run's own axis: an errored
-  // probe makes its rows Inconclusive, never silently Verified.
-  let (outcomes, elapsed_ms) = replay_all(&catalog, |outcome| {
-    progress.record(outcome.status);
-    state.set(RunState::Probing { engine_bytes, progress: progress.clone() });
-  })
-  .await;
+    // The loop itself lives in `replay_all`, shared verbatim with
+    // `/full-compliance`. What stays here is this run's own axis: an errored
+    // probe makes its rows Inconclusive, never silently Verified.
+    let (outcomes, elapsed_ms) = replay_all(&catalog, |outcome| {
+        progress.record(outcome.status);
+        state.set(RunState::Probing {
+            engine_bytes,
+            progress: progress.clone(),
+        });
+    })
+    .await;
 
-  state.set(RunState::Compiling { engine_bytes, progress: progress.clone() });
-  // Without a real await between this `set` and the next, Yew coalesces
-  // the two updates into a single render and "Compiling coverage report"
-  // is never painted at all. This stage is not decoration: it derives 52
-  // row verdicts over 115 probe outcomes and tallies both axes.
-  yield_for_paint().await;
-  state.set(RunState::Done(Box::new(compile_coverage_report(&catalog, outcomes, elapsed_ms, engine_bytes))));
+    state.set(RunState::Compiling {
+        engine_bytes,
+        progress: progress.clone(),
+    });
+    // Without a real await between this `set` and the next, Yew coalesces
+    // the two updates into a single render and "Compiling coverage report"
+    // is never painted at all. This stage is not decoration: it derives 52
+    // row verdicts over 115 probe outcomes and tallies both axes.
+    yield_for_paint().await;
+    state.set(RunState::Done(Box::new(compile_coverage_report(
+        &catalog,
+        outcomes,
+        elapsed_ms,
+        engine_bytes,
+    ))));
 }

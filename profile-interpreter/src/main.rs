@@ -53,13 +53,15 @@ fn parse_behaviour(s: &str) -> Result<Behaviour, String> {
 
 fn load(path: &PathBuf, format: Option<&str>) -> Result<Graph, String> {
     match format {
-        Some("ttl") | Some("turtle") => {
-            Graph::from_turtle(&std::fs::read(path).map_err(|e| format!("{}: {e}", path.display()))?)
-        }
-        Some("jsonld") | Some("json") => {
-            Graph::from_json_ld(&std::fs::read(path).map_err(|e| format!("{}: {e}", path.display()))?)
-        }
-        Some(other) => Err(format!("--format must be \"ttl\" or \"jsonld\", got {other:?}")),
+        Some("ttl") | Some("turtle") => Graph::from_turtle(
+            &std::fs::read(path).map_err(|e| format!("{}: {e}", path.display()))?,
+        ),
+        Some("jsonld") | Some("json") => Graph::from_json_ld(
+            &std::fs::read(path).map_err(|e| format!("{}: {e}", path.display()))?,
+        ),
+        Some(other) => Err(format!(
+            "--format must be \"ttl\" or \"jsonld\", got {other:?}"
+        )),
         None => parse_by_extension(path),
     }
 }
@@ -109,14 +111,20 @@ fn run() -> Result<(), String> {
     match command.as_str() {
         "interpret" => {
             if files.len() != 1 {
-                return Err("interpret takes exactly one file — did you mean `resolve` for multiple?".to_string());
+                return Err(
+                    "interpret takes exactly one file — did you mean `resolve` for multiple?"
+                        .to_string(),
+                );
             }
             let g = load(&files[0], format.as_deref())?;
             let interpreted = interpret(&g, id, duty_mode, behaviour);
             for warning in &interpreted.warnings {
                 eprintln!("warning: {warning}");
             }
-            println!("{}", serde_json::to_string_pretty(&interpreted.profile).map_err(|e| e.to_string())?);
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&interpreted.profile).map_err(|e| e.to_string())?
+            );
             Ok(())
         }
         "resolve" => {
@@ -175,10 +183,15 @@ fn run() -> Result<(), String> {
                 // `agreementAssigneeClaim` to the config this prints.
                 agreement_assignee_claim: resolved.agreement_assignee_claim.clone(),
             };
-            println!("{}", serde_json::to_string_pretty(&config).map_err(|e| e.to_string())?);
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&config).map_err(|e| e.to_string())?
+            );
             Ok(())
         }
-        other => Err(format!("unknown command {other:?} — expected \"interpret\" or \"resolve\"")),
+        other => Err(format!(
+            "unknown command {other:?} — expected \"interpret\" or \"resolve\""
+        )),
     }
 }
 

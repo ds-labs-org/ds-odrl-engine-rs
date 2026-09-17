@@ -8,9 +8,23 @@ use engine::WireDecision;
 use serde::Serialize;
 
 pub enum CaseResult {
-    Passed { slug: String, title: String, decision: WireDecision },
-    Failed { slug: String, title: String, expected: WireDecision, actual: WireDecision, reason: String },
-    Skipped { slug: String, title: String, reason: String },
+    Passed {
+        slug: String,
+        title: String,
+        decision: WireDecision,
+    },
+    Failed {
+        slug: String,
+        title: String,
+        expected: WireDecision,
+        actual: WireDecision,
+        reason: String,
+    },
+    Skipped {
+        slug: String,
+        title: String,
+        reason: String,
+    },
 }
 
 fn decision_str(d: WireDecision) -> &'static str {
@@ -44,9 +58,18 @@ struct JsonReport {
 }
 
 pub fn render(results: &[CaseResult]) -> (String, String) {
-    let passed = results.iter().filter(|r| matches!(r, CaseResult::Passed { .. })).count();
-    let failed = results.iter().filter(|r| matches!(r, CaseResult::Failed { .. })).count();
-    let skipped = results.iter().filter(|r| matches!(r, CaseResult::Skipped { .. })).count();
+    let passed = results
+        .iter()
+        .filter(|r| matches!(r, CaseResult::Passed { .. }))
+        .count();
+    let failed = results
+        .iter()
+        .filter(|r| matches!(r, CaseResult::Failed { .. }))
+        .count();
+    let skipped = results
+        .iter()
+        .filter(|r| matches!(r, CaseResult::Skipped { .. }))
+        .count();
     let total = results.len();
 
     let mut md = String::new();
@@ -96,7 +119,14 @@ pub fn render(results: &[CaseResult]) -> (String, String) {
         let _ = writeln!(md, "| case | title | expected | actual | reason |");
         let _ = writeln!(md, "|---|---|---|---|---|");
         for r in results {
-            if let CaseResult::Failed { slug, title, expected, actual, reason } = r {
+            if let CaseResult::Failed {
+                slug,
+                title,
+                expected,
+                actual,
+                reason,
+            } = r
+            {
                 let _ = writeln!(
                     md,
                     "| {slug} | {title} | {} | {} | {} |",
@@ -117,7 +147,12 @@ pub fn render(results: &[CaseResult]) -> (String, String) {
         let _ = writeln!(md, "| case | title | Section 7 citation |");
         let _ = writeln!(md, "|---|---|---|");
         for r in results {
-            if let CaseResult::Skipped { slug, title, reason } = r {
+            if let CaseResult::Skipped {
+                slug,
+                title,
+                reason,
+            } = r
+            {
                 let _ = writeln!(md, "| {slug} | {title} | {} |", reason.replace('|', "\\|"));
             }
         }
@@ -129,7 +164,12 @@ pub fn render(results: &[CaseResult]) -> (String, String) {
     let _ = writeln!(md, "| case | title | decision |");
     let _ = writeln!(md, "|---|---|---|");
     for r in results {
-        if let CaseResult::Passed { slug, title, decision } = r {
+        if let CaseResult::Passed {
+            slug,
+            title,
+            decision,
+        } = r
+        {
             let _ = writeln!(md, "| {slug} | {title} | {} |", decision_str(*decision));
         }
     }
@@ -137,7 +177,11 @@ pub fn render(results: &[CaseResult]) -> (String, String) {
     let cases = results
         .iter()
         .map(|r| match r {
-            CaseResult::Passed { slug, title, decision } => JsonCase {
+            CaseResult::Passed {
+                slug,
+                title,
+                decision,
+            } => JsonCase {
                 slug: slug.clone(),
                 title: title.clone(),
                 status: "passed",
@@ -146,7 +190,13 @@ pub fn render(results: &[CaseResult]) -> (String, String) {
                 actual: None,
                 reason: None,
             },
-            CaseResult::Failed { slug, title, expected, actual, reason } => JsonCase {
+            CaseResult::Failed {
+                slug,
+                title,
+                expected,
+                actual,
+                reason,
+            } => JsonCase {
                 slug: slug.clone(),
                 title: title.clone(),
                 status: "failed",
@@ -155,7 +205,11 @@ pub fn render(results: &[CaseResult]) -> (String, String) {
                 actual: Some(decision_str(*actual)),
                 reason: Some(reason.clone()),
             },
-            CaseResult::Skipped { slug, title, reason } => JsonCase {
+            CaseResult::Skipped {
+                slug,
+                title,
+                reason,
+            } => JsonCase {
                 slug: slug.clone(),
                 title: title.clone(),
                 status: "skipped",

@@ -17,7 +17,9 @@ mod jsonld;
 mod ingest;
 
 #[cfg(feature = "dsp-ingest")]
-pub use ingest::{ingest_policy, ingest_policy_value, minimal_config, request_for, IngestError, Ingested};
+pub use ingest::{
+    ingest_policy, ingest_policy_value, minimal_config, request_for, IngestError, Ingested,
+};
 
 #[cfg(feature = "dsp-ingest")]
 pub use jsonld::{bundled_context_urls, ODRL_NS};

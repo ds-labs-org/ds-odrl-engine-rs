@@ -75,11 +75,19 @@ const NEGATIVE: &str = "negative";
 // ---------------------------------------------------------------------
 
 pub fn action(id: &str) -> WireActionDecl {
-    WireActionDecl { id: id.to_string(), included_in: None }
+    WireActionDecl {
+        id: id.to_string(),
+        included_in: None,
+    }
 }
 
 pub fn action_in(id: &str, parent: &str) -> WireActionDecl {
-    WireActionDecl { id: id.to_string(), included_in: Some(WireNodeRef { id: parent.to_string() }) }
+    WireActionDecl {
+        id: id.to_string(),
+        included_in: Some(WireNodeRef {
+            id: parent.to_string(),
+        }),
+    }
 }
 
 /// The shared `config`: `dutyMode: advise`, and `behaviour: closed` so a
@@ -177,7 +185,10 @@ fn m(values: &[&str]) -> ClaimValue {
 }
 
 fn claims(pairs: &[(&str, ClaimValue)]) -> Claims {
-    pairs.iter().map(|(k, v)| (k.to_string(), v.clone())).collect()
+    pairs
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.clone()))
+        .collect()
 }
 
 fn no_claims() -> Claims {
@@ -207,7 +218,10 @@ fn deny(reason: &str) -> Expect {
 }
 
 fn error(reasons: &[&str]) -> Expect {
-    expectation("Error", &reasons.iter().map(|r| r.to_string()).collect::<Vec<_>>())
+    expectation(
+        "Error",
+        &reasons.iter().map(|r| r.to_string()).collect::<Vec<_>>(),
+    )
 }
 
 impl Expect {
@@ -228,7 +242,12 @@ impl Expect {
 }
 
 fn duty(action: &str) -> DutyExpect {
-    DutyExpect { policy_id: "probe".to_string(), action: action.to_string(), resolved: false, source: None }
+    DutyExpect {
+        policy_id: "probe".to_string(),
+        action: action.to_string(),
+        resolved: false,
+        source: None,
+    }
 }
 
 /// A duty entry carrying provenance — a per-permission `odrl:duty`, a
@@ -261,7 +280,9 @@ fn closed_deny(requested_action: &str) -> String {
 /// the only way a probe can tell "the constraint was satisfied" apart from
 /// "the constraint was never looked at".
 fn allow_constrained(rendered_constraint: &str) -> Expect {
-    allow(&format!("permission[0] of policy 'probe' matched: action 'use': {rendered_constraint}"))
+    allow(&format!(
+        "permission[0] of policy 'probe' matched: action 'use': {rendered_constraint}"
+    ))
 }
 
 // ---------------------------------------------------------------------
@@ -290,7 +311,11 @@ fn allow_constrained(rendered_constraint: &str) -> Expect {
 /// as the ideal one, keeps "carries an ideal" readable as "falls short"
 /// with no comparison to perform.
 fn ideal(decision: &'static str, reason: &str, spec_citation: &str) -> Ideal {
-    Ideal { decision, reason: reason.to_string(), spec_citation: spec_citation.to_string() }
+    Ideal {
+        decision,
+        reason: reason.to_string(),
+        spec_citation: spec_citation.to_string(),
+    }
 }
 
 impl Probe {
@@ -322,7 +347,8 @@ struct Spec {
 /// patch silently missed would still reach its expected decision while
 /// having injected nothing at all.
 fn build(spec: Spec) -> Probe {
-    let mut request = serde_json::to_value(&spec.request).expect("engine::Request always serializes");
+    let mut request =
+        serde_json::to_value(&spec.request).expect("engine::Request always serializes");
     if let Err(err) = apply_patches(&mut request, &spec.patches) {
         panic!("probe `{}`: {err}", spec.id);
     }
@@ -355,9 +381,11 @@ fn action_probes() -> Vec<Probe> {
         id: "act-base-exact",
         kind: POSITIVE,
         title: "a permission naming exactly the requested action matches",
-        asserts: "The baseline every other probe in this catalog is read against: one Set policy, one \
+        asserts:
+            "The baseline every other probe in this catalog is read against: one Set policy, one \
                   unconstrained permission for the requested action, closed-world behaviour.",
-        falsified_by: "anything but Allow -- which would mean the baseline itself is broken and no other \
+        falsified_by:
+            "anything but Allow -- which would mean the baseline itself is broken and no other \
                        probe's reading can be trusted",
         request: base_request(),
         patches: vec![],
@@ -483,7 +511,8 @@ fn action_probes() -> Vec<Probe> {
             kind: POSITIVE,
             title,
             asserts,
-            falsified_by: "Deny -- which would mean the engine cannot resolve the spec's own taxonomy",
+            falsified_by:
+                "Deny -- which would mean the engine cannot resolve the spec's own taxonomy",
             request: Request {
                 action: requested.to_string(),
                 config: taxonomy_config(),
@@ -597,10 +626,14 @@ fn left_operand_probes() -> Vec<Probe> {
         id: "lo-extension-miss",
         kind: NEGATIVE,
         title: "the same extension operand misses when the claim does not match",
-        asserts: "The pair's other half: without it, an engine that ignored constraints entirely would \
+        asserts:
+            "The pair's other half: without it, an engine that ignored constraints entirely would \
                   pass lo-extension-hit.",
         falsified_by: "Allow",
-        request: one(c(tier, Operator::Eq, "gold"), claims(&[(tier, s("silver"))])),
+        request: one(
+            c(tier, Operator::Eq, "gold"),
+            claims(&[(tier, s("silver"))]),
+        ),
         patches: vec![],
         expect: deny(&closed_deny("use")),
     }));
@@ -678,7 +711,10 @@ fn left_operand_probes() -> Vec<Probe> {
         title: "count compares numerically against a host-supplied claim",
         asserts: "`count lteq 10` is expressible and evaluated as a number, not a string.",
         falsified_by: "Deny",
-        request: one(c("count", Operator::Lteq, "10"), claims(&[("count", s("7"))])),
+        request: one(
+            c("count", Operator::Lteq, "10"),
+            claims(&[("count", s("7"))]),
+        ),
         patches: vec![],
         expect: allow_constrained("count lteq 10"),
     }));
@@ -687,10 +723,14 @@ fn left_operand_probes() -> Vec<Probe> {
         id: "lo-count-miss",
         kind: NEGATIVE,
         title: "count misses above the bound",
-        asserts: "11 is not lteq 10 -- and \"11\" < \"10\" lexically, so an Allow here would also be \
+        asserts:
+            "11 is not lteq 10 -- and \"11\" < \"10\" lexically, so an Allow here would also be \
                   evidence of string comparison rather than numeric.",
         falsified_by: "Allow",
-        request: one(c("count", Operator::Lteq, "10"), claims(&[("count", s("11"))])),
+        request: one(
+            c("count", Operator::Lteq, "10"),
+            claims(&[("count", s("11"))]),
+        ),
         patches: vec![],
         expect: deny(&closed_deny("use")),
     }));
@@ -699,7 +739,8 @@ fn left_operand_probes() -> Vec<Probe> {
         id: "lo-count-absent-not-stateful",
         kind: NEGATIVE,
         title: "with no count claim the engine counts nothing itself",
-        asserts: "ODRL's count is a *stateful execution count*. A stateless engine keeps no history; \
+        asserts:
+            "ODRL's count is a *stateful execution count*. A stateless engine keeps no history; \
                   count only ever means what a host put in the claims map.",
         falsified_by: "Allow -- which would mean the engine invented an execution count",
         request: one(c("count", Operator::Lteq, "10"), no_claims()),
@@ -711,10 +752,14 @@ fn left_operand_probes() -> Vec<Probe> {
         id: "lo-count-nonnumeric-miss",
         kind: NEGATIVE,
         title: "a non-numeric count claim is a silent miss, not an error",
-        asserts: "\"seven\" parses as neither a temporal value nor a number, so the ordering operators \
+        asserts:
+            "\"seven\" parses as neither a temporal value nor a number, so the ordering operators \
                   miss -- the same posture an absent key already has, not a Decision::Error.",
         falsified_by: "Allow, or Error",
-        request: one(c("count", Operator::Lteq, "10"), claims(&[("count", s("seven"))])),
+        request: one(
+            c("count", Operator::Lteq, "10"),
+            claims(&[("count", s("seven"))]),
+        ),
         patches: vec![],
         expect: deny(&closed_deny("use")),
     }));
@@ -723,10 +768,15 @@ fn left_operand_probes() -> Vec<Probe> {
         id: "lo-count-infinity-rejected",
         kind: NEGATIVE,
         title: "a claim of literally \"inf\" does not vacuously satisfy gt",
-        asserts: "Rust's str::parse::<f64> accepts \"inf\"; without the engine's own is_finite() guard \
+        asserts:
+            "Rust's str::parse::<f64> accepts \"inf\"; without the engine's own is_finite() guard \
                   this claim would make `gt`/`gteq` match every finite bound, silently.",
-        falsified_by: "Allow -- which is exactly the fail-open the is_finite() guard exists to stop",
-        request: one(c("count", Operator::Gt, "0"), claims(&[("count", s("inf"))])),
+        falsified_by:
+            "Allow -- which is exactly the fail-open the is_finite() guard exists to stop",
+        request: one(
+            c("count", Operator::Gt, "0"),
+            claims(&[("count", s("inf"))]),
+        ),
         patches: vec![],
         expect: deny(&closed_deny("use")),
     }));
@@ -762,7 +812,8 @@ fn left_operand_probes() -> Vec<Probe> {
         id: "lo-spatial-no-containment",
         kind: NEGATIVE,
         title: "spatial has no region containment: Berlin does not match Germany",
-        asserts: "geonames 2950159 (Berlin) is genuinely inside 2921044 (Germany). The engine compares \
+        asserts:
+            "geonames 2950159 (Berlin) is genuinely inside 2921044 (Germany). The engine compares \
                   opaque strings, so a claim one level down the hierarchy never matches.",
         falsified_by: "Allow -- which would mean a region hierarchy exists somewhere in the engine",
         request: one(
@@ -777,11 +828,16 @@ fn left_operand_probes() -> Vec<Probe> {
         id: "lo-purpose-opaque-hit",
         kind: POSITIVE,
         title: "purpose works losslessly as an opaque IRI-valued claim",
-        asserts: "The left operands whose spec semantics are plain identity (purpose, industry, media, \
+        asserts:
+            "The left operands whose spec semantics are plain identity (purpose, industry, media, \
                   product, fileFormat, ...) lose nothing under opaque-string matching.",
         falsified_by: "Deny",
         request: one(
-            c("purpose", Operator::Eq, "http://example.com/Purpose:research"),
+            c(
+                "purpose",
+                Operator::Eq,
+                "http://example.com/Purpose:research",
+            ),
             claims(&[("purpose", s("http://example.com/Purpose:research"))]),
         ),
         patches: vec![],
@@ -795,7 +851,10 @@ fn left_operand_probes() -> Vec<Probe> {
         asserts: "Per BCP-47 basic filtering, the range `en` matches the tag `en-GB`. This engine \
                   compares strings, so it does not.",
         falsified_by: "Allow -- which would mean language-range handling exists",
-        request: one(c("language", Operator::Eq, "en"), claims(&[("language", s("en-GB"))])),
+        request: one(
+            c("language", Operator::Eq, "en"),
+            claims(&[("language", s("en-GB"))]),
+        ),
         patches: vec![],
         expect: deny(&closed_deny("use")),
     }));
@@ -861,7 +920,8 @@ fn left_operand_probes() -> Vec<Probe> {
         id: "lo-coordinates-no-geometry",
         kind: NEGATIVE,
         title: "coordinates about ten metres apart do not match",
-        asserts: "48.8567,2.3523 is roughly 10 m from 48.8566,2.3522 -- the same place by any geometric \
+        asserts:
+            "48.8567,2.3523 is roughly 10 m from 48.8566,2.3522 -- the same place by any geometric \
                   reading. There is no geometry math anywhere in the engine.",
         falsified_by: "Allow -- which would require a distance or containment computation",
         request: one(
@@ -876,7 +936,8 @@ fn left_operand_probes() -> Vec<Probe> {
         id: "lo-absoluteposition-no-ordering",
         kind: NEGATIVE,
         title: "absolutePosition has no ordering: lt over coordinate pairs misses",
-        asserts: "\"48.8566,2.3522\" parses as neither a temporal value nor a number, so an ordering \
+        asserts:
+            "\"48.8566,2.3522\" parses as neither a temporal value nor a number, so an ordering \
                   operator over positions is a silent miss.",
         falsified_by: "Allow",
         request: one(
@@ -915,10 +976,14 @@ fn left_operand_probes() -> Vec<Probe> {
         id: "lo-unitofcount-as-plain-key",
         kind: POSITIVE,
         title: "unitOfCount is only ever an ordinary opaque claims key",
-        asserts: "The one thing it can do: be constrained directly, like any other free-form key. It is \
+        asserts:
+            "The one thing it can do: be constrained directly, like any other free-form key. It is \
                   never a qualifier on another constraint.",
         falsified_by: "Deny",
-        request: one(c("unitOfCount", Operator::Eq, "page"), claims(&[("unitOfCount", s("page"))])),
+        request: one(
+            c("unitOfCount", Operator::Eq, "page"),
+            claims(&[("unitOfCount", s("page"))]),
+        ),
         patches: vec![],
         expect: allow_constrained("unitOfCount eq page"),
     }));
@@ -988,7 +1053,10 @@ fn operator_probes() -> Vec<Probe> {
         title: "eq over a single-valued claim is plain equality",
         asserts: "The uncontroversial half of eq.",
         falsified_by: "Deny",
-        request: one(c("nationality", Operator::Eq, "DE"), claims(&[("nationality", s("DE"))])),
+        request: one(
+            c("nationality", Operator::Eq, "DE"),
+            claims(&[("nationality", s("DE"))]),
+        ),
         patches: vec![],
         expect: allow_constrained("nationality eq DE"),
     }));
@@ -1056,7 +1124,10 @@ fn operator_probes() -> Vec<Probe> {
         title: "neq is satisfied by a present, differing claim",
         asserts: "The ordinary case.",
         falsified_by: "Deny",
-        request: one(c("nationality", Operator::Neq, "DE"), claims(&[("nationality", s("US"))])),
+        request: one(
+            c("nationality", Operator::Neq, "DE"),
+            claims(&[("nationality", s("US"))]),
+        ),
         patches: vec![],
         expect: allow_constrained("nationality neq DE"),
     }));
@@ -1081,7 +1152,10 @@ fn operator_probes() -> Vec<Probe> {
         title: "isAnyOf matches a member of its comma-delimited right operand",
         asserts: "The set operator's ordinary case.",
         falsified_by: "Deny",
-        request: one(c("scope", Operator::IsAnyOf, "read,write,delete"), claims(&[("scope", s("write"))])),
+        request: one(
+            c("scope", Operator::IsAnyOf, "read,write,delete"),
+            claims(&[("scope", s("write"))]),
+        ),
         patches: vec![],
         expect: allow_constrained("scope isAnyOf read,write,delete"),
     }));
@@ -1092,7 +1166,10 @@ fn operator_probes() -> Vec<Probe> {
         title: "isAnyOf misses a value outside the list",
         asserts: "The pair's other half.",
         falsified_by: "Allow",
-        request: one(c("scope", Operator::IsAnyOf, "read,write,delete"), claims(&[("scope", s("admin"))])),
+        request: one(
+            c("scope", Operator::IsAnyOf, "read,write,delete"),
+            claims(&[("scope", s("admin"))]),
+        ),
         patches: vec![],
         expect: deny(&closed_deny("use")),
     }));
@@ -1118,10 +1195,14 @@ fn operator_probes() -> Vec<Probe> {
         id: "op-isanyof-comma-control",
         kind: POSITIVE,
         title: "the same constraint matches a claim with no comma in it",
-        asserts: "Isolates op-isanyof-comma-unescapable's failure to the comma: identical constraint, \
+        asserts:
+            "Isolates op-isanyof-comma-unescapable's failure to the comma: identical constraint, \
                   comma-free claim, Allow.",
         falsified_by: "Deny",
-        request: one(c("purpose", Operator::IsAnyOf, "research,teaching"), claims(&[("purpose", s("research"))])),
+        request: one(
+            c("purpose", Operator::IsAnyOf, "research,teaching"),
+            claims(&[("purpose", s("research"))]),
+        ),
         patches: vec![],
         expect: allow_constrained("purpose isAnyOf research,teaching"),
     }));
@@ -1146,7 +1227,10 @@ fn operator_probes() -> Vec<Probe> {
         title: "isAllOf misses when one required element is absent",
         asserts: "The claim [read] does not cover [read, write].",
         falsified_by: "Allow -- which would collapse isAllOf into isAnyOf",
-        request: one(c("scope", Operator::IsAllOf, "read,write"), claims(&[("scope", m(&["read"]))])),
+        request: one(
+            c("scope", Operator::IsAllOf, "read,write"),
+            claims(&[("scope", m(&["read"]))]),
+        ),
         patches: vec![],
         expect: deny(&closed_deny("use")),
     }));
@@ -1157,7 +1241,10 @@ fn operator_probes() -> Vec<Probe> {
         title: "isNoneOf is satisfied by a value outside the excluded set",
         asserts: "The exclusion holds for FR against [US, CN].",
         falsified_by: "Deny",
-        request: one(c("nationality", Operator::IsNoneOf, "US,CN"), claims(&[("nationality", s("FR"))])),
+        request: one(
+            c("nationality", Operator::IsNoneOf, "US,CN"),
+            claims(&[("nationality", s("FR"))]),
+        ),
         patches: vec![],
         expect: allow_constrained("nationality isNoneOf US,CN"),
     }));
@@ -1168,7 +1255,10 @@ fn operator_probes() -> Vec<Probe> {
         title: "isNoneOf misses on an excluded value",
         asserts: "The pair's other half.",
         falsified_by: "Allow -- which would make the exclusion inert",
-        request: one(c("nationality", Operator::IsNoneOf, "US,CN"), claims(&[("nationality", s("US"))])),
+        request: one(
+            c("nationality", Operator::IsNoneOf, "US,CN"),
+            claims(&[("nationality", s("US"))]),
+        ),
         patches: vec![],
         expect: deny(&closed_deny("use")),
     }));
@@ -1191,9 +1281,13 @@ fn operator_probes() -> Vec<Probe> {
         id: "op-ispartof-hit",
         kind: POSITIVE,
         title: "isPartOf matches flat, enumerated membership",
-        asserts: "What this engine's isPartOf actually does: enumerated membership in a comma list.",
+        asserts:
+            "What this engine's isPartOf actually does: enumerated membership in a comma list.",
         falsified_by: "Deny",
-        request: one(c("spatial", Operator::IsPartOf, "DE,FR,IT"), claims(&[("spatial", s("DE"))])),
+        request: one(
+            c("spatial", Operator::IsPartOf, "DE,FR,IT"),
+            claims(&[("spatial", s("DE"))]),
+        ),
         patches: vec![],
         expect: allow_constrained("spatial isPartOf DE,FR,IT"),
     }));
@@ -1249,10 +1343,14 @@ fn operator_probes() -> Vec<Probe> {
         id: "op-ispartof-mirrors-isanyof",
         kind: NEGATIVE,
         title: "isPartOf is observationally a degenerate alias for isAnyOf",
-        asserts: "This request differs from op-isanyof-hit by the operator token alone, and reaches the \
+        asserts:
+            "This request differs from op-isanyof-hit by the operator token alone, and reaches the \
                   same decision -- the two operators run the identical test.",
         falsified_by: "Deny -- which would mean isPartOf is doing something isAnyOf does not",
-        request: one(c("scope", Operator::IsPartOf, "read,write,delete"), claims(&[("scope", s("write"))])),
+        request: one(
+            c("scope", Operator::IsPartOf, "read,write,delete"),
+            claims(&[("scope", s("write"))]),
+        ),
         patches: vec![],
         expect: allow_constrained("scope isPartOf read,write,delete"),
     }));
@@ -1292,7 +1390,8 @@ fn operator_probes() -> Vec<Probe> {
         id: "op-lt-offset-datetime",
         kind: POSITIVE,
         title: "a numeric UTC offset is normalized before comparison",
-        asserts: "13:20+02:00 is 11:20Z, which is before 12:00Z. A UTC-only reader comparing the hour \
+        asserts:
+            "13:20+02:00 is 11:20Z, which is before 12:00Z. A UTC-only reader comparing the hour \
                   field would miss this.",
         falsified_by: "Deny",
         request: one(
@@ -1309,7 +1408,10 @@ fn operator_probes() -> Vec<Probe> {
         title: "gteq includes its boundary",
         asserts: "10 gteq 10 holds.",
         falsified_by: "Deny",
-        request: one(c("count", Operator::Gteq, "10"), claims(&[("count", s("10"))])),
+        request: one(
+            c("count", Operator::Gteq, "10"),
+            claims(&[("count", s("10"))]),
+        ),
         patches: vec![],
         expect: allow_constrained("count gteq 10"),
     }));
@@ -1320,7 +1422,10 @@ fn operator_probes() -> Vec<Probe> {
         title: "gt excludes its boundary",
         asserts: "The strict/non-strict pair over the identical claim: 10 is not gt 10.",
         falsified_by: "Allow -- which would make gt and gteq indistinguishable",
-        request: one(c("count", Operator::Gt, "10"), claims(&[("count", s("10"))])),
+        request: one(
+            c("count", Operator::Gt, "10"),
+            claims(&[("count", s("10"))]),
+        ),
         patches: vec![],
         expect: deny(&closed_deny("use")),
     }));
@@ -1339,8 +1444,12 @@ fn operator_probes() -> Vec<Probe> {
 
     // The three operator-token probes below are literally one policy
     // structure varying only the `operator` string.
-    let operator_token_request =
-        || one(c("purpose", Operator::Eq, "odrl:Purpose"), claims(&[("purpose", s("odrl:Purpose"))]));
+    let operator_token_request = || {
+        one(
+            c("purpose", Operator::Eq, "odrl:Purpose"),
+            claims(&[("purpose", s("odrl:Purpose"))]),
+        )
+    };
 
     // Both of these fall short in the same way, and it is not the subtle
     // half: isA and hasPart are two of the twelve CORE Operator instances
@@ -1457,8 +1566,18 @@ fn logical_probes() -> Vec<Probe> {
 
     let de_read = || claims(&[("nationality", s("DE")), ("scope", s("read"))]);
     let de_admin = || claims(&[("nationality", s("DE")), ("scope", s("admin"))]);
-    let and_children = || vec![c("nationality", Operator::Eq, "DE"), c("scope", Operator::Eq, "read")];
-    let xone_children = || vec![c("nationality", Operator::Eq, "DE"), c("scope", Operator::Eq, "admin")];
+    let and_children = || {
+        vec![
+            c("nationality", Operator::Eq, "DE"),
+            c("scope", Operator::Eq, "read"),
+        ]
+    };
+    let xone_children = || {
+        vec![
+            c("nationality", Operator::Eq, "DE"),
+            c("scope", Operator::Eq, "admin"),
+        ]
+    };
 
     probes.push(build(Spec {
         id: "lc-and-both",
@@ -1517,7 +1636,10 @@ fn logical_probes() -> Vec<Probe> {
         asserts: "The pair's other half.",
         falsified_by: "Allow",
         request: one(
-            Constraint::or(vec![c("nationality", Operator::Eq, "FR"), c("nationality", Operator::Eq, "DE")]),
+            Constraint::or(vec![
+                c("nationality", Operator::Eq, "FR"),
+                c("nationality", Operator::Eq, "DE"),
+            ]),
             claims(&[("nationality", s("US"))]),
         ),
         patches: vec![],
@@ -1542,7 +1664,10 @@ fn logical_probes() -> Vec<Probe> {
         title: "odrl:xone is satisfied by exactly one matching child",
         asserts: "The capability a disjunctive-normal-form expansion cannot express at all.",
         falsified_by: "Deny",
-        request: one(Constraint::xone(xone_children()), claims(&[("nationality", s("DE")), ("scope", s("user"))])),
+        request: one(
+            Constraint::xone(xone_children()),
+            claims(&[("nationality", s("DE")), ("scope", s("user"))]),
+        ),
         patches: vec![],
         expect: allow_constrained("xone(nationality eq DE, scope eq admin)"),
     }));
@@ -1553,7 +1678,10 @@ fn logical_probes() -> Vec<Probe> {
         title: "odrl:xone misses when no child matches",
         asserts: "The lower boundary, shared with odrl:or.",
         falsified_by: "Allow",
-        request: one(Constraint::xone(xone_children()), claims(&[("nationality", s("US")), ("scope", s("user"))])),
+        request: one(
+            Constraint::xone(xone_children()),
+            claims(&[("nationality", s("US")), ("scope", s("user"))]),
+        ),
         patches: vec![],
         expect: deny(&closed_deny("use")),
     }));
@@ -1574,7 +1702,8 @@ fn logical_probes() -> Vec<Probe> {
         id: "lc-or-two-allows-control",
         kind: POSITIVE,
         title: "the same two matching children under odrl:or do Allow",
-        asserts: "The control that makes lc-xone-two-denies mean something: same children, same claims, \
+        asserts:
+            "The control that makes lc-xone-two-denies mean something: same children, same claims, \
                   one key name apart, opposite decisions.",
         falsified_by: "Deny",
         request: one(Constraint::or(xone_children()), de_admin()),
@@ -1640,12 +1769,17 @@ fn logical_probes() -> Vec<Probe> {
         id: "lc-and-control-honored",
         kind: POSITIVE,
         title: "the byte-identical request with the key renamed odrl:and is honoured identically",
-        asserts: "Same request as lc-andsequence-honored, one key name apart (`odrl:and` instead of \
+        asserts:
+            "Same request as lc-andsequence-honored, one key name apart (`odrl:and` instead of \
                   `odrl:andSequence`). The two now match exactly -- see \
                   and_sequence_evaluates_identically_to_the_and_control below.",
         falsified_by: "A different decision or reason from lc-andsequence-honored's",
         request: one(c("nationality", Operator::Eq, "US"), de_read()),
-        patches: vec![Patch::set("/policies/0/permissions/0/constraints/0", "odrl:and", andsequence_children)],
+        patches: vec![Patch::set(
+            "/policies/0/permissions/0/constraints/0",
+            "odrl:and",
+            andsequence_children,
+        )],
         expect: allow_constrained("(nationality eq DE && scope eq read)"),
     }));
 
@@ -1700,7 +1834,8 @@ fn policy_class_probes() -> Vec<Probe> {
         id: "pc-kind-set",
         kind: NEGATIVE,
         title: "kind: Set grants to a caller who is not the named assignee",
-        asserts: "The reference point for the whole category: whatever `kind` says, evaluation is the \
+        asserts:
+            "The reference point for the whole category: whatever `kind` says, evaluation is the \
                   same. This is the one class for which that is also the correct answer.",
         falsified_by: "Deny",
         request: named_to_alice("Set"),
@@ -1842,7 +1977,8 @@ fn policy_class_probes() -> Vec<Probe> {
         id: "pc-kind-ticket-with-assignee",
         kind: NEGATIVE,
         title: "kind: Ticket carrying an assignee is accepted, though the spec forbids one",
-        asserts: "The MUST NOT direction of the same absence: a structurally invalid Ticket evaluates \
+        asserts:
+            "The MUST NOT direction of the same absence: a structurally invalid Ticket evaluates \
                   normally rather than being rejected.",
         falsified_by: "Deny or Error",
         request: named_to_alice("Ticket"),
@@ -2058,10 +2194,14 @@ fn party_probes() -> Vec<Probe> {
         id: "pf-assignerof-inert",
         kind: NEGATIVE,
         title: "assignerOf and assigneeOf are dropped",
-        asserts: "ODRL's two inverse party properties, injected on the policy, reaching the identical \
+        asserts:
+            "ODRL's two inverse party properties, injected on the policy, reaching the identical \
                   decision and reason as pf-assignee-null-control's request without them.",
         falsified_by: "any decision or reason differing from pf-assignee-null-control's",
-        request: Request { claims: stranger(), ..base_request() },
+        request: Request {
+            claims: stranger(),
+            ..base_request()
+        },
         patches: vec![
             Patch::set("/policies/0", "assignerOf", json!("urn:asset:1")),
             Patch::set("/policies/0", "assigneeOf", json!("urn:asset:2")),
@@ -2110,14 +2250,15 @@ fn duty_probes() -> Vec<Probe> {
     // checks rather than left as a guess.
     let mut probes = Vec::with_capacity(7);
 
-    let obligation_request = |duty_mode: DutyMode, obligations: Vec<Rule>, request_claims: Claims| {
-        let mut request = base_request();
-        request.config = flat_config(&["use", "notify"]);
-        request.config.duty_mode = duty_mode;
-        request.policies[0].obligations = obligations;
-        request.claims = request_claims;
-        request
-    };
+    let obligation_request =
+        |duty_mode: DutyMode, obligations: Vec<Rule>, request_claims: Claims| {
+            let mut request = base_request();
+            request.config = flat_config(&["use", "notify"]);
+            request.config.duty_mode = duty_mode;
+            request.policies[0].obligations = obligations;
+            request.claims = request_claims;
+            request
+        };
 
     probes.push(build(Spec {
         id: "duty-obligation-unresolved-advise",
@@ -2152,12 +2293,14 @@ fn duty_probes() -> Vec<Probe> {
         id: "duty-obligation-deny-mode",
         kind: POSITIVE,
         title: "under dutyMode: deny an unresolved obligation overrides the Allow",
-        asserts: "The same request as duty-obligation-unresolved-advise with one knob moved. duties is \
+        asserts:
+            "The same request as duty-obligation-unresolved-advise with one knob moved. duties is \
                   emptied because the information is already carried by the decision itself.",
         falsified_by: "Allow -- which would make dutyMode inert",
         request: obligation_request(DutyMode::Deny, vec![rule("notify", vec![])], no_claims()),
         patches: vec![],
-        expect: deny("duty[0] 'notify' of policy 'probe' is unresolved under duty_mode: deny").with_duties(vec![]),
+        expect: deny("duty[0] 'notify' of policy 'probe' is unresolved under duty_mode: deny")
+            .with_duties(vec![]),
     }));
 
     // A duty asserted through the claims map, which is how every duty in
@@ -2166,7 +2309,10 @@ fn duty_probes() -> Vec<Probe> {
     // claim, exactly as `compliance-runner` derives it from a
     // `report:DutyReport` fact before building its request.
     fn asserted_duty(action: &str) -> Rule {
-        rule(action, vec![c(&format!("duty:{action}"), Operator::Eq, "fulfilled")])
+        rule(
+            action,
+            vec![c(&format!("duty:{action}"), Operator::Eq, "fulfilled")],
+        )
     }
 
     fn fulfilled(action: &str) -> Claims {
@@ -2179,7 +2325,10 @@ fn duty_probes() -> Vec<Probe> {
         let mut request = base_request();
         request.config = flat_config(&["use", "compensate", "notify"]);
         request.config.duty_mode = duty_mode;
-        request.policies[0].permissions = vec![Rule { duty: vec![duty], ..rule("use", vec![]) }];
+        request.policies[0].permissions = vec![Rule {
+            duty: vec![duty],
+            ..rule("use", vec![])
+        }];
         request.claims = request_claims;
         request
     };
@@ -2763,7 +2912,8 @@ fn other_probes() -> Vec<Probe> {
         id: "beh-closed-empty",
         kind: POSITIVE,
         title: "behaviour: closed denies the same empty permissions list",
-        asserts: "The Community Group Formal Semantics draft's own default, and the whole point of the \
+        asserts:
+            "The Community Group Formal Semantics draft's own default, and the whole point of the \
                   parameter: the identical policy reaches the opposite decision.",
         falsified_by: "Allow -- which would mean the parameter is inert",
         request: empty_permissions(Behaviour::Closed),
@@ -2808,7 +2958,10 @@ fn other_probes() -> Vec<Probe> {
     }));
 
     let uid_request = || {
-        let mut request = one(c("nationality", Operator::Eq, "DE"), claims(&[("nationality", s("DE"))]));
+        let mut request = one(
+            c("nationality", Operator::Eq, "DE"),
+            claims(&[("nationality", s("DE"))]),
+        );
         request.policies[0].id = "https://example.org/policies/p-42".to_string();
         request
     };
@@ -2912,19 +3065,21 @@ fn other_probes() -> Vec<Probe> {
     // `applicable` entirely (`party_role_mismatch`) while leaving it in
     // `policies` for `inheritFrom` to still find by `id` -- so what
     // `evaluate_request` actually decides on is `child` alone.
-    let isolated_parent = |rule_kind_permissions: Vec<Rule>, rule_kind_prohibitions: Vec<Rule>| WirePolicy {
-        assignee: Some("did:web:mallory.example".to_string()),
-        permissions: rule_kind_permissions,
-        prohibitions: rule_kind_prohibitions,
-        ..policy("parent", vec![])
-    };
-    let child_addressed_to_caller = |inherit: bool, permissions: Vec<Rule>, prohibitions: Vec<Rule>| WirePolicy {
-        assignee: Some("did:web:alice.example".to_string()),
-        inherit_from: inherit.then(|| vec!["parent".to_string()]),
-        permissions,
-        prohibitions,
-        ..policy("child", vec![])
-    };
+    let isolated_parent =
+        |rule_kind_permissions: Vec<Rule>, rule_kind_prohibitions: Vec<Rule>| WirePolicy {
+            assignee: Some("did:web:mallory.example".to_string()),
+            permissions: rule_kind_permissions,
+            prohibitions: rule_kind_prohibitions,
+            ..policy("parent", vec![])
+        };
+    let child_addressed_to_caller =
+        |inherit: bool, permissions: Vec<Rule>, prohibitions: Vec<Rule>| WirePolicy {
+            assignee: Some("did:web:alice.example".to_string()),
+            inherit_from: inherit.then(|| vec!["parent".to_string()]),
+            permissions,
+            prohibitions,
+            ..policy("child", vec![])
+        };
     let isolated_config = |actions: &[&str], behaviour: Behaviour| {
         let mut config = flat_config(actions);
         config.behaviour = behaviour;
@@ -2987,8 +3142,10 @@ fn other_probes() -> Vec<Probe> {
     probes.push(build(Spec {
         id: "inheritfrom-fail-open-hit",
         kind: POSITIVE,
-        title: "under the open default, a child with no rules of its own still inherits a prohibition",
-        asserts: "`parent` (party-scoped away, reachable only through inheritFrom) prohibits `use`; \
+        title:
+            "under the open default, a child with no rules of its own still inherits a prohibition",
+        asserts:
+            "`parent` (party-scoped away, reachable only through inheritFrom) prohibits `use`; \
                   `child` (addressed to this caller) declares neither permissions nor prohibitions \
                   of its own, only `inheritFrom: [\"parent\"]`, under `behaviour: open` -- the \
                   engine's own documented default. Before this addition, an empty child evaded an \
@@ -3189,16 +3346,66 @@ fn other_probes() -> Vec<Probe> {
 
 pub fn categories() -> Vec<Category> {
     vec![
-        Category { id: "actions", number: 1, title: "Actions", spec_ref: "odrl-vocab 3.12, 4.4" },
-        Category { id: "left-operands", number: 2, title: "Left operands", spec_ref: "odrl-vocab 4.5" },
-        Category { id: "operators", number: 3, title: "Operators", spec_ref: "odrl-vocab 2.9.4-2.9.15" },
-        Category { id: "logical", number: 4, title: "Logical constraints", spec_ref: "odrl-vocab 2.10" },
-        Category { id: "policy-classes", number: 5, title: "Policy classes", spec_ref: "odrl-model 2.4-2.6" },
-        Category { id: "party", number: 6, title: "Party functions", spec_ref: "odrl-vocab 2.6, 4.2" },
-        Category { id: "duty", number: 7, title: "Duty relations", spec_ref: "odrl-model 2.8, odrl-vocab 2.7" },
-        Category { id: "assets", number: 8, title: "Asset relations", spec_ref: "odrl-model 2.3, odrl-vocab 2.5" },
-        Category { id: "conflict", number: 9, title: "Conflict strategy", spec_ref: "odrl-model 2.10, odrl-vocab 2.11" },
-        Category { id: "other", number: 10, title: "Other spec material", spec_ref: "odrl-model 2.2, 2.7, odrl-vocab 2.3" },
+        Category {
+            id: "actions",
+            number: 1,
+            title: "Actions",
+            spec_ref: "odrl-vocab 3.12, 4.4",
+        },
+        Category {
+            id: "left-operands",
+            number: 2,
+            title: "Left operands",
+            spec_ref: "odrl-vocab 4.5",
+        },
+        Category {
+            id: "operators",
+            number: 3,
+            title: "Operators",
+            spec_ref: "odrl-vocab 2.9.4-2.9.15",
+        },
+        Category {
+            id: "logical",
+            number: 4,
+            title: "Logical constraints",
+            spec_ref: "odrl-vocab 2.10",
+        },
+        Category {
+            id: "policy-classes",
+            number: 5,
+            title: "Policy classes",
+            spec_ref: "odrl-model 2.4-2.6",
+        },
+        Category {
+            id: "party",
+            number: 6,
+            title: "Party functions",
+            spec_ref: "odrl-vocab 2.6, 4.2",
+        },
+        Category {
+            id: "duty",
+            number: 7,
+            title: "Duty relations",
+            spec_ref: "odrl-model 2.8, odrl-vocab 2.7",
+        },
+        Category {
+            id: "assets",
+            number: 8,
+            title: "Asset relations",
+            spec_ref: "odrl-model 2.3, odrl-vocab 2.5",
+        },
+        Category {
+            id: "conflict",
+            number: 9,
+            title: "Conflict strategy",
+            spec_ref: "odrl-model 2.10, odrl-vocab 2.11",
+        },
+        Category {
+            id: "other",
+            number: 10,
+            title: "Other spec material",
+            spec_ref: "odrl-model 2.2, 2.7, odrl-vocab 2.3",
+        },
     ]
 }
 
@@ -4283,11 +4490,19 @@ mod tests {
     fn every_row_id_and_probe_id_is_unique() {
         let mut row_ids = BTreeSet::new();
         for row in rows() {
-            assert!(row_ids.insert(row.id.clone()), "duplicate row id {}", row.id);
+            assert!(
+                row_ids.insert(row.id.clone()),
+                "duplicate row id {}",
+                row.id
+            );
         }
         let mut probe_ids = BTreeSet::new();
         for probe in probes() {
-            assert!(probe_ids.insert(probe.id), "duplicate probe id {}", probe.id);
+            assert!(
+                probe_ids.insert(probe.id),
+                "duplicate probe id {}",
+                probe.id
+            );
         }
     }
 
@@ -4296,10 +4511,18 @@ mod tests {
         let category_ids: BTreeSet<&str> = categories().iter().map(|c| c.id).collect();
         let mut referenced: BTreeSet<&str> = BTreeSet::new();
         for row in rows() {
-            assert!(category_ids.contains(row.category), "row {} names unknown category {}", row.id, row.category);
+            assert!(
+                category_ids.contains(row.category),
+                "row {} names unknown category {}",
+                row.id,
+                row.category
+            );
             referenced.insert(row.category);
         }
-        assert_eq!(referenced, category_ids, "every category must carry at least one row");
+        assert_eq!(
+            referenced, category_ids,
+            "every category must carry at least one row"
+        );
     }
 
     #[test]
@@ -4309,12 +4532,19 @@ mod tests {
 
         for row in rows() {
             for id in &row.probe_ids {
-                assert!(probe_ids.contains(id.as_str()), "row {} references unknown probe {id}", row.id);
+                assert!(
+                    probe_ids.contains(id.as_str()),
+                    "row {} references unknown probe {id}",
+                    row.id
+                );
                 referenced.insert(id.clone());
             }
         }
         for id in &probe_ids {
-            assert!(referenced.contains(*id), "probe {id} is referenced by no row");
+            assert!(
+                referenced.contains(*id),
+                "probe {id} is referenced by no row"
+            );
         }
     }
 
@@ -4325,7 +4555,10 @@ mod tests {
             match (row.probe_ids.is_empty(), &row.documented_because) {
                 (true, Some(_)) => documented += 1,
                 (false, None) => {}
-                _ => panic!("row {} must be exactly one of probed or documented-only", row.id),
+                _ => panic!(
+                    "row {} must be exactly one of probed or documented-only",
+                    row.id
+                ),
             }
         }
         assert_eq!(
@@ -4339,7 +4572,10 @@ mod tests {
     fn every_row_carries_a_status_from_the_documented_four() {
         for row in rows() {
             assert!(
-                matches!(row.status, IMPLEMENTED | PARTIAL | NOT_IMPLEMENTED | OUT_OF_SCOPE),
+                matches!(
+                    row.status,
+                    IMPLEMENTED | PARTIAL | NOT_IMPLEMENTED | OUT_OF_SCOPE
+                ),
                 "row {} has status {}",
                 row.id,
                 row.status
@@ -4463,7 +4699,12 @@ mod tests {
     fn no_probe_on_an_implemented_row_carries_a_full_compliance_ideal() {
         let probes = probes();
         let ideal_of = |id: &str| {
-            probes.iter().find(|p| p.id == id).unwrap_or_else(|| panic!("no probe {id}")).ideal.is_some()
+            probes
+                .iter()
+                .find(|p| p.id == id)
+                .unwrap_or_else(|| panic!("no probe {id}"))
+                .ideal
+                .is_some()
         };
 
         let mut offenders: Vec<String> = Vec::new();
@@ -4495,12 +4736,19 @@ mod tests {
     fn every_implementable_row_carries_falls_short_evidence_or_is_named_as_lacking_it() {
         let probes = probes();
         let ideal_of = |id: &str| {
-            probes.iter().find(|p| p.id == id).unwrap_or_else(|| panic!("no probe {id}")).ideal.is_some()
+            probes
+                .iter()
+                .find(|p| p.id == id)
+                .unwrap_or_else(|| panic!("no probe {id}"))
+                .ideal
+                .is_some()
         };
 
         let rows = rows();
-        let implementable: Vec<&Row> =
-            rows.iter().filter(|row| matches!(row.status, PARTIAL | NOT_IMPLEMENTED)).collect();
+        let implementable: Vec<&Row> = rows
+            .iter()
+            .filter(|row| matches!(row.status, PARTIAL | NOT_IMPLEMENTED))
+            .collect();
         assert_eq!(
             (
                 implementable.iter().filter(|r| r.status == PARTIAL).count(),
@@ -4515,7 +4763,10 @@ mod tests {
             .iter()
             .filter(|row| {
                 let by_probe = row.probe_ids.iter().any(|id| ideal_of(id));
-                let by_row = row.full_compliance_gap.as_ref().is_some_and(|gap| !gap.is_empty());
+                let by_row = row
+                    .full_compliance_gap
+                    .as_ref()
+                    .is_some_and(|gap| !gap.is_empty());
                 !by_probe && !by_row
             })
             .map(|row| row.id.as_str())
@@ -4536,16 +4787,37 @@ mod tests {
     #[test]
     fn exactly_one_row_falls_short_at_row_level_and_it_is_the_one_with_no_probes() {
         let rows = rows();
-        let with_gap: Vec<&Row> = rows.iter().filter(|row| row.full_compliance_gap.is_some()).collect();
+        let with_gap: Vec<&Row> = rows
+            .iter()
+            .filter(|row| row.full_compliance_gap.is_some())
+            .collect();
 
         assert_eq!(with_gap.len(), 1);
         assert_eq!(with_gap[0].id, "party.collections");
-        assert!(with_gap[0].probe_ids.is_empty(), "a row-level gap exists because no probe can carry it");
-        assert!(matches!(with_gap[0].status, PARTIAL | NOT_IMPLEMENTED), "an OutOfScope row is excluded");
+        assert!(
+            with_gap[0].probe_ids.is_empty(),
+            "a row-level gap exists because no probe can carry it"
+        );
+        assert!(
+            matches!(with_gap[0].status, PARTIAL | NOT_IMPLEMENTED),
+            "an OutOfScope row is excluded"
+        );
 
-        let gap = with_gap[0].full_compliance_gap.as_deref().expect("just checked");
-        for needed in ["PartyCollection", "odrl:partOf", "party_collections", "asset_collections", "2.5.6"] {
-            assert!(gap.contains(needed), "the gap text must name `{needed}` for a reader to act on it");
+        let gap = with_gap[0]
+            .full_compliance_gap
+            .as_deref()
+            .expect("just checked");
+        for needed in [
+            "PartyCollection",
+            "odrl:partOf",
+            "party_collections",
+            "asset_collections",
+            "2.5.6",
+        ] {
+            assert!(
+                gap.contains(needed),
+                "the gap text must name `{needed}` for a reader to act on it"
+            );
         }
     }
 
@@ -4564,7 +4836,11 @@ mod tests {
                 probe.id,
                 ideal.decision
             );
-            assert!(!ideal.reason.is_empty(), "{}: ideal carries no reason", probe.id);
+            assert!(
+                !ideal.reason.is_empty(),
+                "{}: ideal carries no reason",
+                probe.id
+            );
             assert!(
                 ideal.spec_citation.len() > 200,
                 "{}: an ideal must quote the clauses that settle it, not gesture at them",
@@ -4600,7 +4876,12 @@ mod tests {
     fn an_out_of_scope_row_never_introduces_a_falls_short_probe_of_its_own() {
         let probes = probes();
         let ideal_of = |id: &str| {
-            probes.iter().find(|p| p.id == id).unwrap_or_else(|| panic!("no probe {id}")).ideal.is_some()
+            probes
+                .iter()
+                .find(|p| p.id == id)
+                .unwrap_or_else(|| panic!("no probe {id}"))
+                .ideal
+                .is_some()
         };
         let rows = rows();
         let implementable_probe_ids: BTreeSet<&str> = rows
@@ -4618,7 +4899,10 @@ mod tests {
                          accounts for",
                         row.id
                     );
-                    assert_eq!(probe_id, "pc-kind-nonsense", "the only probe shared across that boundary");
+                    assert_eq!(
+                        probe_id, "pc-kind-nonsense",
+                        "the only probe shared across that boundary"
+                    );
                 }
             }
         }
@@ -4627,11 +4911,24 @@ mod tests {
     #[test]
     fn every_probe_carries_a_kind_a_title_and_a_falsifier() {
         for probe in probes() {
-            assert!(matches!(probe.kind, "positive" | "negative"), "{}: kind {}", probe.id, probe.kind);
+            assert!(
+                matches!(probe.kind, "positive" | "negative"),
+                "{}: kind {}",
+                probe.id,
+                probe.kind
+            );
             assert!(!probe.title.is_empty(), "{}: empty title", probe.id);
             assert!(!probe.asserts.is_empty(), "{}: empty asserts", probe.id);
-            assert!(!probe.falsified_by.is_empty(), "{}: empty falsified_by", probe.id);
-            assert!(probe.request.is_object(), "{}: request is not a JSON object", probe.id);
+            assert!(
+                !probe.falsified_by.is_empty(),
+                "{}: empty falsified_by",
+                probe.id
+            );
+            assert!(
+                probe.request.is_object(),
+                "{}: request is not a JSON object",
+                probe.id
+            );
         }
     }
 
@@ -4639,7 +4936,11 @@ mod tests {
     fn every_probes_request_is_a_complete_section_5_2_envelope() {
         for probe in probes() {
             for key in ["dataset_id", "action", "config", "policies", "claims"] {
-                assert!(probe.request.get(key).is_some(), "{}: request is missing `{key}`", probe.id);
+                assert!(
+                    probe.request.get(key).is_some(),
+                    "{}: request is missing `{key}`",
+                    probe.id
+                );
             }
         }
     }
@@ -4678,24 +4979,37 @@ mod tests {
             }
             for needle in &probe.expect.reason_contains {
                 if !response.reason.contains(needle.as_str()) {
-                    failures.push(format!("{}: reason missing `{needle}` -- got `{}`", probe.id, response.reason));
+                    failures.push(format!(
+                        "{}: reason missing `{needle}` -- got `{}`",
+                        probe.id, response.reason
+                    ));
                 }
             }
             for needle in &probe.expect.reason_excludes {
                 if response.reason.contains(needle.as_str()) {
-                    failures.push(format!("{}: reason contained excluded `{needle}`", probe.id));
+                    failures.push(format!(
+                        "{}: reason contained excluded `{needle}`",
+                        probe.id
+                    ));
                 }
             }
             if let Some(expected_duties) = &probe.expect.duties {
                 let observed_duties: Vec<DutyExpect> = response
                     .duties
                     .iter()
-                    .map(|DutyEntry { policy_id, action, resolved, source }| DutyExpect {
-                        policy_id: policy_id.clone(),
-                        action: action.clone(),
-                        resolved: *resolved,
-                        source: source.clone(),
-                    })
+                    .map(
+                        |DutyEntry {
+                             policy_id,
+                             action,
+                             resolved,
+                             source,
+                         }| DutyExpect {
+                            policy_id: policy_id.clone(),
+                            action: action.clone(),
+                            resolved: *resolved,
+                            source: source.clone(),
+                        },
+                    )
                     .collect();
                 if &observed_duties != expected_duties {
                     failures.push(format!(
@@ -4714,7 +5028,12 @@ mod tests {
             }
         }
 
-        assert!(failures.is_empty(), "{} probe expectation(s) do not hold:\n{}", failures.len(), failures.join("\n"));
+        assert!(
+            failures.is_empty(),
+            "{} probe expectation(s) do not hold:\n{}",
+            failures.len(),
+            failures.join("\n")
+        );
     }
 
     /// Every positive/negative pair the catalog leans on must actually
@@ -4724,7 +5043,11 @@ mod tests {
     fn each_named_hit_miss_pair_reaches_opposite_decisions() {
         let all = probes();
         let decision_of = |id: &str| {
-            all.iter().find(|p| p.id == id).unwrap_or_else(|| panic!("no probe {id}")).expect.decision
+            all.iter()
+                .find(|p| p.id == id)
+                .unwrap_or_else(|| panic!("no probe {id}"))
+                .expect
+                .decision
         };
 
         for (hit, miss) in [
@@ -4753,12 +5076,21 @@ mod tests {
             ("act-includedin-1hop", "act-implies-ignored"),
             ("act-includedin-2hop", "act-includedin-undeclared-gap"),
             ("beh-open-empty", "beh-closed-empty"),
-            ("inheritfrom-safe-direction-hit", "inheritfrom-safe-direction-control"),
+            (
+                "inheritfrom-safe-direction-hit",
+                "inheritfrom-safe-direction-control",
+            ),
             ("inheritfrom-fail-open-control", "inheritfrom-fail-open-hit"),
             ("ror-literal-eq", "ror-not-dereferenced"),
             ("asset-per-rule-target-hit", "asset-per-rule-target-miss"),
-            ("asset-collection-membership-hit", "asset-target-not-a-collection"),
-            ("asset-collection-membership-hit", "asset-collection-membership-wrong-collection-miss"),
+            (
+                "asset-collection-membership-hit",
+                "asset-target-not-a-collection",
+            ),
+            (
+                "asset-collection-membership-hit",
+                "asset-collection-membership-wrong-collection-miss",
+            ),
             ("pf-assignee-scoped-hit", "pf-assignee-scoped-miss"),
             ("conflict-perm-allows", "conflict-default-invalid-voids"),
             ("conflict-perm-allows", "conflict-prohibit-denies"),
@@ -4778,7 +5110,10 @@ mod tests {
     fn each_named_inert_property_probe_matches_its_control_exactly() {
         let all = probes();
         let expect_of = |id: &str| {
-            let probe = all.iter().find(|p| p.id == id).unwrap_or_else(|| panic!("no probe {id}"));
+            let probe = all
+                .iter()
+                .find(|p| p.id == id)
+                .unwrap_or_else(|| panic!("no probe {id}"));
             (probe.expect.decision, probe.expect.reason_contains.clone())
         };
 
@@ -4791,7 +5126,10 @@ mod tests {
             ("pc-kind-agreement-ignores-assignee", "pc-kind-set"),
             ("pc-kind-nonsense", "pc-kind-set"),
             ("pc-kind-profile-subclass", "pc-kind-nonsense"),
-            ("conflict-invalid-declared-explicitly", "conflict-default-invalid-voids"),
+            (
+                "conflict-invalid-declared-explicitly",
+                "conflict-default-invalid-voids",
+            ),
             ("conflict-no-collision-inert", "act-base-exact"),
             ("lo-unitofcount-volume", "lo-unitofcount-page"),
         ] {
@@ -4815,7 +5153,10 @@ mod tests {
     fn and_sequence_evaluates_identically_to_the_and_control() {
         let all = probes();
         let expect_of = |id: &str| {
-            let probe = all.iter().find(|p| p.id == id).unwrap_or_else(|| panic!("no probe {id}"));
+            let probe = all
+                .iter()
+                .find(|p| p.id == id)
+                .unwrap_or_else(|| panic!("no probe {id}"));
             (probe.expect.decision, probe.expect.reason_contains.clone())
         };
         assert_eq!(
@@ -4845,7 +5186,10 @@ mod tests {
                 title: "t",
                 asserts: "a",
                 falsified_by: "f",
-                request: Request { claims, ..base_request() },
+                request: Request {
+                    claims,
+                    ..base_request()
+                },
                 patches: vec![],
                 expect: allow("x"),
             })
@@ -4885,7 +5229,12 @@ mod tests {
         assert_eq!(first.len(), second.len());
         for (a, b) in first.iter().zip(second.iter()) {
             assert_eq!(a.id, b.id);
-            assert_eq!(a.request.to_string(), b.request.to_string(), "probe {} is not stable", a.id);
+            assert_eq!(
+                a.request.to_string(),
+                b.request.to_string(),
+                "probe {} is not stable",
+                a.id
+            );
         }
     }
 
@@ -4903,6 +5252,9 @@ mod tests {
                 expect: allow("x"),
             })
         });
-        assert!(result.is_err(), "a patch that does not land must fail generation, never pass silently");
+        assert!(
+            result.is_err(),
+            "a patch that does not land must fail generation, never pass silently"
+        );
     }
 }

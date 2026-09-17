@@ -28,7 +28,9 @@ use render::{CoverageFile, GENERATED_BY, NOTE, SCHEMA, SOURCE_ANALYSIS, SPEC};
 
 fn main() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let repo_root = manifest_dir.parent().expect("coverage-probes has a parent directory");
+    let repo_root = manifest_dir
+        .parent()
+        .expect("coverage-probes has a parent directory");
 
     let categories = catalog::categories();
     let rows = catalog::rows();

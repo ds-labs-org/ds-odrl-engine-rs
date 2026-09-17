@@ -23,33 +23,33 @@ use yew_nested_router::prelude::Switch as RouterSwitch;
 /// documentation instead.)
 #[component]
 pub fn MainView() -> Html {
-  let brand = html!(
-    <>
-      <img src="brand/logo.svg" alt="ds-odrl-engine-rs" style="height: 32px !important; margin-right: 10px;" />
-      <Title level={Level::H3} size={Size::XLarge}>{ "ds-odrl-engine-rs" }</Title>
-    </>
-  );
+    let brand = html!(
+      <>
+        <img src="brand/logo.svg" alt="ds-odrl-engine-rs" style="height: 32px !important; margin-right: 10px;" />
+        <Title level={Level::H3} size={Size::XLarge}>{ "ds-odrl-engine-rs" }</Title>
+      </>
+    );
 
-  let sidebar = html_nested!(
-    <PageSidebar>
-      <Nav>
-        <NavList>
-          <NavRouterItem<AppRoute> to={AppRoute::Home}>{ "Home" }</NavRouterItem<AppRoute>>
-          <NavRouterItem<AppRoute> to={AppRoute::Demo}>{ "Demonstrator" }</NavRouterItem<AppRoute>>
-          <NavRouterItem<AppRoute> to={AppRoute::Compliance}>{ "Compliance Results" }</NavRouterItem<AppRoute>>
-          <NavRouterItem<AppRoute> to={AppRoute::Coverage}>{ "Capability Audit" }</NavRouterItem<AppRoute>>
-          <NavRouterItem<AppRoute> to={AppRoute::FullCompliance}>{ "ODRL 2.2 Full Compliance" }</NavRouterItem<AppRoute>>
-          <NavRouterItem<AppRoute> to={AppRoute::History}>{ "Release History" }</NavRouterItem<AppRoute>>
-        </NavList>
-      </Nav>
-    </PageSidebar>
-  );
+    let sidebar = html_nested!(
+      <PageSidebar>
+        <Nav>
+          <NavList>
+            <NavRouterItem<AppRoute> to={AppRoute::Home}>{ "Home" }</NavRouterItem<AppRoute>>
+            <NavRouterItem<AppRoute> to={AppRoute::Demo}>{ "Demonstrator" }</NavRouterItem<AppRoute>>
+            <NavRouterItem<AppRoute> to={AppRoute::Compliance}>{ "Compliance Results" }</NavRouterItem<AppRoute>>
+            <NavRouterItem<AppRoute> to={AppRoute::Coverage}>{ "Capability Audit" }</NavRouterItem<AppRoute>>
+            <NavRouterItem<AppRoute> to={AppRoute::FullCompliance}>{ "ODRL 2.2 Full Compliance" }</NavRouterItem<AppRoute>>
+            <NavRouterItem<AppRoute> to={AppRoute::History}>{ "Release History" }</NavRouterItem<AppRoute>>
+          </NavList>
+        </Nav>
+      </PageSidebar>
+    );
 
-  html!(
-    <Page {brand} {sidebar} full_height=true>
-      <PageSection>
-        <RouterSwitch<AppRoute> render={switch_app_route} />
-      </PageSection>
-    </Page>
-  )
+    html!(
+      <Page {brand} {sidebar} full_height=true>
+        <PageSection>
+          <RouterSwitch<AppRoute> render={switch_app_route} />
+        </PageSection>
+      </Page>
+    )
 }

@@ -36,7 +36,16 @@ const RDF_VALUE: &str = "http://www.w3.org/1999/02/22-rdf-syntax-ns#value";
 /// The ODRL classes this adapter recognizes as "this node is the policy".
 /// `Policy` itself is included because a document may state only the
 /// abstract class; it maps to `Set`, ODRL's own unrestricted subclass.
-const POLICY_CLASSES: &[&str] = &["Offer", "Agreement", "Set", "Policy", "Request", "Ticket", "Assertion", "Privacy"];
+const POLICY_CLASSES: &[&str] = &[
+    "Offer",
+    "Agreement",
+    "Set",
+    "Policy",
+    "Request",
+    "Ticket",
+    "Assertion",
+    "Privacy",
+];
 
 /// One ingested DSP contract policy, plus everything this adapter had to
 /// take verbatim, guess, or drop on the way — the same `{ value, warnings }`
@@ -93,7 +102,8 @@ impl From<JsonLdError> for IngestError {
 /// document (or by a bare ODRL policy document) into `engine`'s Section 5.2
 /// `WirePolicy`.
 pub fn ingest_policy(json: &str) -> Result<Ingested, IngestError> {
-    let doc: serde_json::Value = serde_json::from_str(json).map_err(|e| IngestError::Json(e.to_string()))?;
+    let doc: serde_json::Value =
+        serde_json::from_str(json).map_err(|e| IngestError::Json(e.to_string()))?;
     ingest_policy_value(&doc)
 }
 
@@ -109,7 +119,10 @@ pub fn ingest_policy_value(doc: &serde_json::Value) -> Result<Ingested, IngestEr
         [one] => *one,
         several => {
             return Err(IngestError::SeveralPolicyNodes(
-                several.iter().map(|n| n.id.clone().unwrap_or_else(|| "<no @id>".to_string())).collect(),
+                several
+                    .iter()
+                    .map(|n| n.id.clone().unwrap_or_else(|| "<no @id>".to_string()))
+                    .collect(),
             ))
         }
     };
@@ -136,15 +149,30 @@ pub fn ingest_policy_value(doc: &serde_json::Value) -> Result<Ingested, IngestEr
 /// `compensate` needs `compensate` declared exactly as `use` itself does —
 /// otherwise ingesting a real duty would trade one silent-Allow bug for a
 /// noisy `Decision::Error` on every offer that carries one.
-pub fn minimal_config(policy: &WirePolicy, duty_mode: DutyMode, behaviour: Behaviour) -> RequestConfig {
+pub fn minimal_config(
+    policy: &WirePolicy,
+    duty_mode: DutyMode,
+    behaviour: Behaviour,
+) -> RequestConfig {
     let mut actions: BTreeSet<String> = BTreeSet::new();
-    for rule in policy.permissions.iter().chain(&policy.prohibitions).chain(&policy.obligations) {
+    for rule in policy
+        .permissions
+        .iter()
+        .chain(&policy.prohibitions)
+        .chain(&policy.obligations)
+    {
         collect_actions(rule, &mut actions);
     }
     RequestConfig {
         type_: "odrl:Profile".to_string(),
         id: "urn:dsp-odrl-adapter:minimal-config".to_string(),
-        actions: actions.into_iter().map(|id| WireActionDecl { id, included_in: None }).collect(),
+        actions: actions
+            .into_iter()
+            .map(|id| WireActionDecl {
+                id,
+                included_in: None,
+            })
+            .collect(),
         duty_mode,
         behaviour,
         // Party-role scoping stays off for an ingested DSP offer: the
@@ -243,7 +271,11 @@ fn policy_kind(iri: &str) -> Option<String> {
     if !POLICY_CLASSES.contains(&local) {
         return None;
     }
-    Some(if local == "Policy" { "Set".to_string() } else { local.to_string() })
+    Some(if local == "Policy" {
+        "Set".to_string()
+    } else {
+        local.to_string()
+    })
 }
 
 /// This adapter's compaction convention for a *vocabulary* IRI — see this
@@ -274,14 +306,22 @@ fn first_string(node: &Node, local: &str) -> Option<String> {
 // -- policy ---------------------------------------------------------------
 
 fn policy_from(node: &Node, warnings: &mut Vec<String>) -> Result<WirePolicy, IngestError> {
-    let kind = node.types.iter().find_map(|t| policy_kind(t)).expect("collect_policy_nodes only yields policy nodes");
+    let kind = node
+        .types
+        .iter()
+        .find_map(|t| policy_kind(t))
+        .expect("collect_policy_nodes only yields policy nodes");
 
     let id = node.id.clone().unwrap_or_else(|| {
-        warnings.push("the policy node carries no @id; WirePolicy.id is the empty string".to_string());
+        warnings
+            .push("the policy node carries no @id; WirePolicy.id is the empty string".to_string());
         String::new()
     });
     let assigner = first_string(node, "assigner").unwrap_or_else(|| {
-        warnings.push("the policy names no odrl:assigner; WirePolicy.assigner is the empty string".to_string());
+        warnings.push(
+            "the policy names no odrl:assigner; WirePolicy.assigner is the empty string"
+                .to_string(),
+        );
         String::new()
     });
 
@@ -334,7 +374,10 @@ fn policy_from(node: &Node, warnings: &mut Vec<String>) -> Result<WirePolicy, In
     // a policy with no parent" doc comment and keeping every document that
     // never uses this feature at all ingesting byte-for-byte as before.
     let inherit_from = {
-        let parents: Vec<String> = odrl(node, "inheritFrom").iter().filter_map(as_string).collect();
+        let parents: Vec<String> = odrl(node, "inheritFrom")
+            .iter()
+            .filter_map(as_string)
+            .collect();
         if parents.is_empty() {
             None
         } else {
@@ -380,9 +423,27 @@ fn policy_from(node: &Node, warnings: &mut Vec<String>) -> Result<WirePolicy, In
         kind,
         assigner,
         assignee: first_string(node, "assignee"),
-        permissions: rules_from(node, "permission", policy_target.as_deref(), policy_action.as_deref(), warnings)?,
-        prohibitions: rules_from(node, "prohibition", policy_target.as_deref(), policy_action.as_deref(), warnings)?,
-        obligations: rules_from(node, "obligation", policy_target.as_deref(), policy_action.as_deref(), warnings)?,
+        permissions: rules_from(
+            node,
+            "permission",
+            policy_target.as_deref(),
+            policy_action.as_deref(),
+            warnings,
+        )?,
+        prohibitions: rules_from(
+            node,
+            "prohibition",
+            policy_target.as_deref(),
+            policy_action.as_deref(),
+            warnings,
+        )?,
+        obligations: rules_from(
+            node,
+            "obligation",
+            policy_target.as_deref(),
+            policy_action.as_deref(),
+            warnings,
+        )?,
         conflict,
         inherit_from,
     })
@@ -418,7 +479,13 @@ fn rules_from(
                 as_string(&value).unwrap_or_default(),
             ));
         };
-        rules.push(rule_from(&node, local, policy_target, policy_action, warnings)?);
+        rules.push(rule_from(
+            &node,
+            local,
+            policy_target,
+            policy_action,
+            warnings,
+        )?);
     }
     Ok(rules)
 }
@@ -438,7 +505,11 @@ fn rule_from(
     }
 
     let target = first_string(node, "target").or_else(|| policy_target.map(str::to_string));
-    let mut rule = Rule { target, action_refinement, ..Rule::new(action, constraints) };
+    let mut rule = Rule {
+        target,
+        action_refinement,
+        ..Rule::new(action, constraints)
+    };
 
     // `odrl:duty` (Vocabulary: domain Permission, also read at Policy
     // level per the Information Model) gates *this* permission: it "must
@@ -482,7 +553,11 @@ fn rule_from(
 /// way a top-level rule is (action, constraints, own optional target),
 /// plus its own `odrl:consequence` chain, since a Duty's domain includes
 /// that property too.
-fn duties_from(node: &Node, property: &str, warnings: &mut Vec<String>) -> Result<Vec<Rule>, IngestError> {
+fn duties_from(
+    node: &Node,
+    property: &str,
+    warnings: &mut Vec<String>,
+) -> Result<Vec<Rule>, IngestError> {
     let mut duties = Vec::new();
     for value in odrl(node, property) {
         let Expanded::Node(child) = value else {
@@ -519,7 +594,12 @@ fn duties_from(node: &Node, property: &str, warnings: &mut Vec<String>) -> Resul
 /// it is what gets offered to this duty's own `odrl:consequence` lookup
 /// below, one hop deeper, mirroring
 /// `engine::decision::outstanding_duty_at`'s own `depth + 1` recursion.
-fn duty_from(node: &Node, local: &str, depth: usize, warnings: &mut Vec<String>) -> Result<Rule, IngestError> {
+fn duty_from(
+    node: &Node,
+    local: &str,
+    depth: usize,
+    warnings: &mut Vec<String>,
+) -> Result<Rule, IngestError> {
     // A Duty node never inherits the enclosing Policy's `odrl:action` --
     // exactly like a Duty's own `target` above, which is never inherited
     // from the policy either (see this function's own doc comment): the
@@ -533,8 +613,11 @@ fn duty_from(node: &Node, local: &str, depth: usize, warnings: &mut Vec<String>)
         constraints.push(constraint_from(&value, 0)?);
     }
 
-    let mut rule =
-        Rule { target: first_string(node, "target"), action_refinement, ..Rule::new(action, constraints) };
+    let mut rule = Rule {
+        target: first_string(node, "target"),
+        action_refinement,
+        ..Rule::new(action, constraints)
+    };
     rule.consequence = consequence_from(node, depth + 1, warnings)?;
 
     // A Duty's own domain carries neither `odrl:duty` (Permission's) nor
@@ -554,7 +637,11 @@ fn duty_from(node: &Node, local: &str, depth: usize, warnings: &mut Vec<String>)
 /// walking a chain at, so a chain deeper than that is dropped (warned,
 /// never silently) rather than built into a `Rule` the engine would never
 /// fully evaluate anyway.
-fn consequence_from(node: &Node, depth: usize, warnings: &mut Vec<String>) -> Result<Option<Box<Rule>>, IngestError> {
+fn consequence_from(
+    node: &Node,
+    depth: usize,
+    warnings: &mut Vec<String>,
+) -> Result<Option<Box<Rule>>, IngestError> {
     let values = odrl(node, "consequence");
     let Some(first) = values.first() else {
         return Ok(None);
@@ -584,7 +671,12 @@ fn consequence_from(node: &Node, depth: usize, warnings: &mut Vec<String>) -> Re
     // (the check just above already refused to build it past the bound);
     // `duty_from` uses that same `depth` to place *its own* consequence one
     // hop deeper.
-    Ok(Some(Box::new(duty_from(child, "consequence", depth, warnings)?)))
+    Ok(Some(Box::new(duty_from(
+        child,
+        "consequence",
+        depth,
+        warnings,
+    )?)))
 }
 
 /// Warns when `node` (a rule of kind `local`) carries `odrl:{property}`,
@@ -592,7 +684,13 @@ fn consequence_from(node: &Node, depth: usize, warnings: &mut Vec<String>) -> Re
 /// this adapter cannot map without guessing which `Rule` field the author
 /// actually meant, so it is named and dropped rather than silently
 /// ignored or misfiled.
-fn warn_wrong_domain(node: &Node, property: &str, local: &str, expected_domain: &str, warnings: &mut Vec<String>) {
+fn warn_wrong_domain(
+    node: &Node,
+    property: &str,
+    local: &str,
+    expected_domain: &str,
+    warnings: &mut Vec<String>,
+) {
     if !odrl(node, property).is_empty() {
         warnings.push(format!(
             "the odrl:{local} rule carries odrl:{property}, whose domain is odrl:{expected_domain}, \
@@ -622,9 +720,12 @@ fn policy_action_from(node: &Node, warnings: &mut Vec<String>) -> Option<String>
     match values.first()? {
         Expanded::Iri(iri) => Some(compact(iri)),
         Expanded::Literal(lit) => Some(compact(lit)),
-        Expanded::Node(action) => {
-            action.get(RDF_VALUE).first().and_then(as_string).or_else(|| action.id.clone()).map(|s| compact(&s))
-        }
+        Expanded::Node(action) => action
+            .get(RDF_VALUE)
+            .first()
+            .and_then(as_string)
+            .or_else(|| action.id.clone())
+            .map(|s| compact(&s)),
     }
 }
 
@@ -712,7 +813,10 @@ fn constraint_from(value: &Expanded, depth: usize) -> Result<Constraint, IngestE
     // own doc comment in engine/src/constraint.rs), only the order its
     // children are read back in once ingested.
     for (local, build) in [
-        ("xone", Constraint::xone as fn(Vec<Constraint>) -> Constraint),
+        (
+            "xone",
+            Constraint::xone as fn(Vec<Constraint>) -> Constraint,
+        ),
         ("or", Constraint::or),
         ("and", Constraint::and),
         ("andSequence", Constraint::and_sequence),
@@ -728,13 +832,17 @@ fn constraint_from(value: &Expanded, depth: usize) -> Result<Constraint, IngestE
         if children.is_empty() {
             continue;
         }
-        let mapped: Vec<Constraint> =
-            children.iter().map(|c| constraint_from(c, depth + 1)).collect::<Result<_, _>>()?;
+        let mapped: Vec<Constraint> = children
+            .iter()
+            .map(|c| constraint_from(c, depth + 1))
+            .collect::<Result<_, _>>()?;
         return Ok(build(mapped));
     }
 
-    let left = first_string(node, "leftOperand").ok_or(IngestError::ConstraintWithoutLeftOperand)?;
-    let operator_iri = first_string(node, "operator").ok_or(IngestError::ConstraintWithoutOperator)?;
+    let left =
+        first_string(node, "leftOperand").ok_or(IngestError::ConstraintWithoutLeftOperand)?;
+    let operator_iri =
+        first_string(node, "operator").ok_or(IngestError::ConstraintWithoutOperator)?;
     let operator = operator_from(&operator_iri)?;
 
     let right_values = odrl(node, "rightOperand");
@@ -808,7 +916,11 @@ mod tests {
                 ),
                 Rule {
                     target: Some(OFFER_TARGET.to_string()),
-                    ..Rule::refined("print", vec![], Constraint::new("resolution", Operator::Lteq, "1200"))
+                    ..Rule::refined(
+                        "print",
+                        vec![],
+                        Constraint::new("resolution", Operator::Lteq, "1200"),
+                    )
                 },
             ],
             prohibitions: vec![Rule::targeting(
@@ -891,7 +1003,10 @@ mod tests {
         assert_eq!(ingested.policy.id, "urn:uuid:bare-offer");
         assert_eq!(ingested.policy.kind, "Offer");
         assert_eq!(ingested.policy.assignee, None);
-        assert_eq!(ingested.policy.permissions, vec![Rule::targeting("use", "urn:asset:A", vec![])]);
+        assert_eq!(
+            ingested.policy.permissions,
+            vec![Rule::targeting("use", "urn:asset:A", vec![])]
+        );
     }
 
     #[test]
@@ -920,11 +1035,16 @@ mod tests {
             "warnings: {:?}",
             ingested.warnings
         );
-        assert!(ingested.warnings.is_empty(), "warnings: {:?}", ingested.warnings);
+        assert!(
+            ingested.warnings.is_empty(),
+            "warnings: {:?}",
+            ingested.warnings
+        );
     }
 
     #[test]
-    fn an_unrecognized_odrl_conflict_value_is_warned_about_and_falls_back_to_the_engines_own_default() {
+    fn an_unrecognized_odrl_conflict_value_is_warned_about_and_falls_back_to_the_engines_own_default(
+    ) {
         // This test used to be
         // `a_declared_odrl_conflict_term_is_warned_about_rather_than_silently_dropped`,
         // documenting that *no* `odrl:conflict` value was ever ingested --
@@ -952,14 +1072,18 @@ mod tests {
           "permission": [{ "action": "use" }],
           "prohibition": [{ "action": "use" }]
         }"#;
-        let ingested = ingest_policy(doc).expect("a policy declaring an unrecognized odrl:conflict still ingests");
+        let ingested = ingest_policy(doc)
+            .expect("a policy declaring an unrecognized odrl:conflict still ingests");
         assert_eq!(
             ingested.policy.conflict,
             ConflictStrategy::default(),
             "an unrecognized strategy falls back to the engine's own default rather than being invented"
         );
         assert!(
-            ingested.warnings.iter().any(|w| w.contains("odrl:conflict")),
+            ingested
+                .warnings
+                .iter()
+                .any(|w| w.contains("odrl:conflict")),
             "warnings: {:?}",
             ingested.warnings
         );
@@ -968,7 +1092,8 @@ mod tests {
         // conflict term warns about nothing of the sort, so the assertion
         // above is about the unrecognized declaration and not about a
         // warning this adapter emits for every policy.
-        let quiet = ingest_policy(&doc.replace("\"conflict\": \"ex:assigneeWins\",", "")).expect("must ingest");
+        let quiet = ingest_policy(&doc.replace("\"conflict\": \"ex:assigneeWins\",", ""))
+            .expect("must ingest");
         assert!(
             !quiet.warnings.iter().any(|w| w.contains("odrl:conflict")),
             "warnings: {:?}",
@@ -989,7 +1114,9 @@ mod tests {
         }"#;
         assert_eq!(
             ingest_policy(doc),
-            Err(IngestError::UnknownContext("https://example.org/some/other/context.jsonld".to_string()))
+            Err(IngestError::UnknownContext(
+                "https://example.org/some/other/context.jsonld".to_string()
+            ))
         );
     }
 
@@ -1013,7 +1140,10 @@ mod tests {
             }]
           }]
         }"#;
-        assert_eq!(ingest_policy(doc), Err(IngestError::ConstraintWithoutOperator));
+        assert_eq!(
+            ingest_policy(doc),
+            Err(IngestError::ConstraintWithoutOperator)
+        );
     }
 
     #[test]
@@ -1036,7 +1166,9 @@ mod tests {
         }"#;
         assert_eq!(
             ingest_policy(doc),
-            Err(IngestError::UnsupportedOperator("http://www.w3.org/ns/odrl/2/hasPart".to_string()))
+            Err(IngestError::UnsupportedOperator(
+                "http://www.w3.org/ns/odrl/2/hasPart".to_string()
+            ))
         );
     }
 
@@ -1066,7 +1198,10 @@ mod tests {
         }"#;
         let ingested = ingest_policy(doc).expect("must ingest");
         let constraint = &ingested.policy.permissions[0].constraints[0];
-        assert!(constraint.and.is_none(), "`odrl:and` must lose to `odrl:xone`, as it does in the engine");
+        assert!(
+            constraint.and.is_none(),
+            "`odrl:and` must lose to `odrl:xone`, as it does in the engine"
+        );
         assert_eq!(
             constraint.xone.as_ref().map(|c| c[0].right_operand.clone()),
             Some("b".to_string())
@@ -1161,7 +1296,8 @@ mod tests {
           "inheritFrom": "urn:uuid:parent-policy-a",
           "permission": [{ "action": "use" }]
         }"#;
-        let ingested = ingest_policy(doc).expect("a policy declaring odrl:inheritFrom must still ingest");
+        let ingested =
+            ingest_policy(doc).expect("a policy declaring odrl:inheritFrom must still ingest");
         assert_eq!(
             ingested.policy.inherit_from,
             Some(vec!["urn:uuid:parent-policy-a".to_string()]),
@@ -1193,10 +1329,14 @@ mod tests {
           "inheritFrom": ["urn:uuid:parent-policy-b", "urn:uuid:parent-policy-a"],
           "permission": [{ "action": "use" }]
         }"#;
-        let ingested = ingest_policy(doc).expect("a policy declaring several odrl:inheritFrom values must still ingest");
+        let ingested = ingest_policy(doc)
+            .expect("a policy declaring several odrl:inheritFrom values must still ingest");
         assert_eq!(
             ingested.policy.inherit_from,
-            Some(vec!["urn:uuid:parent-policy-b".to_string(), "urn:uuid:parent-policy-a".to_string()]),
+            Some(vec![
+                "urn:uuid:parent-policy-b".to_string(),
+                "urn:uuid:parent-policy-a".to_string()
+            ]),
             "both parents must be present, and in the same order the document gave them"
         );
     }
@@ -1241,7 +1381,8 @@ mod tests {
                   "prohibition": [{{ "action": "use" }}]
                 }}"#
             );
-            let ingested = ingest_policy(&doc).expect("a policy declaring odrl:conflict must still ingest");
+            let ingested =
+                ingest_policy(&doc).expect("a policy declaring odrl:conflict must still ingest");
             assert_eq!(
                 ingested.policy.conflict, expected,
                 "\"conflict\": \"{term}\" must ingest to {expected:?}, not silently fall back to \
@@ -1267,7 +1408,8 @@ mod tests {
           "target": "urn:asset:A",
           "permission": [{ "action": "use" }]
         }"#;
-        let ingested = ingest_policy(doc).expect("a policy declaring no odrl:conflict must still ingest");
+        let ingested =
+            ingest_policy(doc).expect("a policy declaring no odrl:conflict must still ingest");
         assert_eq!(
             ingested.policy.conflict,
             ConflictStrategy::default(),
@@ -1356,7 +1498,12 @@ mod tests {
             Behaviour::Closed,
         );
         let response = evaluate_request(&allow);
-        assert_eq!(response.decision, WireDecision::Allow, "reason: {}", response.reason);
+        assert_eq!(
+            response.decision,
+            WireDecision::Allow,
+            "reason: {}",
+            response.reason
+        );
         assert_eq!(
             response.reason,
             "permission[0] of policy 'urn:uuid:d526561f-528e-4d5a-ae12-9a9dd9b7a815' matched: \
@@ -1401,12 +1548,23 @@ mod tests {
             ]
             .into_iter()
             .collect();
-            let req = request_for(&ingested.policy, OFFER_TARGET, "use", claims, DutyMode::Advise, Behaviour::Closed);
+            let req = request_for(
+                &ingested.policy,
+                OFFER_TARGET,
+                "use",
+                claims,
+                DutyMode::Advise,
+                Behaviour::Closed,
+            );
             serde_json::to_string_pretty(&serde_json::to_value(&req).unwrap()).unwrap()
         };
         let first = render();
         for _ in 0..4 {
-            assert_eq!(render(), first, "canonicalized Request JSON must be byte-identical every time");
+            assert_eq!(
+                render(),
+                first,
+                "canonicalized Request JSON must be byte-identical every time"
+            );
         }
     }
 
@@ -1443,7 +1601,14 @@ mod tests {
         // document, so `DutyMode::Deny` had nothing to gate on and this
         // Allowed unconditionally -- exactly as if the duty had never
         // existed.
-        let req = request_for(&ingested.policy, "urn:asset:A", "use", Claims::new(), DutyMode::Deny, Behaviour::Open);
+        let req = request_for(
+            &ingested.policy,
+            "urn:asset:A",
+            "use",
+            Claims::new(),
+            DutyMode::Deny,
+            Behaviour::Open,
+        );
         let response = evaluate_request(&req);
         assert_eq!(
             response.decision,
@@ -1453,7 +1618,10 @@ mod tests {
             response.reason
         );
         assert!(
-            response.duties.iter().any(|d| d.action == "compensate" && !d.resolved),
+            response
+                .duties
+                .iter()
+                .any(|d| d.action == "compensate" && !d.resolved),
             "the outstanding duty must be reported in the response: {:?}",
             response.duties
         );
@@ -1476,15 +1644,34 @@ mod tests {
           }]
         }"#;
         let ingested = ingest_policy(doc).expect("must ingest");
-        assert_eq!(ingested.policy.permissions[0].duty.len(), 1, "the duty must be ingested");
+        assert_eq!(
+            ingested.policy.permissions[0].duty.len(),
+            1,
+            "the duty must be ingested"
+        );
         assert_eq!(ingested.policy.permissions[0].duty[0].constraints.len(), 1);
 
-        let unresolved =
-            request_for(&ingested.policy, "urn:asset:A", "use", Claims::new(), DutyMode::Deny, Behaviour::Open);
+        let unresolved = request_for(
+            &ingested.policy,
+            "urn:asset:A",
+            "use",
+            Claims::new(),
+            DutyMode::Deny,
+            Behaviour::Open,
+        );
         assert_eq!(evaluate_request(&unresolved).decision, WireDecision::Deny);
 
-        let satisfied: Claims = [("payment".to_string(), "received".into())].into_iter().collect();
-        let resolved = request_for(&ingested.policy, "urn:asset:A", "use", satisfied, DutyMode::Deny, Behaviour::Open);
+        let satisfied: Claims = [("payment".to_string(), "received".into())]
+            .into_iter()
+            .collect();
+        let resolved = request_for(
+            &ingested.policy,
+            "urn:asset:A",
+            "use",
+            satisfied,
+            DutyMode::Deny,
+            Behaviour::Open,
+        );
         assert_eq!(
             evaluate_request(&resolved).decision,
             WireDecision::Allow,
@@ -1512,12 +1699,25 @@ mod tests {
             "odrl:remedy must be ingested into engine::Rule::remedy, not dropped"
         );
 
-        let req =
-            request_for(&ingested.policy, "urn:asset:A", "distribute", Claims::new(), DutyMode::Advise, Behaviour::Open);
+        let req = request_for(
+            &ingested.policy,
+            "urn:asset:A",
+            "distribute",
+            Claims::new(),
+            DutyMode::Advise,
+            Behaviour::Open,
+        );
         let response = evaluate_request(&req);
-        assert_eq!(response.decision, WireDecision::Deny, "the prohibition itself still denies");
+        assert_eq!(
+            response.decision,
+            WireDecision::Deny,
+            "the prohibition itself still denies"
+        );
         assert!(
-            response.duties.iter().any(|d| d.action == "notify" && !d.resolved),
+            response
+                .duties
+                .iter()
+                .any(|d| d.action == "notify" && !d.resolved),
             "the unresolved remedy must be reported: {:?}",
             response.duties
         );
@@ -1549,11 +1749,21 @@ mod tests {
         // reports once it doesn't, and a policy-level obligation denies
         // outright under DutyMode::Deny regardless of which permission was
         // requested.
-        let req = request_for(&ingested.policy, "urn:asset:A", "use", Claims::new(), DutyMode::Deny, Behaviour::Open);
+        let req = request_for(
+            &ingested.policy,
+            "urn:asset:A",
+            "use",
+            Claims::new(),
+            DutyMode::Deny,
+            Behaviour::Open,
+        );
         let response = evaluate_request(&req);
         assert_eq!(response.decision, WireDecision::Deny);
         assert!(
-            response.duties.iter().any(|d| d.action == "compensate" && !d.resolved),
+            response
+                .duties
+                .iter()
+                .any(|d| d.action == "compensate" && !d.resolved),
             "the consequence successor must be the duty actually reported once the obligation \
              itself is unresolved: {:?}",
             response.duties
@@ -1612,7 +1822,8 @@ mod tests {
     }
 
     #[test]
-    fn odrl_duty_odrl_remedy_odrl_consequence_in_the_wrong_domain_are_dropped_with_a_named_warning() {
+    fn odrl_duty_odrl_remedy_odrl_consequence_in_the_wrong_domain_are_dropped_with_a_named_warning()
+    {
         // odrl:duty's domain is Permission, not Prohibition; putting one on
         // a prohibition is an unmappable shape, not silently ignorable.
         let doc = r#"{
@@ -1664,11 +1875,15 @@ mod tests {
             { "assignee": "http://example.com/people/murphy" }
           ]
         }"#;
-        let ingested = ingest_policy(doc).expect("Example 28 must ingest, not fail with RuleWithoutAction");
+        let ingested =
+            ingest_policy(doc).expect("Example 28 must ingest, not fail with RuleWithoutAction");
         assert_eq!(ingested.policy.permissions.len(), 2);
         for permission in &ingested.policy.permissions {
             assert_eq!(permission.action, "play");
-            assert_eq!(permission.target.as_deref(), Some("http://example.com/music/1999.mp3"));
+            assert_eq!(
+                permission.target.as_deref(),
+                Some("http://example.com/music/1999.mp3")
+            );
         }
     }
 

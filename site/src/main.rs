@@ -96,24 +96,28 @@ mod wire;
 
 #[cfg(not(target_arch = "wasm32"))]
 fn main() {
-  println!("ds-odrl-engine-rs-site only targets web (wasm32)");
+    println!("ds-odrl-engine-rs-site only targets web (wasm32)");
 }
 
 #[cfg(target_arch = "wasm32")]
 fn main() {
-  use app_route::AppRoute;
-  use main_view::MainView;
-  use yew::prelude::*;
-  use yew_nested_router::prelude::Router;
+    use app_route::AppRoute;
+    use main_view::MainView;
+    use yew::prelude::*;
+    use yew_nested_router::prelude::Router;
 
-  std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+    std::panic::set_hook(Box::new(console_error_panic_hook::hook));
 
-  fern::Dispatch::new().level(log::LevelFilter::Info).chain(fern::Output::call(console_log::log)).apply().unwrap();
+    fern::Dispatch::new()
+        .level(log::LevelFilter::Info)
+        .chain(fern::Output::call(console_log::log))
+        .apply()
+        .unwrap();
 
-  #[component]
-  fn Root() -> Html {
-    html!(<Router<AppRoute> default={AppRoute::Home}><MainView /></Router<AppRoute>>)
-  }
+    #[component]
+    fn Root() -> Html {
+        html!(<Router<AppRoute> default={AppRoute::Home}><MainView /></Router<AppRoute>>)
+    }
 
-  yew::Renderer::<Root>::new().render();
+    yew::Renderer::<Root>::new().render();
 }

@@ -17,29 +17,29 @@ use serde::{Deserialize, Serialize};
 /// still round-trips to the raw-JSON preview unchanged.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Constraint {
-  pub left_operand: String,
-  pub operator: String,
-  pub right_operand: String,
+    pub left_operand: String,
+    pub operator: String,
+    pub right_operand: String,
 }
 
 /// One permission/prohibition/obligation rule: an action plus the
 /// constraints that gate it (Section 5.2's shared rule shape).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Rule {
-  pub action: String,
-  pub constraints: Vec<Constraint>,
+    pub action: String,
+    pub constraints: Vec<Constraint>,
 }
 
 /// One policy exactly as Section 5.2 documents it on the wire.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Policy {
-  pub id: String,
-  pub kind: String,
-  pub assigner: String,
-  pub assignee: Option<String>,
-  pub permissions: Vec<Rule>,
-  pub prohibitions: Vec<Rule>,
-  pub obligations: Vec<Rule>,
+    pub id: String,
+    pub kind: String,
+    pub assigner: String,
+    pub assignee: Option<String>,
+    pub permissions: Vec<Rule>,
+    pub prohibitions: Vec<Rule>,
+    pub obligations: Vec<Rule>,
 }
 
 /// A JSON-LD reference to another node by IRI -- `{"@id": "..."}`, used
@@ -47,18 +47,22 @@ pub struct Policy {
 /// `engine::wire::WireNodeRef`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WireNodeRef {
-  #[serde(rename = "@id")]
-  pub id: String,
+    #[serde(rename = "@id")]
+    pub id: String,
 }
 
 /// One entry of `RequestConfig`'s `odrl:action` list. Mirrors
 /// `engine::wire::WireActionDecl`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WireActionDecl {
-  #[serde(rename = "@id")]
-  pub id: String,
-  #[serde(rename = "odrl:includedIn", default, skip_serializing_if = "Option::is_none")]
-  pub included_in: Option<WireNodeRef>,
+    #[serde(rename = "@id")]
+    pub id: String,
+    #[serde(
+        rename = "odrl:includedIn",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub included_in: Option<WireNodeRef>,
 }
 
 /// Section 5.2's `config` object -- real ODRL/JSON-LD vocabulary
@@ -82,15 +86,15 @@ pub struct WireActionDecl {
 /// before the key existed. See `site/README.md`'s "Known limitations".
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RequestConfig {
-  #[serde(rename = "@type")]
-  pub type_: String,
-  #[serde(rename = "@id")]
-  pub id: String,
-  #[serde(rename = "odrl:action")]
-  pub actions: Vec<WireActionDecl>,
-  #[serde(rename = "dutyMode")]
-  pub duty_mode: String,
-  pub behaviour: String,
+    #[serde(rename = "@type")]
+    pub type_: String,
+    #[serde(rename = "@id")]
+    pub id: String,
+    #[serde(rename = "odrl:action")]
+    pub actions: Vec<WireActionDecl>,
+    #[serde(rename = "dutyMode")]
+    pub duty_mode: String,
+    pub behaviour: String,
 }
 
 /// A single claim's value: either one string, or a list of strings for a
@@ -100,8 +104,8 @@ pub struct RequestConfig {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ClaimValue {
-  Single(String),
-  Multi(Vec<String>),
+    Single(String),
+    Multi(Vec<String>),
 }
 
 /// Section 5.2's request envelope. `action` (new) is the one action the
@@ -113,19 +117,19 @@ pub enum ClaimValue {
 /// key order.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Request {
-  pub dataset_id: String,
-  pub action: String,
-  pub config: RequestConfig,
-  pub policies: Vec<Policy>,
-  pub claims: BTreeMap<String, ClaimValue>,
+    pub dataset_id: String,
+    pub action: String,
+    pub config: RequestConfig,
+    pub policies: Vec<Policy>,
+    pub claims: BTreeMap<String, ClaimValue>,
 }
 
 /// One entry of Section 5.2's `duties` list.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct DutyEntry {
-  pub policy_id: String,
-  pub action: String,
-  pub resolved: bool,
+    pub policy_id: String,
+    pub action: String,
+    pub resolved: bool,
 }
 
 /// Section 5.2's response envelope. `decision` is kept as a plain
@@ -136,9 +140,10 @@ pub struct DutyEntry {
 /// against those three literals or displays verbatim.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct Response {
-  #[allow(dead_code)] // carried through for completeness; the page keys its badge off `decision` alone
-  pub dataset_id: String,
-  pub decision: String,
-  pub reason: String,
-  pub duties: Vec<DutyEntry>,
+    #[allow(dead_code)]
+    // carried through for completeness; the page keys its badge off `decision` alone
+    pub dataset_id: String,
+    pub decision: String,
+    pub reason: String,
+    pub duties: Vec<DutyEntry>,
 }

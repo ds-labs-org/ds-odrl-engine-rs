@@ -32,7 +32,11 @@ pub fn parse_request(g: &Graph) -> Result<RequestInfo, String> {
     let target = g
         .object_node(&permission, &odrl("target"))
         .map(|id| local_name(&id).to_string());
-    Ok(RequestInfo { assignee, action, target })
+    Ok(RequestInfo {
+        assignee,
+        action,
+        target,
+    })
 }
 
 #[derive(Clone, Debug)]
@@ -64,7 +68,11 @@ pub enum TargetRef {
 /// silently mis-evaluated as `Or`.
 #[derive(Clone, Debug)]
 pub enum ConstraintForm {
-    Atomic { left_operand: String, operator: String, right_operand: String },
+    Atomic {
+        left_operand: String,
+        operator: String,
+        right_operand: String,
+    },
     And(Vec<ConstraintForm>),
     Or(Vec<ConstraintForm>),
     Xone(Vec<ConstraintForm>),
@@ -114,7 +122,10 @@ fn parse_constraint(g: &Graph, cnode: &str) -> ConstraintForm {
     let ty = g.type_of(cnode);
     if ty.as_deref() == Some(odrl("LogicalConstraint").as_str()) {
         let children_of = |pred: &str| -> Vec<ConstraintForm> {
-            g.object_nodes(cnode, pred).iter().map(|child| parse_constraint(g, child)).collect()
+            g.object_nodes(cnode, pred)
+                .iter()
+                .map(|child| parse_constraint(g, child))
+                .collect()
         };
         let and = children_of(&odrl("and"));
         if !and.is_empty() {
@@ -128,11 +139,23 @@ fn parse_constraint(g: &Graph, cnode: &str) -> ConstraintForm {
         return ConstraintForm::Xone(xone);
     }
 
-    let left_operand =
-        g.object_node(cnode, &odrl("leftOperand")).map(|id| local_name(&id).to_string()).unwrap_or_default();
-    let operator = g.object_node(cnode, &odrl("operator")).map(|id| local_name(&id).to_string()).unwrap_or_default();
-    let right_operand = g.object(cnode, &odrl("rightOperand")).and_then(literal_value).unwrap_or_default();
-    ConstraintForm::Atomic { left_operand, operator, right_operand }
+    let left_operand = g
+        .object_node(cnode, &odrl("leftOperand"))
+        .map(|id| local_name(&id).to_string())
+        .unwrap_or_default();
+    let operator = g
+        .object_node(cnode, &odrl("operator"))
+        .map(|id| local_name(&id).to_string())
+        .unwrap_or_default();
+    let right_operand = g
+        .object(cnode, &odrl("rightOperand"))
+        .and_then(literal_value)
+        .unwrap_or_default();
+    ConstraintForm::Atomic {
+        left_operand,
+        operator,
+        right_operand,
+    }
 }
 
 fn parse_rule(g: &Graph, rule_node: &str, kind: RuleKind) -> RuleInfo {
@@ -158,9 +181,18 @@ fn parse_rule(g: &Graph, rule_node: &str, kind: RuleKind) -> RuleInfo {
 
     let nested_duty = g.object_node(rule_node, &odrl("duty"));
 
-    let constraint = g.object_node(rule_node, &odrl("constraint")).map(|cnode| parse_constraint(g, &cnode));
+    let constraint = g
+        .object_node(rule_node, &odrl("constraint"))
+        .map(|cnode| parse_constraint(g, &cnode));
 
-    RuleInfo { kind, assignee, action, target, constraint, nested_duty }
+    RuleInfo {
+        kind,
+        assignee,
+        action,
+        target,
+        constraint,
+        nested_duty,
+    }
 }
 
 pub fn parse_policy(g: &Graph) -> Result<PolicyInfo, String> {
@@ -176,5 +208,8 @@ pub fn parse_policy(g: &Graph) -> Result<PolicyInfo, String> {
         rules.push(parse_rule(g, &prohibition_node, RuleKind::Prohibition));
     }
 
-    Ok(PolicyInfo { id: policy_node, rules })
+    Ok(PolicyInfo {
+        id: policy_node,
+        rules,
+    })
 }

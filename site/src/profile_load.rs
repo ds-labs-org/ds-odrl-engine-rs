@@ -19,8 +19,8 @@ use profile_interpreter::interpret::{duty_mode_from_str, interpret};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProfileFormat {
-  Turtle,
-  JsonLd,
+    Turtle,
+    JsonLd,
 }
 
 /// Mirrors `engine::ActionDecl` field for field (`id`, `included_in`) --
@@ -29,16 +29,16 @@ pub enum ProfileFormat {
 /// copied out by field access, never `engine::ActionDecl` named directly.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LoadedAction {
-  pub id: String,
-  pub included_in: Option<String>,
+    pub id: String,
+    pub included_in: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct LoadedProfile {
-  pub id: String,
-  pub actions: Vec<LoadedAction>,
-  pub declared_left_operands: Vec<String>,
-  pub warnings: Vec<String>,
+    pub id: String,
+    pub actions: Vec<LoadedAction>,
+    pub declared_left_operands: Vec<String>,
+    pub warnings: Vec<String>,
 }
 
 /// Parses `text` per `format`, then interprets it under `duty_mode`
@@ -57,22 +57,34 @@ pub struct LoadedProfile {
 /// parameter here would be API surface with no observable effect. The
 /// form's own `behaviour` selection reaches the engine directly through
 /// `demo_form::to_request`'s `config.behaviour` instead.
-pub fn load_profile(text: &str, format: ProfileFormat, duty_mode: &str) -> Result<LoadedProfile, String> {
-  let graph = match format {
-    ProfileFormat::Turtle => Graph::from_turtle(text.as_bytes()),
-    ProfileFormat::JsonLd => Graph::from_json_ld(text.as_bytes()),
-  }?;
-  let duty_mode = duty_mode_from_str(duty_mode)?;
-  let interpreted = interpret(&graph, None, duty_mode, profile_interpreter::interpret::default_behaviour());
-  Ok(LoadedProfile {
-    id: interpreted.profile.id,
-    actions: interpreted
-      .profile
-      .actions
-      .iter()
-      .map(|a| LoadedAction { id: a.id.clone(), included_in: a.included_in.clone() })
-      .collect(),
-    declared_left_operands: interpreted.declared_left_operands,
-    warnings: interpreted.warnings,
-  })
+pub fn load_profile(
+    text: &str,
+    format: ProfileFormat,
+    duty_mode: &str,
+) -> Result<LoadedProfile, String> {
+    let graph = match format {
+        ProfileFormat::Turtle => Graph::from_turtle(text.as_bytes()),
+        ProfileFormat::JsonLd => Graph::from_json_ld(text.as_bytes()),
+    }?;
+    let duty_mode = duty_mode_from_str(duty_mode)?;
+    let interpreted = interpret(
+        &graph,
+        None,
+        duty_mode,
+        profile_interpreter::interpret::default_behaviour(),
+    );
+    Ok(LoadedProfile {
+        id: interpreted.profile.id,
+        actions: interpreted
+            .profile
+            .actions
+            .iter()
+            .map(|a| LoadedAction {
+                id: a.id.clone(),
+                included_in: a.included_in.clone(),
+            })
+            .collect(),
+        declared_left_operands: interpreted.declared_left_operands,
+        warnings: interpreted.warnings,
+    })
 }

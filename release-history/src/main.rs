@@ -107,14 +107,14 @@ use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
 use coverage_catalog::{
-    compile_coverage_report, errored_probe_outcome, evaluated_probe_outcome, parse_coverage_catalog, probe_json,
-    CoverageFile, ProbeOutcome, ProbeStatus, RowVerdict,
+    compile_coverage_report, errored_probe_outcome, evaluated_probe_outcome,
+    parse_coverage_catalog, probe_json, CoverageFile, ProbeOutcome, ProbeStatus, RowVerdict,
 };
 use full_compliance::{compile_full_compliance_report, is_in_scope};
 use host::HistoricalEngine;
 use render::{
-    CatalogInfo, ComplianceTally, ContradictedRow, CoverageTally, FullComplianceTally, HistoryFile, Release,
-    GENERATED_BY, METHOD, NOTE, SCHEMA,
+    CatalogInfo, ComplianceTally, ContradictedRow, CoverageTally, FullComplianceTally, HistoryFile,
+    Release, GENERATED_BY, METHOD, NOTE, SCHEMA,
 };
 
 /// The `/full-compliance` axis's own catalog-wide constants: which rows
@@ -137,7 +137,12 @@ fn full_compliance_catalog_facts(catalog: &CoverageFile) -> (usize, usize, usize
             }
         }
     }
-    (rows_in_scope, rows_excluded, judged_ids.len(), catalog.probes.len())
+    (
+        rows_in_scope,
+        rows_excluded,
+        judged_ids.len(),
+        catalog.probes.len(),
+    )
 }
 
 /// `meta.json`, written per tag by stage 1.
@@ -167,14 +172,20 @@ struct HistoricalCompliance {
 fn version_key(tag: &str) -> (u64, u64, u64, String) {
     let stripped = tag.strip_prefix('v').unwrap_or(tag);
     let mut parts = stripped.split('.').map(|p| p.parse::<u64>().unwrap_or(0));
-    (parts.next().unwrap_or(0), parts.next().unwrap_or(0), parts.next().unwrap_or(0), tag.to_string())
+    (
+        parts.next().unwrap_or(0),
+        parts.next().unwrap_or(0),
+        parts.next().unwrap_or(0),
+        tag.to_string(),
+    )
 }
 
 /// The exact prefix `engine::wire::parse_error_response` puts on a
 /// request its own deserializer refused. Byte-identical in every tag from
 /// v0.1.0 to v0.12.1 (checked across the range), which is what lets one
 /// detector work over the whole history.
-const PARSE_REJECTION_PREFIX: &str = "request did not parse as the documented Section 5.2 JSON shape";
+const PARSE_REJECTION_PREFIX: &str =
+    "request did not parse as the documented Section 5.2 JSON shape";
 
 /// Did this probe's request get refused by the historical engine's own
 /// deserializer, before any policy logic ran?
@@ -185,13 +196,20 @@ const PARSE_REJECTION_PREFIX: &str = "request did not parse as the documented Se
 /// phrase. Together they identify exactly `parse_error_response`'s output.
 fn is_envelope_rejection(outcome: &ProbeOutcome) -> bool {
     outcome.decision.as_deref() == Some("Error")
-        && outcome.reason.as_deref().is_some_and(|reason| reason.starts_with(PARSE_REJECTION_PREFIX))
+        && outcome
+            .reason
+            .as_deref()
+            .is_some_and(|reason| reason.starts_with(PARSE_REJECTION_PREFIX))
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {
     let mut hasher = Sha256::new();
     hasher.update(bytes);
-    hasher.finalize().iter().map(|b| format!("{b:02x}")).collect()
+    hasher
+        .finalize()
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect()
 }
 
 /// Replays every probe in the current catalog against one historical
@@ -217,25 +235,35 @@ fn replay(catalog: &CoverageFile, wasm: &[u8]) -> Result<(Vec<ProbeOutcome>, f64
 
 fn stage_release(catalog: &CoverageFile, dir: &Path) -> Result<Release, String> {
     let meta: Meta = serde_json::from_str(
-        &fs::read_to_string(dir.join("meta.json")).map_err(|e| format!("{}: {e}", dir.join("meta.json").display()))?,
+        &fs::read_to_string(dir.join("meta.json"))
+            .map_err(|e| format!("{}: {e}", dir.join("meta.json").display()))?,
     )
     .map_err(|e| format!("{}: {e}", dir.join("meta.json").display()))?;
 
-    let wasm = fs::read(dir.join("engine.wasm")).map_err(|e| format!("{}: {e}", dir.join("engine.wasm").display()))?;
+    let wasm = fs::read(dir.join("engine.wasm"))
+        .map_err(|e| format!("{}: {e}", dir.join("engine.wasm").display()))?;
 
     // Absent only when that tag's compliance run genuinely did not
     // complete — stage 1 leaves the stderr behind and omits the file
     // rather than inventing a number.
-    let compliance: Option<ComplianceTally> = match fs::read_to_string(dir.join("compliance.json")) {
+    let compliance: Option<ComplianceTally> = match fs::read_to_string(dir.join("compliance.json"))
+    {
         Ok(text) => {
-            let c: HistoricalCompliance =
-                serde_json::from_str(&text).map_err(|e| format!("{}: {e}", dir.join("compliance.json").display()))?;
-            Some(ComplianceTally { total: c.total, passed: c.passed, failed: c.failed, skipped: c.skipped })
+            let c: HistoricalCompliance = serde_json::from_str(&text)
+                .map_err(|e| format!("{}: {e}", dir.join("compliance.json").display()))?;
+            Some(ComplianceTally {
+                total: c.total,
+                passed: c.passed,
+                failed: c.failed,
+                skipped: c.skipped,
+            })
         }
         Err(_) => None,
     };
 
-    let (coverage, coverage_error, contradicted_rows, full_compliance) = match replay(catalog, &wasm) {
+    let (coverage, coverage_error, contradicted_rows, full_compliance) = match replay(
+        catalog, &wasm,
+    ) {
         Ok((outcomes, elapsed_ms)) => {
             let envelope_rejected = outcomes.iter().filter(|o| is_envelope_rejection(o)).count();
 
@@ -250,7 +278,9 @@ fn stage_release(catalog: &CoverageFile, dir: &Path) -> Result<Release, String> 
                 let first = outcomes
                     .iter()
                     .find_map(|o| o.reason.clone())
-                    .unwrap_or_else(|| "request rejected by this release's deserializer".to_string());
+                    .unwrap_or_else(|| {
+                        "request rejected by this release's deserializer".to_string()
+                    });
                 return Ok(Release {
                     tag: meta.tag,
                     date: meta.date,
@@ -274,7 +304,8 @@ fn stage_release(catalog: &CoverageFile, dir: &Path) -> Result<Release, String> 
             // consumes just below -- cloned first, since `ProbeOutcome` carries
             // owned strings this dashboard's two axes both need their own copy
             // of, rather than re-running the wasmi replay a second time.
-            let full_report = compile_full_compliance_report(catalog, outcomes.clone(), elapsed_ms, wasm.len());
+            let full_report =
+                compile_full_compliance_report(catalog, outcomes.clone(), elapsed_ms, wasm.len());
             let full_tally = FullComplianceTally {
                 rows_meets: full_report.rows_meets as usize,
                 rows_falls_short: full_report.rows_falls_short as usize,
@@ -340,7 +371,10 @@ fn stage_release(catalog: &CoverageFile, dir: &Path) -> Result<Release, String> 
 
 fn main() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let repo_root = manifest_dir.parent().expect("release-history has a parent directory").to_path_buf();
+    let repo_root = manifest_dir
+        .parent()
+        .expect("release-history has a parent directory")
+        .to_path_buf();
 
     let args: Vec<String> = std::env::args().skip(1).collect();
     let check_determinism = args.iter().any(|a| a == "--check-determinism");
@@ -361,7 +395,10 @@ fn main() {
 
     let catalog_path = repo_root.join("compliance/reports/latest-coverage.json");
     let catalog_text = fs::read_to_string(&catalog_path).unwrap_or_else(|e| {
-        eprintln!("{}: {e} -- run `cargo run -p coverage-probes --release` first", catalog_path.display());
+        eprintln!(
+            "{}: {e} -- run `cargo run -p coverage-probes --release` first",
+            catalog_path.display()
+        );
         std::process::exit(1);
     });
     let catalog = parse_coverage_catalog(&catalog_text).unwrap_or_else(|e| {
@@ -422,10 +459,19 @@ fn main() {
         }
     }
 
-    let count_status =
-        |status: &str| catalog.rows.iter().filter(|row| row.status == status).count();
-    let (full_compliance_rows_in_scope, full_compliance_rows_excluded, full_compliance_probes_judged, full_compliance_probes_in_catalog) =
-        full_compliance_catalog_facts(&catalog);
+    let count_status = |status: &str| {
+        catalog
+            .rows
+            .iter()
+            .filter(|row| row.status == status)
+            .count()
+    };
+    let (
+        full_compliance_rows_in_scope,
+        full_compliance_rows_excluded,
+        full_compliance_probes_judged,
+        full_compliance_probes_in_catalog,
+    ) = full_compliance_catalog_facts(&catalog);
     let file = HistoryFile {
         schema: SCHEMA,
         generated_by: GENERATED_BY,
@@ -462,7 +508,11 @@ fn main() {
 
     let out = repo_root.join("compliance/reports/release-history.json");
     fs::write(&out, &text).expect("write release-history.json");
-    println!("\nrelease history: {} releases -> {}", file.releases.len(), out.display());
+    println!(
+        "\nrelease history: {} releases -> {}",
+        file.releases.len(),
+        out.display()
+    );
 }
 
 #[cfg(test)]
@@ -492,13 +542,21 @@ mod tests {
     #[test]
     fn the_committed_artifact_parses_and_carries_every_tag() {
         const COMMITTED: &str = include_str!("../../compliance/reports/release-history.json");
-        let value: serde_json::Value = serde_json::from_str(COMMITTED).expect("release-history.json parses");
+        let value: serde_json::Value =
+            serde_json::from_str(COMMITTED).expect("release-history.json parses");
         assert_eq!(value["schema"], SCHEMA);
         let releases = value["releases"].as_array().expect("releases is an array");
-        assert!(releases.len() >= 19, "expected every tag from v0.1.0 onward, found {}", releases.len());
+        assert!(
+            releases.len() >= 19,
+            "expected every tag from v0.1.0 onward, found {}",
+            releases.len()
+        );
         for release in releases {
             assert!(release["tag"].as_str().is_some_and(|t| t.starts_with('v')));
-            assert_eq!(release["engine_wasm_sha256"].as_str().map(str::len), Some(64));
+            assert_eq!(
+                release["engine_wasm_sha256"].as_str().map(str::len),
+                Some(64)
+            );
         }
     }
 
@@ -514,7 +572,11 @@ mod tests {
             evidence: "evidence".to_string(),
             asserts: "asserts".to_string(),
             probe_ids: probe_ids.iter().map(|s| s.to_string()).collect(),
-            documented_because: if probe_ids.is_empty() { Some("no wire request can encode this".to_string()) } else { None },
+            documented_because: if probe_ids.is_empty() {
+                Some("no wire request can encode this".to_string())
+            } else {
+                None
+            },
             caveat: None,
             full_compliance_gap: None,
         }
@@ -542,19 +604,32 @@ mod tests {
             catalog_row("OutOfScope", &["e"]),
             catalog_row("OutOfScope", &[]),
         ]);
-        let (rows_in_scope, rows_excluded, probes_judged, probes_in_catalog) = full_compliance_catalog_facts(&catalog);
-        assert_eq!(rows_in_scope, 3, "Implemented/Partial/NotImplemented rows are in scope; OutOfScope is not");
+        let (rows_in_scope, rows_excluded, probes_judged, probes_in_catalog) =
+            full_compliance_catalog_facts(&catalog);
+        assert_eq!(
+            rows_in_scope, 3,
+            "Implemented/Partial/NotImplemented rows are in scope; OutOfScope is not"
+        );
         assert_eq!(rows_excluded, 2);
         assert_eq!(probes_judged, 4, "a, b, c, d from the three in-scope rows -- the OutOfScope rows' own \"e\" must not be counted");
-        assert_eq!(probes_in_catalog, 0, "this fixture's own `probes` list, not the rows' `probe_ids`");
+        assert_eq!(
+            probes_in_catalog, 0,
+            "this fixture's own `probes` list, not the rows' `probe_ids`"
+        );
     }
 
     #[test]
     fn full_compliance_catalog_facts_counts_a_shared_probe_id_once() {
-        let catalog = catalog(vec![catalog_row("Partial", &["shared"]), catalog_row("NotImplemented", &["shared"])]);
+        let catalog = catalog(vec![
+            catalog_row("Partial", &["shared"]),
+            catalog_row("NotImplemented", &["shared"]),
+        ]);
         let (rows_in_scope, _, probes_judged, _) = full_compliance_catalog_facts(&catalog);
         assert_eq!(rows_in_scope, 2);
-        assert_eq!(probes_judged, 1, "two in-scope rows naming the same probe id must count it once");
+        assert_eq!(
+            probes_judged, 1,
+            "two in-scope rows naming the same probe id must count it once"
+        );
     }
 
     // ---- integration: the committed artifact's newest release ---------
@@ -569,16 +644,25 @@ mod tests {
     #[test]
     fn the_newest_releases_full_compliance_tally_sums_to_the_catalogs_in_scope_rows() {
         const COMMITTED: &str = include_str!("../../compliance/reports/release-history.json");
-        let value: serde_json::Value = serde_json::from_str(COMMITTED).expect("release-history.json parses");
+        let value: serde_json::Value =
+            serde_json::from_str(COMMITTED).expect("release-history.json parses");
         let releases = value["releases"].as_array().expect("releases is an array");
         let latest = releases.last().expect("at least one release");
         let full_compliance = &latest["full_compliance"];
-        assert!(!full_compliance.is_null(), "the newest release must be addressable and therefore carry a full_compliance tally");
+        assert!(
+            !full_compliance.is_null(),
+            "the newest release must be addressable and therefore carry a full_compliance tally"
+        );
 
         let sum = full_compliance["rows_meets"].as_u64().unwrap()
             + full_compliance["rows_falls_short"].as_u64().unwrap()
             + full_compliance["rows_structural_gap"].as_u64().unwrap()
             + full_compliance["rows_undetermined"].as_u64().unwrap();
-        assert_eq!(sum, value["catalog"]["full_compliance_rows_in_scope"].as_u64().unwrap());
+        assert_eq!(
+            sum,
+            value["catalog"]["full_compliance_rows_in_scope"]
+                .as_u64()
+                .unwrap()
+        );
     }
 }

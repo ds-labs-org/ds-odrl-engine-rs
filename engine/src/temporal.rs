@@ -65,7 +65,12 @@ pub fn parse_utc_datetime_nanos(s: &str) -> Option<i128> {
         return None;
     }
     let expect = |i: usize, c: u8| bytes.get(i) == Some(&c);
-    if !(expect(4, b'-') && expect(7, b'-') && expect(10, b'T') && expect(13, b':') && expect(16, b':')) {
+    if !(expect(4, b'-')
+        && expect(7, b'-')
+        && expect(10, b'T')
+        && expect(13, b':')
+        && expect(16, b':'))
+    {
         return None;
     }
 
@@ -144,7 +149,8 @@ fn parse_offset_datetime_nanos(s: &str) -> Option<i128> {
     let local_part = s.get(..offset_at)?;
     let synthetic_utc = format!("{local_part}Z");
     let local_nanos = parse_utc_datetime_nanos(&synthetic_utc)?;
-    let offset_nanos = sign as i128 * (offset_hour * 3_600 + offset_minute * 60) as i128 * 1_000_000_000;
+    let offset_nanos =
+        sign as i128 * (offset_hour * 3_600 + offset_minute * 60) as i128 * 1_000_000_000;
     Some(local_nanos - offset_nanos)
 }
 
@@ -188,7 +194,12 @@ fn parse_date_only_nanos(s: &str) -> Option<i128> {
 /// `"1M1Y"` (`M` before `Y`) — that falls out of `parse_xsd_duration_nanos`
 /// itself later finding unconsumed characters once every unit in the
 /// grammar's fixed order has had its turn.
-fn eat_duration_component(cursor: &mut &str, unit: u8, nanos_per_unit: i128, allow_fraction: bool) -> Option<Option<i128>> {
+fn eat_duration_component(
+    cursor: &mut &str,
+    unit: u8,
+    nanos_per_unit: i128,
+    allow_fraction: bool,
+) -> Option<Option<i128>> {
     let bytes = cursor.as_bytes();
     let mut int_end = 0;
     while int_end < bytes.len() && bytes[int_end].is_ascii_digit() {
@@ -293,7 +304,11 @@ pub fn parse_xsd_duration_nanos(s: &str) -> Option<i128> {
     let mut any_component = false;
 
     let mut cursor = date_part;
-    for (unit, nanos_per_unit) in [(b'Y', 365 * NANOS_PER_DAY), (b'M', 30 * NANOS_PER_DAY), (b'D', NANOS_PER_DAY)] {
+    for (unit, nanos_per_unit) in [
+        (b'Y', 365 * NANOS_PER_DAY),
+        (b'M', 30 * NANOS_PER_DAY),
+        (b'D', NANOS_PER_DAY),
+    ] {
         if let Some(nanos) = eat_duration_component(&mut cursor, unit, nanos_per_unit, false)? {
             total = total.checked_add(nanos)?;
             any_component = true;
@@ -308,10 +323,14 @@ pub fn parse_xsd_duration_nanos(s: &str) -> Option<i128> {
             return None; // "T" present with nothing following it
         }
         let mut cursor = t;
-        for (unit, nanos_per_unit, allow_fraction) in
-            [(b'H', NANOS_PER_HOUR, false), (b'M', NANOS_PER_MINUTE, false), (b'S', NANOS_PER_SECOND, true)]
-        {
-            if let Some(nanos) = eat_duration_component(&mut cursor, unit, nanos_per_unit, allow_fraction)? {
+        for (unit, nanos_per_unit, allow_fraction) in [
+            (b'H', NANOS_PER_HOUR, false),
+            (b'M', NANOS_PER_MINUTE, false),
+            (b'S', NANOS_PER_SECOND, true),
+        ] {
+            if let Some(nanos) =
+                eat_duration_component(&mut cursor, unit, nanos_per_unit, allow_fraction)?
+            {
                 total = total.checked_add(nanos)?;
                 any_component = true;
             }
@@ -409,7 +428,11 @@ mod tests {
             "2024-01-01T24:00:01Z", // 24: only as exactly 24:00:00
             "2024-01-01T24:00:00.500Z",
         ] {
-            assert_eq!(parse_utc_datetime_nanos(s), None, "{s} must be rejected, not rolled over");
+            assert_eq!(
+                parse_utc_datetime_nanos(s),
+                None,
+                "{s} must be rejected, not rolled over"
+            );
         }
         // ...while the genuine leap day stays accepted.
         assert!(parse_utc_datetime_nanos("2024-02-29T00:00:00Z").is_some());
@@ -605,7 +628,10 @@ mod tests {
 
     #[test]
     fn a_one_day_duration_equals_twenty_four_hours() {
-        assert_eq!(parse_xsd_duration_nanos("P1D"), parse_xsd_duration_nanos("PT24H"));
+        assert_eq!(
+            parse_xsd_duration_nanos("P1D"),
+            parse_xsd_duration_nanos("PT24H")
+        );
     }
 
     #[test]
@@ -618,10 +644,7 @@ mod tests {
 
     #[test]
     fn parses_fractional_seconds() {
-        assert_eq!(
-            parse_xsd_duration_nanos("PT1.5S"),
-            Some(1_500_000_000)
-        );
+        assert_eq!(parse_xsd_duration_nanos("PT1.5S"), Some(1_500_000_000));
     }
 
     #[test]
@@ -639,14 +662,13 @@ mod tests {
     #[test]
     fn rejects_malformed_duration_literals() {
         for s in [
-            "",
-            "P",           // no components at all
-            "PT",          // T with nothing following
-            "1Y",          // missing the leading P
-            "P1D1Y",       // wrong order (D before Y)
-            "P1Q",         // unknown unit
-            "+P1D",        // XSD only allows a leading '-', never '+'
-            "P1D2D",       // repeated unit
+            "", "P",     // no components at all
+            "PT",    // T with nothing following
+            "1Y",    // missing the leading P
+            "P1D1Y", // wrong order (D before Y)
+            "P1Q",   // unknown unit
+            "+P1D",  // XSD only allows a leading '-', never '+'
+            "P1D2D", // repeated unit
         ] {
             assert_eq!(parse_xsd_duration_nanos(s), None, "{s} must be rejected");
         }

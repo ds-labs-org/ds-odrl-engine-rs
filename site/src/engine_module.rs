@@ -35,21 +35,25 @@ use crate::engine_bridge::describe_js_error;
 /// Fetches `engine.wasm` relative to the document's own `<base href>` and
 /// returns its raw byte length on success.
 pub async fn fetch_engine_wasm_len() -> Result<usize, String> {
-  let window = web_sys::window().ok_or_else(|| "no `window` (not running in a browser)".to_string())?;
+    let window =
+        web_sys::window().ok_or_else(|| "no `window` (not running in a browser)".to_string())?;
 
-  let response: Response = JsFuture::from(window.fetch_with_str("engine.wasm"))
-    .await
-    .map_err(describe_js_error)?
-    .dyn_into()
-    .map_err(|_| "fetch() did not resolve to a Response".to_string())?;
+    let response: Response = JsFuture::from(window.fetch_with_str("engine.wasm"))
+        .await
+        .map_err(describe_js_error)?
+        .dyn_into()
+        .map_err(|_| "fetch() did not resolve to a Response".to_string())?;
 
-  if !response.ok() {
-    return Err(format!("engine.wasm fetch returned HTTP {}", response.status()));
-  }
+    if !response.ok() {
+        return Err(format!(
+            "engine.wasm fetch returned HTTP {}",
+            response.status()
+        ));
+    }
 
-  let buffer = JsFuture::from(response.array_buffer().map_err(describe_js_error)?)
-    .await
-    .map_err(describe_js_error)?;
-  let bytes = js_sys::Uint8Array::new(&buffer);
-  Ok(bytes.length() as usize)
+    let buffer = JsFuture::from(response.array_buffer().map_err(describe_js_error)?)
+        .await
+        .map_err(describe_js_error)?;
+    let bytes = js_sys::Uint8Array::new(&buffer);
+    Ok(bytes.length() as usize)
 }

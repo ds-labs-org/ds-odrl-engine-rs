@@ -131,7 +131,8 @@
 use engine::profile::ActionDecl;
 use engine::wire::WireActionDecl;
 use engine::{
-    ClaimValue, Claims, ConflictStrategy, Constraint, DutyMode, Operator, Request, RequestConfig, Rule, WirePolicy,
+    ClaimValue, Claims, ConflictStrategy, Constraint, DutyMode, Operator, Request, RequestConfig,
+    Rule, WirePolicy,
 };
 
 use crate::graph::{dct, local_name, odrl, report_ns, Graph};
@@ -178,7 +179,10 @@ fn base_request_config() -> RequestConfig {
     RequestConfig {
         type_: "odrl:Profile".to_string(),
         id: CONFIG_ID.to_string(),
-        actions: base_action_vocabulary().iter().map(WireActionDecl::from).collect(),
+        actions: base_action_vocabulary()
+            .iter()
+            .map(WireActionDecl::from)
+            .collect(),
         duty_mode: DutyMode::Advise,
         // `ground_truth.rs`'s own doc comment already established this
         // suite is built against the ODRL Formal Semantics draft's closed
@@ -233,9 +237,17 @@ fn resolve_operator(local: &str) -> Result<Operator, String> {
 /// here rather than an approximation.
 fn to_dnf(form: &ConstraintForm) -> Result<Vec<Vec<Constraint>>, String> {
     match form {
-        ConstraintForm::Atomic { left_operand, operator, right_operand } => {
+        ConstraintForm::Atomic {
+            left_operand,
+            operator,
+            right_operand,
+        } => {
             let op = resolve_operator(operator)?;
-            Ok(vec![vec![Constraint::new(left_operand.clone(), op, right_operand.clone())]])
+            Ok(vec![vec![Constraint::new(
+                left_operand.clone(),
+                op,
+                right_operand.clone(),
+            )]])
         }
         ConstraintForm::And(children) => {
             let mut conjunctions: Vec<Vec<Constraint>> = vec![Vec::new()];
@@ -280,18 +292,28 @@ fn is_member_of(sotw: &Graph, member_local: &str, collection_local: &str) -> boo
 /// otherwise still real; see this module's doc comment).
 fn duty_is_violated(sotw: &Graph, duty_id: &str) -> bool {
     let duty_local = local_name(duty_id);
-    sotw.subjects_by_object_local_name(&report_ns("rule"), duty_local).iter().any(|report_node| {
-        sotw.type_of(report_node).as_deref() == Some(report_ns("DutyReport").as_str())
-            && sotw.object_node(report_node, &report_ns("deonticState")).as_deref().map(local_name)
-                == Some("Violated")
-    })
+    sotw.subjects_by_object_local_name(&report_ns("rule"), duty_local)
+        .iter()
+        .any(|report_node| {
+            sotw.type_of(report_node).as_deref() == Some(report_ns("DutyReport").as_str())
+                && sotw
+                    .object_node(report_node, &report_ns("deonticState"))
+                    .as_deref()
+                    .map(local_name)
+                    == Some("Violated")
+        })
 }
 
 fn current_time(sotw: &Graph) -> Option<String> {
     sotw.first_literal_for_predicate(&dct("issued"))
 }
 
-pub fn translate(policy: &PolicyInfo, req: &RequestInfo, sotw: &Graph, dataset_id: &str) -> Translation {
+pub fn translate(
+    policy: &PolicyInfo,
+    req: &RequestInfo,
+    sotw: &Graph,
+    dataset_id: &str,
+) -> Translation {
     let mut permissions = Vec::new();
     let mut prohibitions = Vec::new();
 
@@ -311,9 +333,10 @@ pub fn translate(policy: &PolicyInfo, req: &RequestInfo, sotw: &Graph, dataset_i
         let target_matches = match &rule.target {
             None => true,
             Some(TargetRef::Individual(name)) => Some(name) == req.target.as_ref(),
-            Some(TargetRef::Collection(collection)) => {
-                req.target.as_deref().is_some_and(|t| is_member_of(sotw, t, collection))
-            }
+            Some(TargetRef::Collection(collection)) => req
+                .target
+                .as_deref()
+                .is_some_and(|t| is_member_of(sotw, t, collection)),
         };
         if !(assignee_matches && target_matches) {
             continue;
@@ -411,21 +434,37 @@ mod tests {
     use crate::odrl::RuleInfo;
 
     fn req(assignee: &str, action: &str, target: Option<&str>) -> RequestInfo {
-        RequestInfo { assignee: assignee.to_string(), action: action.to_string(), target: target.map(String::from) }
+        RequestInfo {
+            assignee: assignee.to_string(),
+            action: action.to_string(),
+            target: target.map(String::from),
+        }
     }
 
     fn policy(id: &str, rules: Vec<RuleInfo>) -> PolicyInfo {
-        PolicyInfo { id: id.to_string(), rules }
+        PolicyInfo {
+            id: id.to_string(),
+            rules,
+        }
     }
 
     fn unconstrained(kind: RuleKind) -> RuleInfo {
-        RuleInfo { kind, assignee: None, action: None, target: None, constraint: None, nested_duty: None }
+        RuleInfo {
+            kind,
+            assignee: None,
+            action: None,
+            target: None,
+            constraint: None,
+            nested_duty: None,
+        }
     }
 
     fn allow(policy: &PolicyInfo, req: &RequestInfo, sotw: &Graph) -> engine::WireDecision {
         match translate(policy, req, sotw, "ds1") {
             Translation::Ready(wire) => engine::evaluate_request(&wire).decision,
-            Translation::Skip(reason) => panic!("expected a translated request, got skip: {reason}"),
+            Translation::Skip(reason) => {
+                panic!("expected a translated request, got skip: {reason}")
+            }
         }
     }
 
@@ -462,9 +501,14 @@ mod tests {
                     "a rule scoped to a different assignee must not survive translation as an \
                      empty-permissions shell, which would trigger decide()'s own open exception"
                 );
-                assert_eq!(engine::evaluate_request(&wire).decision, engine::WireDecision::Deny);
+                assert_eq!(
+                    engine::evaluate_request(&wire).decision,
+                    engine::WireDecision::Deny
+                );
             }
-            Translation::Skip(reason) => panic!("expected a translated request, got skip: {reason}"),
+            Translation::Skip(reason) => {
+                panic!("expected a translated request, got skip: {reason}")
+            }
         }
     }
 
@@ -537,7 +581,8 @@ mod tests {
     }
 
     #[test]
-    fn use_permission_does_not_cover_a_transfer_category_action_via_engine_coverage_not_translate_time_filtering() {
+    fn use_permission_does_not_cover_a_transfer_category_action_via_engine_coverage_not_translate_time_filtering(
+    ) {
         // Mirrors the vendored fixture testcase-010-alice-sell: policy-3
         // ("everybody can do use") against a `sell` request. The upstream
         // expected report is Inactive/Unsatisfied, not Active — `sell` is
@@ -564,9 +609,14 @@ mod tests {
                      it is engine::decide's coverage check, not translate-time filtering, that \
                      denies this request"
                 );
-                assert_eq!(engine::evaluate_request(&wire).decision, engine::WireDecision::Deny);
+                assert_eq!(
+                    engine::evaluate_request(&wire).decision,
+                    engine::WireDecision::Deny
+                );
             }
-            Translation::Skip(reason) => panic!("expected a translated request, got skip: {reason}"),
+            Translation::Skip(reason) => {
+                panic!("expected a translated request, got skip: {reason}")
+            }
         }
     }
 
@@ -659,7 +709,10 @@ temp:currentTime dct:issued "{iso}"^^xsd:dateTime."#
         };
         let p = policy("p12", vec![rule]);
         let r = req("alice", "read", None);
-        assert_eq!(allow(&p, &r, &sotw_with_current_time("2024-06-01T00:00:00Z")), engine::WireDecision::Allow);
+        assert_eq!(
+            allow(&p, &r, &sotw_with_current_time("2024-06-01T00:00:00Z")),
+            engine::WireDecision::Allow
+        );
         assert_eq!(
             allow(&p, &r, &sotw_with_current_time("2025-06-01T00:00:00Z")),
             engine::WireDecision::Deny,
@@ -676,10 +729,20 @@ temp:currentTime dct:issued "{iso}"^^xsd:dateTime."#
     fn or_logical_constraint_becomes_sibling_permission_rules() {
         // "9-17 on day 1, OR 9-17 on day 2" — the same shape as policy-20's
         // 262-branch "business hours in 2024", shrunk to two branches.
-        let branch = |start: &str, end: &str| ConstraintForm::And(vec![
-            ConstraintForm::Atomic { left_operand: "dateTime".into(), operator: "gt".into(), right_operand: start.into() },
-            ConstraintForm::Atomic { left_operand: "dateTime".into(), operator: "lt".into(), right_operand: end.into() },
-        ]);
+        let branch = |start: &str, end: &str| {
+            ConstraintForm::And(vec![
+                ConstraintForm::Atomic {
+                    left_operand: "dateTime".into(),
+                    operator: "gt".into(),
+                    right_operand: start.into(),
+                },
+                ConstraintForm::Atomic {
+                    left_operand: "dateTime".into(),
+                    operator: "lt".into(),
+                    right_operand: end.into(),
+                },
+            ])
+        };
         let rule = RuleInfo {
             kind: RuleKind::Permission,
             assignee: None,
@@ -717,14 +780,19 @@ temp:currentTime dct:issued "{iso}"^^xsd:dateTime."#
             assignee: None,
             action: Some("read".to_string()),
             target: None,
-            constraint: Some(ConstraintForm::Xone(vec![
-                ConstraintForm::Atomic { left_operand: "dateTime".into(), operator: "gt".into(), right_operand: "2024-01-01T00:00:00Z".into() },
-            ])),
+            constraint: Some(ConstraintForm::Xone(vec![ConstraintForm::Atomic {
+                left_operand: "dateTime".into(),
+                operator: "gt".into(),
+                right_operand: "2024-01-01T00:00:00Z".into(),
+            }])),
             nested_duty: None,
         };
         let p = policy("p14", vec![rule]);
         let r = req("alice", "read", None);
-        assert!(matches!(translate(&p, &r, &Graph::empty(), "ds1"), Translation::Skip(_)));
+        assert!(matches!(
+            translate(&p, &r, &Graph::empty(), "ds1"),
+            Translation::Skip(_)
+        ));
     }
 
     #[test]
@@ -743,7 +811,10 @@ temp:currentTime dct:issued "{iso}"^^xsd:dateTime."#
         };
         let p = policy("p15", vec![rule]);
         let r = req("alice", "read", None);
-        assert!(matches!(translate(&p, &r, &Graph::empty(), "ds1"), Translation::Skip(_)));
+        assert!(matches!(
+            translate(&p, &r, &Graph::empty(), "ds1"),
+            Translation::Skip(_)
+        ));
     }
 
     fn sotw_with_membership(member: &str, collection: &str) -> Graph {
@@ -768,12 +839,20 @@ ex:{member} odrl:partOf ex:{collection}."#
         let p = policy("p16", vec![rule]);
         let member = req("alice", "read", None);
         assert_eq!(
-            allow(&p, &member, &sotw_with_membership("alice", "partyCollection")),
+            allow(
+                &p,
+                &member,
+                &sotw_with_membership("alice", "partyCollection")
+            ),
             engine::WireDecision::Allow
         );
         let non_member = req("mallory", "read", None);
         assert_eq!(
-            allow(&p, &non_member, &sotw_with_membership("alice", "partyCollection")),
+            allow(
+                &p,
+                &non_member,
+                &sotw_with_membership("alice", "partyCollection")
+            ),
             engine::WireDecision::Deny,
             "the SOTW graph asserts alice's membership, not mallory's"
         );
@@ -792,17 +871,29 @@ ex:{member} odrl:partOf ex:{collection}."#
         let p = policy("p17", vec![rule]);
         let in_collection = req("alice", "read", Some("x"));
         assert_eq!(
-            allow(&p, &in_collection, &sotw_with_membership("x", "assetCollection")),
+            allow(
+                &p,
+                &in_collection,
+                &sotw_with_membership("x", "assetCollection")
+            ),
             engine::WireDecision::Allow
         );
         let outside_collection = req("alice", "read", Some("y"));
         assert_eq!(
-            allow(&p, &outside_collection, &sotw_with_membership("x", "assetCollection")),
+            allow(
+                &p,
+                &outside_collection,
+                &sotw_with_membership("x", "assetCollection")
+            ),
             engine::WireDecision::Deny
         );
         let no_target_named = req("alice", "read", None);
         assert_eq!(
-            allow(&p, &no_target_named, &sotw_with_membership("x", "assetCollection")),
+            allow(
+                &p,
+                &no_target_named,
+                &sotw_with_membership("x", "assetCollection")
+            ),
             engine::WireDecision::Deny,
             "membership cannot be checked without a target to check it for"
         );
@@ -838,7 +929,11 @@ ex:report1 a report:DutyReport;
     }
 
     fn atom(name: &str) -> ConstraintForm {
-        ConstraintForm::Atomic { left_operand: name.into(), operator: "eq".into(), right_operand: "v".into() }
+        ConstraintForm::Atomic {
+            left_operand: name.into(),
+            operator: "eq".into(),
+            right_operand: "v".into(),
+        }
     }
 
     fn dnf_shape(form: &ConstraintForm) -> Vec<Vec<String>> {
@@ -863,7 +958,12 @@ ex:report1 a report:DutyReport;
         ]);
         assert_eq!(
             dnf_shape(&form),
-            vec![vec!["a", "c"], vec!["a", "d"], vec!["b", "c"], vec!["b", "d"]]
+            vec![
+                vec!["a", "c"],
+                vec!["a", "d"],
+                vec!["b", "c"],
+                vec!["b", "d"]
+            ]
         );
     }
 
@@ -874,10 +974,16 @@ ex:report1 a report:DutyReport;
         // OR must distribute over its sibling atom inside the AND, and the
         // outer OR must keep the lone `d` disjunct intact alongside.
         let form = ConstraintForm::Or(vec![
-            ConstraintForm::And(vec![atom("a"), ConstraintForm::Or(vec![atom("b"), atom("c")])]),
+            ConstraintForm::And(vec![
+                atom("a"),
+                ConstraintForm::Or(vec![atom("b"), atom("c")]),
+            ]),
             atom("d"),
         ]);
-        assert_eq!(dnf_shape(&form), vec![vec!["a", "b"], vec!["a", "c"], vec!["d"]]);
+        assert_eq!(
+            dnf_shape(&form),
+            vec![vec!["a", "b"], vec!["a", "c"], vec!["d"]]
+        );
     }
 
     #[test]
@@ -923,7 +1029,11 @@ ex:report1 a report:DutyReport;
         let p = policy("p19", vec![rule]);
         let r = req("alice", "read", None);
         assert_eq!(
-            allow(&p, &r, &sotw_with_duty_state("urn:uuid:duty-1", "Fulfilled")),
+            allow(
+                &p,
+                &r,
+                &sotw_with_duty_state("urn:uuid:duty-1", "Fulfilled")
+            ),
             engine::WireDecision::Allow
         );
         assert_eq!(

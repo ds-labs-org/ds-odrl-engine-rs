@@ -20,16 +20,16 @@ use yew_nested_router::Target;
 /// and creates no directory of its own either.
 #[derive(Debug, Clone, PartialEq, Target, Eq)]
 pub enum AppRoute {
-  #[target(rename = "")]
-  Home,
-  #[target(rename = "demo")]
-  Demo,
-  #[target(rename = "compliance")]
-  Compliance,
-  #[target(rename = "coverage")]
-  Coverage,
-  #[target(rename = "full-compliance")]
-  FullCompliance,
-  #[target(rename = "history")]
-  History,
+    #[target(rename = "")]
+    Home,
+    #[target(rename = "demo")]
+    Demo,
+    #[target(rename = "compliance")]
+    Compliance,
+    #[target(rename = "coverage")]
+    Coverage,
+    #[target(rename = "full-compliance")]
+    FullCompliance,
+    #[target(rename = "history")]
+    History,
 }

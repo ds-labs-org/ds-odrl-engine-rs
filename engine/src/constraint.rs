@@ -144,11 +144,21 @@ pub enum Operator {
 /// posture elsewhere is strict rejection of an edge-case lexical form
 /// (a stray `+`/`-` in a fixed-width year field, an out-of-range UTC
 /// offset) rather than tolerating it, and this fallback now matches that.
-fn ordering_matches(left: &str, right: &str, satisfies: impl Fn(std::cmp::Ordering) -> bool) -> bool {
-    if let (Some(l), Some(r)) = (parse_xsd_temporal_nanos(left), parse_xsd_temporal_nanos(right)) {
+fn ordering_matches(
+    left: &str,
+    right: &str,
+    satisfies: impl Fn(std::cmp::Ordering) -> bool,
+) -> bool {
+    if let (Some(l), Some(r)) = (
+        parse_xsd_temporal_nanos(left),
+        parse_xsd_temporal_nanos(right),
+    ) {
         return satisfies(l.cmp(&r));
     }
-    if let (Some(l), Some(r)) = (parse_xsd_duration_nanos(left), parse_xsd_duration_nanos(right)) {
+    if let (Some(l), Some(r)) = (
+        parse_xsd_duration_nanos(left),
+        parse_xsd_duration_nanos(right),
+    ) {
         return satisfies(l.cmp(&r));
     }
     if let (Ok(l), Ok(r)) = (left.parse::<f64>(), right.parse::<f64>()) {
@@ -168,10 +178,16 @@ fn ordering_matches(left: &str, right: &str, satisfies: impl Fn(std::cmp::Orderi
 /// dateTime-only version of this function already used for `Lt`/`Lteq`/
 /// `Gt`/`Gteq`, carried over unchanged (not reinvented) for the new
 /// numeric fallback path, so both share one multi-valued semantics.
-fn temporal_matches(claim: &ClaimValue, right_operand: &str, satisfies: impl Fn(std::cmp::Ordering) -> bool) -> bool {
+fn temporal_matches(
+    claim: &ClaimValue,
+    right_operand: &str,
+    satisfies: impl Fn(std::cmp::Ordering) -> bool,
+) -> bool {
     match claim {
         ClaimValue::Single(v) => ordering_matches(v, right_operand, satisfies),
-        ClaimValue::Multi(vs) => vs.iter().any(|v| ordering_matches(v, right_operand, &satisfies)),
+        ClaimValue::Multi(vs) => vs
+            .iter()
+            .any(|v| ordering_matches(v, right_operand, &satisfies)),
     }
 }
 
@@ -377,8 +393,10 @@ impl<'de> Deserialize<'de> for Constraint {
         D: serde::Deserializer<'de>,
     {
         let raw = RawConstraint::deserialize(deserializer)?;
-        let is_logical =
-            raw.and.is_some() || raw.or.is_some() || raw.xone.is_some() || raw.and_sequence.is_some();
+        let is_logical = raw.and.is_some()
+            || raw.or.is_some()
+            || raw.xone.is_some()
+            || raw.and_sequence.is_some();
         if is_logical {
             // Atomic fields are never consulted once a logical field is
             // `Some` (the fixed xone > or > and > andSequence precedence) —
@@ -401,7 +419,9 @@ impl<'de> Deserialize<'de> for Constraint {
             left_operand: raw
                 .left_operand
                 .ok_or_else(|| serde::de::Error::missing_field("left_operand"))?,
-            operator: raw.operator.ok_or_else(|| serde::de::Error::missing_field("operator"))?,
+            operator: raw
+                .operator
+                .ok_or_else(|| serde::de::Error::missing_field("operator"))?,
             right_operand: raw
                 .right_operand
                 .ok_or_else(|| serde::de::Error::missing_field("right_operand"))?,
@@ -438,17 +458,26 @@ impl Constraint {
     /// atomic fields are left at their (unused) defaults — see this
     /// type's own doc comment on why that is safe.
     pub fn and(children: Vec<Constraint>) -> Self {
-        Self { and: Some(children), ..Self::new("", Operator::default(), "") }
+        Self {
+            and: Some(children),
+            ..Self::new("", Operator::default(), "")
+        }
     }
 
     /// Builds an `odrl:or` logical constraint over `children`.
     pub fn or(children: Vec<Constraint>) -> Self {
-        Self { or: Some(children), ..Self::new("", Operator::default(), "") }
+        Self {
+            or: Some(children),
+            ..Self::new("", Operator::default(), "")
+        }
     }
 
     /// Builds an `odrl:xone` logical constraint over `children`.
     pub fn xone(children: Vec<Constraint>) -> Self {
-        Self { xone: Some(children), ..Self::new("", Operator::default(), "") }
+        Self {
+            xone: Some(children),
+            ..Self::new("", Operator::default(), "")
+        }
     }
 
     /// Builds an `odrl:andSequence` logical constraint over `children` —
@@ -456,13 +485,19 @@ impl Constraint {
     /// `and_sequence` field doc comment for why the spec's "in the order
     /// specified" clause is a no-op in this engine.
     pub fn and_sequence(children: Vec<Constraint>) -> Self {
-        Self { and_sequence: Some(children), ..Self::new("", Operator::default(), "") }
+        Self {
+            and_sequence: Some(children),
+            ..Self::new("", Operator::default(), "")
+        }
     }
 
     /// `true` when this is one of the four logical variants (`and`/`or`/
     /// `xone`/`and_sequence` is `Some`) rather than the flat atomic case.
     pub fn is_logical(&self) -> bool {
-        self.and.is_some() || self.or.is_some() || self.xone.is_some() || self.and_sequence.is_some()
+        self.and.is_some()
+            || self.or.is_some()
+            || self.xone.is_some()
+            || self.and_sequence.is_some()
     }
 
     /// Every claim-map key (`left_operand`) this constraint could actually
@@ -521,7 +556,10 @@ impl Constraint {
             return;
         }
         if self.is_logical() {
-            for children in [&self.xone, &self.or, &self.and, &self.and_sequence].into_iter().flatten() {
+            for children in [&self.xone, &self.or, &self.and, &self.and_sequence]
+                .into_iter()
+                .flatten()
+            {
                 for child in children {
                     child.collect_left_operands(depth + 1, out);
                 }
@@ -559,19 +597,29 @@ impl Constraint {
             return false;
         }
         if let Some(children) = &self.xone {
-            return children.iter().filter(|c| c.evaluate_bounded(claims, depth + 1)).count() == 1;
+            return children
+                .iter()
+                .filter(|c| c.evaluate_bounded(claims, depth + 1))
+                .count()
+                == 1;
         }
         if let Some(children) = &self.or {
-            return children.iter().any(|c| c.evaluate_bounded(claims, depth + 1));
+            return children
+                .iter()
+                .any(|c| c.evaluate_bounded(claims, depth + 1));
         }
         if let Some(children) = &self.and {
-            return children.iter().all(|c| c.evaluate_bounded(claims, depth + 1));
+            return children
+                .iter()
+                .all(|c| c.evaluate_bounded(claims, depth + 1));
         }
         if let Some(children) = &self.and_sequence {
             // Same `.all()` test as `odrl:and` above -- see the
             // `and_sequence` field's own doc comment for why the spec's
             // "in the order specified" clause has no separate effect here.
-            return children.iter().all(|c| c.evaluate_bounded(claims, depth + 1));
+            return children
+                .iter()
+                .all(|c| c.evaluate_bounded(claims, depth + 1));
         }
 
         self.evaluate_atomic(claims)
@@ -669,11 +717,18 @@ impl Constraint {
     /// same `MAX_CONSTRAINT_DEPTH` bound) but recording each node's own
     /// `report:satisfactionState` rather than collapsing straight to one
     /// boolean.
-    pub(crate) fn evaluate_report(&self, claims: &Claims) -> crate::report::DetailedConstraintReport {
+    pub(crate) fn evaluate_report(
+        &self,
+        claims: &Claims,
+    ) -> crate::report::DetailedConstraintReport {
         self.evaluate_report_bounded(claims, 0)
     }
 
-    fn evaluate_report_bounded(&self, claims: &Claims, depth: usize) -> crate::report::DetailedConstraintReport {
+    fn evaluate_report_bounded(
+        &self,
+        claims: &Claims,
+        depth: usize,
+    ) -> crate::report::DetailedConstraintReport {
         use crate::report::{DetailedConstraintReport, SatisfactionState};
 
         let node = self.node_kind();
@@ -682,13 +737,21 @@ impl Constraint {
             // Same bound, same "fail closed" direction `evaluate_bounded`
             // already takes past it -- but the shape reported is honest:
             // the real node kind, simply not recursed into.
-            return DetailedConstraintReport { node, satisfaction_state: SatisfactionState::Unsatisfied, children: vec![] };
+            return DetailedConstraintReport {
+                node,
+                satisfaction_state: SatisfactionState::Unsatisfied,
+                children: vec![],
+            };
         }
 
         if self.is_logical() {
-            let children: Vec<DetailedConstraintReport> =
-                self.logical_children().iter().map(|c| c.evaluate_report_bounded(claims, depth + 1)).collect();
-            let child_satisfied = |c: &DetailedConstraintReport| c.satisfaction_state == SatisfactionState::Satisfied;
+            let children: Vec<DetailedConstraintReport> = self
+                .logical_children()
+                .iter()
+                .map(|c| c.evaluate_report_bounded(claims, depth + 1))
+                .collect();
+            let child_satisfied =
+                |c: &DetailedConstraintReport| c.satisfaction_state == SatisfactionState::Satisfied;
             let satisfied = if self.xone.is_some() {
                 children.iter().filter(|c| child_satisfied(c)).count() == 1
             } else if self.or.is_some() {
@@ -699,7 +762,11 @@ impl Constraint {
                 // that field's own doc comment for why.
                 children.iter().all(child_satisfied)
             };
-            return DetailedConstraintReport { node, satisfaction_state: SatisfactionState::of(satisfied), children };
+            return DetailedConstraintReport {
+                node,
+                satisfaction_state: SatisfactionState::of(satisfied),
+                children,
+            };
         }
 
         DetailedConstraintReport {
@@ -813,26 +880,49 @@ mod tests {
 
     #[test]
     fn lt_and_gt_compare_utc_datetimes_chronologically() {
-        let claims = claims_with(&[("dateTime", ClaimValue::Single("2024-02-12T11:20:10.999Z".into()))]);
-        assert!(Constraint::new("dateTime", Operator::Gt, "2024-01-01T00:00:00Z").evaluate(&claims));
-        assert!(!Constraint::new("dateTime", Operator::Lt, "2024-01-01T00:00:00Z").evaluate(&claims));
-        assert!(Constraint::new("dateTime", Operator::Lt, "2024-12-31T23:59:59Z").evaluate(&claims));
+        let claims = claims_with(&[(
+            "dateTime",
+            ClaimValue::Single("2024-02-12T11:20:10.999Z".into()),
+        )]);
+        assert!(
+            Constraint::new("dateTime", Operator::Gt, "2024-01-01T00:00:00Z").evaluate(&claims)
+        );
+        assert!(
+            !Constraint::new("dateTime", Operator::Lt, "2024-01-01T00:00:00Z").evaluate(&claims)
+        );
+        assert!(
+            Constraint::new("dateTime", Operator::Lt, "2024-12-31T23:59:59Z").evaluate(&claims)
+        );
     }
 
     #[test]
     fn lteq_and_gteq_include_the_boundary() {
-        let claims = claims_with(&[("dateTime", ClaimValue::Single("2024-01-01T00:00:00.000Z".into()))]);
-        assert!(Constraint::new("dateTime", Operator::Gteq, "2024-01-01T00:00:00Z").evaluate(&claims));
-        assert!(Constraint::new("dateTime", Operator::Lteq, "2024-01-01T00:00:00Z").evaluate(&claims));
-        assert!(!Constraint::new("dateTime", Operator::Gt, "2024-01-01T00:00:00Z").evaluate(&claims));
+        let claims = claims_with(&[(
+            "dateTime",
+            ClaimValue::Single("2024-01-01T00:00:00.000Z".into()),
+        )]);
+        assert!(
+            Constraint::new("dateTime", Operator::Gteq, "2024-01-01T00:00:00Z").evaluate(&claims)
+        );
+        assert!(
+            Constraint::new("dateTime", Operator::Lteq, "2024-01-01T00:00:00Z").evaluate(&claims)
+        );
+        assert!(
+            !Constraint::new("dateTime", Operator::Gt, "2024-01-01T00:00:00Z").evaluate(&claims)
+        );
     }
 
     #[test]
     fn ordering_operators_miss_on_an_unparseable_value_or_right_operand() {
         let claims = claims_with(&[("dateTime", ClaimValue::Single("not-a-date".into()))]);
-        assert!(!Constraint::new("dateTime", Operator::Gt, "2024-01-01T00:00:00Z").evaluate(&claims));
+        assert!(
+            !Constraint::new("dateTime", Operator::Gt, "2024-01-01T00:00:00Z").evaluate(&claims)
+        );
 
-        let claims = claims_with(&[("dateTime", ClaimValue::Single("2024-01-01T00:00:00Z".into()))]);
+        let claims = claims_with(&[(
+            "dateTime",
+            ClaimValue::Single("2024-01-01T00:00:00Z".into()),
+        )]);
         assert!(!Constraint::new("dateTime", Operator::Gt, "not-a-date").evaluate(&claims));
     }
 
@@ -889,15 +979,13 @@ mod tests {
     }
 
     #[test]
-    fn numeric_comparison_matches_any_element_of_a_multi_valued_claim_consistent_with_the_temporal_rule() {
+    fn numeric_comparison_matches_any_element_of_a_multi_valued_claim_consistent_with_the_temporal_rule(
+    ) {
         // Same "any element satisfies" rule the multi-valued dateTime path
         // already uses (see lt_and_gt_compare_utc_datetimes_chronologically
         // and this module's Multi handling in ordering_matches), applied
         // to the numeric fallback for consistency.
-        let claims = claims_with(&[(
-            "scores",
-            ClaimValue::Multi(vec!["3".into(), "99".into()]),
-        )]);
+        let claims = claims_with(&[("scores", ClaimValue::Multi(vec!["3".into(), "99".into()]))]);
         assert!(Constraint::new("scores", Operator::Gt, "50").evaluate(&claims));
         assert!(!Constraint::new("scores", Operator::Gt, "100").evaluate(&claims));
     }
@@ -907,33 +995,58 @@ mod tests {
     #[test]
     fn ordering_operators_accept_a_bare_xsd_date_as_midnight_utc() {
         let claims = claims_with(&[("validFrom", ClaimValue::Single("2024-01-01".into()))]);
-        assert!(Constraint::new("validFrom", Operator::Lt, "2024-01-01T00:00:01Z").evaluate(&claims));
-        assert!(Constraint::new("validFrom", Operator::Lteq, "2024-01-01T00:00:00Z").evaluate(&claims));
-        assert!(!Constraint::new("validFrom", Operator::Gt, "2024-01-01T00:00:00Z").evaluate(&claims));
+        assert!(
+            Constraint::new("validFrom", Operator::Lt, "2024-01-01T00:00:01Z").evaluate(&claims)
+        );
+        assert!(
+            Constraint::new("validFrom", Operator::Lteq, "2024-01-01T00:00:00Z").evaluate(&claims)
+        );
+        assert!(
+            !Constraint::new("validFrom", Operator::Gt, "2024-01-01T00:00:00Z").evaluate(&claims)
+        );
     }
 
     #[test]
     fn ordering_operators_accept_a_numeric_utc_offset_instead_of_only_z() {
-        let claims = claims_with(&[("dateTime", ClaimValue::Single("2024-01-01T02:00:00+02:00".into()))]);
+        let claims = claims_with(&[(
+            "dateTime",
+            ClaimValue::Single("2024-01-01T02:00:00+02:00".into()),
+        )]);
         // Equivalent UTC instant is 2024-01-01T00:00:00Z.
-        assert!(Constraint::new("dateTime", Operator::Gteq, "2024-01-01T00:00:00Z").evaluate(&claims));
-        assert!(Constraint::new("dateTime", Operator::Lteq, "2024-01-01T00:00:00Z").evaluate(&claims));
-        assert!(!Constraint::new("dateTime", Operator::Gt, "2024-01-01T00:00:00Z").evaluate(&claims));
+        assert!(
+            Constraint::new("dateTime", Operator::Gteq, "2024-01-01T00:00:00Z").evaluate(&claims)
+        );
+        assert!(
+            Constraint::new("dateTime", Operator::Lteq, "2024-01-01T00:00:00Z").evaluate(&claims)
+        );
+        assert!(
+            !Constraint::new("dateTime", Operator::Gt, "2024-01-01T00:00:00Z").evaluate(&claims)
+        );
     }
 
     #[test]
     fn ordering_operators_convert_an_offset_that_crosses_a_utc_day_boundary() {
         // 01:00 local at +05:00 is 2023-12-31T20:00:00Z -- the previous day.
-        let claims = claims_with(&[("dateTime", ClaimValue::Single("2024-01-01T01:00:00+05:00".into()))]);
-        assert!(Constraint::new("dateTime", Operator::Lt, "2023-12-31T23:00:00Z").evaluate(&claims));
-        assert!(!Constraint::new("dateTime", Operator::Gt, "2023-12-31T23:00:00Z").evaluate(&claims));
+        let claims = claims_with(&[(
+            "dateTime",
+            ClaimValue::Single("2024-01-01T01:00:00+05:00".into()),
+        )]);
+        assert!(
+            Constraint::new("dateTime", Operator::Lt, "2023-12-31T23:00:00Z").evaluate(&claims)
+        );
+        assert!(
+            !Constraint::new("dateTime", Operator::Gt, "2023-12-31T23:00:00Z").evaluate(&claims)
+        );
     }
 
     #[test]
     fn ordering_operators_still_miss_on_a_z_datetime_compared_to_garbage() {
         // Confirms the widened dispatch doesn't accidentally start
         // succeeding on genuinely unparseable input via the numeric path.
-        let claims = claims_with(&[("dateTime", ClaimValue::Single("2024-01-01T00:00:00Z".into()))]);
+        let claims = claims_with(&[(
+            "dateTime",
+            ClaimValue::Single("2024-01-01T00:00:00Z".into()),
+        )]);
         assert!(!Constraint::new("dateTime", Operator::Gt, "not-a-date").evaluate(&claims));
     }
 
@@ -1081,7 +1194,9 @@ mod tests {
         // by design -- IsPartOf is a documented degenerate alias for flat
         // set membership, not general range/hierarchy containment.
         let claims = claims_with(&[("scope", ClaimValue::Single("write".into()))]);
-        assert!(Constraint::new("scope", Operator::IsPartOf, "read,write,delete").evaluate(&claims));
+        assert!(
+            Constraint::new("scope", Operator::IsPartOf, "read,write,delete").evaluate(&claims)
+        );
         assert!(!Constraint::new("scope", Operator::IsPartOf, "read,delete").evaluate(&claims));
     }
 
@@ -1123,7 +1238,10 @@ mod tests {
             let constraint: Constraint = serde_json::from_str(&json).unwrap();
             assert!(!constraint.is_logical());
             assert_eq!(constraint.operator, expected);
-            assert_eq!(serde_json::to_string(&expected).unwrap(), format!("\"{json_op}\""));
+            assert_eq!(
+                serde_json::to_string(&expected).unwrap(),
+                format!("\"{json_op}\"")
+            );
         }
     }
 
@@ -1206,7 +1324,8 @@ mod tests {
         // as "no logical field present, therefore atomic" either -- it's
         // simply an unknown key, and with no atomic fields present the
         // object still has none of the seven known fields.
-        let typo = r#"{"and": [{"left_operand": "sub", "operator": "eq", "right_operand": "alice"}]}"#;
+        let typo =
+            r#"{"and": [{"left_operand": "sub", "operator": "eq", "right_operand": "alice"}]}"#;
         assert!(serde_json::from_str::<Constraint>(typo).is_err());
     }
 
@@ -1313,7 +1432,10 @@ mod tests {
             ("sub", ClaimValue::Single("alice".into())),
             ("scope", ClaimValue::Single("write".into())),
         ]);
-        assert!(constraint.evaluate(&matching), "both children match -> odrl:and is satisfied");
+        assert!(
+            constraint.evaluate(&matching),
+            "both children match -> odrl:and is satisfied"
+        );
 
         let only_one_matches = claims_with(&[("sub", ClaimValue::Single("alice".into()))]);
         assert!(
@@ -1345,7 +1467,10 @@ mod tests {
             ("sub", ClaimValue::Single("alice".into())),
             ("scope", ClaimValue::Single("write".into())),
         ]);
-        assert!(constraint.evaluate(&matching), "both children match -> odrl:andSequence is satisfied");
+        assert!(
+            constraint.evaluate(&matching),
+            "both children match -> odrl:andSequence is satisfied"
+        );
 
         let only_one_matches = claims_with(&[("sub", ClaimValue::Single("alice".into()))]);
         assert!(
@@ -1373,7 +1498,10 @@ mod tests {
             ]
         }"#;
         let constraint: Constraint = serde_json::from_str(json).unwrap();
-        assert!(constraint.is_logical(), "a co-occurring odrl:andSequence must win over the atomic fields");
+        assert!(
+            constraint.is_logical(),
+            "a co-occurring odrl:andSequence must win over the atomic fields"
+        );
 
         // Claims satisfy the nested odrl:andSequence (DE nationality, read
         // scope) but not the atomic fallback (US nationality) -- so a
@@ -1388,7 +1516,8 @@ mod tests {
             "odrl:andSequence's own children must decide, not the atomic fields beside them"
         );
 
-        let matches_only_the_dropped_atomic_fields = claims_with(&[("nationality", ClaimValue::Single("US".into()))]);
+        let matches_only_the_dropped_atomic_fields =
+            claims_with(&[("nationality", ClaimValue::Single("US".into()))]);
         assert!(
             !constraint.evaluate(&matches_only_the_dropped_atomic_fields),
             "the atomic fields must never be consulted once odrl:andSequence is present"
@@ -1441,7 +1570,8 @@ mod tests {
     }
 
     #[test]
-    fn a_three_level_mixed_nest_or_containing_and_containing_a_plain_constraint_evaluates_correctly() {
+    fn a_three_level_mixed_nest_or_containing_and_containing_a_plain_constraint_evaluates_correctly(
+    ) {
         // outer OR( AND(sub eq alice, scope eq admin), sub eq root )
         let constraint = Constraint::or(vec![
             Constraint::and(vec![
@@ -1452,13 +1582,19 @@ mod tests {
         ]);
 
         let root = claims_with(&[("sub", ClaimValue::Single("root".into()))]);
-        assert!(constraint.evaluate(&root), "the plain-constraint disjunct alone should satisfy the outer OR");
+        assert!(
+            constraint.evaluate(&root),
+            "the plain-constraint disjunct alone should satisfy the outer OR"
+        );
 
         let alice_admin = claims_with(&[
             ("sub", ClaimValue::Single("alice".into())),
             ("scope", ClaimValue::Single("admin".into())),
         ]);
-        assert!(constraint.evaluate(&alice_admin), "the nested AND disjunct, fully satisfied, should satisfy the outer OR");
+        assert!(
+            constraint.evaluate(&alice_admin),
+            "the nested AND disjunct, fully satisfied, should satisfy the outer OR"
+        );
 
         let alice_not_admin = claims_with(&[
             ("sub", ClaimValue::Single("alice".into())),
@@ -1484,10 +1620,16 @@ mod tests {
         ]);
 
         let zero_match = claims_with(&[("scope", ClaimValue::Single("delete".into()))]);
-        assert!(!constraint.evaluate(&zero_match), "0 matching children must not satisfy xone");
+        assert!(
+            !constraint.evaluate(&zero_match),
+            "0 matching children must not satisfy xone"
+        );
 
         let exactly_one_match = claims_with(&[("scope", ClaimValue::Single("write".into()))]);
-        assert!(constraint.evaluate(&exactly_one_match), "exactly 1 matching child must satisfy xone");
+        assert!(
+            constraint.evaluate(&exactly_one_match),
+            "exactly 1 matching child must satisfy xone"
+        );
 
         // A multi-valued claim whose elements satisfy two of the three
         // children simultaneously -- the case DNF-as-OR would wrongly
@@ -1507,7 +1649,10 @@ mod tests {
     fn xone_with_an_empty_children_list_is_never_satisfied() {
         let constraint = Constraint::xone(vec![]);
         let claims = claims_with(&[]);
-        assert!(!constraint.evaluate(&claims), "0 of 0 children matching is still 0, not exactly 1");
+        assert!(
+            !constraint.evaluate(&claims),
+            "0 of 0 children matching is still 0, not exactly 1"
+        );
     }
 
     #[test]
@@ -1532,7 +1677,10 @@ mod tests {
     #[test]
     fn an_atomic_constraint_references_exactly_its_own_left_operand() {
         let constraint = Constraint::new("nationality", Operator::IsAnyOf, "FR,DE");
-        assert_eq!(constraint.referenced_left_operands(), vec!["nationality".to_string()]);
+        assert_eq!(
+            constraint.referenced_left_operands(),
+            vec!["nationality".to_string()]
+        );
     }
 
     #[test]
@@ -1570,7 +1718,11 @@ mod tests {
         ]);
         assert_eq!(
             constraint.referenced_left_operands(),
-            vec!["dateTime".to_string(), "scope".to_string(), "sub".to_string()],
+            vec![
+                "dateTime".to_string(),
+                "scope".to_string(),
+                "sub".to_string()
+            ],
             "sorted and deduped, at any depth -- the same stable ordering convention \
              profile-interpreter's own declared_left_operands already uses"
         );
@@ -1715,6 +1867,9 @@ mod tests {
             at_bound.evaluate(&claims),
             "an odrl:andSequence chain nested exactly at the bound must still evaluate normally"
         );
-        assert_eq!(at_bound.referenced_left_operands(), vec!["absent-claim".to_string()]);
+        assert_eq!(
+            at_bound.referenced_left_operands(),
+            vec!["absent-claim".to_string()]
+        );
     }
 }

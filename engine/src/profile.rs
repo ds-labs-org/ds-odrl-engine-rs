@@ -91,11 +91,17 @@ pub struct ActionDecl {
 
 impl ActionDecl {
     pub fn new(id: impl Into<String>) -> Self {
-        Self { id: id.into(), included_in: None }
+        Self {
+            id: id.into(),
+            included_in: None,
+        }
     }
 
     pub fn included_in(id: impl Into<String>, parent: impl Into<String>) -> Self {
-        Self { id: id.into(), included_in: Some(parent.into()) }
+        Self {
+            id: id.into(),
+            included_in: Some(parent.into()),
+        }
     }
 }
 
@@ -187,7 +193,13 @@ pub struct ResolvedConfig {
 
 impl ResolvedConfig {
     pub fn new(actions: Vec<ActionDecl>, duty_mode: DutyMode, behaviour: Behaviour) -> Self {
-        Self { actions, duty_mode, behaviour, party_identity_claim: None, agreement_assignee_claim: None }
+        Self {
+            actions,
+            duty_mode,
+            behaviour,
+            party_identity_claim: None,
+            agreement_assignee_claim: None,
+        }
     }
 
     /// Turns party-role evaluation on, naming the claim key that carries
@@ -290,7 +302,10 @@ impl ResolvedConfig {
                 return false;
             }
             match self.actions.iter().find(|a| a.id == current) {
-                Some(ActionDecl { included_in: Some(parent), .. }) => {
+                Some(ActionDecl {
+                    included_in: Some(parent),
+                    ..
+                }) => {
                     if parent == rule_action {
                         return true;
                     }
@@ -351,7 +366,13 @@ pub fn resolve(profiles: &[Profile]) -> ResolvedConfig {
     // `ResolvedConfig::with_party_identity_claim` and/or
     // `with_agreement_assignee_claim` onto this call, or sets
     // `partyIdentityClaim`/`agreementAssigneeClaim` on the wire.
-    ResolvedConfig { actions, duty_mode, behaviour, party_identity_claim: None, agreement_assignee_claim: None }
+    ResolvedConfig {
+        actions,
+        duty_mode,
+        behaviour,
+        party_identity_claim: None,
+        agreement_assignee_claim: None,
+    }
 }
 
 #[cfg(test)]
@@ -359,11 +380,21 @@ mod tests {
     use super::*;
 
     fn profile(id: &str, actions: &[ActionDecl], duty_mode: DutyMode) -> Profile {
-        Profile { id: id.to_string(), actions: actions.to_vec(), duty_mode, behaviour: Behaviour::Open }
+        Profile {
+            id: id.to_string(),
+            actions: actions.to_vec(),
+            duty_mode,
+            behaviour: Behaviour::Open,
+        }
     }
 
     fn profile_with_behaviour(id: &str, actions: &[ActionDecl], behaviour: Behaviour) -> Profile {
-        Profile { id: id.to_string(), actions: actions.to_vec(), duty_mode: DutyMode::Advise, behaviour }
+        Profile {
+            id: id.to_string(),
+            actions: actions.to_vec(),
+            duty_mode: DutyMode::Advise,
+            behaviour,
+        }
     }
 
     fn flat(names: &[&str]) -> Vec<ActionDecl> {
@@ -456,10 +487,22 @@ mod tests {
             ],
             DutyMode::Advise,
         )]);
-        assert!(config.covers("transfer", "sell"), "a permission for transfer must cover a request for sell");
-        assert!(config.covers("transfer", "give"), "a permission for transfer must cover a request for give");
-        assert!(!config.covers("sell", "give"), "sell and give are siblings, neither covers the other");
-        assert!(!config.covers("transfer", "use"), "an unrelated action is not covered just because something else is");
+        assert!(
+            config.covers("transfer", "sell"),
+            "a permission for transfer must cover a request for sell"
+        );
+        assert!(
+            config.covers("transfer", "give"),
+            "a permission for transfer must cover a request for give"
+        );
+        assert!(
+            !config.covers("sell", "give"),
+            "sell and give are siblings, neither covers the other"
+        );
+        assert!(
+            !config.covers("transfer", "use"),
+            "an unrelated action is not covered just because something else is"
+        );
     }
 
     #[test]
@@ -477,7 +520,10 @@ mod tests {
             config.covers("use", "redistribute"),
             "use -> distribute -> redistribute: a permission for the top of the chain covers the bottom"
         );
-        assert!(!config.covers("distribute", "use"), "coverage does not run backwards up the chain");
+        assert!(
+            !config.covers("distribute", "use"),
+            "coverage does not run backwards up the chain"
+        );
     }
 
     #[test]
@@ -488,11 +534,20 @@ mod tests {
         // individually honored rather than rejected outright.
         let config = resolve(&[profile(
             "p1",
-            &[ActionDecl::included_in("a", "b"), ActionDecl::included_in("b", "a")],
+            &[
+                ActionDecl::included_in("a", "b"),
+                ActionDecl::included_in("b", "a"),
+            ],
             DutyMode::Advise,
         )]);
-        assert!(config.covers("a", "b"), "b includedIn a is a real, single-hop declared edge");
-        assert!(config.covers("b", "a"), "a includedIn b is a real, single-hop declared edge");
+        assert!(
+            config.covers("a", "b"),
+            "b includedIn a is a real, single-hop declared edge"
+        );
+        assert!(
+            config.covers("b", "a"),
+            "a includedIn b is a real, single-hop declared edge"
+        );
     }
 
     #[test]
@@ -503,7 +558,10 @@ mod tests {
         // revisits a node it has already seen.
         let config = resolve(&[profile(
             "p1",
-            &[ActionDecl::included_in("a", "b"), ActionDecl::included_in("b", "a")],
+            &[
+                ActionDecl::included_in("a", "b"),
+                ActionDecl::included_in("b", "a"),
+            ],
             DutyMode::Advise,
         )]);
         assert!(!config.covers("z", "a"));
@@ -517,7 +575,10 @@ mod tests {
         // the chain must not silently keep walking past a gap.
         let config = resolve(&[profile(
             "p1",
-            &[ActionDecl::new("use"), ActionDecl::included_in("redistribute", "distribute")],
+            &[
+                ActionDecl::new("use"),
+                ActionDecl::included_in("redistribute", "distribute"),
+            ],
             DutyMode::Advise,
         )]);
         assert!(!config.covers("use", "redistribute"));
@@ -526,11 +587,18 @@ mod tests {
     #[test]
     fn resolve_keeps_the_first_profiles_edge_when_two_profiles_disagree() {
         let profiles = vec![
-            profile("p1", &[ActionDecl::included_in("sell", "transfer")], DutyMode::Advise),
+            profile(
+                "p1",
+                &[ActionDecl::included_in("sell", "transfer")],
+                DutyMode::Advise,
+            ),
             profile("p2", &[ActionDecl::new("sell")], DutyMode::Advise),
         ];
         let config = resolve(&profiles);
-        assert!(config.covers("transfer", "sell"), "p1's edge (declared first) wins over p2's bare re-declaration");
+        assert!(
+            config.covers("transfer", "sell"),
+            "p1's edge (declared first) wins over p2's bare re-declaration"
+        );
     }
 
     #[test]
@@ -555,7 +623,10 @@ mod tests {
              declared, so recognizes() rejects it and this must not list it either"
         );
         for action in config.declared_actions() {
-            assert!(config.recognizes(action), "declared_actions and recognizes must agree");
+            assert!(
+                config.recognizes(action),
+                "declared_actions and recognizes must agree"
+            );
         }
     }
 
@@ -584,26 +655,38 @@ mod tests {
 
     #[test]
     fn resolves_the_strictest_behaviour_closed_beats_open_either_order() {
-        let open_then_closed =
-            vec![profile_with_behaviour("p1", &flat(&["use"]), Behaviour::Open), profile_with_behaviour("p2", &flat(&["distribute"]), Behaviour::Closed)];
+        let open_then_closed = vec![
+            profile_with_behaviour("p1", &flat(&["use"]), Behaviour::Open),
+            profile_with_behaviour("p2", &flat(&["distribute"]), Behaviour::Closed),
+        ];
         assert_eq!(resolve(&open_then_closed).behaviour, Behaviour::Closed);
 
-        let closed_then_open =
-            vec![profile_with_behaviour("p1", &flat(&["use"]), Behaviour::Closed), profile_with_behaviour("p2", &flat(&["distribute"]), Behaviour::Open)];
+        let closed_then_open = vec![
+            profile_with_behaviour("p1", &flat(&["use"]), Behaviour::Closed),
+            profile_with_behaviour("p2", &flat(&["distribute"]), Behaviour::Open),
+        ];
         assert_eq!(resolve(&closed_then_open).behaviour, Behaviour::Closed);
     }
 
     #[test]
     fn all_open_profiles_resolve_to_open() {
-        let profiles =
-            vec![profile_with_behaviour("p1", &flat(&["use"]), Behaviour::Open), profile_with_behaviour("p2", &flat(&["distribute"]), Behaviour::Open)];
+        let profiles = vec![
+            profile_with_behaviour("p1", &flat(&["use"]), Behaviour::Open),
+            profile_with_behaviour("p2", &flat(&["distribute"]), Behaviour::Open),
+        ];
         assert_eq!(resolve(&profiles).behaviour, Behaviour::Open);
     }
 
     #[test]
     fn behaviour_deserializes_open_and_closed() {
-        assert_eq!(serde_json::from_str::<Behaviour>("\"open\"").unwrap(), Behaviour::Open);
-        assert_eq!(serde_json::from_str::<Behaviour>("\"closed\"").unwrap(), Behaviour::Closed);
+        assert_eq!(
+            serde_json::from_str::<Behaviour>("\"open\"").unwrap(),
+            Behaviour::Open
+        );
+        assert_eq!(
+            serde_json::from_str::<Behaviour>("\"closed\"").unwrap(),
+            Behaviour::Closed
+        );
     }
 
     #[test]
@@ -617,14 +700,20 @@ mod tests {
 
     #[test]
     fn behaviour_never_serializes_the_default_alias_back_out() {
-        assert_eq!(serde_json::to_string(&Behaviour::Closed).unwrap(), "\"closed\"");
+        assert_eq!(
+            serde_json::to_string(&Behaviour::Closed).unwrap(),
+            "\"closed\""
+        );
         assert_eq!(serde_json::to_string(&Behaviour::Open).unwrap(), "\"open\"");
     }
 
     #[test]
     fn a_resolved_config_names_no_party_identity_claim_unless_a_host_asks_for_one() {
         // Decision 1: off by default, from every construction path there is.
-        assert_eq!(ResolvedConfig::new(vec![], DutyMode::Advise, Behaviour::Open).party_identity_claim, None);
+        assert_eq!(
+            ResolvedConfig::new(vec![], DutyMode::Advise, Behaviour::Open).party_identity_claim,
+            None
+        );
         assert_eq!(resolve(&[]).party_identity_claim, None);
         assert_eq!(
             resolve(&[profile("p1", &flat(&["use"]), DutyMode::Advise)]).party_identity_claim,
@@ -636,7 +725,11 @@ mod tests {
 
     #[test]
     fn with_party_identity_claim_names_the_claim_and_changes_nothing_else() {
-        let base = ResolvedConfig::new(vec![ActionDecl::new("use")], DutyMode::Deny, Behaviour::Closed);
+        let base = ResolvedConfig::new(
+            vec![ActionDecl::new("use")],
+            DutyMode::Deny,
+            Behaviour::Closed,
+        );
         let scoped = base.clone().with_party_identity_claim("sub");
         assert_eq!(scoped.party_identity_claim.as_deref(), Some("sub"));
         assert_eq!(scoped.duty_mode, base.duty_mode);

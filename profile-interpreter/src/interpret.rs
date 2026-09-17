@@ -70,7 +70,9 @@ pub fn duty_mode_from_str(s: &str) -> Result<DutyMode, String> {
     match s {
         "advise" => Ok(DutyMode::Advise),
         "deny" => Ok(DutyMode::Deny),
-        other => Err(format!("duty mode must be \"advise\" or \"deny\", got {other:?}")),
+        other => Err(format!(
+            "duty mode must be \"advise\" or \"deny\", got {other:?}"
+        )),
     }
 }
 
@@ -83,7 +85,9 @@ pub fn behaviour_from_str(s: &str) -> Result<Behaviour, String> {
     match s {
         "open" => Ok(Behaviour::Open),
         "closed" | "default" => Ok(Behaviour::Closed),
-        other => Err(format!("behaviour must be \"open\", \"closed\", or \"default\", got {other:?}")),
+        other => Err(format!(
+            "behaviour must be \"open\", \"closed\", or \"default\", got {other:?}"
+        )),
     }
 }
 
@@ -117,7 +121,12 @@ pub struct Interpreted {
 /// `a odrl:Profile` (a Policy references a profile by IRI via
 /// `odrl:profile`, the document itself is just vocabulary), so a missing
 /// one is common, not necessarily a mistake.
-pub fn interpret(graph: &Graph, id_override: Option<String>, duty_mode: DutyMode, behaviour: Behaviour) -> Interpreted {
+pub fn interpret(
+    graph: &Graph,
+    id_override: Option<String>,
+    duty_mode: DutyMode,
+    behaviour: Behaviour,
+) -> Interpreted {
     let mut warnings = Vec::new();
 
     let id = id_override
@@ -156,8 +165,10 @@ pub fn interpret(graph: &Graph, id_override: Option<String>, duty_mode: DutyMode
             local_name(left_operand)
         ));
     }
-    let mut declared_left_operands: Vec<String> =
-        declared_left_operand_iris.iter().map(|iri| local_name(iri).to_string()).collect();
+    let mut declared_left_operands: Vec<String> = declared_left_operand_iris
+        .iter()
+        .map(|iri| local_name(iri).to_string())
+        .collect();
     declared_left_operands.sort();
     declared_left_operands.dedup();
 
@@ -168,7 +179,16 @@ pub fn interpret(graph: &Graph, id_override: Option<String>, duty_mode: DutyMode
         ));
     }
 
-    Interpreted { profile: Profile { id, actions, duty_mode, behaviour }, warnings, declared_left_operands }
+    Interpreted {
+        profile: Profile {
+            id,
+            actions,
+            duty_mode,
+            behaviour,
+        },
+        warnings,
+        declared_left_operands,
+    }
 }
 
 #[cfg(test)]
@@ -180,11 +200,22 @@ mod tests {
     }
 
     fn action_ids(interpreted: &Interpreted) -> Vec<String> {
-        interpreted.profile.actions.iter().map(|a| a.id.clone()).collect()
+        interpreted
+            .profile
+            .actions
+            .iter()
+            .map(|a| a.id.clone())
+            .collect()
     }
 
     fn included_in_of<'a>(interpreted: &'a Interpreted, id: &str) -> Option<&'a str> {
-        interpreted.profile.actions.iter().find(|a| a.id == id)?.included_in.as_deref()
+        interpreted
+            .profile
+            .actions
+            .iter()
+            .find(|a| a.id == id)?
+            .included_in
+            .as_deref()
     }
 
     #[test]
@@ -217,8 +248,16 @@ ex:redistribute a odrl:Action ;
         );
         let interpreted = interpret(&g, None, DutyMode::Advise, Behaviour::Open);
         assert_eq!(action_ids(&interpreted), vec!["redistribute"]);
-        assert_eq!(included_in_of(&interpreted, "redistribute"), Some("distribute"));
-        assert!(interpreted.warnings.iter().any(|w| w.contains("redistribute") && w.contains("distribute") && w.contains("covers")));
+        assert_eq!(
+            included_in_of(&interpreted, "redistribute"),
+            Some("distribute")
+        );
+        assert!(interpreted
+            .warnings
+            .iter()
+            .any(|w| w.contains("redistribute")
+                && w.contains("distribute")
+                && w.contains("covers")));
     }
 
     #[test]
@@ -237,8 +276,14 @@ odrl:transfer a odrl:Action ."#,
         );
         let interpreted = interpret(&g, None, DutyMode::Advise, Behaviour::Open);
         let resolved = engine::resolve(std::slice::from_ref(&interpreted.profile));
-        assert!(resolved.covers("transfer", "sell"), "a permission for transfer must cover a request for sell");
-        assert!(!resolved.covers("sell", "transfer"), "coverage does not run backwards");
+        assert!(
+            resolved.covers("transfer", "sell"),
+            "a permission for transfer must cover a request for sell"
+        );
+        assert!(
+            !resolved.covers("sell", "transfer"),
+            "coverage does not run backwards"
+        );
     }
 
     #[test]
@@ -274,7 +319,10 @@ ex:redistribute a odrl:Action ;
     fn falls_back_to_a_placeholder_id_with_a_warning_when_neither_is_available() {
         let g = graph("@prefix odrl: <http://www.w3.org/ns/odrl/2/>.\n@prefix ex: <http://example.org/>.\nex:a a odrl:Action .");
         let interpreted = interpret(&g, None, DutyMode::Advise, Behaviour::Open);
-        assert!(interpreted.warnings.iter().any(|w| w.contains("placeholder id")));
+        assert!(interpreted
+            .warnings
+            .iter()
+            .any(|w| w.contains("placeholder id")));
     }
 
     #[test]
@@ -283,23 +331,50 @@ ex:redistribute a odrl:Action ;
             r#"@prefix odrl: <http://www.w3.org/ns/odrl/2/>.
 <https://example.org/profiles/mine> a odrl:Profile ."#,
         );
-        let interpreted =
-            interpret(&g, Some("https://example.org/profiles/override".to_string()), DutyMode::Advise, Behaviour::Open);
-        assert_eq!(interpreted.profile.id, "https://example.org/profiles/override");
+        let interpreted = interpret(
+            &g,
+            Some("https://example.org/profiles/override".to_string()),
+            DutyMode::Advise,
+            Behaviour::Open,
+        );
+        assert_eq!(
+            interpreted.profile.id,
+            "https://example.org/profiles/override"
+        );
     }
 
     #[test]
     fn duty_mode_passes_through_untouched_by_anything_in_the_document() {
         let g = graph("@prefix odrl: <http://www.w3.org/ns/odrl/2/>.\n@prefix ex: <http://example.org/>.\nex:a a odrl:Action .");
-        assert_eq!(interpret(&g, None, DutyMode::Deny, Behaviour::Open).profile.duty_mode, DutyMode::Deny);
-        assert_eq!(interpret(&g, None, DutyMode::Advise, Behaviour::Open).profile.duty_mode, DutyMode::Advise);
+        assert_eq!(
+            interpret(&g, None, DutyMode::Deny, Behaviour::Open)
+                .profile
+                .duty_mode,
+            DutyMode::Deny
+        );
+        assert_eq!(
+            interpret(&g, None, DutyMode::Advise, Behaviour::Open)
+                .profile
+                .duty_mode,
+            DutyMode::Advise
+        );
     }
 
     #[test]
     fn behaviour_passes_through_untouched_by_anything_in_the_document() {
         let g = graph("@prefix odrl: <http://www.w3.org/ns/odrl/2/>.\n@prefix ex: <http://example.org/>.\nex:a a odrl:Action .");
-        assert_eq!(interpret(&g, None, DutyMode::Advise, Behaviour::Closed).profile.behaviour, Behaviour::Closed);
-        assert_eq!(interpret(&g, None, DutyMode::Advise, Behaviour::Open).profile.behaviour, Behaviour::Open);
+        assert_eq!(
+            interpret(&g, None, DutyMode::Advise, Behaviour::Closed)
+                .profile
+                .behaviour,
+            Behaviour::Closed
+        );
+        assert_eq!(
+            interpret(&g, None, DutyMode::Advise, Behaviour::Open)
+                .profile
+                .behaviour,
+            Behaviour::Open
+        );
     }
 
     #[test]
@@ -318,7 +393,10 @@ ex:redistribute a odrl:Action ;
 ex:matches a odrl:Operator ."#,
         );
         let interpreted = interpret(&g, None, DutyMode::Advise, Behaviour::Open);
-        assert!(interpreted.warnings.iter().any(|w| w.contains("odrl:Operator matches") && w.contains("cannot be honored")));
+        assert!(interpreted
+            .warnings
+            .iter()
+            .any(|w| w.contains("odrl:Operator matches") && w.contains("cannot be honored")));
     }
 
     #[test]
@@ -329,7 +407,10 @@ ex:matches a odrl:Operator ."#,
 ex:riskScore a odrl:LeftOperand ."#,
         );
         let interpreted = interpret(&g, None, DutyMode::Advise, Behaviour::Open);
-        assert!(interpreted.warnings.iter().any(|w| w.contains("odrl:LeftOperand riskScore") && w.contains("no action needed")));
+        assert!(interpreted
+            .warnings
+            .iter()
+            .any(|w| w.contains("odrl:LeftOperand riskScore") && w.contains("no action needed")));
         assert_eq!(interpreted.declared_left_operands, vec!["riskScore"]);
     }
 
@@ -343,13 +424,18 @@ ex:tenure a odrl:LeftOperand .
 ex:riskScore a odrl:LeftOperand ."#,
         );
         let interpreted = interpret(&g, None, DutyMode::Advise, Behaviour::Open);
-        assert_eq!(interpreted.declared_left_operands, vec!["riskScore", "tenure"]);
+        assert_eq!(
+            interpreted.declared_left_operands,
+            vec!["riskScore", "tenure"]
+        );
     }
 
     #[test]
     fn declared_left_operands_is_empty_when_none_are_declared() {
         let g = graph("@prefix odrl: <http://www.w3.org/ns/odrl/2/>.\n@prefix ex: <http://example.org/>.\nex:a a odrl:Action .");
-        assert!(interpret(&g, None, DutyMode::Advise, Behaviour::Open).declared_left_operands.is_empty());
+        assert!(interpret(&g, None, DutyMode::Advise, Behaviour::Open)
+            .declared_left_operands
+            .is_empty());
     }
 
     #[test]
