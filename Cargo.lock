@@ -83,6 +83,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "compliance-rdf-runner"
+version = "0.1.0"
+dependencies = [
+ "engine",
+ "oxrdf",
+ "oxttl",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "compliance-runner"
 version = "0.1.0"
 dependencies = [

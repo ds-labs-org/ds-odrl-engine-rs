@@ -1,3 +1,6 @@
 [submodule "compliance/vendor/odrl-test-suite"]
 	path = compliance/vendor/odrl-test-suite
 	url = https://github.com/SolidLabResearch/ODRL-Test-Suite.git
+[submodule "compliance/vendor/ds-odrl-compliance-rdf"]
+	path = compliance/vendor/ds-odrl-compliance-rdf
+	url = https://github.com/ds-labs-org/ds-odrl-compliance-rdf.git
