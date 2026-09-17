@@ -1067,6 +1067,78 @@ mod tests {
     }
 
     #[test]
+    fn an_odrl_inherit_from_value_ingests_into_wire_policys_inherit_from_field() {
+        // `engine::wire::resolve_inherit_from` already walks
+        // `WirePolicy.inherit_from` and replicates a named parent's rules
+        // and party fields into the child (`wire.rs`'s own doc comment on
+        // that function) — it has done so since before this adapter's
+        // `policy_from` was written. But `policy_from` still hardcodes
+        // `inherit_from: None` unconditionally, regardless of what the
+        // document says, so a real DSP document naming a real parent policy
+        // silently loses that edge on the way in: the child ingests as if
+        // it had no parent at all, and evaluates alone rather than merged
+        // with rules the offer's own author declared it inherits. This is
+        // the ingestion-side half of the gap README.md's "What is warned
+        // about rather than silently dropped" documents for
+        // `odrl:inheritFrom` — a warning is not a substitute for actually
+        // carrying the reference through.
+        //
+        // The referenced parent need not resolve to anything *in this same
+        // document* — `ingest_policy` ingests exactly one policy node per
+        // call, so the IRI is carried through uninterpreted, exactly as
+        // `WirePolicy.inherit_from`'s own doc comment describes: resolution
+        // against a request's full `policies` list is `engine::wire`'s job,
+        // not this adapter's.
+        let doc = r#"{
+          "@context": "http://www.w3.org/ns/odrl.jsonld",
+          "@type": "Offer",
+          "@id": "urn:uuid:child-offer",
+          "assigner": "did:web:provider.example",
+          "target": "urn:asset:A",
+          "inheritFrom": "urn:uuid:parent-policy-a",
+          "permission": [{ "action": "use" }]
+        }"#;
+        let ingested = ingest_policy(doc).expect("a policy declaring odrl:inheritFrom must still ingest");
+        assert_eq!(
+            ingested.policy.inherit_from,
+            Some(vec!["urn:uuid:parent-policy-a".to_string()]),
+            "the referenced parent's IRI must be carried through, uncompacted, not dropped to None"
+        );
+    }
+
+    #[test]
+    fn several_odrl_inherit_from_values_ingest_in_document_order() {
+        // Information Model §2.9 puts no cardinality limit of one on
+        // `odrl:inheritFrom` — `WirePolicy.inherit_from` is itself an
+        // `Option<Vec<String>>` for exactly that reason (`wire.rs`: "the
+        // `id`s of zero or more parent policies"), and
+        // `engine::wire::resolve_one` already folds every named parent's
+        // rules and conflict values transitively, one `parent_id` at a
+        // time, in the order `parent_ids` lists them. A multi-parent child
+        // is therefore a real, already-supported shape on the `engine`
+        // side, not a hypothetical this adapter can leave untested. Two
+        // distinct parent IRIs, deliberately not alphabetical, so a fix
+        // that silently sorted them (or kept only the first, as a
+        // single-value assumption would) still fails this test even though
+        // both would look identical to a reader skimming past order.
+        let doc = r#"{
+          "@context": "http://www.w3.org/ns/odrl.jsonld",
+          "@type": "Offer",
+          "@id": "urn:uuid:child-offer",
+          "assigner": "did:web:provider.example",
+          "target": "urn:asset:A",
+          "inheritFrom": ["urn:uuid:parent-policy-b", "urn:uuid:parent-policy-a"],
+          "permission": [{ "action": "use" }]
+        }"#;
+        let ingested = ingest_policy(doc).expect("a policy declaring several odrl:inheritFrom values must still ingest");
+        assert_eq!(
+            ingested.policy.inherit_from,
+            Some(vec!["urn:uuid:parent-policy-b".to_string(), "urn:uuid:parent-policy-a".to_string()]),
+            "both parents must be present, and in the same order the document gave them"
+        );
+    }
+
+    #[test]
     fn a_rule_given_as_a_bare_reference_is_an_error_not_a_silently_skipped_rule() {
         // A rule stated as `{"@id": …}` points at a rule body defined in
         // some document this adapter does not resolve. Skipping it drops a
