@@ -139,13 +139,17 @@ pub struct DetailedPermissionReport {
     /// **Hard rule, structurally guaranteed by construction**: whenever
     /// `condition_report` is `Some(d)` with `d.deontic_state ==
     /// DeonticState::Violated`, `activation_state` here is always
-    /// `Inactive`. Both fields are derived in `decision::
-    /// derive_detailed_rule_reports` from the same `duty_gate_violated`
-    /// boolean, computed exactly once — this cannot diverge by
-    /// construction. See that function's own doc comment for the one
-    /// deliberate, disclosed place where this makes `activation_state ==
-    /// Inactive` while the *policy's* overall `Response.decision` is still
-    /// `Allow` (`DutyMode::Advise`).
+    /// `Inactive` — and, more generally, so is it whenever ANY of this
+    /// rule's own sibling `odrl:duty` entries (not only the one
+    /// `condition_report` links) reports `Violated`, even one with no
+    /// `DetailedRuleReport::Duty` entry cross-linked here. Both `Inactive`
+    /// outcomes are derived in `decision::derive_detailed_rule_reports`
+    /// from the same `duty_gate_violated` boolean, computed exactly once
+    /// over every `duty[j]` — this cannot diverge by construction. See
+    /// that function's own doc comment for the one deliberate, disclosed
+    /// place where this makes `activation_state == Inactive` while the
+    /// *policy's* overall `Response.decision` is still `Allow`
+    /// (`DutyMode::Advise`).
     pub activation_state: ActivationState,
     pub attempt_state: AttemptState,
     pub performance_state: PerformanceState,

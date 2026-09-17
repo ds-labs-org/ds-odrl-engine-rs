@@ -1691,24 +1691,30 @@ pub(crate) fn derive_detailed_rule_reports(
 
         // `duty_gate_violated` and `duty_report_for`'s own `Violated`
         // computation below are the *same* underlying test (in-force &&
-        // `!duty_satisfied`) applied to the identical `duty[0]` — the hard
-        // rule (a Permission Report cannot be `Active` while its linked
-        // Duty Report is `Violated`) holds by construction, not by
-        // cross-checking two independently-derived facts.
-        let duty_gate_violated = rule
-            .duty
-            .first()
-            .is_some_and(|d0| applies_and_matches && !d0.duty_satisfied(claims));
+        // `!duty_satisfied`), applied across every one of `rule.duty`'s
+        // sibling entries, not just `duty[0]` — the hard rule (a Permission
+        // Report cannot be `Active` while ANY of its own Duty Reports is
+        // `Violated`, not only the one `condition_report` happens to link)
+        // holds by construction, not by cross-checking two independently-
+        // derived facts. `duty_report_for` itself is already called once per
+        // `duty_index` in the loop below, so it never had this limitation;
+        // `duty_gate_violated` used to inspect `duty.first()` only, which
+        // let a satisfied `duty[0]` mask a genuinely violated `duty[1..]`
+        // (ds-odrl-compliance-rdf's
+        // `duty-advise-gates-on-any-sibling-duty-01.ttl`, v0.23.2).
+        let duty_gate_violated =
+            applies_and_matches && rule.duty.iter().any(|d| !d.duty_satisfied(claims));
 
         let activation_state = if !permission_grants[rule_index] {
             ActivationState::Inactive
         } else if duty_gate_violated {
             // Fixes the case `grants()` alone misses: under
             // `DutyMode::Advise`, `grants()` does not gate on duty
-            // resolution at all, so a permission whose own gating duty is
-            // violated would otherwise read `Active` here even though its
-            // own `condition_report` below reports `Violated` -- a direct
-            // hard-rule violation. This clause is what makes the two agree.
+            // resolution at all, so a permission with any outstanding duty
+            // would otherwise read `Active` here even though one of its own
+            // sibling `DetailedRuleReport::Duty` entries below reports
+            // `Violated` -- a direct hard-rule violation. This clause is
+            // what makes the two agree.
             ActivationState::Inactive
         } else if permission_conflict_voided || obligation_forces_deny {
             // Two independent reasons `decide()` itself can still override
@@ -4175,6 +4181,72 @@ mod tests {
             .decision,
             Decision::Allow
         );
+    }
+
+    #[test]
+    fn duty_gate_violated_checks_every_sibling_duty_not_only_the_first() {
+        // v0.23.2 fix: `derive_detailed_rule_reports`'s `duty_gate_violated`
+        // local used to inspect only `rule.duty.first()`. Under
+        // `DutyMode::Deny` that limitation is masked -- `Rule::grants`'s own
+        // `duties_resolved` already checks every sibling `odrl:duty` before
+        // `duty_gate_violated` is ever consulted, so a genuinely outstanding
+        // duty[1] already makes `permission_grants[..]` false regardless.
+        // But under `DutyMode::Advise`, `grants()` does not consult duties
+        // at all, so `duty_gate_violated` is the *only* thing that can gate
+        // this permission's `activation_state` -- and with the old,
+        // duty[0]-only check, a satisfied duty[0] wrongly masked a genuinely
+        // violated duty[1], reporting Active/Performed/Fulfilled. Caught by
+        // ds-odrl-compliance-rdf's
+        // `duty-advise-gates-on-any-sibling-duty-01.ttl`, via
+        // `compliance-rdf-runner`.
+        use crate::report::{ActivationState, DeonticState, DetailedRuleReport, PerformanceState};
+
+        let policy = Policy {
+            permissions: vec![Rule {
+                duty: vec![asserted_duty("ack"), asserted_duty("notify")],
+                ..Rule::new("read", vec![])
+            }],
+            prohibitions: vec![],
+            obligations: vec![],
+            conflict: ConflictStrategy::default(),
+        };
+        let config = config_recognizing(&["read", "ack", "notify"]); // Advise by default
+
+        let permission_report = |claims: &Claims| {
+            let (rule_reports, _) =
+                derive_detailed_rule_reports(&policy, claims, &config, "read", ASSET, &[]);
+            rule_reports
+                .into_iter()
+                .find_map(|r| match r {
+                    DetailedRuleReport::Permission(p) => Some(p),
+                    _ => None,
+                })
+                .expect("exactly one permission in this policy")
+        };
+
+        // duty[0] ("ack") is satisfied; duty[1] ("notify") is not -- must
+        // still gate the whole permission Inactive, even though
+        // `condition_report` only ever links duty[0] (which is Fulfilled).
+        let only_ack = permission_report(&fulfilled(&["ack"]));
+        assert_eq!(
+            only_ack.activation_state,
+            ActivationState::Inactive,
+            "duty[1] ('notify') is genuinely violated and must gate the permission, \
+             even though duty[0] ('ack') is satisfied"
+        );
+        assert_eq!(only_ack.performance_state, PerformanceState::Unperformed);
+        assert_eq!(only_ack.deontic_state, DeonticState::NonSet);
+        assert_eq!(
+            only_ack.condition_report.as_ref().map(|d| d.deontic_state),
+            Some(DeonticState::Fulfilled),
+            "condition_report still links duty[0] alone, and it really is Fulfilled"
+        );
+
+        // Control: with both duties resolved, nothing gates the permission.
+        let both = permission_report(&fulfilled(&["ack", "notify"]));
+        assert_eq!(both.activation_state, ActivationState::Active);
+        assert_eq!(both.performance_state, PerformanceState::Performed);
+        assert_eq!(both.deontic_state, DeonticState::Fulfilled);
     }
 
     #[test]
