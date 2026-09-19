@@ -1689,32 +1689,51 @@ pub(crate) fn derive_detailed_rule_reports(
             AttemptState::NotAttempted
         };
 
-        // `duty_gate_violated` and `duty_report_for`'s own `Violated`
-        // computation below are the *same* underlying test (in-force &&
-        // `!duty_satisfied`), applied across every one of `rule.duty`'s
-        // sibling entries, not just `duty[0]` — the hard rule (a Permission
-        // Report cannot be `Active` while ANY of its own Duty Reports is
-        // `Violated`, not only the one `condition_report` happens to link)
-        // holds by construction, not by cross-checking two independently-
-        // derived facts. `duty_report_for` itself is already called once per
-        // `duty_index` in the loop below, so it never had this limitation;
-        // `duty_gate_violated` used to inspect `duty.first()` only, which
-        // let a satisfied `duty[0]` mask a genuinely violated `duty[1..]`
-        // (ds-odrl-compliance-rdf's
-        // `duty-advise-gates-on-any-sibling-duty-01.ttl`, v0.23.2).
-        let duty_gate_violated =
-            applies_and_matches && rule.duty.iter().any(|d| !d.duty_satisfied(claims));
+        // The duty gate is the *identical predicate* `Rule::grants` ->
+        // `duties_resolved` applies on the coarse path: a permission is
+        // gated when any of its sibling `odrl:duty` CHAINS is outstanding
+        // (`outstanding_duty(d).is_some()` — the chain walked through its
+        // `odrl:consequence` hops, exactly as `decide` walks it), across
+        // every `duty[j]`, not only `duty[0]`. Two earlier shapes of this
+        // line were both wrong in the same way — a second derivation of a
+        // fact `decide` already derives:
+        //
+        // - `duty.first()` only (fixed v0.23.2): a satisfied `duty[0]`
+        //   masked a genuinely violated `duty[1..]` (ds-odrl-compliance-
+        //   rdf's `duty-advise-gates-on-any-sibling-duty-01.ttl`).
+        // - `!d.duty_satisfied(claims)` on the root duty (fixed here): a
+        //   duty that is itself unsatisfied but whose consequence resolved
+        //   has nothing outstanding on the coarse path (`Allow`, empty
+        //   `Response.duties`) yet gated the permission `Inactive` here,
+        //   under both duty modes. See
+        //   `duty_gate_violated_uses_the_same_consequence_resolved_predicate_grants_uses`.
+        //
+        // Consequence for the report shape: a depth-0 `DetailedRuleReport::
+        // Duty` may read `Violated` (the breach genuinely occurred) beside
+        // a depth-1 consequence reading `Fulfilled`, with the owning
+        // permission `Active` — because what gates a permission is an
+        // *outstanding* chain, not any single hop's own deontic state.
+        // `duty_report_for` below reports each hop honestly on its own
+        // terms; it is not what the gate reads.
+        let duty_gate_violated = applies_and_matches
+            && rule
+                .duty
+                .iter()
+                .any(|d| outstanding_duty(d, claims).is_some());
 
         let activation_state = if !permission_grants[rule_index] {
             ActivationState::Inactive
         } else if duty_gate_violated {
-            // Fixes the case `grants()` alone misses: under
-            // `DutyMode::Advise`, `grants()` does not gate on duty
-            // resolution at all, so a permission with any outstanding duty
-            // would otherwise read `Active` here even though one of its own
-            // sibling `DetailedRuleReport::Duty` entries below reports
-            // `Violated` -- a direct hard-rule violation. This clause is
-            // what makes the two agree.
+            // Reached only under `DutyMode::Advise`: under `Deny`,
+            // `grants()` already applied this same predicate and the
+            // `!permission_grants[..]` arm above fired first. Under
+            // `Advise`, `grants()` does not gate on duty resolution at all
+            // (the permission still grants, and `decide` says `Allow`), so
+            // this is the one deliberate, disclosed place the report says
+            // `Inactive` while `Response.decision` is `Allow` -- the
+            // report's hard rule (no `Active` permission with an
+            // outstanding duty chain) taking precedence over the coarse
+            // answer's advisory reading of the same chain.
             ActivationState::Inactive
         } else if permission_conflict_voided || obligation_forces_deny {
             // Two independent reasons `decide()` itself can still override

@@ -1100,9 +1100,10 @@ fn party_role_mismatch<'a>(
 /// never asked to arbitrate together with the child's. This function
 /// therefore also returns, per resolved policy `id`, whether its own
 /// declared `conflict` and every ancestor's it merged rules from actually
-/// disagree (`resolve_one`'s second return value, folded transitively
-/// across a multi-level chain the same way rules and party fields already
-/// are) — a *structural* fact, independent of any one request. Whether
+/// disagree (`explicit_conflict_values` folded over the whole distinct
+/// ancestor set `ancestor_order` yields, the same walk rules and party
+/// fields already take) — a *structural* fact, independent of any one
+/// request. Whether
 /// that divergence actually **voids** the policy still depends on whether
 /// this exact request's claims produce a real collision
 /// (`conflicting_rules`), exactly as it does for a single policy's own
@@ -1110,13 +1111,21 @@ fn party_role_mismatch<'a>(
 /// rest of the collision logic already lives — `evaluate_request_for_action`
 /// (the decision) and `describe_reason` (the trace) — not here.
 ///
-/// **Multi-level and multi-parent, by construction.** A parent is itself
-/// resolved (recursively, through this same function) before its rules are
-/// copied into a child, so a grandparent's rules reach a grandchild
-/// through its parent exactly once each — and a diamond (two parents
-/// sharing a common ancestor) is resolved once and reused, not walked
-/// twice, because a fully-resolved policy is cached by `id` the first time
-/// any child reaches it.
+/// **Multi-level and multi-parent, with set semantics over ancestors.**
+/// A child's effective rule lists are its own declared rules followed by
+/// each *distinct* ancestor's own declared rules exactly once, in
+/// depth-first preorder over the `inheritFrom` lists (`ancestor_order`):
+/// parent 1, then parent 1's own ancestors, then parent 2, and so on,
+/// skipping any ancestor already reached by an earlier path. For a chain
+/// or a tree that is byte-identical to appending each parent's merged
+/// form in turn; for a diamond (two parents sharing a grandparent) it is
+/// what makes the grandparent's rules arrive once rather than once per
+/// path — an earlier version of this function appended each parent's
+/// already-merged rules and did duplicate them, while its doc comment
+/// claimed otherwise (see
+/// `a_diamond_inherit_from_replicates_a_shared_grandparents_rules_exactly_once`).
+/// Party fields fall back to the first ancestor in that same order that
+/// sets one.
 ///
 /// **Circular inheritance MUST NOT occur, and is rejected, not looped.**
 /// A parent chain that returns to a policy already being resolved fails
@@ -1133,30 +1142,51 @@ fn resolve_inherit_from(
     policies: &[WirePolicy],
 ) -> Result<(Vec<WirePolicy>, HashMap<String, bool>), String> {
     let by_id: HashMap<&str, &WirePolicy> = policies.iter().map(|p| (p.id.as_str(), p)).collect();
-    let mut resolved: HashMap<String, (WirePolicy, Vec<ConflictStrategy>)> =
-        HashMap::with_capacity(policies.len());
+    let mut memo: HashMap<String, Vec<String>> = HashMap::with_capacity(policies.len());
     let mut stack: Vec<String> = Vec::new();
 
+    let mut merged_policies = Vec::with_capacity(policies.len());
+    let mut conflict_values_differ = HashMap::with_capacity(policies.len());
     for policy in policies {
-        resolve_one(&policy.id, &by_id, &mut resolved, &mut stack)?;
-    }
+        let ancestors = ancestor_order(&policy.id, &by_id, &mut memo, &mut stack)?;
 
-    let merged_policies = policies
-        .iter()
-        .map(|p| resolved.get(&p.id).expect("resolved above").0.clone())
-        .collect();
-    // More than one distinct `odrl:conflict` value reached this policy
-    // through its own declaration plus every ancestor whose rules it
-    // merged — the structural half of validation rule 4. See
-    // `resolve_one`'s own doc comment for why this is folded transitively
-    // rather than compared only against the immediate parent.
-    let conflict_values_differ = policies
-        .iter()
-        .map(|p| {
-            let values = &resolved.get(&p.id).expect("resolved above").1;
-            (p.id.clone(), values.len() > 1)
-        })
-        .collect();
+        let mut merged = policy.clone();
+        let mut conflict_values = explicit_conflict_values(policy.conflict);
+        for ancestor_id in &ancestors {
+            let ancestor = *by_id
+                .get(ancestor_id.as_str())
+                .expect("ancestor_order only ever yields ids it resolved through by_id");
+            merged
+                .permissions
+                .extend(ancestor.permissions.iter().cloned());
+            merged
+                .prohibitions
+                .extend(ancestor.prohibitions.iter().cloned());
+            merged
+                .obligations
+                .extend(ancestor.obligations.iter().cloned());
+            if merged.assigner.is_empty() {
+                merged.assigner = ancestor.assigner.clone();
+            }
+            if merged.assignee.is_none() {
+                merged.assignee = ancestor.assignee.clone();
+            }
+            for value in explicit_conflict_values(ancestor.conflict) {
+                if !conflict_values.contains(&value) {
+                    conflict_values.push(value);
+                }
+            }
+        }
+
+        // More than one distinct `odrl:conflict` value reached this policy
+        // through its own declaration plus every ancestor whose rules it
+        // merged — the structural half of validation rule 4, folded
+        // transitively over the whole ancestor set rather than compared
+        // only against the immediate parent (a grandparent's value reaches
+        // a grandchild's merged rule set exactly as its rules do).
+        conflict_values_differ.insert(policy.id.clone(), conflict_values.len() > 1);
+        merged_policies.push(merged);
+    }
 
     Ok((merged_policies, conflict_values_differ))
 }
@@ -1185,37 +1215,31 @@ fn explicit_conflict_values(conflict: ConflictStrategy) -> Vec<ConflictStrategy>
     }
 }
 
-/// One policy's effective, post-inheritance form — see `resolve_inherit_from`
-/// for what "effective" replicates — paired with every distinct
-/// `odrl:conflict` value declared anywhere in its own inheritance chain
-/// (itself included). `resolved` is both the memo table (a policy already
-/// fully resolved is cloned out, never recomputed, which is what keeps a
-/// diamond of shared ancestors linear rather than exponential) and, for a
-/// policy with no parents at all, exactly itself paired with its own single
-/// declared value. `stack` is the `id`s on the current recursion path,
-/// checked before `by_id` is even consulted: an `id` already on it is a
-/// cycle, reported with the path that found it rather than left to recurse
-/// until the real call stack overflows.
+/// The distinct ancestor `id`s of `id` (never `id` itself), in depth-first
+/// preorder over its `inheritFrom` list: each parent, then that parent's
+/// own ancestors, then the next parent — with every id kept at its
+/// *first* occurrence only, so an ancestor reachable through two parents
+/// appears once. That order is what `resolve_inherit_from` walks to build
+/// the merged rule lists, and it is the only thing this function derives:
+/// rules, party fields and conflict values are all read off the ancestor
+/// policies themselves by the caller, never pre-merged here — which is
+/// exactly why a diamond cannot duplicate anything (the earlier
+/// `resolve_one` memoized each ancestor's *merged* form and appended it per
+/// parent, duplicating a shared grandparent once per path).
 ///
-/// The conflict-value list is deliberately folded **transitively**, not
-/// just against the immediate parent: a grandparent's `odrl:conflict`
-/// reaches a grandchild's merged rule set exactly as its rules do (both
-/// travel through the same `parent` returned by the same recursive call),
-/// so a value that disagrees only two levels up still marks the merge as
-/// carrying more than one — matching rules and party fields, the two
-/// things §2.9 already replicates the same way.
-///
-/// **Only explicitly-declared values are folded in** — see
-/// [`explicit_conflict_values`], the sole place a policy's own `conflict`
-/// field is turned into an entry of this list, both here and at the
-/// no-parents short-circuit inside `resolve_one`'s own body.
-fn resolve_one(
+/// `memo` caches each id's own preorder list (before cross-sibling dedup),
+/// which keeps a diamond linear rather than exponential. `stack` is the
+/// `id`s on the current recursion path, checked before `by_id` is even
+/// consulted: an `id` already on it is a cycle, reported with the path that
+/// found it rather than left to recurse until the real call stack
+/// overflows.
+fn ancestor_order(
     id: &str,
     by_id: &HashMap<&str, &WirePolicy>,
-    resolved: &mut HashMap<String, (WirePolicy, Vec<ConflictStrategy>)>,
+    memo: &mut HashMap<String, Vec<String>>,
     stack: &mut Vec<String>,
-) -> Result<(WirePolicy, Vec<ConflictStrategy>), String> {
-    if let Some(done) = resolved.get(id) {
+) -> Result<Vec<String>, String> {
+    if let Some(done) = memo.get(id) {
         return Ok(done.clone());
     }
     if let Some(start) = stack.iter().position(|on_stack| on_stack == id) {
@@ -1238,43 +1262,25 @@ fn resolve_one(
     let parent_ids: &[String] = match &policy.inherit_from {
         Some(ids) if !ids.is_empty() => ids,
         _ => {
-            let result = (policy.clone(), explicit_conflict_values(policy.conflict));
-            resolved.insert(id.to_string(), result.clone());
-            return Ok(result);
+            memo.insert(id.to_string(), Vec::new());
+            return Ok(Vec::new());
         }
     };
 
     stack.push(id.to_string());
-    let mut merged = policy.clone();
-    let mut conflict_values = explicit_conflict_values(policy.conflict);
+    let mut order: Vec<String> = Vec::new();
     for parent_id in parent_ids {
-        let (parent, parent_conflict_values) = resolve_one(parent_id, by_id, resolved, stack)?;
-        merged
-            .permissions
-            .extend(parent.permissions.iter().cloned());
-        merged
-            .prohibitions
-            .extend(parent.prohibitions.iter().cloned());
-        merged
-            .obligations
-            .extend(parent.obligations.iter().cloned());
-        if merged.assigner.is_empty() {
-            merged.assigner = parent.assigner.clone();
-        }
-        if merged.assignee.is_none() {
-            merged.assignee = parent.assignee.clone();
-        }
-        for value in parent_conflict_values {
-            if !conflict_values.contains(&value) {
-                conflict_values.push(value);
+        let parent_ancestors = ancestor_order(parent_id, by_id, memo, stack)?;
+        for ancestor in std::iter::once(parent_id.clone()).chain(parent_ancestors) {
+            if !order.contains(&ancestor) {
+                order.push(ancestor);
             }
         }
     }
     stack.pop();
 
-    let result = (merged, conflict_values);
-    resolved.insert(id.to_string(), result.clone());
-    Ok(result)
+    memo.insert(id.to_string(), order.clone());
+    Ok(order)
 }
 
 /// One policy that survived `odrl:inheritFrom` resolution and party-role

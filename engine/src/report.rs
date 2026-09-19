@@ -136,20 +136,31 @@ pub enum DetailedPremiseReport {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DetailedPermissionReport {
     pub rule_index: usize,
-    /// **Hard rule, structurally guaranteed by construction**: whenever
-    /// `condition_report` is `Some(d)` with `d.deontic_state ==
-    /// DeonticState::Violated`, `activation_state` here is always
-    /// `Inactive` — and, more generally, so is it whenever ANY of this
-    /// rule's own sibling `odrl:duty` entries (not only the one
-    /// `condition_report` links) reports `Violated`, even one with no
-    /// `DetailedRuleReport::Duty` entry cross-linked here. Both `Inactive`
-    /// outcomes are derived in `decision::derive_detailed_rule_reports`
-    /// from the same `duty_gate_violated` boolean, computed exactly once
-    /// over every `duty[j]` — this cannot diverge by construction. See
-    /// that function's own doc comment for the one deliberate, disclosed
-    /// place where this makes `activation_state == Inactive` while the
-    /// *policy's* overall `Response.decision` is still `Allow`
-    /// (`DutyMode::Advise`).
+    /// **Hard rule, structurally guaranteed by construction**: this is
+    /// `Inactive` whenever ANY of this rule's own sibling `odrl:duty`
+    /// *chains* is outstanding — `decision::outstanding_duty` reports
+    /// `Some` for `duty[j]`, i.e. the chain's terminal evaluated duty
+    /// (`duty[j]` itself, or the last `odrl:consequence` hop walked)
+    /// reports `Violated` — across every `duty[j]`, not only the one
+    /// `condition_report` links. That is the *identical* predicate
+    /// `decision::Rule::grants` applies on the coarse path, evaluated
+    /// once in `decision::derive_detailed_rule_reports` (its
+    /// `duty_gate_violated` local), so the two paths cannot disagree.
+    ///
+    /// **Disclosed corollary**: a depth-0 `DetailedDutyReport` may read
+    /// `Violated` while this permission is `Active` — precisely when that
+    /// duty's own `odrl:consequence` resolved (`Fulfilled` at depth 1).
+    /// The breach of the root duty genuinely occurred and is reported; the
+    /// chain as a whole is not outstanding, so the permission grants —
+    /// exactly as `wire::Response.decision`/`Response.duties` already
+    /// say for the same input. Any rule keyed on "no `Active` permission
+    /// beside a `Violated` duty report" must read it per chain, not per
+    /// hop.
+    ///
+    /// See `derive_detailed_rule_reports` for the one deliberate, disclosed
+    /// place where this is `Inactive` while the *policy's* overall
+    /// `Response.decision` is still `Allow` (`DutyMode::Advise`, where the
+    /// coarse path treats an outstanding chain as advisory only).
     pub activation_state: ActivationState,
     pub attempt_state: AttemptState,
     pub performance_state: PerformanceState,
