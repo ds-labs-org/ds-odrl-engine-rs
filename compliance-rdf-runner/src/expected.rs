@@ -105,3 +105,114 @@ pub fn parse_expected_policy_report(g: &Graph, node: &str) -> Result<ExpectedPol
         rule_reports,
     })
 }
+
+/// Parses `dsc:TestCase`'s optional `dsc:expectedDecision` literal into
+/// the engine's own `WireDecision`. `None` when the fixture states no
+/// opinion about the coarse decision (every fixture before this term
+/// existed, and any future fixture that prefers to state its
+/// expectations only via the per-policy `report:` tree).
+pub fn parse_expected_decision(
+    g: &Graph,
+    testcase: &str,
+) -> Result<Option<engine::WireDecision>, String> {
+    let Some(literal) = g.literal(testcase, &dsc_expectedDecision()) else {
+        return Ok(None);
+    };
+    match literal.as_str() {
+        "Allow" => Ok(Some(engine::WireDecision::Allow)),
+        "Deny" => Ok(Some(engine::WireDecision::Deny)),
+        "Error" => Ok(Some(engine::WireDecision::Error)),
+        other => Err(format!(
+            "{testcase}: dsc:expectedDecision {other:?} is not one of \
+             engine::wire::WireDecision's own variant spellings \
+             \"Allow\"/\"Deny\"/\"Error\""
+        )),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    const PREFIXES: &str = "\
+@base <https://example.org/tc> .
+@prefix : <#> .
+@prefix dsc: <https://ds-labs-org.github.io/ds-odrl-compliance-rdf/ns#> .
+";
+
+    /// `Graph::parse` only reads from a path, so each test writes its own
+    /// tiny scratch fixture to a uniquely-named file under the OS temp dir
+    /// and cleans it up afterward -- no dependency on the external
+    /// `ds-odrl-compliance-rdf` corpus, per this unit's own scope (that
+    /// corpus's own new fixtures are a separate repo's concern).
+    fn parse_ttl(unique: &str, ttl: &str) -> Graph {
+        let mut path = std::env::temp_dir();
+        path.push(format!(
+            "compliance-rdf-runner-expected-decision-test-{unique}-{}.ttl",
+            std::process::id()
+        ));
+        {
+            let mut f = std::fs::File::create(&path).expect("create scratch ttl fixture");
+            f.write_all(ttl.as_bytes())
+                .expect("write scratch ttl fixture");
+        }
+        let g = Graph::parse(&path).expect("parse scratch ttl fixture");
+        let _ = std::fs::remove_file(&path);
+        g
+    }
+
+    const TESTCASE: &str = "https://example.org/tc#testcase";
+
+    #[test]
+    fn expected_decision_allow_parses_to_wire_decision_allow() {
+        let g = parse_ttl(
+            "allow",
+            &format!("{PREFIXES}:testcase a dsc:TestCase ; dsc:expectedDecision \"Allow\" .\n"),
+        );
+        assert_eq!(
+            parse_expected_decision(&g, TESTCASE).unwrap(),
+            Some(engine::WireDecision::Allow)
+        );
+    }
+
+    #[test]
+    fn expected_decision_deny_parses_to_wire_decision_deny() {
+        let g = parse_ttl(
+            "deny",
+            &format!("{PREFIXES}:testcase a dsc:TestCase ; dsc:expectedDecision \"Deny\" .\n"),
+        );
+        assert_eq!(
+            parse_expected_decision(&g, TESTCASE).unwrap(),
+            Some(engine::WireDecision::Deny)
+        );
+    }
+
+    #[test]
+    fn expected_decision_error_parses_to_wire_decision_error() {
+        let g = parse_ttl(
+            "error",
+            &format!("{PREFIXES}:testcase a dsc:TestCase ; dsc:expectedDecision \"Error\" .\n"),
+        );
+        assert_eq!(
+            parse_expected_decision(&g, TESTCASE).unwrap(),
+            Some(engine::WireDecision::Error)
+        );
+    }
+
+    #[test]
+    fn expected_decision_absent_is_none() {
+        let g = parse_ttl("absent", &format!("{PREFIXES}:testcase a dsc:TestCase .\n"));
+        assert_eq!(parse_expected_decision(&g, TESTCASE).unwrap(), None);
+    }
+
+    #[test]
+    fn expected_decision_unrecognized_value_is_an_error() {
+        let g = parse_ttl(
+            "bad",
+            &format!("{PREFIXES}:testcase a dsc:TestCase ; dsc:expectedDecision \"Maybe\" .\n"),
+        );
+        let err = parse_expected_decision(&g, TESTCASE).unwrap_err();
+        assert!(err.contains("Maybe"), "error should name the bad value: {err}");
+    }
+}

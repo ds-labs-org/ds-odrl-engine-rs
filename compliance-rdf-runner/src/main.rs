@@ -66,10 +66,22 @@ fn run_case(path: &std::path::Path) -> CaseOutcome {
         Err(e) => return CaseOutcome::Error(format!("parsing dsc:expectedOutcome: {e}")),
     };
 
+    let expected_decision = match expected::parse_expected_decision(&g, &testcase) {
+        Ok(d) => d,
+        Err(e) => return CaseOutcome::Error(e),
+    };
+
     let duty_mode = request.config.duty_mode;
     let (response, detailed) = engine::evaluate_request_detailed(&request);
 
-    match compare::compare_case(&policy_ids, &expected, duty_mode, &detailed, &response) {
+    match compare::compare_case(
+        &policy_ids,
+        &expected,
+        duty_mode,
+        expected_decision,
+        &detailed,
+        &response,
+    ) {
         Ok(mismatches) if mismatches.is_empty() => CaseOutcome::Passed,
         Ok(mismatches) => CaseOutcome::Failed(mismatches),
         Err(e) => CaseOutcome::Error(e),

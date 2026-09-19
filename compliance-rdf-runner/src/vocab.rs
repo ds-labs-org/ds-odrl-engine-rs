@@ -59,6 +59,7 @@ iri_consts!(dsc,
     dsc_key => "key",
     dsc_policyKind => "policyKind",
     dsc_ClaimKey => "ClaimKey",
+    dsc_expectedDecision => "expectedDecision",
 );
 
 // -- report: --------------------------------------------------------------

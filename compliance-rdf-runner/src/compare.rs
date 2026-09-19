@@ -2,8 +2,8 @@
 //! `engine::Response`) against the `report:`-tree ground truth
 //! `expected.rs` parsed out of the same case file's `dsc:expectedOutcome`.
 //!
-//! Two independent checks, per `docs/vocabulary-spec.md`'s own two-layer
-//! API surface:
+//! Three independent checks, per `docs/vocabulary-spec.md`'s own two-layer
+//! API surface plus the optional `dsc:expectedDecision` term:
 //!
 //! 1. **The detailed, per-rule/per-duty `report:` tree** -- every
 //!    activation/attempt/performance/deontic state the expected tree
@@ -26,12 +26,18 @@
 //!    noise -- see that function's own doc comment). This one exception
 //!    is resolved by walking the very same `PolicyIds` shadow
 //!    `translate.rs` built, not guessed from the expected tree alone.
+//! 3. **The explicit `dsc:expectedDecision` cross-check** -- a direct
+//!    comparison against what the fixture actually STATES about the
+//!    coarse `Response.decision`, when it states anything
+//!    (`expected_decision` is `None` for the 10+ fixtures that predate
+//!    this term and state no opinion). Independent of checks 1 and 2: a
+//!    fixture may satisfy some, all, or none.
 
 use std::collections::HashMap;
 
 use engine::{
     ActivationState, AttemptState, DeonticState, DetailedEvaluation, DetailedRuleReport,
-    DutyAttachment, DutyMode, PerformanceState, Response,
+    DutyAttachment, DutyMode, PerformanceState, Response, WireDecision,
 };
 
 use crate::expected::{ExpectedPolicyReport, ExpectedRuleKind, ExpectedRuleReport};
@@ -188,6 +194,7 @@ pub fn compare_case(
     policy_ids: &[PolicyIds],
     expected: &[ExpectedPolicyReport],
     duty_mode: DutyMode,
+    expected_decision: Option<WireDecision>,
     detailed: &DetailedEvaluation,
     response: &Response,
 ) -> Result<Mismatches, String> {
@@ -285,6 +292,17 @@ pub fn compare_case(
         ));
     }
 
+    // -- Part 3: the explicit dsc:expectedDecision cross-check -------------
+    if let Some(expected_decision) = expected_decision {
+        if response.decision != expected_decision {
+            mismatches.push(format!(
+                "dsc:expectedDecision cross-check: this TestCase declares {expected_decision:?} \
+                 but the engine's actual Response.decision is {:?}",
+                response.decision
+            ));
+        }
+    }
+
     Ok(mismatches)
 }
 
@@ -370,4 +388,72 @@ fn compare_rule_report(
         &expected.deontic_state,
         deontic.map(deontic_name),
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn empty_detailed() -> DetailedEvaluation {
+        DetailedEvaluation {
+            dataset_id: String::new(),
+            requested_action: String::new(),
+            policy_reports: vec![],
+            skipped_policies: vec![],
+        }
+    }
+
+    fn response_with(decision: WireDecision) -> Response {
+        Response {
+            dataset_id: String::new(),
+            decision,
+            reason: String::new(),
+            duties: vec![],
+        }
+    }
+
+    #[test]
+    fn expected_decision_mismatch_is_reported() {
+        let detailed = empty_detailed();
+        let response = response_with(WireDecision::Deny);
+        let mismatches = compare_case(
+            &[],
+            &[],
+            DutyMode::Advise,
+            Some(WireDecision::Allow),
+            &detailed,
+            &response,
+        )
+        .unwrap();
+        assert_eq!(mismatches.len(), 1, "{mismatches:?}");
+        assert!(
+            mismatches[0].contains("dsc:expectedDecision"),
+            "{mismatches:?}"
+        );
+    }
+
+    #[test]
+    fn expected_decision_match_produces_no_mismatch() {
+        let detailed = empty_detailed();
+        let response = response_with(WireDecision::Allow);
+        let mismatches = compare_case(
+            &[],
+            &[],
+            DutyMode::Advise,
+            Some(WireDecision::Allow),
+            &detailed,
+            &response,
+        )
+        .unwrap();
+        assert!(mismatches.is_empty(), "{mismatches:?}");
+    }
+
+    #[test]
+    fn expected_decision_absent_is_a_no_op() {
+        let detailed = empty_detailed();
+        let response = response_with(WireDecision::Deny);
+        let mismatches =
+            compare_case(&[], &[], DutyMode::Advise, None, &detailed, &response).unwrap();
+        assert!(mismatches.is_empty(), "{mismatches:?}");
+    }
 }
