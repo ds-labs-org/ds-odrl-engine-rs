@@ -2,8 +2,13 @@
 //! `engine::Response`) against the `report:`-tree ground truth
 //! `expected.rs` parsed out of the same case file's `dsc:expectedOutcome`.
 //!
-//! Two independent checks, per `docs/vocabulary-spec.md`'s own two-layer
-//! API surface:
+//! Four independent checks, per `docs/vocabulary-spec.md`'s own two-layer
+//! API surface -- the first over the detailed tree, the other three over
+//! what the coarse `Response` and the request's policy set must say if
+//! that tree is right (added after an independent audit of v0.23.2 showed
+//! that with only check 1 and the duties half of check 4, a fixture could
+//! pass while `Response.decision` said the opposite of its own tree, and
+//! while a second, unmentioned policy denied the whole request):
 //!
 //! 1. **The detailed, per-rule/per-duty `report:` tree** -- every
 //!    activation/attempt/performance/deontic state the expected tree
@@ -13,7 +18,14 @@
 //!    either (an un-asserted actual rule report is exactly as much a
 //!    finding as a wrong state on an asserted one -- either means this
 //!    fixture's own expectations are stale against the real engine).
-//! 2. **The coarse `Response.duties` cross-check** (new; this is what
+//! 2. **Policy-level coverage**: every policy the engine evaluated (or
+//!    skipped by party-role scoping, or refused with `Decision::Error`)
+//!    must be one the expected tree carries a `report:PolicyReport` for.
+//! 3. **The coarse `Response.decision` cross-check**: the per-policy
+//!    verdict each expected tree implies (`policy_verdict`), combined
+//!    under the engine's own deny-override-across-the-set rule, must equal
+//!    `Response.decision` -- asserted only when the trees pin it.
+//! 4. **The coarse `Response.duties` cross-check** (this is what
 //!    proves ds-odrl-engine-rs's Bug A is real): every expected
 //!    `report:DutyReport` that is `Active`+`Unperformed` must appear in
 //!    the coarse `Response.duties` list, and every one that is not (an
@@ -30,8 +42,8 @@
 use std::collections::HashMap;
 
 use engine::{
-    ActivationState, AttemptState, DeonticState, DetailedEvaluation, DetailedRuleReport,
-    DutyAttachment, DutyMode, PerformanceState, Response,
+    ActivationState, AttemptState, Behaviour, DeonticState, DetailedEvaluation, DetailedRuleReport,
+    DutyAttachment, DutyMode, PerformanceState, Response, WireDecision,
 };
 
 use crate::expected::{ExpectedPolicyReport, ExpectedRuleKind, ExpectedRuleReport};
@@ -188,15 +200,18 @@ pub fn compare_case(
     policy_ids: &[PolicyIds],
     expected: &[ExpectedPolicyReport],
     duty_mode: DutyMode,
+    behaviour: Behaviour,
     detailed: &DetailedEvaluation,
     response: &Response,
 ) -> Result<Mismatches, String> {
     let mut mismatches = Mismatches::new();
     let mut expected_outstanding: Vec<(String, String)> = Vec::new(); // (policy_id, action)
+    let mut verdicts: Vec<PolicyVerdict> = Vec::new();
 
     for exp_policy in expected {
         let merged = merged_policy_ids(policy_ids, &exp_policy.policy_id)
             .map_err(|e| format!("{}: {e}", exp_policy.policy_id))?;
+        verdicts.push(policy_verdict(&merged, exp_policy, duty_mode, behaviour));
 
         let actual_policy = detailed
             .policy_reports
@@ -210,6 +225,14 @@ pub fn compare_case(
             ));
             continue;
         };
+        if let Some(error) = &actual_policy.evaluation_error {
+            mismatches.push(format!(
+                "policy '{}': the engine refused to evaluate this policy at all \
+                 (Decision::Error: {error}) -- no report: tree can describe that, so the \
+                 fixture's expectations for it cannot hold",
+                exp_policy.policy_id
+            ));
+        }
 
         let mut actual_index: HashMap<(ExpectedRuleKind, String), &DetailedRuleReport> =
             HashMap::new();
@@ -265,7 +288,67 @@ pub fn compare_case(
         }
     }
 
-    // -- Part 2: the coarse Response.duties cross-check --------------------
+    // -- Part 2: policy-level coverage --------------------------------------
+    // The rule-level "engine produced a report the expected outcome never
+    // mentions" check above only ever runs *inside* a policy the expected
+    // tree names. A whole policy the tree omits -- one that may deny the
+    // entire request on its own under the engine's deny-override-across-
+    // the-set combining rule -- used to go unexamined, so a fixture could
+    // pass by simply not mentioning the policy that decided it.
+    let mut every_policy_accounted_for = true;
+    for actual_policy in &detailed.policy_reports {
+        if !expected
+            .iter()
+            .any(|e| e.policy_id == actual_policy.policy_id)
+        {
+            every_policy_accounted_for = false;
+            mismatches.push(format!(
+                "the engine evaluated policy '{}' but the expected outcome carries no \
+                 report:PolicyReport for it -- every policy in dsc:policy must be accounted for, \
+                 since any one of them can decide the whole request",
+                actual_policy.policy_id
+            ));
+        }
+    }
+    for skipped in &detailed.skipped_policies {
+        every_policy_accounted_for = false;
+        mismatches.push(format!(
+            "the engine skipped policy '{}' before evaluating it ({}) -- the report: vocabulary \
+             has no term for a policy addressed to somebody else, so this fixture cannot be \
+             stating what it means to state",
+            skipped.policy_id, skipped.reason
+        ));
+    }
+
+    // -- Part 3: the coarse Response.decision cross-check ------------------
+    // The `report:` vocabulary has no "decision" term, so the one thing a
+    // host actually acts on was, until this check existed, never compared
+    // against anything: the whole tree could match while `Response.decision`
+    // said the opposite. What the tree *does* state per policy is enough to
+    // pin the decision in most shapes (`policy_verdict`); where it is not,
+    // this deliberately asserts nothing rather than guessing.
+    if every_policy_accounted_for {
+        let expected_decision = if verdicts.contains(&PolicyVerdict::Deny) {
+            Some(WireDecision::Deny)
+        } else if verdicts.iter().all(|v| *v == PolicyVerdict::Allow) {
+            Some(WireDecision::Allow)
+        } else {
+            None
+        };
+        if let Some(expected_decision) = expected_decision {
+            if response.decision != expected_decision {
+                mismatches.push(format!(
+                    "Response.decision cross-check: the expected report: tree implies \
+                     {expected_decision:?} (per-policy verdicts {verdicts:?}) but the engine's \
+                     coarse Response.decision is {:?} -- the detailed and coarse paths disagree, \
+                     or the fixture's tree is wrong about which rules are Active",
+                    response.decision
+                ));
+            }
+        }
+    }
+
+    // -- Part 4: the coarse Response.duties cross-check --------------------
     let actual_outstanding: Vec<(String, String)> = response
         .duties
         .iter()
@@ -286,6 +369,79 @@ pub fn compare_case(
     }
 
     Ok(mismatches)
+}
+
+/// What one policy's expected `report:` tree says about that policy's own
+/// share of the request's decision -- the per-policy input to the
+/// deny-override-across-the-set rule `wire::response_from_scaffolding`
+/// applies (`Deny` from any policy denies the request; `Allow` needs every
+/// policy to allow).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PolicyVerdict {
+    Allow,
+    Deny,
+    /// The tree does not pin this policy's verdict: no permission is
+    /// `Active`, but under `dutyMode=advise` a permission can be reported
+    /// `Inactive` purely because an advisory duty chain is outstanding
+    /// while the coarse path still grants (the one disclosed place the two
+    /// paths read the same chain differently). Nothing is asserted about
+    /// `Response.decision` when any policy lands here.
+    Indeterminate,
+}
+
+/// Derives [`PolicyVerdict`] from what the expected tree states, in the
+/// same precedence `decision::decide` applies:
+///
+/// 1. An `Active` `ProhibitionReport` denies -- a prohibition is only
+///    `Active` when it fired and was not superseded by `odrl:conflict`.
+/// 2. Under `dutyMode=deny`, an outstanding policy-level obligation chain
+///    (an `Active`+`Unperformed` terminal `DutyReport` rooted in
+///    `odrl:obligation`) forces `Deny` regardless of any permission.
+/// 3. An `Active` `PermissionReport` grants.
+/// 4. No permission at all: `behaviour` decides (`Open` allows vacuously,
+///    `Closed` denies).
+/// 5. Permissions exist and none is `Active`: under `dutyMode=deny` the
+///    report's activation gate is the identical predicate `Rule::grants`
+///    uses, so nothing granted -- `Deny`; under `advise` see
+///    [`PolicyVerdict::Indeterminate`].
+fn policy_verdict(
+    merged: &PolicyIds,
+    expected: &ExpectedPolicyReport,
+    duty_mode: DutyMode,
+    behaviour: Behaviour,
+) -> PolicyVerdict {
+    let active = |kind: ExpectedRuleKind| {
+        expected
+            .rule_reports
+            .iter()
+            .any(|r| r.kind == kind && r.activation_state.as_deref() == Some("Active"))
+    };
+    let outstanding_obligation = duty_mode == DutyMode::Deny
+        && expected.rule_reports.iter().any(|r| {
+            r.kind == ExpectedRuleKind::Duty
+                && r.activation_state.as_deref() == Some("Active")
+                && r.performance_state.as_deref() == Some("Unperformed")
+                && is_terminal(merged, &r.rule)
+                && merged
+                    .obligations
+                    .iter()
+                    .any(|o| find_in_chain(o, &r.rule).is_some())
+        });
+
+    if active(ExpectedRuleKind::Prohibition) || outstanding_obligation {
+        PolicyVerdict::Deny
+    } else if active(ExpectedRuleKind::Permission) {
+        PolicyVerdict::Allow
+    } else if merged.permissions.is_empty() {
+        match behaviour {
+            Behaviour::Open => PolicyVerdict::Allow,
+            Behaviour::Closed => PolicyVerdict::Deny,
+        }
+    } else if duty_mode == DutyMode::Deny {
+        PolicyVerdict::Deny
+    } else {
+        PolicyVerdict::Indeterminate
+    }
 }
 
 /// The `action` string `wire::DutyEntry` will carry for this outstanding
@@ -370,4 +526,280 @@ fn compare_rule_report(
         &expected.deontic_state,
         deontic.map(deontic_name),
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use engine::{
+        DetailedPermissionReport, DetailedPolicyReport, DetailedPolicyRequest,
+        DetailedProhibitionReport, WireDecision,
+    };
+
+    fn ids(policy_id: &str, perms: &[&str], prohs: &[&str]) -> PolicyIds {
+        let rule = |id: &str| RuleIds {
+            rule_id: id.to_string(),
+            action: "read".to_string(),
+            duty: vec![],
+            remedy: vec![],
+            consequence: None,
+        };
+        PolicyIds {
+            id: policy_id.to_string(),
+            permissions: perms.iter().map(|p| rule(p)).collect(),
+            prohibitions: prohs.iter().map(|p| rule(p)).collect(),
+            obligations: vec![],
+            inherit_from: None,
+        }
+    }
+
+    fn permission(rule_index: usize, active: bool) -> DetailedRuleReport {
+        DetailedRuleReport::Permission(DetailedPermissionReport {
+            rule_index,
+            activation_state: if active {
+                ActivationState::Active
+            } else {
+                ActivationState::Inactive
+            },
+            attempt_state: AttemptState::Attempted,
+            performance_state: if active {
+                PerformanceState::Performed
+            } else {
+                PerformanceState::Unperformed
+            },
+            deontic_state: if active {
+                DeonticState::Fulfilled
+            } else {
+                DeonticState::NonSet
+            },
+            premise_reports: vec![],
+            condition_report: None,
+        })
+    }
+
+    fn prohibition(rule_index: usize, active: bool) -> DetailedRuleReport {
+        DetailedRuleReport::Prohibition(DetailedProhibitionReport {
+            rule_index,
+            activation_state: if active {
+                ActivationState::Active
+            } else {
+                ActivationState::Inactive
+            },
+            attempt_state: AttemptState::Attempted,
+            performance_state: if active {
+                PerformanceState::Performed
+            } else {
+                PerformanceState::Unknown
+            },
+            deontic_state: if active {
+                DeonticState::Violated
+            } else {
+                DeonticState::NonSet
+            },
+            premise_reports: vec![],
+        })
+    }
+
+    fn policy_report(
+        policy_id: &str,
+        rule_reports: Vec<DetailedRuleReport>,
+    ) -> DetailedPolicyReport {
+        DetailedPolicyReport {
+            policy_id: policy_id.to_string(),
+            policy_request: DetailedPolicyRequest {
+                requested_action: "read".to_string(),
+                requested_target: "asset".to_string(),
+            },
+            rule_reports,
+            evaluation_error: None,
+            declared_conflict: engine::ConflictStrategy::Invalid,
+            conflict_forced_invalid: false,
+        }
+    }
+
+    fn evaluation(policy_reports: Vec<DetailedPolicyReport>) -> DetailedEvaluation {
+        DetailedEvaluation {
+            dataset_id: "asset".to_string(),
+            requested_action: "read".to_string(),
+            policy_reports,
+            skipped_policies: vec![],
+        }
+    }
+
+    fn response(decision: WireDecision) -> Response {
+        Response {
+            dataset_id: "asset".to_string(),
+            decision,
+            reason: String::new(),
+            duties: vec![],
+        }
+    }
+
+    fn expected(
+        policy_id: &str,
+        kind: ExpectedRuleKind,
+        rule: &str,
+        activation: &str,
+    ) -> ExpectedPolicyReport {
+        ExpectedPolicyReport {
+            policy_id: policy_id.to_string(),
+            rule_reports: vec![ExpectedRuleReport {
+                kind,
+                rule: rule.to_string(),
+                activation_state: Some(activation.to_string()),
+                attempt_state: None,
+                performance_state: None,
+                deontic_state: None,
+            }],
+        }
+    }
+
+    #[test]
+    fn an_expected_active_permission_beside_a_coarse_deny_is_a_mismatch() {
+        // The `report:` vocabulary has no "decision" term, so the coarse
+        // `Response.decision` used to go entirely unchecked: a fixture
+        // whose whole point was "this permission grants" passed even when
+        // the engine answered Deny. An expected Active PermissionReport
+        // is a statement that the permission granted -- the request must
+        // then be Allow, unless something the same tree states (an Active
+        // prohibition, or a deny-mode obligation) overrides it.
+        let shadow = [ids("policy-a", &["perm"], &[])];
+        let exp = [expected(
+            "policy-a",
+            ExpectedRuleKind::Permission,
+            "perm",
+            "Active",
+        )];
+        let detailed = evaluation(vec![policy_report("policy-a", vec![permission(0, true)])]);
+
+        let ok = compare_case(
+            &shadow,
+            &exp,
+            DutyMode::Advise,
+            Behaviour::Closed,
+            &detailed,
+            &response(WireDecision::Allow),
+        )
+        .unwrap();
+        assert!(ok.is_empty(), "{ok:?}");
+
+        let bad = compare_case(
+            &shadow,
+            &exp,
+            DutyMode::Advise,
+            Behaviour::Closed,
+            &detailed,
+            &response(WireDecision::Deny),
+        )
+        .unwrap();
+        assert!(
+            bad.iter().any(|m| m.contains("Response.decision")),
+            "{bad:?}"
+        );
+    }
+
+    #[test]
+    fn an_expected_active_prohibition_beside_a_coarse_allow_is_a_mismatch() {
+        let shadow = [ids("policy-a", &[], &["proh"])];
+        let exp = [expected(
+            "policy-a",
+            ExpectedRuleKind::Prohibition,
+            "proh",
+            "Active",
+        )];
+        let detailed = evaluation(vec![policy_report("policy-a", vec![prohibition(0, true)])]);
+
+        let bad = compare_case(
+            &shadow,
+            &exp,
+            DutyMode::Advise,
+            Behaviour::Open,
+            &detailed,
+            &response(WireDecision::Allow),
+        )
+        .unwrap();
+        assert!(
+            bad.iter().any(|m| m.contains("Response.decision")),
+            "{bad:?}"
+        );
+    }
+
+    #[test]
+    fn under_duty_mode_deny_no_active_permission_means_the_request_must_be_denied() {
+        // Under `dutyMode=deny`, `grants()` and the report's activation
+        // gate are the same predicate, so every permission Inactive means
+        // no permission granted -- the request cannot be Allow. (Under
+        // `advise` this is indeterminate from the tree alone: a permission
+        // may be Inactive purely because an advisory duty chain is
+        // outstanding while the coarse path still grants.) This is the
+        // shape of the audit's finding #1: a consequence-satisfied duty
+        // chain reported the permission Inactive under deny mode while
+        // `Response.decision` said Allow.
+        let shadow = [ids("policy-a", &["perm"], &[])];
+        let exp = [expected(
+            "policy-a",
+            ExpectedRuleKind::Permission,
+            "perm",
+            "Inactive",
+        )];
+        let detailed = evaluation(vec![policy_report("policy-a", vec![permission(0, false)])]);
+
+        let bad = compare_case(
+            &shadow,
+            &exp,
+            DutyMode::Deny,
+            Behaviour::Closed,
+            &detailed,
+            &response(WireDecision::Allow),
+        )
+        .unwrap();
+        assert!(
+            bad.iter().any(|m| m.contains("Response.decision")),
+            "{bad:?}"
+        );
+
+        let indeterminate = compare_case(
+            &shadow,
+            &exp,
+            DutyMode::Advise,
+            Behaviour::Closed,
+            &detailed,
+            &response(WireDecision::Allow),
+        )
+        .unwrap();
+        assert!(indeterminate.is_empty(), "{indeterminate:?}");
+    }
+
+    #[test]
+    fn an_evaluated_policy_the_expected_tree_never_mentions_is_a_mismatch() {
+        // A second policy that denies the whole request, left out of the
+        // expected tree, used to pass silently: the rule-level "engine
+        // produced a report the expected outcome never mentions" check
+        // only ran *inside* a mentioned policy.
+        let shadow = [
+            ids("policy-a", &["perm"], &[]),
+            ids("policy-b", &[], &["proh"]),
+        ];
+        let exp = [expected(
+            "policy-a",
+            ExpectedRuleKind::Permission,
+            "perm",
+            "Active",
+        )];
+        let detailed = evaluation(vec![
+            policy_report("policy-a", vec![permission(0, true)]),
+            policy_report("policy-b", vec![prohibition(0, true)]),
+        ]);
+
+        let bad = compare_case(
+            &shadow,
+            &exp,
+            DutyMode::Advise,
+            Behaviour::Closed,
+            &detailed,
+            &response(WireDecision::Deny),
+        )
+        .unwrap();
+        assert!(bad.iter().any(|m| m.contains("policy-b")), "{bad:?}");
+    }
 }

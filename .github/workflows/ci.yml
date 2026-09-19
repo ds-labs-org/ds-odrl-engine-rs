@@ -45,6 +45,15 @@ jobs:
       - name: cargo build
         run: cargo build --workspace
 
+      # The wasm32 target is installed above (for
+      # scripts/build-release-history.sh's historical-tag rebuilds), but
+      # nothing else in this job actually compiles the current commit's
+      # `engine` for it -- only `pages.yml`'s `trunk build`, which runs on
+      # push to main, after merge. A native-only dependency creeping into
+      # `engine` would pass this job and only break the next deploy.
+      - name: cargo build (engine, wasm32-unknown-unknown)
+        run: cargo build -p engine --target wasm32-unknown-unknown --release
+
       - name: cargo clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
 

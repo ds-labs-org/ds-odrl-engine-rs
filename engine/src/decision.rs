@@ -1689,32 +1689,51 @@ pub(crate) fn derive_detailed_rule_reports(
             AttemptState::NotAttempted
         };
 
-        // `duty_gate_violated` and `duty_report_for`'s own `Violated`
-        // computation below are the *same* underlying test (in-force &&
-        // `!duty_satisfied`), applied across every one of `rule.duty`'s
-        // sibling entries, not just `duty[0]` — the hard rule (a Permission
-        // Report cannot be `Active` while ANY of its own Duty Reports is
-        // `Violated`, not only the one `condition_report` happens to link)
-        // holds by construction, not by cross-checking two independently-
-        // derived facts. `duty_report_for` itself is already called once per
-        // `duty_index` in the loop below, so it never had this limitation;
-        // `duty_gate_violated` used to inspect `duty.first()` only, which
-        // let a satisfied `duty[0]` mask a genuinely violated `duty[1..]`
-        // (ds-odrl-compliance-rdf's
-        // `duty-advise-gates-on-any-sibling-duty-01.ttl`, v0.23.2).
-        let duty_gate_violated =
-            applies_and_matches && rule.duty.iter().any(|d| !d.duty_satisfied(claims));
+        // The duty gate is the *identical predicate* `Rule::grants` ->
+        // `duties_resolved` applies on the coarse path: a permission is
+        // gated when any of its sibling `odrl:duty` CHAINS is outstanding
+        // (`outstanding_duty(d).is_some()` — the chain walked through its
+        // `odrl:consequence` hops, exactly as `decide` walks it), across
+        // every `duty[j]`, not only `duty[0]`. Two earlier shapes of this
+        // line were both wrong in the same way — a second derivation of a
+        // fact `decide` already derives:
+        //
+        // - `duty.first()` only (fixed v0.23.2): a satisfied `duty[0]`
+        //   masked a genuinely violated `duty[1..]` (ds-odrl-compliance-
+        //   rdf's `duty-advise-gates-on-any-sibling-duty-01.ttl`).
+        // - `!d.duty_satisfied(claims)` on the root duty (fixed here): a
+        //   duty that is itself unsatisfied but whose consequence resolved
+        //   has nothing outstanding on the coarse path (`Allow`, empty
+        //   `Response.duties`) yet gated the permission `Inactive` here,
+        //   under both duty modes. See
+        //   `duty_gate_violated_uses_the_same_consequence_resolved_predicate_grants_uses`.
+        //
+        // Consequence for the report shape: a depth-0 `DetailedRuleReport::
+        // Duty` may read `Violated` (the breach genuinely occurred) beside
+        // a depth-1 consequence reading `Fulfilled`, with the owning
+        // permission `Active` — because what gates a permission is an
+        // *outstanding* chain, not any single hop's own deontic state.
+        // `duty_report_for` below reports each hop honestly on its own
+        // terms; it is not what the gate reads.
+        let duty_gate_violated = applies_and_matches
+            && rule
+                .duty
+                .iter()
+                .any(|d| outstanding_duty(d, claims).is_some());
 
         let activation_state = if !permission_grants[rule_index] {
             ActivationState::Inactive
         } else if duty_gate_violated {
-            // Fixes the case `grants()` alone misses: under
-            // `DutyMode::Advise`, `grants()` does not gate on duty
-            // resolution at all, so a permission with any outstanding duty
-            // would otherwise read `Active` here even though one of its own
-            // sibling `DetailedRuleReport::Duty` entries below reports
-            // `Violated` -- a direct hard-rule violation. This clause is
-            // what makes the two agree.
+            // Reached only under `DutyMode::Advise`: under `Deny`,
+            // `grants()` already applied this same predicate and the
+            // `!permission_grants[..]` arm above fired first. Under
+            // `Advise`, `grants()` does not gate on duty resolution at all
+            // (the permission still grants, and `decide` says `Allow`), so
+            // this is the one deliberate, disclosed place the report says
+            // `Inactive` while `Response.decision` is `Allow` -- the
+            // report's hard rule (no `Active` permission with an
+            // outstanding duty chain) taking precedence over the coarse
+            // answer's advisory reading of the same chain.
             ActivationState::Inactive
         } else if permission_conflict_voided || obligation_forces_deny {
             // Two independent reasons `decide()` itself can still override
@@ -4247,6 +4266,87 @@ mod tests {
         assert_eq!(both.activation_state, ActivationState::Active);
         assert_eq!(both.performance_state, PerformanceState::Performed);
         assert_eq!(both.deontic_state, DeonticState::Fulfilled);
+    }
+
+    #[test]
+    fn duty_gate_violated_uses_the_same_consequence_resolved_predicate_grants_uses() {
+        // The coarse path (`Rule::grants` -> `duties_resolved` ->
+        // `outstanding_duty`) walks a duty's `odrl:consequence` chain: a
+        // duty that is itself unsatisfied but whose consequence *is*
+        // satisfied has nothing outstanding, so the permission grants and
+        // `Response.duties` is empty -- this engine's own documented
+        // consequence semantics (`Rule::consequence`). The detailed path's
+        // `duty_gate_violated` used to test `duty_satisfied` on the root
+        // duty alone, never walking the chain, so the very same input read
+        // back `Inactive`/`Unperformed`/`NonSet` for the permission while
+        // `decide` said `Allow` with nothing outstanding -- under BOTH duty
+        // modes, not only the disclosed `Advise` case. Two derivations of
+        // one fact, disagreeing: the exact shape of the three bugs fixed
+        // in v0.22.1/v0.23.1/v0.23.2. Found by an independent audit of
+        // v0.23.2; no fixture in either corpus had a consequence that
+        // actually resolved.
+        use crate::report::{ActivationState, DeonticState, DetailedRuleReport, PerformanceState};
+
+        let policy = Policy {
+            permissions: vec![Rule {
+                duty: vec![Rule::with_consequence(
+                    "notify",
+                    vec![], // unconditional: always unsatisfied on its own
+                    asserted_duty("escalate"),
+                )],
+                ..Rule::new("read", vec![])
+            }],
+            prohibitions: vec![],
+            obligations: vec![],
+            conflict: ConflictStrategy::default(),
+        };
+        let claims = fulfilled(&["escalate"]);
+
+        for duty_mode in [DutyMode::Deny, DutyMode::Advise] {
+            let config = config_with_duty_mode(&["read", "notify", "escalate"], duty_mode);
+
+            let outcome = decide(&policy, &claims, &config, "read", ASSET, &[]);
+            assert_eq!(outcome.decision, Decision::Allow, "{duty_mode:?}");
+            assert!(
+                outcome.unresolved_duties.is_empty(),
+                "{duty_mode:?}: the consequence resolved, so nothing is outstanding"
+            );
+
+            let (rule_reports, _) =
+                derive_detailed_rule_reports(&policy, &claims, &config, "read", ASSET, &[]);
+            let permission = rule_reports
+                .iter()
+                .find_map(|r| match r {
+                    DetailedRuleReport::Permission(p) => Some(p),
+                    _ => None,
+                })
+                .expect("exactly one permission in this policy");
+            assert_eq!(
+                permission.activation_state,
+                ActivationState::Active,
+                "{duty_mode:?}: the detailed report must agree with decide()'s Allow -- the \
+                 duty chain is resolved through its consequence, so it does not gate"
+            );
+            assert_eq!(permission.performance_state, PerformanceState::Performed);
+            assert_eq!(permission.deontic_state, DeonticState::Fulfilled);
+
+            // The chain itself is still reported honestly, hop by hop: the
+            // root duty was breached (Violated), its consequence was done
+            // (Fulfilled). Neither of those is what gates a permission --
+            // an *outstanding* chain is.
+            let duties: Vec<_> = rule_reports
+                .iter()
+                .filter_map(|r| match r {
+                    DetailedRuleReport::Duty(d) => Some(d),
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(duties.len(), 2, "{duty_mode:?}");
+            assert_eq!(duties[0].consequence_depth, 0);
+            assert_eq!(duties[0].deontic_state, DeonticState::Violated);
+            assert_eq!(duties[1].consequence_depth, 1);
+            assert_eq!(duties[1].deontic_state, DeonticState::Fulfilled);
+        }
     }
 
     #[test]

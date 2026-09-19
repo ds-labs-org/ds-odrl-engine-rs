@@ -1409,10 +1409,16 @@ Before `decide` or party-role scoping ever sees a policy,
 `permissions`, `prohibitions` and `obligations` into the child (the
 child's own rules first, the parent's appended), and its `assigner`/
 `assignee` **only where the child leaves them unset** — a child that
-names its own `odrl:assignee` is not overridden by a parent's. A parent
-is itself resolved first, so a multi-level chain (grandparent → parent →
-child) and a diamond (two parents sharing a common ancestor, resolved
-once and reused) both work without walking the same policy twice.
+names its own `odrl:assignee` is not overridden by a parent's. The merge
+has **set semantics over ancestors**: each *distinct* ancestor's own
+declared rules are appended exactly once, in depth-first preorder over
+the `inheritFrom` lists, so a multi-level chain (grandparent → parent →
+child) and a diamond (two parents sharing a common ancestor) both
+replicate a grandparent's rules once — not once per path. An earlier
+version appended each parent's already-merged rules and did duplicate a
+shared grandparent's rules (and its `duties` entries) in a diamond, while
+this paragraph claimed otherwise; pinned by `engine/src/wire.rs`'s
+`a_diamond_inherit_from_replicates_a_shared_grandparents_rules_exactly_once`.
 
 **Why this closes a real fail-open gap, not a cosmetic one.** The single
 most natural real-world shape for `odrl:inheritFrom` is "child adds
