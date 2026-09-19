@@ -4250,6 +4250,87 @@ mod tests {
     }
 
     #[test]
+    fn duty_gate_violated_uses_the_same_consequence_resolved_predicate_grants_uses() {
+        // The coarse path (`Rule::grants` -> `duties_resolved` ->
+        // `outstanding_duty`) walks a duty's `odrl:consequence` chain: a
+        // duty that is itself unsatisfied but whose consequence *is*
+        // satisfied has nothing outstanding, so the permission grants and
+        // `Response.duties` is empty -- this engine's own documented
+        // consequence semantics (`Rule::consequence`). The detailed path's
+        // `duty_gate_violated` used to test `duty_satisfied` on the root
+        // duty alone, never walking the chain, so the very same input read
+        // back `Inactive`/`Unperformed`/`NonSet` for the permission while
+        // `decide` said `Allow` with nothing outstanding -- under BOTH duty
+        // modes, not only the disclosed `Advise` case. Two derivations of
+        // one fact, disagreeing: the exact shape of the three bugs fixed
+        // in v0.22.1/v0.23.1/v0.23.2. Found by an independent audit of
+        // v0.23.2; no fixture in either corpus had a consequence that
+        // actually resolved.
+        use crate::report::{ActivationState, DeonticState, DetailedRuleReport, PerformanceState};
+
+        let policy = Policy {
+            permissions: vec![Rule {
+                duty: vec![Rule::with_consequence(
+                    "notify",
+                    vec![], // unconditional: always unsatisfied on its own
+                    asserted_duty("escalate"),
+                )],
+                ..Rule::new("read", vec![])
+            }],
+            prohibitions: vec![],
+            obligations: vec![],
+            conflict: ConflictStrategy::default(),
+        };
+        let claims = fulfilled(&["escalate"]);
+
+        for duty_mode in [DutyMode::Deny, DutyMode::Advise] {
+            let config = config_with_duty_mode(&["read", "notify", "escalate"], duty_mode);
+
+            let outcome = decide(&policy, &claims, &config, "read", ASSET, &[]);
+            assert_eq!(outcome.decision, Decision::Allow, "{duty_mode:?}");
+            assert!(
+                outcome.unresolved_duties.is_empty(),
+                "{duty_mode:?}: the consequence resolved, so nothing is outstanding"
+            );
+
+            let (rule_reports, _) =
+                derive_detailed_rule_reports(&policy, &claims, &config, "read", ASSET, &[]);
+            let permission = rule_reports
+                .iter()
+                .find_map(|r| match r {
+                    DetailedRuleReport::Permission(p) => Some(p),
+                    _ => None,
+                })
+                .expect("exactly one permission in this policy");
+            assert_eq!(
+                permission.activation_state,
+                ActivationState::Active,
+                "{duty_mode:?}: the detailed report must agree with decide()'s Allow -- the \
+                 duty chain is resolved through its consequence, so it does not gate"
+            );
+            assert_eq!(permission.performance_state, PerformanceState::Performed);
+            assert_eq!(permission.deontic_state, DeonticState::Fulfilled);
+
+            // The chain itself is still reported honestly, hop by hop: the
+            // root duty was breached (Violated), its consequence was done
+            // (Fulfilled). Neither of those is what gates a permission --
+            // an *outstanding* chain is.
+            let duties: Vec<_> = rule_reports
+                .iter()
+                .filter_map(|r| match r {
+                    DetailedRuleReport::Duty(d) => Some(d),
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(duties.len(), 2, "{duty_mode:?}");
+            assert_eq!(duties[0].consequence_depth, 0);
+            assert_eq!(duties[0].deontic_state, DeonticState::Violated);
+            assert_eq!(duties[1].consequence_depth, 1);
+            assert_eq!(duties[1].deontic_state, DeonticState::Fulfilled);
+        }
+    }
+
+    #[test]
     fn a_remedy_never_lifts_a_prohibition_in_either_direction() {
         // The documented sub-decision, asserted at the decision layer: a
         // remedy is reported, never enforced away. Both resolutions give

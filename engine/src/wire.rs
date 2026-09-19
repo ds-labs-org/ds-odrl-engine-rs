@@ -3208,6 +3208,69 @@ mod tests {
     }
 
     #[test]
+    fn a_diamond_inherit_from_replicates_a_shared_grandparents_rules_exactly_once() {
+        // grandparent -> {parent-1, parent-2} -> child. `resolve_one` used
+        // to memoize each ancestor's *merged* form and `extend` the child
+        // with every parent's merged rules in turn -- so a grandparent
+        // reachable through two parents arrived twice: two copies of its
+        // permission, two of its obligation, and `Response.duties` listing
+        // the child's one inherited obligation twice. The doc comment
+        // promised "exactly once each ... a diamond is resolved once and
+        // reused, not walked twice", which was true of the *computation*
+        // and false of the *result*. Allow/Deny was unaffected; rule
+        // indices in `reason`/`source`, the duties list and the detailed
+        // report were all wrong. Found by an independent audit of v0.23.2.
+        let req = Request {
+            dataset_id: "urn:uuid:ds".to_string(),
+            action: "use".to_string(),
+            config: deny_config(&["use", "notify"]), // dutyMode advise
+            policies: vec![
+                {
+                    let mut p = inheriting_policy("grandparent", None, None);
+                    p.permissions = vec![Rule::new("use", vec![])];
+                    p.obligations = vec![Rule::new("notify", vec![])];
+                    p
+                },
+                inheriting_policy("parent-1", None, Some(&["grandparent"])),
+                inheriting_policy("parent-2", None, Some(&["grandparent"])),
+                inheriting_policy("child", None, Some(&["parent-1", "parent-2"])),
+            ],
+            claims: Claims::new(),
+            asset_collections: Vec::new(),
+        };
+
+        let (response, detailed) = evaluate_request_detailed(&req);
+        assert_eq!(response.decision, WireDecision::Allow);
+
+        let reports_of = |id: &str| {
+            &detailed
+                .policy_reports
+                .iter()
+                .find(|p| p.policy_id == id)
+                .unwrap_or_else(|| panic!("no report for {id}"))
+                .rule_reports
+        };
+        assert_eq!(reports_of("parent-1").len(), 2, "{detailed:#?}");
+        assert_eq!(reports_of("parent-2").len(), 2, "{detailed:#?}");
+        assert_eq!(
+            reports_of("child").len(),
+            2,
+            "the grandparent's one permission and one obligation must reach the child \
+             exactly once each, not once per path: {detailed:#?}"
+        );
+        assert_eq!(
+            response
+                .duties
+                .iter()
+                .filter(|d| d.policy_id == "child")
+                .count(),
+            1,
+            "{:?}",
+            response.duties
+        );
+    }
+
+    #[test]
     fn a_policy_naming_no_inherit_from_is_unaffected_and_round_trips_without_the_key() {
         let req: Request = serde_json::from_str(ALLOW_EXAMPLE).unwrap();
         assert_eq!(req.policies[0].inherit_from, None);
