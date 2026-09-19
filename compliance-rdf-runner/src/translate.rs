@@ -13,17 +13,21 @@
 //! `odrl:rightOperand` purely as opaque strings -- it has no IRI type, no
 //! namespace awareness, nothing. Correctness therefore only requires one
 //! property: two occurrences of *the same* RDF resource anywhere in one
-//! case file must stringify identically. Since every resource in a
-//! `dsc:` case file is a `#fragment` of that one file's own `@base` (the
-//! vocabulary spec's own file-shape convention, section 4.2), the
-//! fragment-only local name already satisfies that uniquely within one
-//! file, and a shorter string makes a failing comparison's diff far more
-//! readable than a full IRI would. This is a deliberate simplification
-//! specific to this one-file-per-case corpus shape; a translator over a
-//! corpus that spread one request across several files/namespaces would
-//! need full IRIs instead (`compliance-runner`'s own translator, over a
-//! very different corpus shape, makes the same "local name is enough"
-//! call at its own README's documented reasoning).
+//! case file must stringify identically, and two *different* resources
+//! must not. The local name gives the first for free; the second holds
+//! only as long as no two IRIs a case file compares share a local name
+//! across namespaces -- and case files do mix namespaces (`odrl:print`,
+//! `dpv:AcademicResearch`, `did:web:...`, and the file's own `:fragment`s
+//! all appear in the worked example), so `:read` beside `odrl:read`, or
+//! `:Research` beside `dpv:Research`, would silently unify. That is a
+//! known, undetected collision risk this translator accepts for the
+//! readability of a failing diff, stated here rather than as the
+//! "every resource is a #fragment" invariant an earlier version of this
+//! comment claimed (it never held). A translator over a corpus that
+//! spread one request across several files/namespaces would need full
+//! IRIs instead (`compliance-runner`'s own translator, over a very
+//! different corpus shape, makes the same "local name is enough" call at
+//! its own README's documented reasoning).
 //!
 //! **Explicitly not supported: by-reference `dsc:profile`.** The
 //! vocabulary spec (section 4.6) allows a `dsc:profile` value that is an
@@ -367,151 +371,76 @@ fn translate_policy(g: &Graph, node: &str) -> Result<(WirePolicy, PolicyIds), St
 }
 
 /// Replicates `wire::resolve_inherit_from`'s own merge order
-/// (`engine/src/wire.rs`'s `resolve_one`: this policy's own rules first,
-/// then each parent's own already-merged rules appended, in
-/// `dsc:inheritsFrom` list order) over the id-only `PolicyIds` shape, so
-/// `compare.rs` can name which RDF rule node a merged policy's
-/// `rule_index`-addressed `DetailedRuleReport` is actually about. A
-/// second, independent implementation of one merge algorithm is exactly
-/// the kind of drift this workspace's own `conflicting_rules` doc comment
-/// warns about -- unavoidable here, since the engine's own
-/// `resolve_inherit_from` is a private `wire.rs` function this crate has
-/// no access to -- so it is kept to the one property that actually
-/// matters for correlation (order) rather than re-deriving anything the
-/// engine itself decides (conflict forcing, party-field replication).
+/// (`engine/src/wire.rs`'s `ancestor_order`: this policy's own rules
+/// first, then each *distinct* ancestor's own declared rules appended
+/// exactly once, in depth-first preorder over the `dsc:inheritsFrom`
+/// lists -- so a diamond's shared grandparent arrives once, not once per
+/// path) over the id-only `PolicyIds` shape, so `compare.rs` can name
+/// which RDF rule node a merged policy's `rule_index`-addressed
+/// `DetailedRuleReport` is actually about. A second, independent
+/// implementation of one merge algorithm is exactly the kind of drift
+/// this workspace's own `conflicting_rules` doc comment warns about --
+/// unavoidable here, since the engine's own `resolve_inherit_from` is a
+/// private `wire.rs` function this crate has no access to -- so it is
+/// kept to the one property that actually matters for correlation
+/// (order) rather than re-deriving anything the engine itself decides
+/// (conflict forcing, party-field replication), and pinned by
+/// `merged_policy_ids_replicates_a_diamonds_shared_grandparent_exactly_once`
+/// against the engine's own
+/// `a_diamond_inherit_from_replicates_a_shared_grandparents_rules_exactly_once`.
 pub fn merged_policy_ids(all: &[PolicyIds], id: &str) -> Result<PolicyIds, String> {
     let by_id: HashMap<&str, &PolicyIds> = all.iter().map(|p| (p.id.as_str(), p)).collect();
-    merge_one(id, &by_id, &mut Vec::new())
-}
-
-fn merge_one(
-    id: &str,
-    by_id: &HashMap<&str, &PolicyIds>,
-    stack: &mut Vec<String>,
-) -> Result<PolicyIds, String> {
     let policy = *by_id
         .get(id)
         .ok_or_else(|| format!("no policy '{id}' in this request's dsc:policy list"))?;
-    let parent_ids: &[String] = match &policy.inherit_from {
-        Some(ids) if !ids.is_empty() => ids,
-        _ => return Ok(policy.clone()),
-    };
+    let mut merged = policy.clone();
+    for ancestor_id in ancestor_order(id, &by_id, &mut Vec::new())? {
+        let ancestor = by_id[ancestor_id.as_str()];
+        merged
+            .permissions
+            .extend(ancestor.permissions.iter().cloned());
+        merged
+            .prohibitions
+            .extend(ancestor.prohibitions.iter().cloned());
+        merged
+            .obligations
+            .extend(ancestor.obligations.iter().cloned());
+    }
+    Ok(merged)
+}
+
+/// The distinct ancestor ids of `id` in depth-first preorder, first
+/// occurrence kept -- the engine's `wire::ancestor_order`, over `PolicyIds`.
+fn ancestor_order(
+    id: &str,
+    by_id: &HashMap<&str, &PolicyIds>,
+    stack: &mut Vec<String>,
+) -> Result<Vec<String>, String> {
     if stack.contains(&id.to_string()) {
         return Err(format!(
             "circular dsc:inheritsFrom chain: {} -> {id}",
             stack.join(" -> ")
         ));
     }
+    let policy = *by_id
+        .get(id)
+        .ok_or_else(|| format!("no policy '{id}' in this request's dsc:policy list"))?;
+    let parent_ids: &[String] = match &policy.inherit_from {
+        Some(ids) if !ids.is_empty() => ids,
+        _ => return Ok(Vec::new()),
+    };
     stack.push(id.to_string());
-    let mut merged = policy.clone();
+    let mut order: Vec<String> = Vec::new();
     for parent_id in parent_ids {
-        let parent = merge_one(parent_id, by_id, stack)?;
-        merged.permissions.extend(parent.permissions);
-        merged.prohibitions.extend(parent.prohibitions);
-        merged.obligations.extend(parent.obligations);
+        let parent_ancestors = ancestor_order(parent_id, by_id, stack)?;
+        for ancestor in std::iter::once(parent_id.clone()).chain(parent_ancestors) {
+            if !order.contains(&ancestor) {
+                order.push(ancestor);
+            }
+        }
     }
     stack.pop();
-    Ok(merged)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    const PREAMBLE: &str = r#"
-@base <https://ds-labs-org.github.io/ds-odrl-compliance-rdf/cases/unit> .
-@prefix :      <#> .
-@prefix dsc:   <https://ds-labs-org.github.io/ds-odrl-compliance-rdf/ns#> .
-@prefix odrl:  <http://www.w3.org/ns/odrl/2/> .
-@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-:asset a odrl:Asset .
-:perm a odrl:Permission ; odrl:target :asset ; odrl:action odrl:read .
-:policy-a a odrl:Set ; odrl:permission :perm .
-"#;
-
-    fn graph(body: &str) -> Graph {
-        Graph::from_turtle(format!("{PREAMBLE}\n{body}").as_bytes()).expect("valid turtle")
-    }
-
-    fn request_id() -> String {
-        "https://ds-labs-org.github.io/ds-odrl-compliance-rdf/cases/unit#request".to_string()
-    }
-
-    #[test]
-    fn a_profile_that_omits_dsc_duty_mode_is_a_translation_error_not_a_silent_advise() {
-        // `wire::RequestConfig::duty_mode` is a *required* wire field (no
-        // `#[serde(default)]`): a JSON request without `dutyMode` does not
-        // parse. This translator used to invent `Advise` for a profile
-        // node carrying no `dsc:dutyMode`, so a fixture that forgot the
-        // knob ran under a mode its author never chose, and passed or
-        // failed for a reason the file itself does not state.
-        let g = graph(
-            r#"
-:profile a odrl:Profile ; odrl:action odrl:read ; dsc:behaviour dsc:Closed .
-:request a dsc:Request ; odrl:target :asset ; odrl:action odrl:read ;
-    dsc:profile :profile ; dsc:policy :policy-a .
-"#,
-        );
-        let err = translate_request(&g, &request_id()).expect_err("must not translate");
-        assert!(err.contains("dsc:dutyMode"), "{err}");
-    }
-
-    #[test]
-    fn two_claim_assertions_with_the_same_key_are_a_translation_error_not_last_wins() {
-        // The spec's array-valued shape (section 4.4, shape 5) is ONE
-        // `dsc:ClaimAssertion` with several `rdf:value` triples. Two
-        // assertions sharing a `dsc:key` are unspecified, and the old
-        // `HashMap::insert` silently kept whichever came last in file
-        // order -- so an author who meant {PI, reviewer} got "reviewer"
-        // alone, and a failing comparison blamed the engine.
-        let g = graph(
-            r#"
-:profile a odrl:Profile ; odrl:action odrl:read ; dsc:dutyMode dsc:Advise .
-:c1 a dsc:ClaimAssertion ; dsc:key "roles" ; rdf:value "PI" .
-:c2 a dsc:ClaimAssertion ; dsc:key "roles" ; rdf:value "reviewer" .
-:request a dsc:Request ; odrl:target :asset ; odrl:action odrl:read ;
-    dsc:profile :profile ; dsc:policy :policy-a ; dsc:claim :c1, :c2 .
-"#,
-        );
-        let err = translate_request(&g, &request_id()).expect_err("must not translate");
-        assert!(err.contains("roles"), "{err}");
-    }
-
-    #[test]
-    fn merged_policy_ids_replicates_a_diamonds_shared_grandparent_exactly_once() {
-        // Mirrors `wire::resolve_inherit_from`'s (fixed) set semantics
-        // over ancestors: the engine merges each distinct ancestor's own
-        // rules once, in depth-first preorder, so this id shadow must
-        // produce the same `rule_index` layout or every diamond fixture
-        // would correlate rule reports to the wrong RDF nodes.
-        let rule = |id: &str| RuleIds {
-            rule_id: id.to_string(),
-            action: "read".to_string(),
-            duty: vec![],
-            remedy: vec![],
-            consequence: None,
-        };
-        let policy = |id: &str, perms: &[&str], parents: Option<&[&str]>| PolicyIds {
-            id: id.to_string(),
-            permissions: perms.iter().map(|p| rule(p)).collect(),
-            prohibitions: vec![],
-            obligations: vec![],
-            inherit_from: parents.map(|p| p.iter().map(|s| s.to_string()).collect()),
-        };
-        let all = vec![
-            policy("g", &["perm-g"], None),
-            policy("p1", &["perm-p1"], Some(&["g"])),
-            policy("p2", &["perm-p2"], Some(&["g"])),
-            policy("c", &["perm-c"], Some(&["p1", "p2"])),
-        ];
-        let merged = merged_policy_ids(&all, "c").unwrap();
-        let ids: Vec<&str> = merged
-            .permissions
-            .iter()
-            .map(|r| r.rule_id.as_str())
-            .collect();
-        assert_eq!(ids, ["perm-c", "perm-p1", "perm-g", "perm-p2"]);
-    }
+    Ok(order)
 }
 
 /// `dsc:claim`: every `dsc:ClaimAssertion` the request's `dsc:claim` list
@@ -538,6 +467,17 @@ fn translate_claims(g: &Graph, request_node: &str) -> Result<Claims, String> {
             1 => ClaimValue::Single(values.into_iter().next().unwrap()),
             _ => ClaimValue::Multi(values),
         };
+        // The spec's array-valued shape is ONE assertion with several
+        // `rdf:value` triples (section 4.4, shape 5). Two assertions
+        // sharing a key are unspecified, and silently keeping whichever
+        // came last in file order would translate the request into
+        // something its author never wrote -- and blame the engine.
+        if claims.contains_key(&key) {
+            return Err(format!(
+                "{claim_id}: a second dsc:ClaimAssertion for dsc:key {key:?} -- a multi-valued \
+                 claim is one assertion carrying several rdf:value triples, not several assertions"
+            ));
+        }
         claims.insert(key, value);
     }
     Ok(claims)
@@ -560,13 +500,23 @@ fn translate_config(g: &Graph, profile_node: &str) -> Result<RequestConfig, Stri
         })
         .collect();
 
+    // `wire::RequestConfig::duty_mode` is a required wire field, but most
+    // fixtures in this corpus state no `dsc:dutyMode` (the vocabulary spec
+    // names no default either). Rather than a constant this crate made
+    // up, the fallback for both knobs is the engine's own answer to
+    // "nothing loaded said anything about it" -- `engine::resolve(&[])`,
+    // whose fold starts at the least strict value of each axis -- so the
+    // corpus's absent-means-advise/open convention is the engine's, not
+    // this translator's, and a change to either shows up in
+    // `a_profile_that_omits_dsc_duty_mode_gets_the_engines_own_no_profile_default`.
+    let no_profile_default = engine::resolve(&[]);
     let duty_mode: DutyMode = match g.object_id(profile_node, &dsc_dutyMode()) {
         Some(m) => from_local_name(&local_name(&m).to_lowercase())?,
-        None => DutyMode::Advise,
+        None => no_profile_default.duty_mode,
     };
     let behaviour: Behaviour = match g.object_id(profile_node, &dsc_behaviour()) {
         Some(b) => from_local_name(&local_name(&b).to_lowercase())?,
-        None => Behaviour::default(),
+        None => no_profile_default.behaviour,
     };
     let party_identity_claim = g.literal(profile_node, &dsc_partyIdentityClaim());
     let agreement_assignee_claim = g.literal(profile_node, &dsc_agreementAssigneeClaim());
@@ -639,4 +589,111 @@ pub fn translate_request(
         },
         policy_ids,
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const PREAMBLE: &str = r#"
+@base <https://ds-labs-org.github.io/ds-odrl-compliance-rdf/cases/unit> .
+@prefix :      <#> .
+@prefix dsc:   <https://ds-labs-org.github.io/ds-odrl-compliance-rdf/ns#> .
+@prefix odrl:  <http://www.w3.org/ns/odrl/2/> .
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+:asset a odrl:Asset .
+:perm a odrl:Permission ; odrl:target :asset ; odrl:action odrl:read .
+:policy-a a odrl:Set ; odrl:permission :perm .
+"#;
+
+    fn graph(body: &str) -> Graph {
+        Graph::from_turtle(format!("{PREAMBLE}\n{body}").as_bytes()).expect("valid turtle")
+    }
+
+    fn request_id() -> String {
+        "https://ds-labs-org.github.io/ds-odrl-compliance-rdf/cases/unit#request".to_string()
+    }
+
+    #[test]
+    fn a_profile_that_omits_dsc_duty_mode_gets_the_engines_own_no_profile_default() {
+        // `wire::RequestConfig::duty_mode` is a required wire field, so
+        // something has to supply one for a profile node that states
+        // none -- and 7 of the 10 fixtures in the vendored corpus state
+        // none, so "error out" is not available without breaking the
+        // corpus this crate exists to run. The default must then be the
+        // *engine's* own, not a constant this crate made up: `engine::
+        // resolve(&[])` -- "nothing loaded said anything about it" -- is
+        // the one place the engine already answers exactly this question,
+        // and it answers `Advise`/`Open`. Pinned here so a future change
+        // to that fold (or a silent crate-local override) shows up.
+        let g = graph(
+            r#"
+:profile a odrl:Profile ; odrl:action odrl:read .
+:request a dsc:Request ; odrl:target :asset ; odrl:action odrl:read ;
+    dsc:profile :profile ; dsc:policy :policy-a .
+"#,
+        );
+        let (request, _) = translate_request(&g, &request_id()).expect("translates");
+        let engine_default = engine::resolve(&[]);
+        assert_eq!(request.config.duty_mode, engine_default.duty_mode);
+        assert_eq!(request.config.behaviour, engine_default.behaviour);
+        assert_eq!(request.config.duty_mode, DutyMode::Advise);
+    }
+
+    #[test]
+    fn two_claim_assertions_with_the_same_key_are_a_translation_error_not_last_wins() {
+        // The spec's array-valued shape (section 4.4, shape 5) is ONE
+        // `dsc:ClaimAssertion` with several `rdf:value` triples. Two
+        // assertions sharing a `dsc:key` are unspecified, and the old
+        // `HashMap::insert` silently kept whichever came last in file
+        // order -- so an author who meant {PI, reviewer} got "reviewer"
+        // alone, and a failing comparison blamed the engine.
+        let g = graph(
+            r#"
+:profile a odrl:Profile ; odrl:action odrl:read ; dsc:dutyMode dsc:Advise .
+:c1 a dsc:ClaimAssertion ; dsc:key "roles" ; rdf:value "PI" .
+:c2 a dsc:ClaimAssertion ; dsc:key "roles" ; rdf:value "reviewer" .
+:request a dsc:Request ; odrl:target :asset ; odrl:action odrl:read ;
+    dsc:profile :profile ; dsc:policy :policy-a ; dsc:claim :c1, :c2 .
+"#,
+        );
+        let err = translate_request(&g, &request_id()).expect_err("must not translate");
+        assert!(err.contains("roles"), "{err}");
+    }
+
+    #[test]
+    fn merged_policy_ids_replicates_a_diamonds_shared_grandparent_exactly_once() {
+        // Mirrors `wire::resolve_inherit_from`'s (fixed) set semantics
+        // over ancestors: the engine merges each distinct ancestor's own
+        // rules once, in depth-first preorder, so this id shadow must
+        // produce the same `rule_index` layout or every diamond fixture
+        // would correlate rule reports to the wrong RDF nodes.
+        let rule = |id: &str| RuleIds {
+            rule_id: id.to_string(),
+            action: "read".to_string(),
+            duty: vec![],
+            remedy: vec![],
+            consequence: None,
+        };
+        let policy = |id: &str, perms: &[&str], parents: Option<&[&str]>| PolicyIds {
+            id: id.to_string(),
+            permissions: perms.iter().map(|p| rule(p)).collect(),
+            prohibitions: vec![],
+            obligations: vec![],
+            inherit_from: parents.map(|p| p.iter().map(|s| s.to_string()).collect()),
+        };
+        let all = vec![
+            policy("g", &["perm-g"], None),
+            policy("p1", &["perm-p1"], Some(&["g"])),
+            policy("p2", &["perm-p2"], Some(&["g"])),
+            policy("c", &["perm-c"], Some(&["p1", "p2"])),
+        ];
+        let merged = merged_policy_ids(&all, "c").unwrap();
+        let ids: Vec<&str> = merged
+            .permissions
+            .iter()
+            .map(|r| r.rule_id.as_str())
+            .collect();
+        assert_eq!(ids, ["perm-c", "perm-p1", "perm-g", "perm-p2"]);
+    }
 }
