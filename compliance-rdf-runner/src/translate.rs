@@ -414,6 +414,106 @@ fn merge_one(
     Ok(merged)
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const PREAMBLE: &str = r#"
+@base <https://ds-labs-org.github.io/ds-odrl-compliance-rdf/cases/unit> .
+@prefix :      <#> .
+@prefix dsc:   <https://ds-labs-org.github.io/ds-odrl-compliance-rdf/ns#> .
+@prefix odrl:  <http://www.w3.org/ns/odrl/2/> .
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+:asset a odrl:Asset .
+:perm a odrl:Permission ; odrl:target :asset ; odrl:action odrl:read .
+:policy-a a odrl:Set ; odrl:permission :perm .
+"#;
+
+    fn graph(body: &str) -> Graph {
+        Graph::from_turtle(format!("{PREAMBLE}\n{body}").as_bytes()).expect("valid turtle")
+    }
+
+    fn request_id() -> String {
+        "https://ds-labs-org.github.io/ds-odrl-compliance-rdf/cases/unit#request".to_string()
+    }
+
+    #[test]
+    fn a_profile_that_omits_dsc_duty_mode_is_a_translation_error_not_a_silent_advise() {
+        // `wire::RequestConfig::duty_mode` is a *required* wire field (no
+        // `#[serde(default)]`): a JSON request without `dutyMode` does not
+        // parse. This translator used to invent `Advise` for a profile
+        // node carrying no `dsc:dutyMode`, so a fixture that forgot the
+        // knob ran under a mode its author never chose, and passed or
+        // failed for a reason the file itself does not state.
+        let g = graph(
+            r#"
+:profile a odrl:Profile ; odrl:action odrl:read ; dsc:behaviour dsc:Closed .
+:request a dsc:Request ; odrl:target :asset ; odrl:action odrl:read ;
+    dsc:profile :profile ; dsc:policy :policy-a .
+"#,
+        );
+        let err = translate_request(&g, &request_id()).expect_err("must not translate");
+        assert!(err.contains("dsc:dutyMode"), "{err}");
+    }
+
+    #[test]
+    fn two_claim_assertions_with_the_same_key_are_a_translation_error_not_last_wins() {
+        // The spec's array-valued shape (section 4.4, shape 5) is ONE
+        // `dsc:ClaimAssertion` with several `rdf:value` triples. Two
+        // assertions sharing a `dsc:key` are unspecified, and the old
+        // `HashMap::insert` silently kept whichever came last in file
+        // order -- so an author who meant {PI, reviewer} got "reviewer"
+        // alone, and a failing comparison blamed the engine.
+        let g = graph(
+            r#"
+:profile a odrl:Profile ; odrl:action odrl:read ; dsc:dutyMode dsc:Advise .
+:c1 a dsc:ClaimAssertion ; dsc:key "roles" ; rdf:value "PI" .
+:c2 a dsc:ClaimAssertion ; dsc:key "roles" ; rdf:value "reviewer" .
+:request a dsc:Request ; odrl:target :asset ; odrl:action odrl:read ;
+    dsc:profile :profile ; dsc:policy :policy-a ; dsc:claim :c1, :c2 .
+"#,
+        );
+        let err = translate_request(&g, &request_id()).expect_err("must not translate");
+        assert!(err.contains("roles"), "{err}");
+    }
+
+    #[test]
+    fn merged_policy_ids_replicates_a_diamonds_shared_grandparent_exactly_once() {
+        // Mirrors `wire::resolve_inherit_from`'s (fixed) set semantics
+        // over ancestors: the engine merges each distinct ancestor's own
+        // rules once, in depth-first preorder, so this id shadow must
+        // produce the same `rule_index` layout or every diamond fixture
+        // would correlate rule reports to the wrong RDF nodes.
+        let rule = |id: &str| RuleIds {
+            rule_id: id.to_string(),
+            action: "read".to_string(),
+            duty: vec![],
+            remedy: vec![],
+            consequence: None,
+        };
+        let policy = |id: &str, perms: &[&str], parents: Option<&[&str]>| PolicyIds {
+            id: id.to_string(),
+            permissions: perms.iter().map(|p| rule(p)).collect(),
+            prohibitions: vec![],
+            obligations: vec![],
+            inherit_from: parents.map(|p| p.iter().map(|s| s.to_string()).collect()),
+        };
+        let all = vec![
+            policy("g", &["perm-g"], None),
+            policy("p1", &["perm-p1"], Some(&["g"])),
+            policy("p2", &["perm-p2"], Some(&["g"])),
+            policy("c", &["perm-c"], Some(&["p1", "p2"])),
+        ];
+        let merged = merged_policy_ids(&all, "c").unwrap();
+        let ids: Vec<&str> = merged
+            .permissions
+            .iter()
+            .map(|r| r.rule_id.as_str())
+            .collect();
+        assert_eq!(ids, ["perm-c", "perm-p1", "perm-g", "perm-p2"]);
+    }
+}
+
 /// `dsc:claim`: every `dsc:ClaimAssertion` the request's `dsc:claim` list
 /// names, each contributing one `(key, value)` entry to the flat claims
 /// map. All five shapes `docs/vocabulary-spec.md` section 4.4 documents

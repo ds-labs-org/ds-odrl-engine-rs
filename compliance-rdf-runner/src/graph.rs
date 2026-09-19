@@ -83,9 +83,16 @@ pub struct Graph {
 impl Graph {
     pub fn parse(path: &Path) -> Result<Self, String> {
         let content = fs::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
+        Self::from_turtle(&content).map_err(|e| format!("{}: {e}", path.display()))
+    }
+
+    /// The same parse over in-memory Turtle bytes -- what `parse` delegates
+    /// to, and what this crate's own unit tests feed synthetic case
+    /// fragments through without touching the filesystem.
+    pub fn from_turtle(content: &[u8]) -> Result<Self, String> {
         let mut triples = Vec::new();
-        for triple in TurtleParser::new().for_reader(content.as_slice()) {
-            triples.push(triple.map_err(|e| format!("{}: {e}", path.display()))?);
+        for triple in TurtleParser::new().for_reader(content) {
+            triples.push(triple.map_err(|e| e.to_string())?);
         }
         Ok(Self { triples })
     }

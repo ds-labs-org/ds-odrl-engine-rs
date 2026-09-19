@@ -30,7 +30,7 @@
 use std::collections::HashMap;
 
 use engine::{
-    ActivationState, AttemptState, DeonticState, DetailedEvaluation, DetailedRuleReport,
+    ActivationState, AttemptState, Behaviour, DeonticState, DetailedEvaluation, DetailedRuleReport,
     DutyAttachment, DutyMode, PerformanceState, Response,
 };
 
@@ -188,9 +188,11 @@ pub fn compare_case(
     policy_ids: &[PolicyIds],
     expected: &[ExpectedPolicyReport],
     duty_mode: DutyMode,
+    behaviour: Behaviour,
     detailed: &DetailedEvaluation,
     response: &Response,
 ) -> Result<Mismatches, String> {
+    let _ = behaviour; // consumed by the decision cross-check, below
     let mut mismatches = Mismatches::new();
     let mut expected_outstanding: Vec<(String, String)> = Vec::new(); // (policy_id, action)
 
@@ -300,6 +302,282 @@ fn duty_action(merged: &PolicyIds, d: &engine::DetailedDutyReport) -> String {
         .and_then(|root| walk_consequence(root, d.consequence_depth))
         .map(|r| r.action.clone())
         .unwrap_or_default()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use engine::{
+        DetailedPermissionReport, DetailedPolicyReport, DetailedPolicyRequest,
+        DetailedProhibitionReport, WireDecision,
+    };
+
+    fn ids(policy_id: &str, perms: &[&str], prohs: &[&str]) -> PolicyIds {
+        let rule = |id: &str| RuleIds {
+            rule_id: id.to_string(),
+            action: "read".to_string(),
+            duty: vec![],
+            remedy: vec![],
+            consequence: None,
+        };
+        PolicyIds {
+            id: policy_id.to_string(),
+            permissions: perms.iter().map(|p| rule(p)).collect(),
+            prohibitions: prohs.iter().map(|p| rule(p)).collect(),
+            obligations: vec![],
+            inherit_from: None,
+        }
+    }
+
+    fn permission(rule_index: usize, active: bool) -> DetailedRuleReport {
+        DetailedRuleReport::Permission(DetailedPermissionReport {
+            rule_index,
+            activation_state: if active {
+                ActivationState::Active
+            } else {
+                ActivationState::Inactive
+            },
+            attempt_state: AttemptState::Attempted,
+            performance_state: if active {
+                PerformanceState::Performed
+            } else {
+                PerformanceState::Unperformed
+            },
+            deontic_state: if active {
+                DeonticState::Fulfilled
+            } else {
+                DeonticState::NonSet
+            },
+            premise_reports: vec![],
+            condition_report: None,
+        })
+    }
+
+    fn prohibition(rule_index: usize, active: bool) -> DetailedRuleReport {
+        DetailedRuleReport::Prohibition(DetailedProhibitionReport {
+            rule_index,
+            activation_state: if active {
+                ActivationState::Active
+            } else {
+                ActivationState::Inactive
+            },
+            attempt_state: AttemptState::Attempted,
+            performance_state: if active {
+                PerformanceState::Performed
+            } else {
+                PerformanceState::Unknown
+            },
+            deontic_state: if active {
+                DeonticState::Violated
+            } else {
+                DeonticState::NonSet
+            },
+            premise_reports: vec![],
+        })
+    }
+
+    fn policy_report(
+        policy_id: &str,
+        rule_reports: Vec<DetailedRuleReport>,
+    ) -> DetailedPolicyReport {
+        DetailedPolicyReport {
+            policy_id: policy_id.to_string(),
+            policy_request: DetailedPolicyRequest {
+                requested_action: "read".to_string(),
+                requested_target: "asset".to_string(),
+            },
+            rule_reports,
+            evaluation_error: None,
+            declared_conflict: engine::ConflictStrategy::Invalid,
+            conflict_forced_invalid: false,
+        }
+    }
+
+    fn evaluation(policy_reports: Vec<DetailedPolicyReport>) -> DetailedEvaluation {
+        DetailedEvaluation {
+            dataset_id: "asset".to_string(),
+            requested_action: "read".to_string(),
+            policy_reports,
+            skipped_policies: vec![],
+        }
+    }
+
+    fn response(decision: WireDecision) -> Response {
+        Response {
+            dataset_id: "asset".to_string(),
+            decision,
+            reason: String::new(),
+            duties: vec![],
+        }
+    }
+
+    fn expected(
+        policy_id: &str,
+        kind: ExpectedRuleKind,
+        rule: &str,
+        activation: &str,
+    ) -> ExpectedPolicyReport {
+        ExpectedPolicyReport {
+            policy_id: policy_id.to_string(),
+            rule_reports: vec![ExpectedRuleReport {
+                kind,
+                rule: rule.to_string(),
+                activation_state: Some(activation.to_string()),
+                attempt_state: None,
+                performance_state: None,
+                deontic_state: None,
+            }],
+        }
+    }
+
+    #[test]
+    fn an_expected_active_permission_beside_a_coarse_deny_is_a_mismatch() {
+        // The `report:` vocabulary has no "decision" term, so the coarse
+        // `Response.decision` used to go entirely unchecked: a fixture
+        // whose whole point was "this permission grants" passed even when
+        // the engine answered Deny. An expected Active PermissionReport
+        // is a statement that the permission granted -- the request must
+        // then be Allow, unless something the same tree states (an Active
+        // prohibition, or a deny-mode obligation) overrides it.
+        let shadow = [ids("policy-a", &["perm"], &[])];
+        let exp = [expected(
+            "policy-a",
+            ExpectedRuleKind::Permission,
+            "perm",
+            "Active",
+        )];
+        let detailed = evaluation(vec![policy_report("policy-a", vec![permission(0, true)])]);
+
+        let ok = compare_case(
+            &shadow,
+            &exp,
+            DutyMode::Advise,
+            Behaviour::Closed,
+            &detailed,
+            &response(WireDecision::Allow),
+        )
+        .unwrap();
+        assert!(ok.is_empty(), "{ok:?}");
+
+        let bad = compare_case(
+            &shadow,
+            &exp,
+            DutyMode::Advise,
+            Behaviour::Closed,
+            &detailed,
+            &response(WireDecision::Deny),
+        )
+        .unwrap();
+        assert!(
+            bad.iter().any(|m| m.contains("Response.decision")),
+            "{bad:?}"
+        );
+    }
+
+    #[test]
+    fn an_expected_active_prohibition_beside_a_coarse_allow_is_a_mismatch() {
+        let shadow = [ids("policy-a", &[], &["proh"])];
+        let exp = [expected(
+            "policy-a",
+            ExpectedRuleKind::Prohibition,
+            "proh",
+            "Active",
+        )];
+        let detailed = evaluation(vec![policy_report("policy-a", vec![prohibition(0, true)])]);
+
+        let bad = compare_case(
+            &shadow,
+            &exp,
+            DutyMode::Advise,
+            Behaviour::Open,
+            &detailed,
+            &response(WireDecision::Allow),
+        )
+        .unwrap();
+        assert!(
+            bad.iter().any(|m| m.contains("Response.decision")),
+            "{bad:?}"
+        );
+    }
+
+    #[test]
+    fn under_duty_mode_deny_no_active_permission_means_the_request_must_be_denied() {
+        // Under `dutyMode=deny`, `grants()` and the report's activation
+        // gate are the same predicate, so every permission Inactive means
+        // no permission granted -- the request cannot be Allow. (Under
+        // `advise` this is indeterminate from the tree alone: a permission
+        // may be Inactive purely because an advisory duty chain is
+        // outstanding while the coarse path still grants.) This is the
+        // shape of the audit's finding #1: a consequence-satisfied duty
+        // chain reported the permission Inactive under deny mode while
+        // `Response.decision` said Allow.
+        let shadow = [ids("policy-a", &["perm"], &[])];
+        let exp = [expected(
+            "policy-a",
+            ExpectedRuleKind::Permission,
+            "perm",
+            "Inactive",
+        )];
+        let detailed = evaluation(vec![policy_report("policy-a", vec![permission(0, false)])]);
+
+        let bad = compare_case(
+            &shadow,
+            &exp,
+            DutyMode::Deny,
+            Behaviour::Closed,
+            &detailed,
+            &response(WireDecision::Allow),
+        )
+        .unwrap();
+        assert!(
+            bad.iter().any(|m| m.contains("Response.decision")),
+            "{bad:?}"
+        );
+
+        let indeterminate = compare_case(
+            &shadow,
+            &exp,
+            DutyMode::Advise,
+            Behaviour::Closed,
+            &detailed,
+            &response(WireDecision::Allow),
+        )
+        .unwrap();
+        assert!(indeterminate.is_empty(), "{indeterminate:?}");
+    }
+
+    #[test]
+    fn an_evaluated_policy_the_expected_tree_never_mentions_is_a_mismatch() {
+        // A second policy that denies the whole request, left out of the
+        // expected tree, used to pass silently: the rule-level "engine
+        // produced a report the expected outcome never mentions" check
+        // only ran *inside* a mentioned policy.
+        let shadow = [
+            ids("policy-a", &["perm"], &[]),
+            ids("policy-b", &[], &["proh"]),
+        ];
+        let exp = [expected(
+            "policy-a",
+            ExpectedRuleKind::Permission,
+            "perm",
+            "Active",
+        )];
+        let detailed = evaluation(vec![
+            policy_report("policy-a", vec![permission(0, true)]),
+            policy_report("policy-b", vec![prohibition(0, true)]),
+        ]);
+
+        let bad = compare_case(
+            &shadow,
+            &exp,
+            DutyMode::Advise,
+            Behaviour::Closed,
+            &detailed,
+            &response(WireDecision::Deny),
+        )
+        .unwrap();
+        assert!(bad.iter().any(|m| m.contains("policy-b")), "{bad:?}");
+    }
 }
 
 fn compare_rule_report(
