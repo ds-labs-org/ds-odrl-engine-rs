@@ -72,12 +72,14 @@ fn run_case(path: &std::path::Path) -> CaseOutcome {
     };
 
     let duty_mode = request.config.duty_mode;
+    let behaviour = request.config.behaviour;
     let (response, detailed) = engine::evaluate_request_detailed(&request);
 
     match compare::compare_case(
         &policy_ids,
         &expected,
         duty_mode,
+        behaviour,
         expected_decision,
         &detailed,
         &response,
