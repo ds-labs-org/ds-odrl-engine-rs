@@ -213,6 +213,9 @@ mod tests {
             &format!("{PREFIXES}:testcase a dsc:TestCase ; dsc:expectedDecision \"Maybe\" .\n"),
         );
         let err = parse_expected_decision(&g, TESTCASE).unwrap_err();
-        assert!(err.contains("Maybe"), "error should name the bad value: {err}");
+        assert!(
+            err.contains("Maybe"),
+            "error should name the bad value: {err}"
+        );
     }
 }
