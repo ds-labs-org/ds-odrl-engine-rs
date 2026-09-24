@@ -59,6 +59,98 @@ const POLICY_CLASSES: &[&str] = &[
 pub struct Ingested {
     pub policy: WirePolicy,
     pub warnings: Vec<String>,
+    /// Structural contradictions found in `policy` by [`detect_inconsistencies`]
+    /// -- populated automatically, not a separate call a host has to
+    /// remember to make, for the same audit-trail reason `warnings` already
+    /// isn't optional. Paper (Molino-Peña, Slabbinck, García, Ruiz-Cortés,
+    /// Esteves; NXDG 2026) §3.3.
+    pub inconsistencies: Vec<Inconsistency>,
+}
+
+/// Which rule list an [`Inconsistency`] locates its rule(s) in -- a
+/// permission, prohibition or obligation, and its index within
+/// `WirePolicy.permissions`/`.prohibitions`/`.obligations` -- so a caller
+/// can locate the offending rule the same way `engine`'s own `reason` trace
+/// already locates one (`permission[0]`, `prohibition[1]`, …).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RuleSlot {
+    Permission(usize),
+    Prohibition(usize),
+    Obligation(usize),
+}
+
+/// A structural contradiction found in an already-ingested `WirePolicy`,
+/// per the paper's §3.3 inconsistency-detection pass -- checked here, not
+/// against a claims-bearing `Request`: no evaluation and no host-supplied
+/// claims are needed for any of the three, since each one is a property of
+/// the policy's own rules alone.
+///
+/// **`WirePolicy.assignee` is policy-scoped, not per-rule, in this
+/// engine's wire contract** (`engine::decision::Rule` has no
+/// `assignee`/`assigner` field at all -- see `jsonld.rs`'s own N1 doc
+/// comment for the same finding). The paper's own obligation-prohibition
+/// and permission-prohibition checks both additionally require a matching
+/// *assignee* (§3.3: "refer to the same assignee, action and asset"). Since
+/// every rule in one `WirePolicy` shares the single policy-level assignee,
+/// that half of the comparison is trivially always true within one policy,
+/// so both checks below correctly reduce to comparing `(action, target)`
+/// alone -- not a shortcut taken for convenience, but the literal
+/// consequence of this adapter's wire model having one assignee slot, not
+/// one per rule.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Inconsistency {
+    /// An obligation and a prohibition sharing the same action and target:
+    /// a genuine, unconditional conflict, not resolvable by `odrl:conflict`,
+    /// which only governs permission/prohibition (Information Model
+    /// §2.10; this adapter's own `conflict_strategy_from` maps exactly
+    /// `perm`/`prohibit`/`invalid`, none of which mention obligations).
+    ObligationProhibitionConflict {
+        obligation: RuleSlot,
+        prohibition: RuleSlot,
+        action: String,
+        target: Option<String>,
+    },
+    /// A permission and a prohibition sharing the same action and target.
+    /// Reported as a *potential* conflict, never an error -- the paper's
+    /// own words: "since a policy may intentionally combine both and rely
+    /// on the odrl:conflict strategy to resolve them." This check runs
+    /// unconditionally, independent of whatever `WirePolicy.conflict`
+    /// actually declares; it is diagnostic, not a veto -- ingestion never
+    /// fails because of one, and a caller that wants "is this policy
+    /// actually void" keeps reading that from `engine::decide` as it
+    /// already does today.
+    PermissionProhibitionPotentialConflict {
+        permission: RuleSlot,
+        prohibition: RuleSlot,
+        action: String,
+        target: Option<String>,
+    },
+    /// Within one rule's own top-level `constraints: Vec<Constraint>` --
+    /// **not** descending into nested `odrl:and`/`odrl:or`/`odrl:xone` --
+    /// two atomic constraints share the same `left_operand` and
+    /// `Operator::Eq` but require different `right_operand`s, so the rule
+    /// can never be satisfied (`claims.get(left_operand)` cannot equal two
+    /// different values at once). A top-level entry that is itself a
+    /// logical grouping (`and`/`or`/`xone`/`and_sequence` is `Some`,
+    /// i.e. [`Constraint::is_logical`]) is excluded from this comparison
+    /// rather than compared on its own defaulted, unused atomic fields.
+    UnsatisfiableConstraint {
+        rule: RuleSlot,
+        left_operand: String,
+        right_operands: (String, String),
+    },
+}
+
+/// Structural inconsistency checks over an already-ingested `WirePolicy` --
+/// see [`Inconsistency`]'s own doc comment for what each variant means and
+/// why "same assignee" is free here. A `pub fn` in its own right, not
+/// folded into `ingest_policy_value` alone, so a host that built a
+/// `WirePolicy` some other way (hand-written, or via a future non-DSP
+/// ingestion path) can still run the same checks without going through
+/// this adapter's JSON-LD parsing at all.
+pub fn detect_inconsistencies(policy: &WirePolicy) -> Vec<Inconsistency> {
+    let _ = policy;
+    Vec::new() // STUB -- pinned red by this module's own tests; implemented in the following green commit.
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -145,7 +237,12 @@ pub fn ingest_policy_value(doc: &serde_json::Value) -> Result<Ingested, IngestEr
     };
 
     let policy = policy_from(node, &mut warnings)?;
-    Ok(Ingested { policy, warnings })
+    let inconsistencies = detect_inconsistencies(&policy);
+    Ok(Ingested {
+        policy,
+        warnings,
+        inconsistencies,
+    })
 }
 
 /// A floor `config` for the ingested policy: every action its own rules
@@ -2110,6 +2207,161 @@ mod tests {
             vec![Rule::targeting("use", "urn:asset:tdac-api-data", vec![])],
             "warnings: {:?}",
             ingested.warnings
+        );
+    }
+
+    // -- Inconsistency detection (paper §3.3) -------------------------------
+    //
+    // See docs/spikes/2026-09-24-odrl-policy-validation-atomization-gap-analysis.md
+    // in the `dataspace` repo ("Design 3 — inconsistency detection") for
+    // the full design. Structural checks over an already-ingested
+    // `WirePolicy` -- no evaluation, no claims needed for any of them.
+
+    #[test]
+    fn a_permission_and_prohibition_over_the_same_assignee_action_and_target_is_a_potential_conflict(
+    ) {
+        // Paper §3.3, Figure 4, verbatim.
+        let doc = r#"{
+          "@context": "http://www.w3.org/ns/odrl.jsonld",
+          "@type": "Set",
+          "@id": "urn:policy:1",
+          "assigner": "did:web:provider.example",
+          "assignee": "urn:party:alice",
+          "permission": [{ "action": "modify", "target": "urn:asset:resourceX" }],
+          "prohibition": [{ "action": "modify", "target": "urn:asset:resourceX" }]
+        }"#;
+        let ingested = ingest_policy(doc).expect("must ingest");
+        assert_eq!(
+            ingested.inconsistencies,
+            vec![Inconsistency::PermissionProhibitionPotentialConflict {
+                permission: RuleSlot::Permission(0),
+                prohibition: RuleSlot::Prohibition(0),
+                action: "modify".to_string(),
+                target: Some("urn:asset:resourceX".to_string()),
+            }]
+        );
+    }
+
+    #[test]
+    fn a_permission_and_prohibition_over_different_targets_is_not_a_conflict() {
+        // Control for the test above: same action, different target must
+        // not be flagged.
+        let doc = r#"{
+          "@context": "http://www.w3.org/ns/odrl.jsonld",
+          "@type": "Offer",
+          "@id": "urn:uuid:no-conflict",
+          "assigner": "did:web:provider.example",
+          "permission": [{ "action": "modify", "target": "urn:asset:A" }],
+          "prohibition": [{ "action": "modify", "target": "urn:asset:B" }]
+        }"#;
+        let ingested = ingest_policy(doc).expect("must ingest");
+        assert!(
+            ingested.inconsistencies.is_empty(),
+            "inconsistencies: {:?}",
+            ingested.inconsistencies
+        );
+    }
+
+    #[test]
+    fn an_obligation_and_prohibition_over_the_same_action_and_target_is_a_genuine_conflict() {
+        let doc = r#"{
+          "@context": "http://www.w3.org/ns/odrl.jsonld",
+          "@type": "Offer",
+          "@id": "urn:uuid:obligation-prohibition-conflict",
+          "assigner": "did:web:provider.example",
+          "obligation": [{ "action": "delete", "target": "urn:asset:X" }],
+          "prohibition": [{ "action": "delete", "target": "urn:asset:X" }]
+        }"#;
+        let ingested = ingest_policy(doc).expect("must ingest");
+        assert_eq!(
+            ingested.inconsistencies,
+            vec![Inconsistency::ObligationProhibitionConflict {
+                obligation: RuleSlot::Obligation(0),
+                prohibition: RuleSlot::Prohibition(0),
+                action: "delete".to_string(),
+                target: Some("urn:asset:X".to_string()),
+            }]
+        );
+    }
+
+    #[test]
+    fn two_eq_constraints_on_one_rules_own_top_level_with_different_right_operands_is_unsatisfiable(
+    ) {
+        let doc = r#"{
+          "@context": "http://www.w3.org/ns/odrl.jsonld",
+          "@type": "Offer",
+          "@id": "urn:uuid:unsatisfiable",
+          "assigner": "did:web:provider.example",
+          "permission": [{
+            "action": "use",
+            "constraint": [
+              { "leftOperand": "purpose", "operator": "eq", "rightOperand": "a" },
+              { "leftOperand": "purpose", "operator": "eq", "rightOperand": "b" }
+            ]
+          }]
+        }"#;
+        let ingested = ingest_policy(doc).expect("must ingest");
+        assert_eq!(
+            ingested.inconsistencies,
+            vec![Inconsistency::UnsatisfiableConstraint {
+                rule: RuleSlot::Permission(0),
+                left_operand: "purpose".to_string(),
+                right_operands: ("a".to_string(), "b".to_string()),
+            }]
+        );
+    }
+
+    #[test]
+    fn two_eq_constraints_nested_inside_an_odrl_or_are_not_flagged_unsatisfiable() {
+        // The check is scoped to a rule's own top-level constraints, not
+        // descending into nested and/or/xone: two Eq constraints on
+        // different values *inside* an odrl:or are exactly the intended
+        // "alternative, not a joint requirement" shape, not a contradiction.
+        let doc = r#"{
+          "@context": "http://www.w3.org/ns/odrl.jsonld",
+          "@type": "Offer",
+          "@id": "urn:uuid:or-not-flagged",
+          "assigner": "did:web:provider.example",
+          "permission": [{
+            "action": "use",
+            "constraint": [{
+              "or": [
+                { "leftOperand": "purpose", "operator": "eq", "rightOperand": "a" },
+                { "leftOperand": "purpose", "operator": "eq", "rightOperand": "b" }
+              ]
+            }]
+          }]
+        }"#;
+        let ingested = ingest_policy(doc).expect("must ingest");
+        assert!(
+            ingested.inconsistencies.is_empty(),
+            "inconsistencies: {:?}",
+            ingested.inconsistencies
+        );
+    }
+
+    #[test]
+    fn two_constraints_with_the_same_right_operand_are_not_flagged_unsatisfiable() {
+        // Control: two constraints agreeing on the value are not a
+        // contradiction, regardless of how many share the left_operand.
+        let doc = r#"{
+          "@context": "http://www.w3.org/ns/odrl.jsonld",
+          "@type": "Offer",
+          "@id": "urn:uuid:agreeing-constraints",
+          "assigner": "did:web:provider.example",
+          "permission": [{
+            "action": "use",
+            "constraint": [
+              { "leftOperand": "purpose", "operator": "eq", "rightOperand": "a" },
+              { "leftOperand": "purpose", "operator": "eq", "rightOperand": "a" }
+            ]
+          }]
+        }"#;
+        let ingested = ingest_policy(doc).expect("must ingest");
+        assert!(
+            ingested.inconsistencies.is_empty(),
+            "inconsistencies: {:?}",
+            ingested.inconsistencies
         );
     }
 }

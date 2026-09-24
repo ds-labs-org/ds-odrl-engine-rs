@@ -171,6 +171,9 @@ fn run() -> Result<(), String> {
     for warning in &ingested.warnings {
         eprintln!("warning: {warning}");
     }
+    for inconsistency in &ingested.inconsistencies {
+        eprintln!("inconsistency: {inconsistency:?}");
+    }
 
     match command.as_str() {
         "ingest" => print_canonical(&ingested.policy),

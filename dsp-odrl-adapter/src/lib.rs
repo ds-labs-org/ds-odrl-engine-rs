@@ -18,7 +18,8 @@ mod ingest;
 
 #[cfg(feature = "dsp-ingest")]
 pub use ingest::{
-    ingest_policy, ingest_policy_value, minimal_config, request_for, IngestError, Ingested,
+    detect_inconsistencies, ingest_policy, ingest_policy_value, minimal_config, request_for,
+    Inconsistency, IngestError, Ingested, RuleSlot,
 };
 
 #[cfg(feature = "dsp-ingest")]
