@@ -149,8 +149,88 @@ pub enum Inconsistency {
 /// ingestion path) can still run the same checks without going through
 /// this adapter's JSON-LD parsing at all.
 pub fn detect_inconsistencies(policy: &WirePolicy) -> Vec<Inconsistency> {
-    let _ = policy;
-    Vec::new() // STUB -- pinned red by this module's own tests; implemented in the following green commit.
+    let mut out = Vec::new();
+
+    for (oi, obligation) in policy.obligations.iter().enumerate() {
+        for (pi, prohibition) in policy.prohibitions.iter().enumerate() {
+            if obligation.action == prohibition.action && obligation.target == prohibition.target {
+                out.push(Inconsistency::ObligationProhibitionConflict {
+                    obligation: RuleSlot::Obligation(oi),
+                    prohibition: RuleSlot::Prohibition(pi),
+                    action: obligation.action.clone(),
+                    target: obligation.target.clone(),
+                });
+            }
+        }
+    }
+
+    for (pi, permission) in policy.permissions.iter().enumerate() {
+        for (qi, prohibition) in policy.prohibitions.iter().enumerate() {
+            if permission.action == prohibition.action && permission.target == prohibition.target {
+                out.push(Inconsistency::PermissionProhibitionPotentialConflict {
+                    permission: RuleSlot::Permission(pi),
+                    prohibition: RuleSlot::Prohibition(qi),
+                    action: permission.action.clone(),
+                    target: permission.target.clone(),
+                });
+            }
+        }
+    }
+
+    let all_rules = policy
+        .permissions
+        .iter()
+        .enumerate()
+        .map(|(i, r)| (RuleSlot::Permission(i), r))
+        .chain(
+            policy
+                .prohibitions
+                .iter()
+                .enumerate()
+                .map(|(i, r)| (RuleSlot::Prohibition(i), r)),
+        )
+        .chain(
+            policy
+                .obligations
+                .iter()
+                .enumerate()
+                .map(|(i, r)| (RuleSlot::Obligation(i), r)),
+        );
+    for (slot, rule) in all_rules {
+        out.extend(unsatisfiable_constraints_in(slot, &rule.constraints));
+    }
+
+    out
+}
+
+/// Within one rule's own top-level `constraints` -- **not** descending into
+/// nested `odrl:and`/`odrl:or`/`odrl:xone`/`odrl:andSequence` -- every pair
+/// of atomic (non-[`Constraint::is_logical`]), `Operator::Eq` entries that
+/// share a `left_operand` but disagree on `right_operand`. A logical
+/// top-level entry is excluded rather than compared on its defaulted,
+/// unused atomic fields (`left_operand: ""`, `operator: Eq` by default --
+/// see `Constraint`'s own doc comment on why `Deserialize` defaults them
+/// that way), which would otherwise risk a false positive against an
+/// atomic `left_operand: ""` constraint that happens to sit alongside it.
+fn unsatisfiable_constraints_in(slot: RuleSlot, constraints: &[Constraint]) -> Vec<Inconsistency> {
+    let atomic_eq: Vec<&Constraint> = constraints
+        .iter()
+        .filter(|c| !c.is_logical() && c.operator == Operator::Eq)
+        .collect();
+    let mut out = Vec::new();
+    for i in 0..atomic_eq.len() {
+        for j in (i + 1)..atomic_eq.len() {
+            let (a, b) = (atomic_eq[i], atomic_eq[j]);
+            if a.left_operand == b.left_operand && a.right_operand != b.right_operand {
+                out.push(Inconsistency::UnsatisfiableConstraint {
+                    rule: slot,
+                    left_operand: a.left_operand.clone(),
+                    right_operands: (a.right_operand.clone(), b.right_operand.clone()),
+                });
+            }
+        }
+    }
+    out
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
