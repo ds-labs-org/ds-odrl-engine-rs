@@ -1,0 +1,139 @@
+{
+  "@context": "http://www.w3.org/ns/odrl.jsonld",
+  "@type": "Offer",
+  "uid": "https://datappeal.io/policy:tdac-api-terms-1.0",
+  "assigner": "https://datappeal.io/party:data-appeal",
+  "target": "https://datappeal.io/asset:tdac-api-data",
+  "conflict": "prohibit",
+  "odrl:permission": [
+    {
+      "action": [
+        "read"
+      ],
+      "dcterms:description": "Covers: retrieving data from the API. ODRL defines 'read' as obtaining data from the asset, which is what an API call does; it does not authorise rendering that data for a human reader. Does not cover: showing the raw data on screen. The action 'display' - a static and transient rendition of the asset - is deliberately not granted on the API data and is expressly prohibited below: the raw values may be retrieved and processed, but never shown. Also does not cover: retaining the data beyond the retention period (see the deletion obligation), or supplying it to a third party (see the distribution prohibition)."
+    },
+    {
+      "action": [
+        "aggregate",
+        "derive",
+        "print"
+      ],
+      "output": "https://datappeal.io/asset:derived-report",
+      "dcterms:description": "Covers: using the data, or parts of it, as part of a composite collection - for example a monthly figure by country of origin; creating a new derivative work such as a report, a dashboard or a deliverable; and producing a tangible and permanent rendition of it, for example a PDF. Every act of transformation produces a distinct asset, 'derived-report', separate from the API data. Aggregation is not merely permitted but required for external sharing by section 13 of the Data Sharing Policy, which sets a minimum aggregation level, and by section 7, which allows publication only of aggregated, non-reversible outputs; prohibiting it would make those clauses impossible to comply with. This structure is also what allows a report to remain usable even though the underlying API data must be deleted after the retention period."
+    },
+    {
+      "target": "https://datappeal.io/asset:derived-report",
+      "action": [
+        "display",
+        "present",
+        "distribute",
+        "archive"
+      ],
+      "dcterms:description": "Covers: showing the derived report on screen, including in a dashboard; publishing or communicating it in public; supplying it to third parties; and storing it permanently. Applies to the derived report only, never to the API data: what may be seen and shared is the result of the transformation, not the values it was built from. IMPORTANT - what this permission cannot express: ODRL constrains actions, not the content or the form of the result. The conditions in section 13 of the Data Sharing Policy - percentages or indexes only and never absolute values, minimum monthly aggregation by country of origin, no granular detail such as individual airports or hotels, no mention of underlying providers, particular care in territories with paying clients - cannot be stated in standard ODRL and remain contractual. They are set out in the prose document referenced by the reviewPolicy obligation of this policy, and in the agreement that accompanies it. Note also that no time limit is attached to these actions, whereas the Data Sharing Policy limits the supply to the project timeframe: whether a published report outlives the project is a contractual question, to be settled in the agreement."
+    }
+  ],
+  "odrl:obligation": [
+    {
+      "action": "reviewPolicy",
+      "target": "<URL OF THE FULL TERMS AND CONDITIONS>",
+      "dcterms:description": "The consumer must review the applicable terms of use before accessing the data. Corresponds to section 4 of the Data Sharing Policy, which requires acceptance of the applicable contractual terms. The address in the target of this obligation is where the full terms are published: it is the authoritative prose document, and it carries the conditions that cannot be expressed in ODRL. ODRL includes this action for cases requiring human intervention: it records an assumed obligation and is not machine-verifiable. The target of this obligation currently carries a placeholder: the terms and conditions document for the DEPLOYTOUR project has still to be produced from the Data Sharing Policy and published at a stable address. Until it is, this obligation cannot be discharged by the consumer, because there is nothing to review."
+    },
+    {
+      "action": "attribute",
+      "attributedParty": "https://www.datappeal.io/",
+      "dcterms:description": "Any use or publication must credit The Data Appeal Company as the source, per section 7 of the Data Sharing Policy. Note: section 13 requires attribution to both Mabrian and The Data Appeal Company for supplies that contain Mabrian data. That dual attribution is supply-specific and belongs in the negotiated agreement rather than in these general terms."
+    },
+    {
+      "action": "acceptTracking",
+      "trackingParty": "https://datappeal.io/party:data-appeal",
+      "dcterms:description": "The consumer must accept that the use of the data may be tracked by The Data Appeal Company. This is the machine-readable counterpart of three separate requirements in the Data Sharing Policy: section 4, which requires the adoption of appropriate traceability and access control measures; section 9, which requires access tracking where possible; and section 12, which lists logging and monitoring among the conditions to be enforced in the data space. The obligation covers acceptance of tracking; the technical means and the retention of the tracking records are operational matters, set out in the prose document."
+    },
+    {
+      "action": "delete",
+      "constraint": [
+        {
+          "leftOperand": "elapsedTime",
+          "operator": "lteq",
+          "rightOperand": {
+            "@value": "PT24H",
+            "@type": "xsd:duration"
+          }
+        }
+      ],
+      "dcterms:description": "The consumer must delete retrieved data within 24 hours. This is a cache retention limit, not a requirement to destroy reports: it means the data must not be stored historically and must be requested again from the API. Derived reports are not affected, because they are a separate asset. The value is a business decision rather than a technical one: 24 hours prevents historical storage, while a longer window would permit it. Sections 9 and 12 of the Data Sharing Policy additionally require deletion at project end; that condition depends on a specific project and is set in the negotiated agreement."
+    }
+  ],
+  "odrl:prohibition": [
+    {
+      "action": [
+        "display"
+      ],
+      "remedy": [
+        {
+          "action": "delete"
+        }
+      ],
+      "dcterms:description": "Showing the raw data on screen, in any static or transient rendition, is not permitted. The consumer may retrieve and process the values but must not expose them as delivered: only the outcome of an aggregation or derivation may be displayed, as set out in the permissions above. This is stricter than the Data Sharing Policy, which prohibits publishing and redistributing the raw data without expressly addressing its visualisation; the restriction is deliberate and was agreed directly with The Data Appeal Company."
+    },
+    {
+      "action": [
+        "archive",
+        "index"
+      ],
+      "remedy": [
+        {
+          "action": "delete"
+        }
+      ],
+      "dcterms:description": "Storing the API data in a non-transient form, or recording it in an index or catalogue, is not permitted; the remedy is deletion. Section 5 of the Data Sharing Policy prohibits unnecessary permanent copies and section 9 allows retention only for the duration necessary to the project, so this prohibition is stricter than the source text - deliberately so, as it reflects an API delivery model in which the data is re-requested rather than held. Note that 'index' here is the ODRL action of recording an asset in an index; it is unrelated to the indexed value form required by section 13."
+    },
+    {
+      "action": [
+        "sell",
+        "transfer",
+        "give",
+        "grantUse"
+      ],
+      "remedy": [
+        {
+          "action": "delete"
+        }
+      ],
+      "dcterms:description": "No sale, transfer, gift or sublicensing of the data, with or without compensation; the remedy is deletion. Directly reflects section 5 of the Data Sharing Policy, which prohibits selling, renting, sublicensing, transferring or redistributing the supply. Note on terminology: ODRL deprecated the actions 'lease' and 'license' in version 2.2. 'grantUse' is the current term and is defined as granting the use of the asset to third parties, enabling the recipient to create policies for its use - which is precisely the sublicensing and renting prohibited by section 5. 'transfer' is the parent of both 'sell' and 'give', which are listed explicitly for the benefit of a human reader."
+    },
+    {
+      "action": {
+        "rdf:value": {
+          "@id": "odrl:distribute"
+        },
+        "refinement": [
+          {
+            "leftOperand": "recipient",
+            "operator": "neq",
+            "rightOperand": {
+              "@id": "https://datappeal.io/party:api-consumer"
+            }
+          }
+        ]
+      },
+      "remedy": [
+        {
+          "action": "delete"
+        }
+      ],
+      "dcterms:description": "Supplying the API data to any recipient other than the authorised API consumer is not permitted. Section 2 of the Data Sharing Policy prohibits redistribution outside the project unless prior written authorisation is obtained from The Data Appeal Company: that authorisation is the mechanism by which a party becomes an authorised recipient for the purposes of this refinement, so no separate consent duty is required here. Section 6 allows sharing between authorised project partners under five conditions, including that the receiving party accepts the same terms; that permission is project-specific and belongs in the negotiated agreement rather than in these general terms. Note that this prohibition applies to the API data, whereas the derived report may be supplied to third parties, as set out in the permissions above. The remedy attached to this prohibition is deletion, but deleting one's own copy does not extinguish the violation: once the data has been supplied to a third party it is outside the reach of this policy, since ODRL cannot impose a duty on a party that is not bound by it. The full remedy is therefore contractual and is set out in the prose document referenced by the reviewPolicy obligation."
+    },
+    {
+      "action": [
+        "extract",
+        "reproduce"
+      ],
+      "remedy": [
+        {
+          "action": "delete"
+        }
+      ],
+      "dcterms:description": "Extracting parts of the data to use as a new asset, and making duplicate copies of it in any material form, are not permitted. Together these prevent reconstruction or redistribution of the dataset, which is the substance of section 5 of the Data Sharing Policy, and they also cover scraping and the reconstruction of proprietary methodologies. ODRL defines 'extract' as a specific case of 'reproduce', so prohibiting both is internally consistent; permitting 'reproduce' while prohibiting 'extract' would not be. The remedy is deletion of any copy or extract created in breach of this prohibition."
+    }
+  ]
+}

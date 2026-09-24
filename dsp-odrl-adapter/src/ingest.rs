@@ -888,6 +888,14 @@ mod tests {
 
     const DSP_2024_1: &str = include_str!("../examples/dsp-2024-1-contract-request.jsonld");
     const DSP_2025_1: &str = include_str!("../examples/dsp-2025-1-contract-request.jsonld");
+    /// A real Data Appeal Company EDC-originated ODRL offer (already
+    /// unwrapped from its `PolicyDefinitionDto` envelope), mirrored here
+    /// byte-for-byte from `/tmp/tdac-policy/normalized.json` so the N5
+    /// regression test below does not depend on a path outside this repo.
+    /// See `docs/spikes/2026-09-24-odrl-policy-validation-atomization-gap-analysis.md`
+    /// in the `dataspace` repo for how this fixture was first found to
+    /// reproduce the truncation gap.
+    const TDAC_NORMALIZED: &str = include_str!("../examples/tdac-api-terms-normalized.json");
 
     /// The offer's own `odrl:target`, which ODRL scopes to the whole policy
     /// and this adapter therefore pushes down onto every rule that names
@@ -1903,5 +1911,148 @@ mod tests {
         }"#;
         let ingested = ingest_policy(doc).expect("must ingest");
         assert_eq!(ingested.policy.permissions[0].action, "use");
+    }
+
+    // -- N5: expansion of compound rules (paper §3.1) ----------------------
+    //
+    // See docs/spikes/2026-09-24-odrl-policy-validation-atomization-gap-analysis.md
+    // in the `dataspace` repo ("Design 2 — N5") for the full design this
+    // implements. `action_from` (above) today keeps only `values.first()`
+    // of a rule naming several `odrl:action`s, pushing a warning instead of
+    // carrying the rest through -- and `first_string(node, "target")` does
+    // the same for a multi-valued `odrl:target`, with no warning at all.
+    // N5 closes both: a rule naming N actions and/or M targets expands into
+    // N*M atomic rules before `rule_from`/`action_from` ever see it, so
+    // neither truncation path is reachable for a top-level permission,
+    // prohibition or obligation any longer.
+
+    #[test]
+    fn a_compact_policy_with_a_two_action_rule_normalizes_to_figure_2s_two_atomic_rules() {
+        // Paper (Molino-Peña, Slabbinck, García, Ruiz-Cortés, Esteves;
+        // NXDG 2026) §3.1, Figure 2, verbatim: a policy-level `odrl:target`
+        // and one rule naming two actions normalizes to two atomic rules,
+        // both carrying the policy-level target -- N5 composing with the
+        // existing N4 pushdown for free, since each atomic clone still
+        // lacks its own target exactly as the original rule did.
+        let doc = r#"{
+          "@context": "http://www.w3.org/ns/odrl.jsonld",
+          "@type": "Set",
+          "@id": "urn:policy:1",
+          "assigner": "did:web:provider.example",
+          "target": "urn:asset:resourceX",
+          "permission": [{ "action": ["read", "modify"] }]
+        }"#;
+        let ingested = ingest_policy(doc).expect("must ingest");
+        assert_eq!(
+            ingested.policy.permissions,
+            vec![
+                Rule::targeting("read", "urn:asset:resourceX", vec![]),
+                Rule::targeting("modify", "urn:asset:resourceX", vec![]),
+            ]
+        );
+        assert!(
+            !ingested
+                .warnings
+                .iter()
+                .any(|w| w.contains("only the first is ingested")),
+            "N5 must expand the compound rule instead of truncating it: {:?}",
+            ingested.warnings
+        );
+    }
+
+    #[test]
+    fn a_rule_naming_two_targets_expands_into_two_atomic_rules_instead_of_silently_truncating() {
+        // The sibling gap N5 also closes: `first_string(node, "target")`
+        // used to take `.first()` of a multi-valued `odrl:target`
+        // unconditionally, with no warning at all -- strictly less signal
+        // than the already-known action-truncation gap above.
+        let doc = r#"{
+          "@context": "http://www.w3.org/ns/odrl.jsonld",
+          "@type": "Offer",
+          "@id": "urn:uuid:two-targets",
+          "assigner": "did:web:provider.example",
+          "permission": [{ "action": "use", "target": ["urn:asset:A", "urn:asset:B"] }]
+        }"#;
+        let ingested = ingest_policy(doc).expect("must ingest");
+        assert_eq!(
+            ingested.policy.permissions,
+            vec![
+                Rule::targeting("use", "urn:asset:A", vec![]),
+                Rule::targeting("use", "urn:asset:B", vec![]),
+            ]
+        );
+    }
+
+    #[test]
+    fn the_real_tdac_three_action_permission_ingests_to_three_atomic_permissions_not_one() {
+        // examples/tdac-api-terms-normalized.json, permission[1]: a real
+        // EDC-originated offer whose second permission names three actions
+        // (aggregate/derive/print) at its own level, no rule-level target
+        // of its own -- so N4's existing policy-level target pushdown
+        // ("https://datappeal.io/asset:tdac-api-data") must reach every one
+        // of the three post-N5 atomic rules, not just the first. Before N5,
+        // `ingest_policy` silently kept only `aggregate`.
+        let ingested = ingest_policy(TDAC_NORMALIZED).expect("must ingest");
+        let actions: Vec<&str> = ingested
+            .policy
+            .permissions
+            .iter()
+            .map(|r| r.action.as_str())
+            .collect();
+        assert!(actions.contains(&"aggregate"), "actions: {actions:?}");
+        assert!(
+            actions.contains(&"derive"),
+            "derive must survive N5, not be dropped: {actions:?}"
+        );
+        assert!(
+            actions.contains(&"print"),
+            "print must survive N5, not be dropped: {actions:?}"
+        );
+        for name in ["aggregate", "derive", "print"] {
+            let rule = ingested
+                .policy
+                .permissions
+                .iter()
+                .find(|r| r.action == name)
+                .unwrap_or_else(|| panic!("no rule for action {name:?}: {actions:?}"));
+            assert_eq!(
+                rule.target.as_deref(),
+                Some("https://datappeal.io/asset:tdac-api-data")
+            );
+        }
+        // permission[2] (display/present/distribute/archive) additionally
+        // proves N5 preserves a rule's OWN target rather than overriding it
+        // with the policy-level one.
+        for name in ["display", "present", "distribute", "archive"] {
+            let rule = ingested
+                .policy
+                .permissions
+                .iter()
+                .find(|r| r.action == name)
+                .unwrap_or_else(|| panic!("no rule for action {name:?}: {actions:?}"));
+            assert_eq!(
+                rule.target.as_deref(),
+                Some("https://datappeal.io/asset:derived-report")
+            );
+        }
+        assert_eq!(
+            ingested.policy.permissions.len(),
+            8,
+            "1 (read) + 3 (aggregate/derive/print) + 4 (display/present/distribute/archive)"
+        );
+        assert_eq!(
+            ingested.policy.prohibitions.len(),
+            10,
+            "1 (display) + 2 (archive/index) + 4 (sell/transfer/give/grantUse) + \
+             1 (the single-action Action-node prohibition) + 2 (extract/reproduce)"
+        );
+        assert!(
+            !ingested
+                .warnings
+                .iter()
+                .any(|w| w.contains("only the first is ingested")),
+            "the old truncation warning must no longer fire once N5 exists: {:?}",
+            ingested.warnings
+        );
     }
 }
