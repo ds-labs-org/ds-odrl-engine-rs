@@ -669,10 +669,83 @@ pub fn expand(doc: &serde_json::Value) -> Result<Expansion, JsonLdError> {
 // means for `decide` to compare it against a claim), out of scope here;
 // this only avoids leaving the JSON-LD-level half of N1 undone once that
 // field exists.
-// STUB -- pinned red by this module's own tests and by ingest.rs's
-// `an_asset_stated_haspolicy_target_pushes_down_onto_every_rule_naming_none_of_its_own`;
-// implemented for real in the following green commit.
-pub(crate) fn internalize_inverse_properties(_root: &mut Node, _warnings: &mut Vec<String>) {}
+pub(crate) fn internalize_inverse_properties(root: &mut Node, warnings: &mut Vec<String>) {
+    for (inverse, forward) in [
+        ("hasPolicy", "target"),
+        ("assigneeOf", "assignee"),
+        ("assignerOf", "assigner"),
+    ] {
+        let inverse_prop = format!("{ODRL_NS}{inverse}");
+        let forward_prop = format!("{ODRL_NS}{forward}");
+        let mut refs: Vec<(String, String)> = Vec::new();
+        collect_inverse_refs(root, &inverse_prop, &mut refs);
+        for (subject_id, object_id) in refs {
+            if !inject_iri_by_id(root, &object_id, &forward_prop, &subject_id) {
+                warnings.push(format!(
+                    "{subject_id:?} declares odrl:{inverse} naming {object_id:?}, but no node \
+                     with that @id exists anywhere in the document; the reference is ignored (N1)"
+                ));
+            }
+        }
+    }
+}
+
+/// Collects every `(subject_id, object_id)` pair an inverse property states
+/// anywhere in the tree: `node`'s own `@id` as the subject, and whichever
+/// node/IRI each of its `inverse_prop` values names as the object. A
+/// subject with no `@id` of its own cannot be named as the *value* of the
+/// forward property this pair will later inject, so it is skipped (there
+/// is nothing to inject) rather than guessed at.
+fn collect_inverse_refs(node: &Node, inverse_prop: &str, out: &mut Vec<(String, String)>) {
+    if let Some(subject_id) = &node.id {
+        for value in node.get(inverse_prop) {
+            if let Some(object_id) = node_reference_id(value) {
+                out.push((subject_id.clone(), object_id));
+            }
+        }
+    }
+    for (_, values) in &node.props {
+        for value in values {
+            if let Expanded::Node(child) = value {
+                collect_inverse_refs(child, inverse_prop, out);
+            }
+        }
+    }
+}
+
+/// The `@id` a value names, whether it arrived as a bare IRI reference (the
+/// ordinary shape for an inverse property, which every bundled context
+/// type-coerces to `@type: @id`) or as an inline node object.
+fn node_reference_id(value: &Expanded) -> Option<String> {
+    match value {
+        Expanded::Iri(iri) => Some(iri.clone()),
+        Expanded::Node(n) => n.id.clone(),
+        Expanded::Literal(_) => None,
+    }
+}
+
+/// Finds the node with `@id == target_id` anywhere in the tree and, unless
+/// it already carries a value for `prop`, injects one `Expanded::Iri(value)`
+/// -- mirroring `policy_target`'s own "unless it already names one" rule in
+/// `ingest.rs::policy_from`, so a node that states the forward property
+/// honestly is left alone rather than double-pushed. Returns whether a
+/// matching node was found at all (regardless of whether an injection
+/// happened), so the caller can warn about a reference to a node that does
+/// not exist in this document.
+fn inject_iri_by_id(node: &mut Node, target_id: &str, prop: &str, value: &str) -> bool {
+    let mut found = node.id.as_deref() == Some(target_id);
+    if found && node.get(prop).is_empty() {
+        node.push(prop.to_string(), vec![Expanded::Iri(value.to_string())]);
+    }
+    for (_, values) in node.props.iter_mut() {
+        for child_value in values.iter_mut() {
+            if let Expanded::Node(child) = child_value {
+                found |= inject_iri_by_id(child, target_id, prop, value);
+            }
+        }
+    }
+    found
+}
 
 // -- N5: expansion of compound rules ---------------------------------------
 //
