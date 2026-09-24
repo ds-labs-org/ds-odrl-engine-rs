@@ -27,7 +27,7 @@ use engine::decision::{ConflictStrategy, Rule, MAX_CONSEQUENCE_DEPTH};
 use engine::profile::{Behaviour, DutyMode};
 use engine::wire::{Request, RequestConfig, WireActionDecl, WirePolicy};
 
-use crate::jsonld::{expand, Expanded, JsonLdError, Node, ODRL_NS};
+use crate::jsonld::{expand, expand_compound_rules, Expanded, JsonLdError, Node, ODRL_NS};
 
 /// `rdf:value`, which ODRL 2.2 uses to name the action inside an Action
 /// node that also carries an `odrl:refinement`.
@@ -111,9 +111,15 @@ pub fn ingest_policy(json: &str) -> Result<Ingested, IngestError> {
 pub fn ingest_policy_value(doc: &serde_json::Value) -> Result<Ingested, IngestError> {
     let expansion = expand(doc)?;
     let mut warnings = expansion.warnings;
+    let mut root = expansion.node;
+
+    // N5 (paper §3.1): split a rule naming several actions and/or targets
+    // into one atomic rule per combination, before rules_from/action_from
+    // ever see it -- see jsonld.rs's own doc comment on this function.
+    expand_compound_rules(&mut root, &mut warnings);
 
     let mut found: Vec<&Node> = Vec::new();
-    collect_policy_nodes(&expansion.node, 0, &mut found);
+    collect_policy_nodes(&root, 0, &mut found);
     let node = match found.as_slice() {
         [] => return Err(IngestError::NoPolicyNode),
         [one] => *one,

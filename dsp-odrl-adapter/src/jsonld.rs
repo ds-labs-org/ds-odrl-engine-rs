@@ -632,6 +632,136 @@ pub fn expand(doc: &serde_json::Value) -> Result<Expansion, JsonLdError> {
     Ok(Expansion { node, warnings })
 }
 
+// -- N5: expansion of compound rules ---------------------------------------
+//
+// Paper (Molino-Peña, Slabbinck, García, Ruiz-Cortés, Esteves; NXDG 2026),
+// "Automated Validation of ODRL Policies for Usage Control and Data
+// Spaces", §3.1: a rule naming more than one `odrl:action` and/or more
+// than one `odrl:target` is split into one atomic rule per combination,
+// each carrying an identical copy of every other property. See
+// `dataspace` repo's
+// docs/spikes/2026-09-24-odrl-policy-validation-atomization-gap-analysis.md
+// ("Design 2 — N5") for the full design.
+//
+// Composes with `ingest.rs`'s existing N4 pushdown (policy-level
+// `target`/`action` replicated onto a rule naming none of its own) for
+// free: that fallback is applied per rule, independently of every other
+// rule, at read time in `rule_from`/`action_from` -- so expanding one
+// compound rule into N atomic clones *before* those functions ever see it
+// produces the identical result expanding after an explicit N4 pass
+// would. Each atomic clone still carries (or still lacks) its own
+// target/action exactly as the original rule did.
+//
+// A depth bound mirrors `ingest.rs::collect_policy_nodes`'s own `depth >
+// 8` cutoff -- this is a document-tree walk over the same untrusted
+// input, not expected to ever approach that bound on a real policy.
+const MAX_EXPAND_DEPTH: usize = 8;
+
+/// Runs N5 over every `odrl:permission`/`odrl:prohibition`/`odrl:obligation`
+/// property anywhere in the document tree — not only at the root — so a
+/// policy node nested under a DSP envelope property (`dspace:offer`,
+/// `dspace:agreement`) is covered exactly like a bare policy document is.
+/// Mirrors `ingest.rs::collect_policy_nodes`'s own whole-tree walk for the
+/// same reason: the real DSP 2024/1 fixture in this crate's own
+/// `examples/` nests its policy node exactly this way.
+pub(crate) fn expand_compound_rules(node: &mut Node, warnings: &mut Vec<String>) {
+    expand_compound_rules_at(node, 0, warnings);
+}
+
+fn expand_compound_rules_at(node: &mut Node, depth: usize, warnings: &mut Vec<String>) {
+    if depth > MAX_EXPAND_DEPTH {
+        return;
+    }
+    for local in ["permission", "prohibition", "obligation"] {
+        let prop = format!("{ODRL_NS}{local}");
+        if let Some((_, values)) = node.props.iter_mut().find(|(k, _)| k == &prop) {
+            let mut expanded = Vec::new();
+            for value in values.drain(..) {
+                match value {
+                    Expanded::Node(rule) => expanded.extend(
+                        expand_one_rule(rule, local, warnings)
+                            .into_iter()
+                            .map(Expanded::Node),
+                    ),
+                    // A bare `{"@id": …}` rule reference: `rules_from`
+                    // (ingest.rs) already errors on this shape with
+                    // `RuleIsABareReference` rather than resolving it, so
+                    // there is nothing here to split — passed through
+                    // unchanged for that existing check to see.
+                    other => expanded.push(other),
+                }
+            }
+            *values = expanded;
+        }
+    }
+    // Recurse into every nested node value, so a policy nested inside a DSP
+    // envelope (or any other wrapping) is reached too.
+    for (_, values) in node.props.iter_mut() {
+        for value in values.iter_mut() {
+            if let Expanded::Node(child) = value {
+                expand_compound_rules_at(child, depth + 1, warnings);
+            }
+        }
+    }
+}
+
+/// Splits one rule node into one atomic clone per `(action, target)`
+/// combination when it names more than one of either — the overwhelmingly
+/// common case (`actions.len() <= 1 && targets.len() <= 1`) returns the
+/// node unchanged and clones nothing. `local` (`"permission"`,
+/// `"prohibition"`, `"obligation"`) is used only for the warning message.
+fn expand_one_rule(node: Node, local: &str, warnings: &mut Vec<String>) -> Vec<Node> {
+    let action_prop = format!("{ODRL_NS}action");
+    let target_prop = format!("{ODRL_NS}target");
+    let actions = node.get(&action_prop).to_vec();
+    let targets = node.get(&target_prop).to_vec();
+    if actions.len() <= 1 && targets.len() <= 1 {
+        return vec![node];
+    }
+    let action_count = actions.len().max(1);
+    let target_count = targets.len().max(1);
+    warnings.push(format!(
+        "the odrl:{local} rule names {action_count} action(s) and {target_count} target(s); \
+         expanded into {} atomic rules (N5 — see \
+         docs/spikes/2026-09-24-odrl-policy-validation-atomization-gap-analysis.md in the \
+         dataspace repo)",
+        action_count * target_count,
+    ));
+    // `None` here means "this rule named none of its own" -- one variant,
+    // not zero, so the cross product below still produces one clone per
+    // dimension that *is* compound, carrying no value in the dimension
+    // that is absent (which then falls through to rule_from/action_from's
+    // existing N4 policy-level fallback, unchanged).
+    let action_variants: Vec<Option<Expanded>> = if actions.is_empty() {
+        vec![None]
+    } else {
+        actions.into_iter().map(Some).collect()
+    };
+    let target_variants: Vec<Option<Expanded>> = if targets.is_empty() {
+        vec![None]
+    } else {
+        targets.into_iter().map(Some).collect()
+    };
+
+    let mut out = Vec::new();
+    for a in &action_variants {
+        for t in &target_variants {
+            let mut clone = node.clone(); // constraints/duty/remedy/consequence copied verbatim
+            clone
+                .props
+                .retain(|(k, _)| k != &action_prop && k != &target_prop);
+            if let Some(av) = a {
+                clone.push(action_prop.clone(), vec![av.clone()]);
+            }
+            if let Some(tv) = t {
+                clone.push(target_prop.clone(), vec![tv.clone()]);
+            }
+            out.push(clone);
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
