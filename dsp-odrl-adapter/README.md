@@ -73,6 +73,9 @@ let ingested = ingest_policy(&document_bytes_as_str)?;
 for w in &ingested.warnings {
     eprintln!("warning: {w}");   // everything taken verbatim, guessed, or dropped
 }
+for i in &ingested.inconsistencies {
+    eprintln!("inconsistency: {i:?}");   // structural, not a veto -- see below
+}
 let request = request_for(
     &ingested.policy,
     "urn:uuid:3dd1add8-…",     // the request's own odrl:target
@@ -151,6 +154,9 @@ job with its own "which offer applies" question.
 | `odrl:target` on a rule | `Rule.target` (`odrl:target`) | |
 | `odrl:target` on the **policy** | pushed down onto every rule that names none | ODRL scopes a policy-level target to its rules; `engine::Rule` has no policy-level target to hold it |
 | `odrl:action` on the **policy** | pushed down onto every rule that names none | Information Model §2.7.1 "Compact Policy": the spec's own Example 28 states `target`/`assigner`/`action` once at the Policy level, with each `permission` naming only its own `assignee` — the exact document this pushdown exists to ingest. Before it existed, `ingest_policy` failed that document outright with `IngestError::RuleWithoutAction`. A rule naming its own `odrl:action` still wins over the policy-level default. |
+| `<asset> odrl:hasPolicy <policy>` | synthesizes `<policy> odrl:target <asset>` | N1 (see "Normalization" below); feeds the *same* pushdown path as an explicit policy-level `odrl:target` above, so it composes with it for free |
+| `<party> odrl:assigneeOf <rule>` / `odrl:assignerOf` | rewritten onto the rule's own `odrl:assignee`/`odrl:assigner` in the JSON-LD graph, **not observable in `WirePolicy`** | N1; `engine::decision::Rule` has no per-rule `assignee`/`assigner` field to route it into (see "Normalization" below) |
+| a rule naming more than one `odrl:action` and/or `odrl:target` | expanded into one atomic rule per combination, each an ordinary row of this table | N5 (see "Normalization" below); every other property (constraints, duty, remedy, consequence, `action_refinement`) is copied identically onto each clone |
 | `odrl:constraint[]` | `Rule.constraints` | |
 | `odrl:and` / `odrl:or` / `odrl:xone` / `odrl:andSequence` | `Constraint::and`/`or`/`xone`/`and_sequence` | nested to `engine::MAX_CONSTRAINT_DEPTH`, the same bound evaluation stops at; an object setting more than one resolves by the engine's own `xone > or > and > and_sequence` precedence, so an ingested policy decides identically to the same policy hand-written into Section 5.2 JSON. `and_sequence` shares `and`'s `.all()` semantics — only the order its children are read back matters — and its children are kept in document order. |
 | `odrl:leftOperand` | `Constraint.left_operand` | compacted (see below) |
@@ -159,6 +165,92 @@ job with its own "which offer applies" question.
 | `{"@value": v, "@type": t}` | the lexical form of `v` | the datatype is dropped — `right_operand` is one opaque `String` |
 | `odrl:inheritFrom` (one or several) | `WirePolicy.inherit_from` | IRI-typed like `target`, so **never** compacted; document order preserved; absent or an empty array both map to `None`, not `Some(vec![])`, matching the field's own "no parent" default. Resolved against the rest of a request's `policies` by `engine::wire::resolve_inherit_from`, not by this adapter — see root README, "Policy inheritance (`odrl:inheritFrom`)" |
 | `odrl:conflict` | `WirePolicy.conflict` | vocabulary-valued like `action`/`leftOperand`, so compacted the same way; one of `perm`/`prohibit`/`invalid` maps to the matching `ConflictStrategy`; absent maps to `ConflictStrategy::default()` (`invalid`); a value outside those three also falls back to `ConflictStrategy::default()`, with a warning (see below) rather than an error |
+
+## Normalization (N1/N5) and inconsistency detection
+
+"Automated Validation of ODRL Policies for Usage Control and Data Spaces"
+(Molino-Peña, Slabbinck, García, Ruiz-Cortés, Esteves — NXDG 2026, CC BY
+4.0) draws a sharp line between a **validator** — checks a policy is
+well-formed and internally consistent *before* evaluation — and an
+**evaluator**, which "assumes policies that are already well-formed."
+`engine` is exactly that kind of evaluator. This adapter is not a
+validator either, but it implements the pieces of the paper's design that
+are genuinely an ingestion-mapping concern — an ODRL document that reaches
+`engine::evaluate_request` already atomized and free of the specific
+structural contradictions below — rather than a separate validation pass.
+`dataspace` repo's
+[`docs/spikes/2026-09-24-odrl-policy-validation-atomization-gap-analysis.md`](../../dataspace/docs/spikes/2026-09-24-odrl-policy-validation-atomization-gap-analysis.md)
+is the design spike this section, and the code, come from.
+
+The paper's three normalization operations, in the order it defines them
+— **N1**, **N4**, **N5** — are all present in `ingest_policy_value`'s
+pipeline, though not as three separate passes: N4 (policy-level
+`target`/`action` pushed onto a rule naming none of its own) has always
+been a read-time fallback fused into `rule_from`/`action_from`, not a
+graph rewrite, and that shape is unchanged. N1 and N5 *are* graph
+rewrites, applied to the expanded document in `jsonld.rs`, in this order,
+before a policy node is even located:
+
+1. **N1 — internalization of external references**
+   (`internalize_inverse_properties`). Rewrites an *inverse* property —
+   stated on the node that is its subject — into its forward-direction
+   counterpart, stated on the node it actually describes:
+   `<asset> odrl:hasPolicy <policy>` becomes a direct `<policy>
+   odrl:target <asset>`, which then feeds N4's own pushdown with zero
+   further change. `<party> odrl:assigneeOf <rule>` / `odrl:assignerOf`
+   are internalized the same way, onto the rule's own `odrl:assignee` /
+   `odrl:assigner` — but **this half is not observable in `WirePolicy`
+   today**: `engine::decision::Rule` has no per-rule `assignee`/`assigner`
+   field, and `rule_from` does not read either property off a rule node
+   even to warn about it. It is implemented and tested at the JSON-LD
+   `Node`-tree level (`jsonld.rs`'s own tests) because the paper's N1
+   states it plainly, and because closing the observability gap is an
+   `engine`-schema change (a new `Rule.assignee`/`.assigner` field, and
+   what it means for `decide` to compare it against a claim) out of this
+   adapter's scope — not because the graph-level rewrite itself is in
+   doubt.
+2. **N5 — expansion of compound rules** (`expand_compound_rules`). A rule
+   naming more than one `odrl:action` and/or `odrl:target` is split into
+   one atomic rule per `(action, target)` combination, every other
+   property (constraints, duty, remedy, consequence, `action_refinement`)
+   copied identically onto each clone. Before this existed,
+   `action_from` kept only the first action and warned "only the first is
+   ingested" — reproduced against a real Data Appeal Company EDC offer
+   (`examples/tdac-api-terms-normalized.json`), whose second permission
+   named three actions (`aggregate`/`derive`/`print`) and ingested to one
+   rule, silently losing two of them. A sibling gap — a rule naming more
+   than one `odrl:target` was truncated with **no warning at all** — is
+   closed by the same pass, since both are the same "more than one value
+   in a position that must be atomic" shape.
+
+**Inconsistency detection** (`detect_inconsistencies`, and
+`Ingested.inconsistencies`, populated automatically by `ingest_policy`)
+implements the paper's §3.3 checks as *structural* comparisons over an
+already-ingested `WirePolicy` — no evaluation and no host-supplied claims
+needed for any of them:
+
+- `ObligationProhibitionConflict` — an obligation and a prohibition
+  sharing the same action and target: a genuine, unconditional conflict,
+  since `odrl:conflict` only governs permission/prohibition.
+- `PermissionProhibitionPotentialConflict` — same action and target
+  between a permission and a prohibition: reported as a *potential*
+  conflict, never an error. A policy may intentionally combine both and
+  rely on `odrl:conflict` to resolve the collision at evaluation time
+  (root README, "Conflict strategy"), so this check is diagnostic only
+  and never blocks ingestion.
+- `UnsatisfiableConstraint` — within *one rule's own top-level*
+  `constraints` (not descending into nested `odrl:and`/`odrl:or`/
+  `odrl:xone`), two constraints share a `left_operand` and
+  `Operator::Eq` but require different `right_operand`s, so the rule can
+  never apply.
+
+The paper's own obligation-prohibition and permission-prohibition checks
+additionally require a matching *assignee*. `WirePolicy.assignee` is
+policy-scoped, not per-rule, in this engine's wire contract, so within
+one `WirePolicy` that half of the comparison is trivially always true —
+not a shortcut taken for convenience, but the literal consequence of this
+adapter's wire model having one assignee slot, not one per rule (see
+`Inconsistency`'s own doc comment).
 
 ### Two naming conventions, and why they differ
 
@@ -299,7 +391,11 @@ cannot audit.
   "Duty, consequence and remedy") — this warning fires only for the
   wrong-domain case, which is dropped rather than mapped to a field it
   does not mean;
-- a rule naming several `odrl:action`s (only the first is ingested);
+- a nested duty/remedy/consequence rule naming several `odrl:action`s
+  (only the first is ingested — N5 above expands a *top-level*
+  permission/prohibition/obligation naming several, so this warning is no
+  longer reachable there; it stays live for the nested case, which N5
+  does not touch);
 - an `odrl:consequence` chain nested past `engine::MAX_CONSEQUENCE_DEPTH`
   (dropped, since the engine itself would never walk that far), or more
   than one `odrl:consequence` on the same Duty (`engine::Rule::consequence`
@@ -379,13 +475,17 @@ This is worth stating plainly, because everything else in this workspace
 is measured against an external corpus and this is not. `engine`'s own
 behaviour is checked against 68 vendored SolidLabResearch ODRL-Test-Suite
 fixtures (`compliance/reports/latest.md`) and against a 52-row ODRL 2.2
-vocabulary coverage catalog. This adapter is checked against **its own two
+vocabulary coverage catalog. This adapter is checked against **its own three
 authored fixtures** and a handful of unit tests — nothing more.
 
-The fixtures are grounded in real published material (the IDSA
-specification's own contract-message examples, and the four pinned context
-documents above, all fetched 2026-09-06), and the pair of them is a real
-test of the property that matters most: two genuinely different DSP context
-shapes, one identical result. But that is not the same as running against
+The two DSP contract-message fixtures are grounded in real published
+material (the IDSA specification's own contract-message examples, and the
+four pinned context documents above, all fetched 2026-09-06), and the
+pair of them is a real test of the property that matters most: two
+genuinely different DSP context shapes, one identical result. The third,
+`examples/tdac-api-terms-normalized.json`, is a real Data Appeal Company
+EDC-originated offer that reproduced the N5 compound-rule gap by hand
+before N5 existed (see "Normalization" above) — a real-world regression
+fixture, not an authored one. None of this is the same as running against
 a DSP conformance suite, and no claim is made here that it is. Until one
 is wired up, treat a surprising ingest as an adapter bug first.
