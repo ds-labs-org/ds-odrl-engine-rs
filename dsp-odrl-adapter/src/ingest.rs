@@ -27,7 +27,10 @@ use engine::decision::{ConflictStrategy, Rule, MAX_CONSEQUENCE_DEPTH};
 use engine::profile::{Behaviour, DutyMode};
 use engine::wire::{Request, RequestConfig, WireActionDecl, WirePolicy};
 
-use crate::jsonld::{expand, expand_compound_rules, Expanded, JsonLdError, Node, ODRL_NS};
+use crate::jsonld::{
+    expand, expand_compound_rules, internalize_inverse_properties, Expanded, JsonLdError, Node,
+    ODRL_NS,
+};
 
 /// `rdf:value`, which ODRL 2.2 uses to name the action inside an Action
 /// node that also carries an `odrl:refinement`.
@@ -112,6 +115,14 @@ pub fn ingest_policy_value(doc: &serde_json::Value) -> Result<Ingested, IngestEr
     let expansion = expand(doc)?;
     let mut warnings = expansion.warnings;
     let mut root = expansion.node;
+
+    // N1 (paper §3.1): rewrite an inverse property (odrl:hasPolicy,
+    // odrl:assigneeOf, odrl:assignerOf) into its forward-direction
+    // counterpart -- see jsonld.rs's own doc comment on this function. Runs
+    // before N5 so a hasPolicy-synthesized policy-level target is itself
+    // subject to N5's own compound-rule expansion, exactly like a target
+    // the document stated directly.
+    internalize_inverse_properties(&mut root, &mut warnings);
 
     // N5 (paper §3.1): split a rule naming several actions and/or targets
     // into one atomic rule per combination, before rules_from/action_from
@@ -2058,6 +2069,46 @@ mod tests {
                 .iter()
                 .any(|w| w.contains("only the first is ingested")),
             "the old truncation warning must no longer fire once N5 exists: {:?}",
+            ingested.warnings
+        );
+    }
+
+    // -- N1: internalization of external references (paper §3.1) ----------
+    //
+    // See docs/spikes/2026-09-24-odrl-policy-validation-atomization-gap-analysis.md
+    // in the `dataspace` repo ("Design 1 — N1") for the full design. Only
+    // the odrl:hasPolicy half is observable through `ingest_policy` /
+    // `WirePolicy` -- see jsonld.rs's own doc comment on
+    // `internalize_inverse_properties` for why the odrl:assigneeOf /
+    // odrl:assignerOf half is tested at the JSON-LD `Node` level instead,
+    // in jsonld.rs's own test module.
+
+    #[test]
+    fn an_asset_stated_haspolicy_target_pushes_down_onto_every_rule_naming_none_of_its_own() {
+        // N1 then the existing N4 pushdown, composed: the asset is never
+        // mentioned as odrl:target anywhere in the policy itself, only as
+        // the subject of hasPolicy -- exactly the "policy attached to an
+        // asset in a catalog entry" shape a real DSP catalog uses. Same
+        // inline-nesting document shape this crate's own
+        // `several_policy_nodes_in_one_document_is_a_named_error_listing_them`
+        // test already uses for `hasPolicy`, just with one offer instead of
+        // two.
+        let doc = r#"{
+          "@context": "http://www.w3.org/ns/odrl.jsonld",
+          "@type": "Asset",
+          "@id": "urn:asset:tdac-api-data",
+          "hasPolicy": {
+            "@id": "urn:uuid:offer-a",
+            "@type": "Offer",
+            "assigner": "did:web:provider.example",
+            "permission": [{ "action": "use" }]
+          }
+        }"#;
+        let ingested = ingest_policy(doc).expect("must ingest");
+        assert_eq!(
+            ingested.policy.permissions,
+            vec![Rule::targeting("use", "urn:asset:tdac-api-data", vec![])],
+            "warnings: {:?}",
             ingested.warnings
         );
     }

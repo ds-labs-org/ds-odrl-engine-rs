@@ -632,6 +632,48 @@ pub fn expand(doc: &serde_json::Value) -> Result<Expansion, JsonLdError> {
     Ok(Expansion { node, warnings })
 }
 
+// -- N1: internalization of external references -----------------------
+//
+// Paper (Molino-Peña, Slabbinck, García, Ruiz-Cortés, Esteves; NXDG 2026),
+// "Automated Validation of ODRL Policies for Usage Control and Data
+// Spaces", §3.1: rewrites an *inverse* property (`odrl:hasPolicy`,
+// `odrl:assigneeOf`, `odrl:assignerOf` -- stated on the node the property's
+// *subject* describes) into its forward-direction counterpart, stated
+// directly on the node the property actually *describes*:
+//
+//   `<asset> odrl:hasPolicy <policy>`  =>  `<policy> odrl:target <asset>`
+//   `<party> odrl:assigneeOf <rule>`   =>  `<rule> odrl:assignee <party>`
+//   `<party> odrl:assignerOf <rule>`   =>  `<rule> odrl:assigner <party>`
+//
+// See `dataspace` repo's
+// docs/spikes/2026-09-24-odrl-policy-validation-atomization-gap-analysis.md
+// ("Design 1 — N1") for the full design.
+//
+// **`hasPolicy` is the only half of this that changes what `ingest_policy`
+// returns.** Once a policy node carries a direct `odrl:target` (synthesized
+// here from the asset's `hasPolicy`), the *existing* N4 pushdown in
+// `ingest.rs::policy_from`/`rule_from` picks it up with zero further
+// change -- exactly as if the policy had declared that target itself.
+//
+// **`assigneeOf`/`assignerOf` are implemented at this graph level only.**
+// `engine::decision::Rule` has no `assignee`/`assigner` field at all (its
+// fields are `action`, `target`, `constraints`, `action_refinement`,
+// `duty`, `remedy`, `consequence` -- confirmed by reading the struct), and
+// `ingest.rs::rule_from` does not read any such property off a rule node
+// even to warn about it. So injecting `odrl:assignee`/`odrl:assigner` onto
+// a rule node here is real, tested (see this module's own tests), and
+// exactly what the paper's N1 states the normalized graph should look
+// like -- but it has no observable effect on `WirePolicy` today, because
+// there is nowhere downstream to route it. Closing that would be an
+// `engine`-schema change (a new `Rule.assignee`/`.assigner`, and what it
+// means for `decide` to compare it against a claim), out of scope here;
+// this only avoids leaving the JSON-LD-level half of N1 undone once that
+// field exists.
+// STUB -- pinned red by this module's own tests and by ingest.rs's
+// `an_asset_stated_haspolicy_target_pushes_down_onto_every_rule_naming_none_of_its_own`;
+// implemented for real in the following green commit.
+pub(crate) fn internalize_inverse_properties(_root: &mut Node, _warnings: &mut Vec<String>) {}
+
 // -- N5: expansion of compound rules ---------------------------------------
 //
 // Paper (Molino-Peña, Slabbinck, García, Ruiz-Cortés, Esteves; NXDG 2026),
@@ -940,5 +982,103 @@ mod tests {
                 "{url}: an empty document under a real context expands to nothing"
             );
         }
+    }
+
+    // -- N1: internalization of external references (paper §3.1) ----------
+    //
+    // Tested at this `Node`-tree level, not through `ingest_policy`,
+    // because `engine::decision::Rule` has no `assignee`/`assigner` field
+    // to observe the result in a `WirePolicy` -- see
+    // `internalize_inverse_properties`'s own doc comment above. The
+    // `hasPolicy` half *is* observable through `ingest_policy` and is
+    // tested there instead (`ingest.rs`'s own N1 section).
+
+    /// Finds the node with `@id == id` anywhere in `root`'s tree -- a test
+    /// helper only; production code's own equivalent walk
+    /// (`inject_iri_by_id`) mutates as it goes rather than just locating.
+    fn find_by_id<'a>(root: &'a Node, id: &str) -> Option<&'a Node> {
+        if root.id.as_deref() == Some(id) {
+            return Some(root);
+        }
+        root.props.iter().find_map(|(_, values)| {
+            values.iter().find_map(|value| match value {
+                Expanded::Node(child) => find_by_id(child, id),
+                _ => None,
+            })
+        })
+    }
+
+    #[test]
+    fn an_assignee_of_on_a_party_injects_odrl_assignee_onto_the_rule_it_names() {
+        // A party elaborated inline as the value of odrl:assignee, itself
+        // declaring which rule it is the assigneeOf -- the inverse
+        // direction of the same relationship, both stated in one document
+        // (a real author might write only one direction; this fixture
+        // writes both so the test does not also depend on how a party
+        // reaches the tree at all).
+        let doc = json!({
+            "@context": "http://www.w3.org/ns/odrl.jsonld",
+            "@type": "Offer",
+            "@id": "urn:uuid:offer-a",
+            "assigner": "did:web:provider.example",
+            "permission": [{ "@id": "urn:uuid:rule-1", "action": "use" }],
+            "assignee": {
+                "@id": "urn:party:consumer",
+                "@type": "Party",
+                "assigneeOf": { "@id": "urn:uuid:rule-1" }
+            }
+        });
+        let mut root = expand(&doc).expect("fixture must expand").node;
+        let mut warnings = Vec::new();
+        internalize_inverse_properties(&mut root, &mut warnings);
+        let rule = find_by_id(&root, "urn:uuid:rule-1").expect("rule-1 must still be in the tree");
+        assert_eq!(
+            rule.get(&format!("{ODRL_NS}assignee")),
+            [Expanded::Iri("urn:party:consumer".to_string())],
+            "odrl:assigneeOf on the party must internalize into odrl:assignee on the rule it names"
+        );
+    }
+
+    #[test]
+    fn an_assigner_of_on_a_party_injects_odrl_assigner_onto_the_rule_it_names() {
+        let doc = json!({
+            "@context": "http://www.w3.org/ns/odrl.jsonld",
+            "@type": "Offer",
+            "@id": "urn:uuid:offer-a",
+            "permission": [{ "@id": "urn:uuid:rule-1", "action": "use" }],
+            "assigner": {
+                "@id": "urn:party:provider",
+                "@type": "Party",
+                "assignerOf": { "@id": "urn:uuid:rule-1" }
+            }
+        });
+        let mut root = expand(&doc).expect("fixture must expand").node;
+        let mut warnings = Vec::new();
+        internalize_inverse_properties(&mut root, &mut warnings);
+        let rule = find_by_id(&root, "urn:uuid:rule-1").expect("rule-1 must still be in the tree");
+        assert_eq!(
+            rule.get(&format!("{ODRL_NS}assigner")),
+            [Expanded::Iri("urn:party:provider".to_string())],
+            "odrl:assignerOf on the party must internalize into odrl:assigner on the rule it names"
+        );
+    }
+
+    #[test]
+    fn an_inverse_property_naming_an_id_absent_from_the_document_is_warned_about() {
+        let doc = json!({
+            "@context": "http://www.w3.org/ns/odrl.jsonld",
+            "@type": "Asset",
+            "@id": "urn:asset:A",
+            "hasPolicy": { "@id": "urn:uuid:nowhere-defined" }
+        });
+        let mut root = expand(&doc).expect("fixture must expand").node;
+        let mut warnings = Vec::new();
+        internalize_inverse_properties(&mut root, &mut warnings);
+        assert!(
+            warnings
+                .iter()
+                .any(|w| w.contains("urn:uuid:nowhere-defined") && w.contains("hasPolicy")),
+            "warnings: {warnings:?}"
+        );
     }
 }
