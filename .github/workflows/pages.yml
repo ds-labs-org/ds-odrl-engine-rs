@@ -5,12 +5,17 @@ name: Deploy site to GitHub Pages
 # via Trunk.toml's pre_build hook (see site/Trunk.toml), the artifacts
 # under compliance/reports/ that the Compliance Results and ODRL 2.2
 # Coverage pages fetch at runtime (see site/index.html's three copy-file
-# directives), or this workflow file. Deliberately NOT
-# compliance-runner/**, coverage-probes/**, compliance/vendor/**, or
-# profile-interpreter/examples/*.ttl -- every one of those *produces* an
-# artifact without *being* one, so a generator-source-only commit that
-# hasn't been re-run yet must not trigger a redeploy with stale content.
-# The omission is the policy, not an oversight.
+# directives), docs/**, whose markdown site/src/content.rs now embeds at
+# compile time via include_str! (added alongside the docs-browsing
+# capability -- a docs/*.md edit is source, not a generated artifact, so
+# it belongs in this list on the same "actually reads" basis as site/**
+# and engine/**, not with the generator-source paths below it), or this
+# workflow file. Deliberately NOT compliance-runner/**, coverage-probes/**,
+# compliance/vendor/**, or profile-interpreter/examples/*.ttl -- every one
+# of those *produces* an artifact without *being* one, so a
+# generator-source-only commit that hasn't been re-run yet must not
+# trigger a redeploy with stale content. That omission is the policy, not
+# an oversight.
 #
 # `compliance/reports/release-history.json` is the one exception to
 # "commit it, then trigger on it": the build job below regenerates it
@@ -25,6 +30,7 @@ on:
       - "site/**"
       - "engine/**"
       - "compliance/reports/**"
+      - "docs/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
