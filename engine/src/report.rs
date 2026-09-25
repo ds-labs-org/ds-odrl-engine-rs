@@ -166,14 +166,21 @@ pub struct DetailedPermissionReport {
     pub performance_state: PerformanceState,
     pub deontic_state: DeonticState,
     pub premise_reports: Vec<DetailedPremiseReport>,
-    /// `report:conditionReport` — present iff `Rule::duty` is non-empty.
-    /// Only the first `odrl:duty` entry is linked (the real vocabulary's
-    /// range for this property is a single `RuleReport`, not a list) —
-    /// every `duty[j]` for `j >= 1` still gets its own sibling
-    /// `DetailedRuleReport::Duty` in the owning policy's `rule_reports`,
-    /// simply not cross-linked here. Boxed because a duty's own
-    /// consequence chain can, in principle, recurse.
-    pub condition_report: Option<Box<DetailedDutyReport>>,
+    /// `report:conditionReport` — one entry per `odrl:duty` entry on this
+    /// permission's own `Rule::duty`, empty iff that list is empty. The
+    /// reference `SolidLabResearch/ODRL-Evaluator` implementation this
+    /// vocabulary was designed around types the equivalent field
+    /// `conditionReport: NamedNode[]` in
+    /// `src/util/report/ComplianceReportTypes.ts` — an array, not a single
+    /// value — and this engine's own `duty_gate_violated` already checks
+    /// every sibling `odrl:duty` (not only `duty[0]`) when deciding whether
+    /// this permission is gated, so the report must be able to point at
+    /// whichever duty actually gated it. Every `duty[j]` also still gets
+    /// its own independent sibling `DetailedRuleReport::Duty` entry in the
+    /// owning policy's `rule_reports` — this is a cross-link to the same
+    /// depth-0 report, not a second derivation of it, so the two can never
+    /// disagree.
+    pub condition_report: Vec<DetailedDutyReport>,
 }
 
 /// `report:ProhibitionReport`.

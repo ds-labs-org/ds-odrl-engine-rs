@@ -5135,7 +5135,7 @@ mod tests {
              domain is the shared RuleReport superclass, not DutyReport alone"
         );
         assert!(
-            permission.condition_report.is_none(),
+            permission.condition_report.is_empty(),
             "an unconstrained permission carries no odrl:duty"
         );
         // One Target premise, one Action premise -- no constraints on this
@@ -5206,10 +5206,12 @@ mod tests {
             ActivationState::Inactive,
             "the permission's own duty gate must make it Inactive under duty_mode: deny"
         );
-        let condition_report = permission
-            .condition_report
-            .as_ref()
-            .expect("duty[0] must be linked");
+        assert_eq!(
+            permission.condition_report.len(),
+            1,
+            "this permission has exactly one odrl:duty, so condition_report has one entry"
+        );
+        let condition_report = &permission.condition_report[0];
         assert_eq!(condition_report.deontic_state, DeonticState::Violated);
         assert_eq!(
             condition_report.performance_state,

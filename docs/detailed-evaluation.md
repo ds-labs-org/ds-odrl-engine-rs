@@ -72,12 +72,20 @@ A duty reached through `odrl:duty`, `odrl:remedy` or a chained
 `odrl:consequence` gets its own independent sibling `DetailedRuleReport::Duty`
 entry in the owning policy's flat `rule_reports` — never nested inside the
 duty it hangs off, because the real vocabulary defines no
-`DutyReport -> DutyReport` link for that. A permission's own first
-`odrl:duty` is additionally cross-linked from `report:conditionReport`
-(`DetailedPermissionReport::condition_report`), because the real
-vocabulary's range for that property is a single `RuleReport`, not a list —
-`duty[1]` and beyond still get their sibling entry, simply not the
-cross-link. A duty's chain is walked for real up through
+`DutyReport -> DutyReport` link for that. A permission's own `odrl:duty`
+list is additionally cross-linked from `report:conditionReport`
+(`DetailedPermissionReport::condition_report: Vec<DetailedDutyReport>`) —
+one entry per `duty[j]`, in order, alongside its own sibling entry in
+`rule_reports`. The reference implementation this vocabulary was designed
+around, `SolidLabResearch/ODRL-Evaluator`, types the equivalent field
+`conditionReport: NamedNode[]` in
+`src/util/report/ComplianceReportTypes.ts` — an array, confirming the
+cardinality is per-duty, not a single `RuleReport` as an earlier revision
+of this document assumed. `Rule::duty` is itself `Vec<Rule>` (a permission
+can carry more than one `odrl:duty`), and `duty_gate_violated` already
+checks every sibling duty when deciding whether the permission is gated —
+`condition_report` must be able to point at whichever one actually gated
+it, not only `duty[0]`. A duty's chain is walked for real up through
 `MAX_CONSEQUENCE_DEPTH`; exactly one entry past that bound is still
 reported if the data nests that deep, honestly forced `Inactive`/`NonSet`/
 `Unknown` because nothing past the bound is ever reached by this evaluator's
@@ -86,7 +94,8 @@ own in-force test.
 ### The one hard rule, and the one disclosed exception to the obvious invariant
 
 **A `DetailedPermissionReport` can never report `activation_state: Active`
-while its own linked `condition_report` reports `deontic_state: Violated`.**
+while any of its own linked `condition_report` entries reports
+`deontic_state: Violated`.**
 This is not a convention an implementer has to remember to check both
 places for — both fields are derived from the identical
 `duty_gate_violated` boolean, computed exactly once in

@@ -1770,12 +1770,12 @@ pub(crate) fn derive_detailed_rule_reports(
         );
 
         // Every `duty[j]` gets its own sibling `DetailedRuleReport::Duty`
-        // entry (including `duty[0]`, beyond the single `condition_report`
-        // link below) -- `condition_report` reuses `duty[0]`'s own first
+        // entry (including `duty[0]`, beyond the `condition_report` links
+        // below) -- `condition_report` reuses each duty's own first
         // (depth-0) entry rather than deriving it a second time, so the two
         // can never disagree.
         let mut duty_reports = Vec::new();
-        let mut condition_report = None;
+        let mut condition_report = Vec::new();
         for (duty_index, duty) in rule.duty.iter().enumerate() {
             let chain = duty_chain_reports(
                 duty,
@@ -1784,8 +1784,8 @@ pub(crate) fn derive_detailed_rule_reports(
                 applies_and_matches,
                 claims,
             );
-            if duty_index == 0 {
-                condition_report = chain.first().cloned().map(Box::new);
+            if let Some(depth_zero) = chain.first() {
+                condition_report.push(depth_zero.clone());
             }
             duty_reports.extend(chain.into_iter().map(DetailedRuleReport::Duty));
         }
@@ -4244,8 +4244,8 @@ mod tests {
         };
 
         // duty[0] ("ack") is satisfied; duty[1] ("notify") is not -- must
-        // still gate the whole permission Inactive, even though
-        // `condition_report` only ever links duty[0] (which is Fulfilled).
+        // still gate the whole permission Inactive, and `condition_report`
+        // must link BOTH duties, showing which one actually gated it.
         let only_ack = permission_report(&fulfilled(&["ack"]));
         assert_eq!(
             only_ack.activation_state,
@@ -4256,9 +4256,13 @@ mod tests {
         assert_eq!(only_ack.performance_state, PerformanceState::Unperformed);
         assert_eq!(only_ack.deontic_state, DeonticState::NonSet);
         assert_eq!(
-            only_ack.condition_report.as_ref().map(|d| d.deontic_state),
-            Some(DeonticState::Fulfilled),
-            "condition_report still links duty[0] alone, and it really is Fulfilled"
+            only_ack
+                .condition_report
+                .iter()
+                .map(|d| d.deontic_state)
+                .collect::<Vec<_>>(),
+            vec![DeonticState::Fulfilled, DeonticState::Violated],
+            "condition_report must link both duty[0] (Fulfilled) and duty[1] (Violated)"
         );
 
         // Control: with both duties resolved, nothing gates the permission.

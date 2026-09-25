@@ -597,7 +597,7 @@ mod tests {
                 DeonticState::NonSet
             },
             premise_reports: vec![],
-            condition_report: None,
+            condition_report: vec![],
         })
     }
 
