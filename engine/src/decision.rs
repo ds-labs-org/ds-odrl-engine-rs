@@ -4269,6 +4269,81 @@ mod tests {
     }
 
     #[test]
+    fn condition_report_links_every_sibling_duty_not_only_the_first() {
+        // Gap found against the reference `SolidLabResearch/ODRL-Evaluator`
+        // implementation: its own `ComplianceReportTypes.ts` types
+        // `conditionReport` as `NamedNode[]` -- an array over every sibling
+        // `odrl:duty` -- while this engine's `condition_report` used to be
+        // `Option<Box<DetailedDutyReport>>`, hardcoded in
+        // `derive_detailed_rule_reports` to `chain.first().cloned()`, i.e.
+        // `duty[0]` alone. `duty_gate_violated` (the prior fix, above)
+        // already checks every sibling duty when deciding whether the
+        // permission itself is gated -- so the gating decision was correct
+        // but the report explaining *why* pointed at the wrong (or an
+        // incomplete) duty whenever duty[1..] was the one actually
+        // outstanding. Same fixture shape as
+        // `duty_gate_violated_checks_every_sibling_duty_not_only_the_first`
+        // above, but under `DutyMode::Deny` (per the reference type) and
+        // asserting on `condition_report` itself rather than
+        // `activation_state`.
+        use crate::report::{ActivationState, DeonticState, DetailedRuleReport, PerformanceState};
+
+        let policy = Policy {
+            permissions: vec![Rule {
+                duty: vec![asserted_duty("ack"), asserted_duty("notify")],
+                ..Rule::new("read", vec![])
+            }],
+            prohibitions: vec![],
+            obligations: vec![],
+            conflict: ConflictStrategy::default(),
+        };
+        let config = config_with(&["read", "ack", "notify"], DutyMode::Deny, Behaviour::Open);
+
+        let permission_report = |claims: &Claims| {
+            let (rule_reports, _) =
+                derive_detailed_rule_reports(&policy, claims, &config, "read", ASSET, &[]);
+            rule_reports
+                .into_iter()
+                .find_map(|r| match r {
+                    DetailedRuleReport::Permission(p) => Some(p),
+                    _ => None,
+                })
+                .expect("exactly one permission in this policy")
+        };
+
+        // duty[0] ("ack") is satisfied; duty[1] ("notify") is not.
+        let only_ack = permission_report(&fulfilled(&["ack"]));
+        assert_eq!(
+            only_ack.activation_state,
+            ActivationState::Inactive,
+            "duty[1] ('notify') is genuinely violated and must gate the permission"
+        );
+        assert_eq!(
+            only_ack.condition_report.len(),
+            2,
+            "condition_report must link BOTH sibling duties, not only duty[0]"
+        );
+        assert_eq!(
+            only_ack.condition_report[0].deontic_state,
+            DeonticState::Fulfilled,
+            "duty[0] ('ack') was satisfied"
+        );
+        assert_eq!(
+            only_ack.condition_report[1].deontic_state,
+            DeonticState::Violated,
+            "duty[1] ('notify') was not satisfied, and condition_report must say so"
+        );
+
+        // Control: with both duties resolved, both link entries agree.
+        let both = permission_report(&fulfilled(&["ack", "notify"]));
+        assert_eq!(both.activation_state, ActivationState::Active);
+        assert_eq!(both.performance_state, PerformanceState::Performed);
+        assert_eq!(both.condition_report.len(), 2);
+        assert_eq!(both.condition_report[0].deontic_state, DeonticState::Fulfilled);
+        assert_eq!(both.condition_report[1].deontic_state, DeonticState::Fulfilled);
+    }
+
+    #[test]
     fn duty_gate_violated_uses_the_same_consequence_resolved_predicate_grants_uses() {
         // The coarse path (`Rule::grants` -> `duties_resolved` ->
         // `outstanding_duty`) walks a duty's `odrl:consequence` chain: a
