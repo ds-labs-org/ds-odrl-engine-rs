@@ -2478,12 +2478,75 @@ mod tests {
     // -- N1: internalization of external references (paper §3.1) ----------
     //
     // See docs/spikes/2026-09-24-odrl-policy-validation-atomization-gap-analysis.md
-    // in the `dataspace` repo ("Design 1 — N1") for the full design. Only
-    // the odrl:hasPolicy half is observable through `ingest_policy` /
-    // `WirePolicy` -- see jsonld.rs's own doc comment on
-    // `internalize_inverse_properties` for why the odrl:assigneeOf /
-    // odrl:assignerOf half is tested at the JSON-LD `Node` level instead,
-    // in jsonld.rs's own test module.
+    // in the `dataspace` repo ("Design 1 — N1") for the full design. The
+    // odrl:hasPolicy half is always observable through `ingest_policy` /
+    // `WirePolicy`. The odrl:assigneeOf / odrl:assignerOf half is
+    // observable here too, but only when the reference names the *policy*
+    // node itself (`policy_from` reads `WirePolicy.assignee`/`.assigner`
+    // straight off it) -- see jsonld.rs's own doc comment on
+    // `internalize_inverse_properties` for the rule-node case, which has
+    // no field to route into and stays tested at the JSON-LD `Node` level
+    // instead, in jsonld.rs's own test module.
+
+    #[test]
+    fn a_policy_level_odrl_assignee_of_reaches_wire_policys_assignee_field() {
+        // Confirmed audit finding: this was real, shipped behaviour with
+        // zero test coverage. `internalize_inverse_properties` injects
+        // onto whatever node carries the referenced `@id` -- it has no
+        // notion of "a rule" versus "the policy" -- so
+        // `<party> odrl:assigneeOf <agreement>` (legal ODRL: the Agreement
+        // class requires exactly one assignee per the Information Model)
+        // really does reach `WirePolicy.assignee` today. That field is
+        // load-bearing at evaluation (`engine::wire`'s
+        // `party_role_mismatch`: `None` skips party scoping entirely,
+        // `Some` activates it), so this was silently able to change which
+        // claims-based party an Agreement is scoped to. The party is
+        // nested under an unrelated custom-prefixed property
+        // (`ex:party`), not `odrl:assignee` itself, so this test proves
+        // the *inverse* reference is what populates the field, not a
+        // coincidentally-present direct declaration.
+        let doc = r#"{
+          "@context": ["http://www.w3.org/ns/odrl.jsonld", {"ex": "https://example.org/ns#"}],
+          "@type": "Agreement",
+          "@id": "urn:uuid:agreement-a",
+          "assigner": "did:web:provider.example",
+          "permission": [{ "action": "use", "target": "urn:asset:A" }],
+          "ex:party": {
+            "@id": "urn:party:consumer",
+            "@type": "Party",
+            "assigneeOf": { "@id": "urn:uuid:agreement-a" }
+          }
+        }"#;
+        let ingested = ingest_policy(doc).expect("must ingest");
+        assert_eq!(
+            ingested.policy.assignee.as_deref(),
+            Some("urn:party:consumer"),
+            "warnings: {:?}",
+            ingested.warnings
+        );
+    }
+
+    #[test]
+    fn a_policy_level_odrl_assigner_of_reaches_wire_policys_assigner_field() {
+        // Same gap, the odrl:assignerOf / WirePolicy.assigner half.
+        let doc = r#"{
+          "@context": ["http://www.w3.org/ns/odrl.jsonld", {"ex": "https://example.org/ns#"}],
+          "@type": "Agreement",
+          "@id": "urn:uuid:agreement-b",
+          "permission": [{ "action": "use", "target": "urn:asset:A" }],
+          "ex:party": {
+            "@id": "urn:party:provider",
+            "@type": "Party",
+            "assignerOf": { "@id": "urn:uuid:agreement-b" }
+          }
+        }"#;
+        let ingested = ingest_policy(doc).expect("must ingest");
+        assert_eq!(
+            ingested.policy.assigner, "urn:party:provider",
+            "warnings: {:?}",
+            ingested.warnings
+        );
+    }
 
     #[test]
     fn an_asset_stated_haspolicy_target_pushes_down_onto_every_rule_naming_none_of_its_own() {
