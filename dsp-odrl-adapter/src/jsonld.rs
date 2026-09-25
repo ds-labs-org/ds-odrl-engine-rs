@@ -108,7 +108,11 @@ impl Node {
             .unwrap_or(&[])
     }
 
-    fn push(&mut self, iri: String, mut values: Vec<Expanded>) {
+    /// `pub(crate)`, not private: `ingest.rs`'s own graph-rewrite passes
+    /// (the policy-level `odrl:target` pushdown, run before N5) need to
+    /// append onto a `Node` too, the same way this module's own N1/N5
+    /// passes already do.
+    pub(crate) fn push(&mut self, iri: String, mut values: Vec<Expanded>) {
         if values.is_empty() {
             return;
         }
@@ -655,21 +659,54 @@ pub fn expand(doc: &serde_json::Value) -> Result<Expansion, JsonLdError> {
 // `ingest.rs::policy_from`/`rule_from` picks it up with zero further
 // change -- exactly as if the policy had declared that target itself.
 //
-// **`assigneeOf`/`assignerOf` are implemented at this graph level only.**
-// `engine::decision::Rule` has no `assignee`/`assigner` field at all (its
-// fields are `action`, `target`, `constraints`, `action_refinement`,
-// `duty`, `remedy`, `consequence` -- confirmed by reading the struct), and
-// `ingest.rs::rule_from` does not read any such property off a rule node
-// even to warn about it. So injecting `odrl:assignee`/`odrl:assigner` onto
-// a rule node here is real, tested (see this module's own tests), and
-// exactly what the paper's N1 states the normalized graph should look
-// like -- but it has no observable effect on `WirePolicy` today, because
-// there is nowhere downstream to route it. Closing that would be an
-// `engine`-schema change (a new `Rule.assignee`/`.assigner`, and what it
-// means for `decide` to compare it against a claim), out of scope here;
-// this only avoids leaving the JSON-LD-level half of N1 undone once that
-// field exists.
+// **`assigneeOf`/`assignerOf`'s observability depends on what the
+// reference names, not on whether the rewrite itself "took".** This
+// function injects `odrl:assignee`/`odrl:assigner` onto *whatever node
+// carries the referenced `@id`* -- it has no notion of "a rule" versus
+// "the policy" at all, it just resolves an `@id` (see `build_id_index`/
+// `node_at_path_mut` below). Two real cases follow from that:
+//
+// - **The reference names the policy node.** `ingest.rs::policy_from`
+//   reads `WirePolicy.assignee`/`.assigner` straight off the policy node
+//   (`first_string(node, "assignee"/"assigner")`), so
+//   `<party> odrl:assigneeOf <agreement>` (legal ODRL: the Agreement class
+//   requires exactly one assignee per the Information Model) really does
+//   reach `WirePolicy.assignee` -- and that field is load-bearing at
+//   evaluation (`engine::wire`'s `party_role_mismatch`: `None` skips party
+//   scoping entirely, `Some` activates it). This is real, observable,
+//   already-shipped behaviour, now tested end to end through
+//   `ingest_policy` in `ingest.rs`'s own N1 section, not just at this
+//   JSON-LD `Node`-tree level.
+// - **The reference names a rule node instead.** `engine::decision::Rule`
+//   has no `assignee`/`assigner` field at all (its fields are `action`,
+//   `target`, `constraints`, `action_refinement`, `duty`, `remedy`,
+//   `consequence` -- confirmed by reading the struct), and
+//   `ingest.rs::rule_from` does not read any such property off a rule node
+//   even to warn about it. So injecting onto a rule node here is real and
+//   tested (see this module's own tests below) -- exactly what the
+//   paper's N1 states the normalized graph should look like -- but has no
+//   observable effect on `WirePolicy` in this case. Closing that would be
+//   an `engine`-schema change (a new `Rule.assignee`/`.assigner`, and what
+//   it means for `decide` to compare it against a claim), out of scope
+//   here -- and deliberately *not* worked around by hoisting a rule-level
+//   reference up onto the policy either, which would silently widen party
+//   scoping across every other rule on a heterogeneous policy the author
+//   never asked to be scoped that way.
 pub(crate) fn internalize_inverse_properties(root: &mut Node, warnings: &mut Vec<String>) {
+    // Built once, in a single O(nodes) pass, and reused for every inverse
+    // property below — rather than the previous approach of re-walking the
+    // *entire* tree from scratch for every single collected reference
+    // (`O(refs * nodes)`), which measured ~8.1s against a synthetic
+    // 16,000-dataset `dspace:Catalog` (a real, untrusted DSP catalog
+    // response shape this crate exists to ingest) versus ~0.57s for a
+    // same-sized document with no inverse references at all. Appending a
+    // property or a value onto a node never changes what an
+    // already-recorded path means for any *other* node (`Node::push` only
+    // ever appends — see its own doc comment), so one index built before
+    // any injection stays valid across every injection that follows.
+    let mut index: BTreeMap<String, Vec<NodePath>> = BTreeMap::new();
+    build_id_index(root, &mut Vec::new(), &mut index);
+
     for (inverse, forward) in [
         ("hasPolicy", "target"),
         ("assigneeOf", "assignee"),
@@ -680,13 +717,87 @@ pub(crate) fn internalize_inverse_properties(root: &mut Node, warnings: &mut Vec
         let mut refs: Vec<(String, String)> = Vec::new();
         collect_inverse_refs(root, &inverse_prop, &mut refs);
         for (subject_id, object_id) in refs {
-            if !inject_iri_by_id(root, &object_id, &forward_prop, &subject_id) {
-                warnings.push(format!(
+            match index.get(&object_id) {
+                None => warnings.push(format!(
                     "{subject_id:?} declares odrl:{inverse} naming {object_id:?}, but no node \
                      with that @id exists anywhere in the document; the reference is ignored (N1)"
-                ));
+                )),
+                Some(paths) => {
+                    // Cloned rather than borrowed: the loop body below
+                    // mutably borrows `root` (via `node_at_path_mut`),
+                    // which `index` itself is derived from.
+                    for path in paths.clone() {
+                        let node = node_at_path_mut(root, &path);
+                        inject_iri_if_new(node, &forward_prop, &subject_id);
+                    }
+                }
             }
         }
+    }
+}
+
+/// One node's location, as a sequence of `(property index within
+/// `Node::props`, value index within that property's `Vec<Expanded>`)`
+/// steps from the tree's root — everything [`node_at_path_mut`] needs to
+/// reach the node again without re-walking the tree from the top.
+type NodePath = Vec<(usize, usize)>;
+
+/// Builds an `@id -> path` index over the whole tree in one pass. A
+/// duplicate `@id` (illegal ODRL, but not this adapter's place to reject —
+/// see the rest of this module's own "taken as written" convention) keeps
+/// every occurrence, matching this module's previous behaviour of
+/// injecting onto every node sharing a matching `@id`, not just the first
+/// one found.
+fn build_id_index(node: &Node, path: &mut NodePath, out: &mut BTreeMap<String, Vec<NodePath>>) {
+    if let Some(id) = &node.id {
+        out.entry(id.clone()).or_default().push(path.clone());
+    }
+    for (pi, (_, values)) in node.props.iter().enumerate() {
+        for (vi, value) in values.iter().enumerate() {
+            if let Expanded::Node(child) = value {
+                path.push((pi, vi));
+                build_id_index(child, path, out);
+                path.pop();
+            }
+        }
+    }
+}
+
+/// Navigates a [`NodePath`] (as `build_id_index` recorded it) from `root`
+/// down to the node it names, in `O(path length)` rather than another
+/// full-tree walk. Safe to call after earlier injections in the same
+/// `internalize_inverse_properties` pass: see that function's own doc
+/// comment on why an index built once stays valid throughout.
+fn node_at_path_mut<'a>(root: &'a mut Node, path: &[(usize, usize)]) -> &'a mut Node {
+    let mut current = root;
+    for &(pi, vi) in path {
+        let Expanded::Node(child) = &mut current.props[pi].1[vi] else {
+            unreachable!(
+                "build_id_index only ever records a path that passes through an Expanded::Node value"
+            );
+        };
+        current = child;
+    }
+    current
+}
+
+/// Injects one `Expanded::Iri(value)` onto `node`'s `prop` unless it
+/// already carries that *exact* value — accumulating multiple distinct
+/// values across repeated calls (several assets pointing `odrl:hasPolicy`
+/// at the same shared policy, say), rather than the previous "unless it
+/// already carries *any* value" rule, which silently kept only the first
+/// of several such references. A node that already states this exact
+/// value — whether the document's own author wrote it or an earlier
+/// injection in this same pass added it — is left alone rather than
+/// double-pushed, mirroring `policy_target`'s own "unless it already names
+/// one" rule in `ingest.rs::policy_from` for the single-value case.
+fn inject_iri_if_new(node: &mut Node, prop: &str, value: &str) {
+    let already = node
+        .get(prop)
+        .iter()
+        .any(|v| matches!(v, Expanded::Iri(existing) if existing == value));
+    if !already {
+        node.push(prop.to_string(), vec![Expanded::Iri(value.to_string())]);
     }
 }
 
@@ -724,29 +835,6 @@ fn node_reference_id(value: &Expanded) -> Option<String> {
     }
 }
 
-/// Finds the node with `@id == target_id` anywhere in the tree and, unless
-/// it already carries a value for `prop`, injects one `Expanded::Iri(value)`
-/// -- mirroring `policy_target`'s own "unless it already names one" rule in
-/// `ingest.rs::policy_from`, so a node that states the forward property
-/// honestly is left alone rather than double-pushed. Returns whether a
-/// matching node was found at all (regardless of whether an injection
-/// happened), so the caller can warn about a reference to a node that does
-/// not exist in this document.
-fn inject_iri_by_id(node: &mut Node, target_id: &str, prop: &str, value: &str) -> bool {
-    let mut found = node.id.as_deref() == Some(target_id);
-    if found && node.get(prop).is_empty() {
-        node.push(prop.to_string(), vec![Expanded::Iri(value.to_string())]);
-    }
-    for (_, values) in node.props.iter_mut() {
-        for child_value in values.iter_mut() {
-            if let Expanded::Node(child) = child_value {
-                found |= inject_iri_by_id(child, target_id, prop, value);
-            }
-        }
-    }
-    found
-}
-
 // -- N5: expansion of compound rules ---------------------------------------
 //
 // Paper (Molino-Peña, Slabbinck, García, Ruiz-Cortés, Esteves; NXDG 2026),
@@ -779,6 +867,22 @@ const MAX_EXPAND_DEPTH: usize = 8;
 /// Mirrors `ingest.rs::collect_policy_nodes`'s own whole-tree walk for the
 /// same reason: the real DSP 2024/1 fixture in this crate's own
 /// `examples/` nests its policy node exactly this way.
+///
+/// **Also runs over `odrl:duty`/`odrl:remedy`/`odrl:consequence`.** A Duty
+/// is itself a Rule in the ODRL model, so a nested duty naming several
+/// actions and/or targets is exactly the same "more than one value in a
+/// position that must be atomic" shape this pass already closes for a
+/// top-level rule — this is not a separate feature, just the same
+/// recursive walk (below) also matching those three property names at
+/// every node it visits, so a duty nested inside an already-expanded
+/// permission clone is reached too. One asymmetry survives past this pass,
+/// unavoidably: `engine::Rule::consequence` holds a single successor, not a
+/// `Vec`, so splitting one `odrl:consequence` node with several targets
+/// into several atomic nodes still gets truncated one level up, in
+/// `ingest.rs::consequence_from` — but that truncation is *warned about*
+/// (the same "carries N duties, only first is ingested" message that
+/// already fires for several genuinely distinct `odrl:consequence` array
+/// entries), not silent, which is the bar this crate holds itself to.
 pub(crate) fn expand_compound_rules(node: &mut Node, warnings: &mut Vec<String>) {
     expand_compound_rules_at(node, 0, warnings);
 }
@@ -787,7 +891,14 @@ fn expand_compound_rules_at(node: &mut Node, depth: usize, warnings: &mut Vec<St
     if depth > MAX_EXPAND_DEPTH {
         return;
     }
-    for local in ["permission", "prohibition", "obligation"] {
+    for local in [
+        "permission",
+        "prohibition",
+        "obligation",
+        "duty",
+        "remedy",
+        "consequence",
+    ] {
         let prop = format!("{ODRL_NS}{local}");
         if let Some((_, values)) = node.props.iter_mut().find(|(k, _)| k == &prop) {
             let mut expanded = Vec::new();

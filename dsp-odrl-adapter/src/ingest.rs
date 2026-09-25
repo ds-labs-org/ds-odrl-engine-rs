@@ -148,17 +148,30 @@ pub enum Inconsistency {
 /// `WirePolicy` some other way (hand-written, or via a future non-DSP
 /// ingestion path) can still run the same checks without going through
 /// this adapter's JSON-LD parsing at all.
+///
+/// **Sees only this one `WirePolicy`'s own directly-declared rules.** It
+/// does not consider `odrl:inheritFrom`: an inherited prohibition is never
+/// checked against a permission/obligation declared directly on the child
+/// policy, even though this adapter does ingest `inheritFrom`
+/// (`policy_from`, above) and `engine::wire::resolve_inherit_from` does
+/// resolve it at evaluation time. This is paper-faithful -- the paper
+/// itself defers inheritance resolution to future work -- but it does mean
+/// `inconsistencies: []` on an inheriting policy is not "no conflict
+/// anywhere it will ever be evaluated against", only "no conflict among
+/// the rules this policy states itself".
 pub fn detect_inconsistencies(policy: &WirePolicy) -> Vec<Inconsistency> {
     let mut out = Vec::new();
 
     for (oi, obligation) in policy.obligations.iter().enumerate() {
         for (pi, prohibition) in policy.prohibitions.iter().enumerate() {
-            if obligation.action == prohibition.action && obligation.target == prohibition.target {
+            if obligation.action == prohibition.action
+                && targets_collide(&obligation.target, &prohibition.target)
+            {
                 out.push(Inconsistency::ObligationProhibitionConflict {
                     obligation: RuleSlot::Obligation(oi),
                     prohibition: RuleSlot::Prohibition(pi),
                     action: obligation.action.clone(),
-                    target: obligation.target.clone(),
+                    target: colliding_target(&obligation.target, &prohibition.target),
                 });
             }
         }
@@ -166,12 +179,14 @@ pub fn detect_inconsistencies(policy: &WirePolicy) -> Vec<Inconsistency> {
 
     for (pi, permission) in policy.permissions.iter().enumerate() {
         for (qi, prohibition) in policy.prohibitions.iter().enumerate() {
-            if permission.action == prohibition.action && permission.target == prohibition.target {
+            if permission.action == prohibition.action
+                && targets_collide(&permission.target, &prohibition.target)
+            {
                 out.push(Inconsistency::PermissionProhibitionPotentialConflict {
                     permission: RuleSlot::Permission(pi),
                     prohibition: RuleSlot::Prohibition(qi),
                     action: permission.action.clone(),
-                    target: permission.target.clone(),
+                    target: colliding_target(&permission.target, &prohibition.target),
                 });
             }
         }
@@ -203,20 +218,50 @@ pub fn detect_inconsistencies(policy: &WirePolicy) -> Vec<Inconsistency> {
     out
 }
 
-/// Within one rule's own top-level `constraints` -- **not** descending into
-/// nested `odrl:and`/`odrl:or`/`odrl:xone`/`odrl:andSequence` -- every pair
-/// of atomic (non-[`Constraint::is_logical`]), `Operator::Eq` entries that
-/// share a `left_operand` but disagree on `right_operand`. A logical
-/// top-level entry is excluded rather than compared on its defaulted,
-/// unused atomic fields (`left_operand: ""`, `operator: Eq` by default --
-/// see `Constraint`'s own doc comment on why `Deserialize` defaults them
-/// that way), which would otherwise risk a false positive against an
-/// atomic `left_operand: ""` constraint that happens to sit alongside it.
+/// Whether an obligation/permission/prohibition/duty pair genuinely
+/// collides on `target` -- `None` means "applies to every asset"
+/// (`engine::decision::Rule::target_applies`'s own doc comment:
+/// `self.target.as_deref().is_none_or(...)`), not "no asset", so it
+/// collides with *every* concrete target the other side might name,
+/// including `Some(_)`. Only `Some(x) != Some(y)` is a genuine mismatch.
+fn targets_collide(a: &Option<String>, b: &Option<String>) -> bool {
+    match (a, b) {
+        (None, _) | (_, None) => true,
+        (Some(x), Some(y)) => x == y,
+    }
+}
+
+/// The concrete target an [`Inconsistency`] reports for a colliding pair --
+/// whichever side actually names one (the more specific of the two), or
+/// `None` if neither does. When one side is untargeted (`None`, "applies to
+/// every asset") and the other names a specific asset, the genuine
+/// collision is at that specific asset, not at "every asset", so the
+/// `Some` side wins rather than the pair being reported as an
+/// undifferentiated `None`.
+fn colliding_target(a: &Option<String>, b: &Option<String>) -> Option<String> {
+    a.clone().or_else(|| b.clone())
+}
+
+/// Within one rule's own top-level `constraints` -- descending into nested
+/// `odrl:and`/`odrl:andSequence` (a conjunction: every child constraint
+/// must hold at once, so two disagreeing `Eq` children genuinely are
+/// unsatisfiable together), but **not** into `odrl:or`/`odrl:xone` (a
+/// disjunction: two disagreeing `Eq` children are exactly the intended
+/// "alternative, not a joint requirement" shape, not a contradiction) --
+/// every pair of atomic (non-[`Constraint::is_logical`]), `Operator::Eq`
+/// entries that share a `left_operand` but disagree on `right_operand`.
+/// Nested `and`/`and_sequence` children are flattened into the same
+/// same-rule comparison set as the rule's own top-level constraints, so a
+/// contradiction split across nesting levels (one `Eq` at the rule's own
+/// top level, its contradicting sibling one level inside an `and`) is
+/// still caught. When a node sets more than one of `xone`/`or`/`and`/
+/// `and_sequence` at once, only the one `engine::Constraint::evaluate`
+/// itself would honour (its own `xone > or > and > and_sequence`
+/// precedence) is consulted here, so this check never flags a combination
+/// the engine would not actually evaluate as a conjunction.
 fn unsatisfiable_constraints_in(slot: RuleSlot, constraints: &[Constraint]) -> Vec<Inconsistency> {
-    let atomic_eq: Vec<&Constraint> = constraints
-        .iter()
-        .filter(|c| !c.is_logical() && c.operator == Operator::Eq)
-        .collect();
+    let mut atomic_eq: Vec<&Constraint> = Vec::new();
+    collect_conjunctive_atomic_eq(constraints, &mut atomic_eq);
     let mut out = Vec::new();
     for i in 0..atomic_eq.len() {
         for j in (i + 1)..atomic_eq.len() {
@@ -231,6 +276,31 @@ fn unsatisfiable_constraints_in(slot: RuleSlot, constraints: &[Constraint]) -> V
         }
     }
     out
+}
+
+/// Flattens `constraints` into `out`: every atomic (non-logical)
+/// `Operator::Eq` entry at this level, plus -- recursively -- every atomic
+/// `Eq` entry reachable through a chain of `odrl:and`/`odrl:andSequence`
+/// nesting (a conjunction joins its children with everything else in the
+/// same comparison set). A node under `odrl:or`/`odrl:xone` (a
+/// disjunction) contributes nothing: its children are alternatives, not a
+/// joint requirement, so they are never compared against anything outside
+/// their own `or`/`xone`. Precedence when a node sets more than one of the
+/// four mirrors `engine::Constraint::evaluate`'s own `xone > or > and >
+/// and_sequence` (see `constraint_from` in this same module for why): the
+/// first one present, in that order, is the only one consulted.
+fn collect_conjunctive_atomic_eq<'a>(constraints: &'a [Constraint], out: &mut Vec<&'a Constraint>) {
+    for c in constraints {
+        if c.xone.is_some() || c.or.is_some() {
+            continue;
+        } else if let Some(children) = c.and.as_ref() {
+            collect_conjunctive_atomic_eq(children, out);
+        } else if let Some(children) = c.and_sequence.as_ref() {
+            collect_conjunctive_atomic_eq(children, out);
+        } else if c.operator == Operator::Eq {
+            out.push(c);
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -295,6 +365,15 @@ pub fn ingest_policy_value(doc: &serde_json::Value) -> Result<Ingested, IngestEr
     // subject to N5's own compound-rule expansion, exactly like a target
     // the document stated directly.
     internalize_inverse_properties(&mut root, &mut warnings);
+
+    // Policy-level odrl:target pushdown, at the graph level -- see
+    // push_down_policy_level_target's own doc comment for why this runs
+    // here, before N5, rather than staying the read-time-only fallback it
+    // used to be. Composes with the N1 pass just above: a hasPolicy
+    // reference that internalized into a *multi-valued* policy-level
+    // target is pushed down and expanded exactly like one the document
+    // stated directly.
+    push_down_policy_level_target(&mut root);
 
     // N5 (paper §3.1): split a rule naming several actions and/or targets
     // into one atomic rule per combination, before rules_from/action_from
@@ -452,6 +531,80 @@ fn collect_policy_nodes<'a>(node: &'a Node, depth: usize, out: &mut Vec<&'a Node
         for value in values {
             if let Expanded::Node(child) = value {
                 collect_policy_nodes(child, depth + 1, out);
+            }
+        }
+    }
+}
+
+/// Mutable counterpart of `collect_policy_nodes`, for the graph-rewrite
+/// pass below that needs to modify the policy node's own rule properties
+/// before N5 (`expand_compound_rules`) ever sees them.
+fn collect_policy_nodes_mut<'a>(node: &'a mut Node, depth: usize, out: &mut Vec<&'a mut Node>) {
+    if depth > 8 {
+        return;
+    }
+    if node.types.iter().any(|t| policy_kind(t).is_some()) {
+        out.push(node);
+        return;
+    }
+    for (_, values) in node.props.iter_mut() {
+        for value in values.iter_mut() {
+            if let Expanded::Node(child) = value {
+                collect_policy_nodes_mut(child, depth + 1, out);
+            }
+        }
+    }
+}
+
+/// Policy-level `odrl:target` pushdown, at the graph level, run in
+/// `ingest_policy_value` before N5 (`expand_compound_rules`) — so a policy
+/// declaring **more than one** target correctly participates in N5's own
+/// compound-rule expansion instead of being silently truncated to its
+/// first value the way `policy_from`'s `first_string(node, "target")` used
+/// to (confirmed audit finding: no length check, no warning, unlike the
+/// sibling `policy_action_from`, which at least warns). For each of
+/// `permission`/`prohibition`/`obligation` that does not already carry its
+/// own `odrl:target`, every policy-level target value is copied onto it
+/// verbatim (an IRI, a literal, or an inline node) — exactly the shape
+/// `expand_one_rule` already knows how to cross-product, so a rule that
+/// ends up with N>1 copied targets is expanded into N atomic rules by the
+/// very next pass rather than truncated to one.
+///
+/// **Only `odrl:target` gets this graph-level treatment, not
+/// `odrl:action`.** `policy_action_from`'s existing single-value-with-
+/// warning fallback already composes correctly with N5 as it stands: a
+/// rule with no action of its own contributes exactly one "no action"
+/// variant to N5's cross product (`expand_one_rule`'s `action_variants:
+/// vec![None]` case), which then falls through to that unchanged fallback
+/// — so widening it here would only duplicate work N5 already does for
+/// free, for a truncation this crate's own README already discloses.
+///
+/// A no-op unless the document resolves to exactly one policy node.
+/// `ingest_policy_value` itself rejects zero or several policy nodes right
+/// after this runs (`NoPolicyNode` / `SeveralPolicyNodes`), so silently
+/// doing nothing here for those shapes is safe: there is no unambiguous
+/// "the policy" to push a target down from.
+fn push_down_policy_level_target(root: &mut Node) {
+    let mut nodes: Vec<&mut Node> = Vec::new();
+    collect_policy_nodes_mut(root, 0, &mut nodes);
+    let [policy] = nodes.as_mut_slice() else {
+        return;
+    };
+    let target_prop = format!("{ODRL_NS}target");
+    let policy_targets = policy.get(&target_prop).to_vec();
+    if policy_targets.is_empty() {
+        return;
+    }
+    for local in ["permission", "prohibition", "obligation"] {
+        let rule_prop = format!("{ODRL_NS}{local}");
+        let Some((_, rules)) = policy.props.iter_mut().find(|(k, _)| k == &rule_prop) else {
+            continue;
+        };
+        for rule in rules.iter_mut() {
+            if let Expanded::Node(rule_node) = rule {
+                if rule_node.get(&target_prop).is_empty() {
+                    rule_node.push(target_prop.clone(), policy_targets.clone());
+                }
             }
         }
     }
