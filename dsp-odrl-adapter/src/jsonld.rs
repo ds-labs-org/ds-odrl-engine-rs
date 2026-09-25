@@ -1154,4 +1154,123 @@ mod tests {
             "warnings: {warnings:?}"
         );
     }
+
+    #[test]
+    fn two_assets_haspolicy_referencing_the_same_shared_policy_both_survive_as_targets() {
+        // Confirmed audit finding: `inject_iri_by_id` used to skip an
+        // injection whenever the target node already carried *any* value
+        // for the forward property, not just this exact one -- so the
+        // first `<asset> odrl:hasPolicy <policy>` synthesized
+        // `<policy> odrl:target <assetA>`, and every subsequent asset
+        // pointing at the *same* shared policy found `target` already
+        // non-empty and was silently dropped. Built directly at the `Node`
+        // level (bypassing JSON-LD expansion) since what matters here is
+        // `internalize_inverse_properties`'s own accumulation behaviour,
+        // not context resolution.
+        let policy = Node {
+            id: Some("urn:uuid:shared-policy".to_string()),
+            types: vec![],
+            props: vec![],
+        };
+        let asset_a = Node {
+            id: Some("urn:asset:A".to_string()),
+            types: vec![],
+            props: vec![(
+                format!("{ODRL_NS}hasPolicy"),
+                vec![Expanded::Iri("urn:uuid:shared-policy".to_string())],
+            )],
+        };
+        let asset_b = Node {
+            id: Some("urn:asset:B".to_string()),
+            types: vec![],
+            props: vec![(
+                format!("{ODRL_NS}hasPolicy"),
+                vec![Expanded::Iri("urn:uuid:shared-policy".to_string())],
+            )],
+        };
+        let mut root = Node {
+            id: None,
+            types: vec![],
+            props: vec![(
+                "urn:test:items".to_string(),
+                vec![
+                    Expanded::Node(policy),
+                    Expanded::Node(asset_a),
+                    Expanded::Node(asset_b),
+                ],
+            )],
+        };
+        let mut warnings = Vec::new();
+        internalize_inverse_properties(&mut root, &mut warnings);
+        let policy_node =
+            find_by_id(&root, "urn:uuid:shared-policy").expect("policy must still be in the tree");
+        let mut targets: Vec<String> = policy_node
+            .get(&format!("{ODRL_NS}target"))
+            .iter()
+            .filter_map(|v| match v {
+                Expanded::Iri(iri) => Some(iri.clone()),
+                _ => None,
+            })
+            .collect();
+        targets.sort();
+        assert_eq!(
+            targets,
+            vec!["urn:asset:A".to_string(), "urn:asset:B".to_string()],
+            "both assets' hasPolicy references must accumulate onto the shared policy's target, \
+             not truncate to the first: warnings {warnings:?}"
+        );
+    }
+
+    #[test]
+    fn internalizing_inverse_properties_stays_fast_on_a_large_synthetic_document() {
+        // Confirmed audit finding: `inject_iri_by_id` re-walked the
+        // *entire* tree from scratch for every single collected reference
+        // (`O(refs * nodes)`) rather than resolving against an index built
+        // once. Measured on the buggy version against a same-shaped
+        // synthetic 16,000-dataset `dspace:Catalog` (a real, untrusted DSP
+        // catalog response shape this crate exists to ingest): ~8.1s,
+        // versus ~0.57s for a same-sized document carrying no inverse
+        // references at all. This is a regression guard, not a
+        // micro-benchmark: a generous bound, chosen to fail reliably
+        // against a reintroduced O(n^2) walk at this size while leaving
+        // comfortable headroom for the index-based fix on slower CI
+        // hardware.
+        const N: usize = 16_000;
+        let mut items = Vec::with_capacity(N * 2);
+        for i in 0..N {
+            items.push(Expanded::Node(Node {
+                id: Some(format!("urn:dataset:{i}")),
+                types: vec![],
+                props: vec![(
+                    format!("{ODRL_NS}hasPolicy"),
+                    vec![Expanded::Iri(format!("urn:policy:{i}"))],
+                )],
+            }));
+            items.push(Expanded::Node(Node {
+                id: Some(format!("urn:policy:{i}")),
+                types: vec![],
+                props: vec![],
+            }));
+        }
+        let mut root = Node {
+            id: None,
+            types: vec![],
+            props: vec![("urn:test:items".to_string(), items)],
+        };
+        let mut warnings = Vec::new();
+        let start = std::time::Instant::now();
+        internalize_inverse_properties(&mut root, &mut warnings);
+        let elapsed = start.elapsed();
+        assert!(
+            warnings.is_empty(),
+            "every reference here names a real policy node; nothing should warn: {warnings:?}"
+        );
+        assert!(
+            elapsed < std::time::Duration::from_secs(3),
+            "internalize_inverse_properties took {elapsed:?} for {N} references against a \
+             {}-node document -- an O(refs * nodes) walk is far past this bound at this size; \
+             see this test's own doc comment",
+            N * 2 + 1,
+        );
+    }
 }

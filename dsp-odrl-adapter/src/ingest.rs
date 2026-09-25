@@ -2024,6 +2024,37 @@ mod tests {
     }
 
     #[test]
+    fn a_permissions_duty_naming_more_than_one_target_is_not_silently_truncated() {
+        // Confirmed audit finding: `duty_from`'s `first_string(node,
+        // "target")` truncates a duty naming several targets exactly the
+        // same way the policy-level pushdown above used to, with no
+        // warning either. N5 (`expand_compound_rules`) previously only
+        // rewrote `permission`/`prohibition`/`obligation`; a Duty is itself
+        // a Rule in the ODRL model, so it must participate too.
+        let doc = r#"{
+          "@context": "http://www.w3.org/ns/odrl.jsonld",
+          "@type": "Offer",
+          "@id": "urn:uuid:duty-multi-target",
+          "assigner": "did:web:provider.example",
+          "target": "urn:asset:A",
+          "permission": [{
+            "action": "use",
+            "duty": [{ "action": "compensate", "target": ["urn:asset:X", "urn:asset:Y"] }]
+          }]
+        }"#;
+        let ingested = ingest_policy(doc).expect("must ingest");
+        assert_eq!(
+            ingested.policy.permissions[0].duty,
+            vec![
+                Rule::targeting("compensate", "urn:asset:X", vec![]),
+                Rule::targeting("compensate", "urn:asset:Y", vec![]),
+            ],
+            "warnings: {:?}",
+            ingested.warnings
+        );
+    }
+
+    #[test]
     fn odrl_duty_odrl_remedy_odrl_consequence_in_the_wrong_domain_are_dropped_with_a_named_warning()
     {
         // odrl:duty's domain is Permission, not Prohibition; putting one on
@@ -2174,6 +2205,47 @@ mod tests {
                 Rule::targeting("use", "urn:asset:A", vec![]),
                 Rule::targeting("use", "urn:asset:B", vec![]),
             ]
+        );
+    }
+
+    #[test]
+    fn a_policy_level_target_naming_more_than_one_asset_is_not_silently_truncated() {
+        // Confirmed audit finding: `policy_target = first_string(node,
+        // "target")` in `policy_from` is a bare `.first()`, no length
+        // check, no warning -- unlike `policy_action_from`, which at least
+        // warns when the policy names more than one action. A policy
+        // declaring several targets at its own level used to keep only the
+        // first, silently dropping every rule that should have applied to
+        // the rest -- including a prohibition, the exact fail-open
+        // direction this crate's own README calls out elsewhere.
+        let doc = r#"{
+          "@context": "http://www.w3.org/ns/odrl.jsonld",
+          "@type": "Offer",
+          "@id": "urn:uuid:multi-target-policy",
+          "assigner": "did:web:provider.example",
+          "target": ["urn:asset:A", "urn:asset:B"],
+          "permission": [{ "action": "use" }],
+          "prohibition": [{ "action": "distribute" }]
+        }"#;
+        let ingested = ingest_policy(doc)
+            .expect("a policy with a multi-valued policy-level target must still ingest");
+        assert_eq!(
+            ingested.policy.permissions,
+            vec![
+                Rule::targeting("use", "urn:asset:A", vec![]),
+                Rule::targeting("use", "urn:asset:B", vec![]),
+            ],
+            "warnings: {:?}",
+            ingested.warnings
+        );
+        assert_eq!(
+            ingested.policy.prohibitions,
+            vec![
+                Rule::targeting("distribute", "urn:asset:A", vec![]),
+                Rule::targeting("distribute", "urn:asset:B", vec![]),
+            ],
+            "the prohibition must not silently vanish for urn:asset:B: warnings {:?}",
+            ingested.warnings
         );
     }
 
@@ -2387,6 +2459,94 @@ mod tests {
                 rule: RuleSlot::Permission(0),
                 left_operand: "purpose".to_string(),
                 right_operands: ("a".to_string(), "b".to_string()),
+            }]
+        );
+    }
+
+    #[test]
+    fn an_untargeted_obligation_genuinely_colliding_with_a_targeted_prohibition_is_flagged() {
+        // Confirmed audit finding: `detect_inconsistencies` compared
+        // `target: Option<String>` for plain equality, but `None` means
+        // "applies to every asset" per `Rule::target_applies`'s own doc
+        // comment (`engine/src/decision.rs`: `self.target.as_deref()
+        // .is_none_or(...)`) -- not "no asset". An untargeted obligation
+        // genuinely collides with a prohibition naming a specific target
+        // (the paper's own "genuine, unconditional" case), but the old
+        // `None == Some(_)` comparison was always false, so this was never
+        // flagged.
+        let doc = r#"{
+          "@context": "http://www.w3.org/ns/odrl.jsonld",
+          "@type": "Offer",
+          "@id": "urn:uuid:none-target-collision",
+          "assigner": "did:web:provider.example",
+          "obligation": [{ "action": "notify" }],
+          "prohibition": [{ "action": "notify", "target": "urn:asset:A" }]
+        }"#;
+        let ingested = ingest_policy(doc).expect("must ingest");
+        assert!(
+            ingested.inconsistencies.iter().any(|i| matches!(
+                i,
+                Inconsistency::ObligationProhibitionConflict { action, target, .. }
+                    if action == "notify" && target.as_deref() == Some("urn:asset:A")
+            )),
+            "inconsistencies: {:?}",
+            ingested.inconsistencies
+        );
+    }
+
+    #[test]
+    fn an_untargeted_permission_genuinely_colliding_with_a_targeted_prohibition_is_flagged() {
+        // Same gap, the permission/prohibition potential-conflict check.
+        let doc = r#"{
+          "@context": "http://www.w3.org/ns/odrl.jsonld",
+          "@type": "Offer",
+          "@id": "urn:uuid:none-target-collision-permission",
+          "assigner": "did:web:provider.example",
+          "permission": [{ "action": "read" }],
+          "prohibition": [{ "action": "read", "target": "urn:asset:B" }]
+        }"#;
+        let ingested = ingest_policy(doc).expect("must ingest");
+        assert!(
+            ingested.inconsistencies.iter().any(|i| matches!(
+                i,
+                Inconsistency::PermissionProhibitionPotentialConflict { action, target, .. }
+                    if action == "read" && target.as_deref() == Some("urn:asset:B")
+            )),
+            "inconsistencies: {:?}",
+            ingested.inconsistencies
+        );
+    }
+
+    #[test]
+    fn two_eq_constraints_under_one_odrl_and_with_different_right_operands_is_unsatisfiable() {
+        // Confirmed audit finding: `unsatisfiable_constraints_in` excluded
+        // every logical top-level entry uniformly, including `odrl:and` --
+        // but two Eq constraints on the same left_operand under a real
+        // conjunction ARE genuinely unsatisfiable (unlike under `odrl:or`,
+        // a disjunction, which the sibling test below correctly still does
+        // not flag).
+        let doc = r#"{
+          "@context": "http://www.w3.org/ns/odrl.jsonld",
+          "@type": "Offer",
+          "@id": "urn:uuid:and-unsatisfiable",
+          "assigner": "did:web:provider.example",
+          "permission": [{
+            "action": "use",
+            "constraint": [{
+              "and": [
+                { "leftOperand": "purpose", "operator": "eq", "rightOperand": "research" },
+                { "leftOperand": "purpose", "operator": "eq", "rightOperand": "commercial" }
+              ]
+            }]
+          }]
+        }"#;
+        let ingested = ingest_policy(doc).expect("must ingest");
+        assert_eq!(
+            ingested.inconsistencies,
+            vec![Inconsistency::UnsatisfiableConstraint {
+                rule: RuleSlot::Permission(0),
+                left_operand: "purpose".to_string(),
+                right_operands: ("research".to_string(), "commercial".to_string()),
             }]
         );
     }
