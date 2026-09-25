@@ -1,4 +1,5 @@
 use crate::app_route::AppRoute;
+use crate::content::{self, DocEntry, DOCS};
 use crate::engine_module::fetch_engine_wasm_len;
 use patternfly_yew::prelude::*;
 use serde::Deserialize;
@@ -535,4 +536,69 @@ fn full_compliance_summary_view() -> Html {
           </Alert>
         ),
     }
+}
+
+/// A doc route whose slug matches no `content::DOCS` entry -- same shape
+/// as the dataspace site's own `NotFoundPage`.
+#[component]
+pub fn NotFoundPage() -> Html {
+    html!(
+      <Bullseye>
+        <EmptyState title="Page not found" icon={Icon::Search}>
+          { "There's no doc at this address." }
+        </EmptyState>
+      </Bullseye>
+    )
+}
+
+/// Index page for the docs browser -- lists every embedded `docs/*.md`
+/// entry from `content::DOCS`, in the order the top-level README's own
+/// "Documentation" table lists them (source order in `content.rs`, not
+/// re-sorted). Mirrors the shape of the dataspace site's own
+/// `AdrIndexPage`/`WorksheetIndexPage`/etc.
+#[component]
+pub fn DocIndexPage() -> Html {
+    html!(
+      <>
+        <Title level={Level::H1} size={Size::XXXLarge}>{ "Documentation" }</Title>
+        <p>
+          { "The former README.md, split into one standalone reference doc per topic. \
+             See the top-level README for a build/run quick-start and this same table." }
+        </p>
+        <ul class="pf-v6-c-list">
+          { for DOCS.iter().map(|doc| html!(
+            <li>
+              <Link<AppRoute> to={AppRoute::Doc { slug: doc.slug.to_string() }}>{ doc.title }</Link<AppRoute>>
+            </li>
+          )) }
+        </ul>
+      </>
+    )
+}
+
+#[derive(Properties, PartialEq)]
+pub struct DocPageProps {
+    pub doc: &'static DocEntry,
+}
+
+/// Renders one embedded doc's markdown to HTML via `content::render`
+/// (`pulldown_cmark::html::push_html` under the hood) -- same component
+/// shape as the dataspace site's own `DocPage`. The doc's own top-level
+/// `#` heading is already in its markdown, so this renders no separate
+/// page title.
+#[component]
+pub fn DocPage(props: &DocPageProps) -> Html {
+    let rendered = content::render(props.doc);
+    html!(
+      <>
+        <div class="pf-v6-c-content">
+          { Html::from_html_unchecked(AttrValue::from(rendered)) }
+        </div>
+        <p>
+          <a href={props.doc.raw_href} target="_blank" rel="noopener noreferrer">
+            { "View raw source" }
+          </a>
+        </p>
+      </>
+    )
 }

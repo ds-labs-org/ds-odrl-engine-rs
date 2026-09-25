@@ -5,11 +5,13 @@ use yew::prelude::*;
 use yew_nested_router::prelude::Switch as RouterSwitch;
 
 /// The page shell: masthead brand, sidebar nav, and a router `Switch`
-/// plugging in whichever of the six routes (Home/Demo/Compliance/
-/// Capability Audit/ODRL 2.2 Full Compliance/History) is current.
-/// Structurally mirrors the ds42.org dataspace study's own `MainView`
-/// (Masthead/Page/Nav via patternfly-yew), not its nav items -- this
-/// product has its own six-page shape.
+/// plugging in whichever route is current -- Home/Demo/Compliance/
+/// Capability Audit/ODRL 2.2 Full Compliance/History, plus the docs
+/// index and per-doc routes added once the former README.md was split
+/// into `docs/*.md` (see `app_route.rs`, `content.rs`). Structurally
+/// mirrors the ds42.org dataspace study's own `MainView` (Masthead/Page/
+/// Nav via patternfly-yew), not its nav items -- this product has its
+/// own page shape.
 ///
 /// "ODRL 2.2 Full Compliance" sits directly under "Capability Audit"
 /// deliberately: the two pages drive the same engine over the same
@@ -40,6 +42,7 @@ pub fn MainView() -> Html {
             <NavRouterItem<AppRoute> to={AppRoute::Coverage}>{ "Capability Audit" }</NavRouterItem<AppRoute>>
             <NavRouterItem<AppRoute> to={AppRoute::FullCompliance}>{ "ODRL 2.2 Full Compliance" }</NavRouterItem<AppRoute>>
             <NavRouterItem<AppRoute> to={AppRoute::History}>{ "Release History" }</NavRouterItem<AppRoute>>
+            <NavRouterItem<AppRoute> to={AppRoute::DocIndex}>{ "Documentation" }</NavRouterItem<AppRoute>>
           </NavList>
         </Nav>
       </PageSidebar>
