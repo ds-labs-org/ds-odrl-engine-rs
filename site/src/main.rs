@@ -47,17 +47,6 @@ mod demo_form;
 mod demo_page;
 #[cfg(target_arch = "wasm32")]
 mod demo_widgets;
-// Ungated for the same reason `compliance_cases`/`coverage_catalog` above
-// are: this is the Demonstrator's "Paste policy JSON" import feature's
-// whole pure half -- shape detection and the EDC PolicyDefinitionDto
-// translator (action fan-out, action-refinement objects, typed-value
-// rightOperands, the wrapper-triplication quirk) -- with no DOM and no
-// engine.wasm call anywhere in it. Behind a wasm32 gate its own unit tests,
-// including the real-world regression case against
-// `testdata/edc-tdac-policy.json`, would silently never compile under
-// `cargo test --workspace`.
-#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
-mod edc_import;
 #[cfg(target_arch = "wasm32")]
 mod engine_bridge;
 #[cfg(target_arch = "wasm32")]
@@ -109,11 +98,7 @@ mod profile_panel;
 mod run_support;
 #[cfg(target_arch = "wasm32")]
 mod switch_app_route;
-// Ungated: this module is a plain serde mirror (see its own header
-// comment) with no wasm-specific code at all, and `edc_import`'s own unit
-// tests need it to compile natively to exercise the translator's output
-// shape without a browser.
-#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+#[cfg(target_arch = "wasm32")]
 mod wire;
 
 #[cfg(not(target_arch = "wasm32"))]
