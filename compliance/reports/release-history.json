@@ -2858,6 +2858,42 @@
       },
       "summary": "audit-fixes-2 -- test the real, narrower scope of policy-level assigneeOf/assignerOf",
       "tag": "v0.24.1"
+    },
+    {
+      "commit": "00d4ddd500ac93eece854782668980b0b35660e9",
+      "compliance": {
+        "failed": 0,
+        "passed": 68,
+        "skipped": 0,
+        "total": 68
+      },
+      "contradicted_rows": [],
+      "coverage": {
+        "agreed": 136,
+        "contradicted": 0,
+        "disagreed": 0,
+        "documented": 2,
+        "envelope_rejected": 4,
+        "errored": 0,
+        "inconclusive": 0,
+        "probes_total": 136,
+        "verified": 50
+      },
+      "coverage_error": null,
+      "date": "2026-09-25T22:15:09+02:00",
+      "engine_wasm_bytes": 318363,
+      "engine_wasm_sha256": "f86515a45542e27b9ce2970f1994eabba5b94de922c3d0d456f87d73eb4e74df",
+      "full_compliance": {
+        "probes_falls_short": 15,
+        "probes_meets": 115,
+        "probes_undetermined": 0,
+        "rows_falls_short": 13,
+        "rows_meets": 31,
+        "rows_structural_gap": 1,
+        "rows_undetermined": 0
+      },
+      "summary": "green: condition_report links every sibling odrl:duty, not only the first",
+      "tag": "v0.24.2"
     }
   ],
   "schema": "ds-odrl-engine-rs/release-history@3"
