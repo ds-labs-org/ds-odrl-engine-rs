@@ -93,6 +93,13 @@ pub static DOCS: &[DocEntry] = &[
         raw_href: "docs/release-history-methodology.md",
         content: include_str!("../../docs/release-history-methodology.md"),
     },
+    DocEntry {
+        title: "References",
+        slug: "references",
+        base_dir: "docs/references/",
+        raw_href: "docs/references/README.md",
+        content: include_str!("../../docs/references/README.md"),
+    },
 ];
 
 pub fn find_doc(slug: &str) -> Option<&'static DocEntry> {

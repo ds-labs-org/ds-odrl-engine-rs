@@ -36,6 +36,7 @@ also browsable on the live site once deployed
 | Profile interpretation and DSP ingestion | [docs/profiles-and-ingestion.md](docs/profiles-and-ingestion.md) | [/docs/profiles-and-ingestion](https://ds-labs-org.github.io/ds-odrl-engine-rs/docs/profiles-and-ingestion) |
 | Compliance methodology and suite attribution | [docs/compliance-methodology.md](docs/compliance-methodology.md) | [/docs/compliance-methodology](https://ds-labs-org.github.io/ds-odrl-engine-rs/docs/compliance-methodology) |
 | Release history dashboard methodology | [docs/release-history-methodology.md](docs/release-history-methodology.md) | [/docs/release-history-methodology](https://ds-labs-org.github.io/ds-odrl-engine-rs/docs/release-history-methodology) |
+| References (papers this design was checked against, mirrored locally) | [docs/references/](docs/references/) | [/docs/references](https://ds-labs-org.github.io/ds-odrl-engine-rs/docs/references) |
 
 ## Building and testing
 
