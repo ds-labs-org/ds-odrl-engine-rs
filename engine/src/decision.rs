@@ -4339,8 +4339,14 @@ mod tests {
         assert_eq!(both.activation_state, ActivationState::Active);
         assert_eq!(both.performance_state, PerformanceState::Performed);
         assert_eq!(both.condition_report.len(), 2);
-        assert_eq!(both.condition_report[0].deontic_state, DeonticState::Fulfilled);
-        assert_eq!(both.condition_report[1].deontic_state, DeonticState::Fulfilled);
+        assert_eq!(
+            both.condition_report[0].deontic_state,
+            DeonticState::Fulfilled
+        );
+        assert_eq!(
+            both.condition_report[1].deontic_state,
+            DeonticState::Fulfilled
+        );
     }
 
     #[test]
