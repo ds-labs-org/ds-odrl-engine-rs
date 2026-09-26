@@ -44,8 +44,7 @@ fn cases() -> Vec<(String, Request, String)> {
 
 #[test]
 fn differential_against_native_engine() {
-    #[cfg(feature = "eyeron")]
-    if std::env::var("N3E_REASONER").is_err() {
+        if std::env::var("N3E_REASONER").is_err() {
         run(N3Enforcer::new(n3_enforcer::EyeronLib));
         return;
     }
@@ -131,7 +130,6 @@ fn run<R: n3_enforcer::Reasoner>(enforcer: N3Enforcer<R>) {
     }
 }
 
-#[cfg(feature = "eyeron")]
 #[test]
 fn enforce_uses_the_reasoner_and_falls_back_for_what_it_cannot_express() {
     use n3_enforcer::{Enforcer, Path};

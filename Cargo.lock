@@ -986,8 +986,6 @@ version = "0.0.1"
 dependencies = [
  "engine",
  "eyeron",
- "oxrdf",
- "oxttl",
  "serde_json",
 ]
 

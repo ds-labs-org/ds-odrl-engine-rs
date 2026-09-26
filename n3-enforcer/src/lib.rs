@@ -30,7 +30,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use engine::{Request, Response};
 
-pub use rdf::Unsupported;
+pub use rdf::{to_n3, Unsupported};
 pub use reduce::{reduce, to_response, ReportSummary};
 
 /// An N3 reasoner: takes one N3 document (rules and data concatenated) and
@@ -100,10 +100,8 @@ impl Reasoner for CommandReasoner {
 }
 
 /// In-process eyeron (`--features eyeron`).
-#[cfg(feature = "eyeron")]
 pub struct EyeronLib;
 
-#[cfg(feature = "eyeron")]
 impl Reasoner for EyeronLib {
     fn derive(&self, n3: &str) -> Result<String, ReasonerError> {
         eyeron::reason(n3).map_err(|e| ReasonerError(e.to_string()))
@@ -167,7 +165,6 @@ impl<R: Reasoner> Enforcer<R> {
     }
 }
 
-#[cfg(feature = "eyeron")]
 impl Enforcer<EyeronLib> {
     /// 100% Rust: the in-process eyeron reasoner, no subprocess, no Node.
     pub fn eyeron() -> Self {
@@ -197,17 +194,34 @@ impl<R: Reasoner> N3Enforcer<R> {
     /// (`log:collectAllIn` counts) and must run after every premise report
     /// is complete.
     pub fn report(&self, req: &Request) -> Result<(String, ReportSummary), EnforcerError> {
-        let data = rdf::to_n3(req).map_err(EnforcerError::Unsupported)?;
+        let e = self.explain(req)?;
+        Ok((e.report_turtle, e.summary))
+    }
+
+    /// Like [`report`](Self::report), but also returns the N3 generated from
+    /// the request, for display and debugging.
+    pub fn explain(&self, req: &Request) -> Result<Explanation, EnforcerError> {
+        let n3_input = rdf::to_n3(req).map_err(EnforcerError::Unsupported)?;
         let round1 = self
             .reasoner
-            .derive(&format!("{data}\n{}", rules::ROUND1))
+            .derive(&format!("{n3_input}\n{}", rules::ROUND1))
             .map_err(EnforcerError::Reasoner)?;
         let round2 = self
             .reasoner
-            .derive(&format!("{data}\n{round1}\n{}", rules::ROUND2))
+            .derive(&format!("{n3_input}\n{round1}\n{}", rules::ROUND2))
             .map_err(EnforcerError::Reasoner)?;
-        let all = format!("{round1}\n{round2}");
-        let summary = reduce(&all).map_err(EnforcerError::BadOutput)?;
-        Ok((all, summary))
+        let report_turtle = format!("{round1}\n{round2}");
+        let summary = reduce(&report_turtle).map_err(EnforcerError::BadOutput)?;
+        Ok(Explanation { n3_input, report_turtle, summary })
     }
+}
+
+/// Everything one reasoner run produced for a request.
+#[derive(Debug)]
+pub struct Explanation {
+    /// The policy, request and state of the world as N3 (the reasoner's data).
+    pub n3_input: String,
+    /// The newly derived compliance-report triples of both rounds (Turtle).
+    pub report_turtle: String,
+    pub summary: ReportSummary,
 }

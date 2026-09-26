@@ -7,22 +7,17 @@ repository.workspace = true
 description = "DRAFT: a reasoner-backed ODRL enforcer that runs SolidLab's N3 rules and reduces the compliance report to the engine's Allow/Deny"
 publish = false
 
-[features]
-default = ["eyeron"]
+[dependencies]
+engine = { path = "../engine" }
+serde_json = "1"
+
 # In-process Rust N3 reasoner: eyereasoner/eyeron >= 0.6.8, which carries the
 # fixes this crate needs (xsd:dateTime comparison, collectAllIn blank
 # templates, log:uuid; merged upstream as PR #9). Git-only, not on crates.io.
-eyeron = ["dep:eyeron"]
-
-[dependencies]
-engine = { path = "../engine" }
-oxrdf = "0.3.4"
-oxttl = "0.2.4"
-serde_json = "1"
-
+# Also used to parse any reasoner's output (so no oxttl/oxrdf, and with them
+# no getrandom, which wasm32-unknown-unknown builds would need configured).
 [dependencies.eyeron]
 git = "https://github.com/eyereasoner/eyeron"
 rev = "1c01133ad5e3442aa71e8ef036e629ac74e8c176"
-optional = true
 
 [dev-dependencies]

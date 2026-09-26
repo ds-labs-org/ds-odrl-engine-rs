@@ -19,8 +19,10 @@ report triples ──reduce.rs──► Allow / Deny   (prohibition > permission
 - `Reasoner` is one method: N3 document in, **newly derived triples** out
   (the `eye --pass-only-new` contract). Implementations: `CommandReasoner`
   (any binary: `eye`, the `eyeron` binary, `node eye-shim.mjs`) and
-  `EyeronLib` (default feature `eyeron`; in-process; git-only, pinned by
-  `rev` in `Cargo.toml`).
+  `EyeronLib` (in-process; eyeron is a git dependency pinned by `rev` in
+  `Cargo.toml`). eyeron also parses the report output of any reasoner, so the
+  crate has no RDF-library dependency and builds for `wasm32-unknown-unknown`
+  as is: the ds42.org site embeds it (`/odrl-reasoner`).
 - `rules/round1.n3`, `rules/round2.n3` are the upstream rule strings
   copied verbatim (MIT; see `rules/NOTICE`). Draft-only: replace with a
   pinned submodule plus a regeneration step.
@@ -48,8 +50,7 @@ let (response, path) = enforcer.enforce(&request);
 //                                   failed: decided by engine::evaluate_request
 ```
 
-`cargo test -p n3-enforcer` runs everything in-process on the default
-`eyeron` feature, with no external reasoner, and is strict (any
+`cargo test -p n3-enforcer` runs everything in-process, with no external reasoner, and is strict (any
 disagreement, contradiction or error fails). Cases with more than 100
 constraints are skipped unless `N3E_ALL=1` (see cost below).
 

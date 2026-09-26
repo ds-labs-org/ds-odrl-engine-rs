@@ -11,8 +11,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use engine::{Response, WireDecision};
-use oxrdf::{NamedOrBlankNode, Term};
-use oxttl::TurtleParser;
+use eyeron::Term;
 
 const REPORT: &str = "https://w3id.org/force/compliance-report#";
 const RDF_TYPE: &str = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
@@ -28,17 +27,18 @@ pub struct ReportSummary {
 pub fn reduce(turtle: &str) -> Result<ReportSummary, String> {
     let mut types: BTreeMap<String, String> = BTreeMap::new();
     let mut states: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
-    for t in TurtleParser::new().for_slice(turtle.as_bytes()) {
-        let t = t.map_err(|e| e.to_string())?;
-        let s = match &t.subject {
-            NamedOrBlankNode::NamedNode(n) => n.as_str().to_string(),
-            NamedOrBlankNode::BlankNode(b) => format!("_:{}", b.as_str()),
+    let doc = eyeron::parse_n3(turtle, None).map_err(|e| e.to_string())?;
+    for t in &doc.facts {
+        let s = match &t.s {
+            Term::Iri(iri) => iri.clone(),
+            Term::Blank(label) => format!("_:{label}"),
+            _ => continue,
         };
-        let Term::NamedNode(o) = &t.object else { continue };
-        if t.predicate.as_str() == RDF_TYPE {
-            types.entry(s).or_insert_with(|| o.as_str().to_string());
-        } else if t.predicate.as_str() == format!("{REPORT}activationState") {
-            states.entry(s).or_default().insert(o.as_str().to_string());
+        let (Term::Iri(p), Term::Iri(o)) = (&t.p, &t.o) else { continue };
+        if p == RDF_TYPE {
+            types.entry(s).or_insert_with(|| o.clone());
+        } else if p == &format!("{REPORT}activationState") {
+            states.entry(s).or_default().insert(o.clone());
         }
     }
     let mut out = ReportSummary::default();
