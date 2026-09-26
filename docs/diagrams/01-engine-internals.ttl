@@ -1,0 +1,141 @@
+# ds-odrl-engine-rs internals: which components exist and what connects to
+# what. Hand-authored against ds-honeycomb-editor-rs's vocabulary (hive:
+# 0.3.0), in the standalone mode the dataspace study's ADR-0024 adopted for
+# component diagrams; not written by that tool, so it carries no
+# hive:generator. The rendered 01-engine-internals.svg beside this file is
+# produced from it by ../../scripts/render-hive-svg.py: edit this file, then
+# re-render, never the SVG.
+@base <https://ds42.org/architecture/odrl-engine-internals/> .
+@prefix hive: <https://semantic.ds-labs.org/vocab/honeycomb#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix d:    <https://ds42.org/architecture/odrl-engine-internals/> .
+
+d:odrl-engine-internals a hive:Diagram ;
+    hive:slug "odrl-engine-internals" ;
+    rdfs:label "ds-odrl-engine-rs internals" ;
+    rdfs:comment "The engine crate is a pure, stateless (policy, claims) -> decision evaluator with no I/O, no clock and no RDF layer. Hosts call it over a JSON wire contract; adapters turn real documents into that contract; verification harnesses drive it against independent corpora." ;
+    hive:note "Arrows point from the caller to what it calls. Nothing outside the engine crate is a dependency of it." ;
+    hive:mode hive:standalone ;
+    hive:lattice hive:oddRPointyTop ;
+    hive:formatVersion "0.3.0" ;
+    hive:generatedAt "2026-09-26T00:00:00Z"^^xsd:dateTime ;
+    hive:group d:hosts , d:core , d:adapters , d:verify ;
+    hive:placement
+        d:at-wasmi , d:at-chicory , d:at-native ,
+        d:at-abi , d:at-wire , d:at-decision , d:at-profile , d:at-report ,
+        d:at-constraint , d:at-claims , d:at-temporal ,
+        d:at-dsp , d:at-profint ,
+        d:at-suite , d:at-rdfsuite , d:at-probes , d:at-history , d:at-n3 ;
+    hive:link
+        d:l-wasmi , d:l-chicory , d:l-native , d:l-abi ,
+        d:l-wire-decision , d:l-wire-profile , d:l-decision-constraint ,
+        d:l-decision-report , d:l-constraint-temporal , d:l-constraint-claims ,
+        d:l-dsp , d:l-profint , d:l-suite , d:l-n3 , d:l-history .
+
+#############################  Groups
+
+d:hosts a hive:Group ; hive:slug "hosts" ; rdfs:label "Hosts" ;
+    hive:note "who calls the engine: a Rust or JVM runtime over the wasm ABI, or a Rust crate linking it directly" .
+
+d:core a hive:Group ; hive:slug "core" ; rdfs:label "engine crate" ;
+    hive:note "pure Rust: no I/O, no clock, no RDF, no reasoner; also builds to wasm32-unknown-unknown" .
+
+d:adapters a hive:Group ; hive:slug "adapters" ; rdfs:label "Adapters" ;
+    hive:note "real documents in, wire contract out; kept outside the engine so its dependencies stay minimal" .
+
+d:verify a hive:Group ; hive:slug "verify" ; rdfs:label "Verification" ;
+    hive:note "independent corpora and a second implementation, each driving the engine from outside" .
+
+#############################  Tiles: hosts
+
+d:wasmi a hive:Tile ; hive:slug "wasmi" ; rdfs:label "wasmi host" ;
+    rdfs:comment "Rust host: instantiates engine.wasm and calls alloc / evaluate / dealloc over guest linear memory." .
+d:chicory a hive:Tile ; hive:slug "chicory" ; rdfs:label "Chicory host" ;
+    rdfs:comment "JVM host (the shape of an EDC extension): the same four-export ABI, the same JSON." .
+d:native a hive:Tile ; hive:slug "native" ; rdfs:label "native crate" ;
+    rdfs:comment "A Rust host links engine as an ordinary library and calls evaluate_request directly: the catalog broker's odrl_filter, and the ds42.org site." .
+
+#############################  Tiles: engine crate
+
+d:abi a hive:Tile ; hive:slug "abi" ; rdfs:label "abi" ;
+    rdfs:comment "wasm32 only. Exports alloc, dealloc and evaluate(ptr,len) -> packed ptr/len; JSON in, JSON out." .
+d:wire a hive:Tile ; hive:slug "wire" ; rdfs:label "wire" ;
+    rdfs:comment "The Section 5.2 contract: Request / Response, evaluate_request, evaluate_request_detailed, inheritance and party-role scoping." .
+d:decision a hive:Tile ; hive:slug "decision" ; rdfs:label "decision" ;
+    rdfs:comment "decide(): deny-overrides across policies, conflict strategy, open/closed behaviour, duties, consequences and remedies." .
+d:profile a hive:Tile ; hive:slug "profile" ; rdfs:label "profile" ;
+    rdfs:comment "Declared actions and odrl:includedIn edges, duty mode and behaviour; resolve() merges profiles strictest-wins." .
+d:report a hive:Tile ; hive:slug "report" ; rdfs:label "report" ;
+    rdfs:comment "DetailedEvaluation: per-rule activation and per-premise satisfaction, shaped as the report: vocabulary." .
+d:constraint a hive:Tile ; hive:slug "constraint" ; rdfs:label "constraint" ;
+    rdfs:comment "Ten operators, nested odrl:and / or / xone / andSequence, evaluated over string claims." .
+d:claims a hive:Tile ; hive:slug "claims" ; rdfs:label "claims" ;
+    rdfs:comment "A flat map of string or string-array values: the caller's identity attributes." .
+d:temporal a hive:Tile ; hive:slug "temporal" ; rdfs:label "temporal" ;
+    rdfs:comment "xsd:dateTime, date and duration parsing and ordering (no clock: time arrives as a claim)." .
+
+#############################  Tiles: adapters
+
+d:dsp a hive:Tile ; hive:slug "dsp" ; rdfs:label "dsp-odrl-adapter" ;
+    rdfs:comment "A Dataspace Protocol contract offer's JSON-LD ODRL to a WirePolicy: real JSON-LD expansion over bundled contexts, no network. Opt-in (dsp-ingest)." .
+d:profint a hive:Tile ; hive:slug "profint" ; rdfs:label "profile-interpreter" ;
+    rdfs:comment "An ODRL Profile document (Turtle or JSON-LD) to the request's config: declared actions and their includedIn edges." .
+
+#############################  Tiles: verification
+
+d:suite a hive:Tile ; hive:slug "suite" ; rdfs:label "compliance-runner" ;
+    rdfs:comment "SolidLab's ODRL-Test-Suite: 68 fixtures adapted to the wire contract, decided natively." .
+d:rdfsuite a hive:Tile ; hive:slug "rdfsuite" ; rdfs:label "compliance-rdf-runner" ;
+    rdfs:comment "The ds-odrl-compliance-rdf corpus: RDF cases compared against their expected outcome trees." .
+d:probes a hive:Tile ; hive:slug "probes" ; rdfs:label "coverage-probes" ;
+    rdfs:comment "Targeted probes behind the capability audit and the ODRL 2.2 full-compliance page." .
+d:history a hive:Tile ; hive:slug "history" ; rdfs:label "release-history" ;
+    rdfs:comment "Replays every tagged release's engine.wasm through wasmi against the corpus." .
+d:n3 a hive:Tile ; hive:slug "n3" ; rdfs:label "n3-enforcer" ;
+    rdfs:comment "A second implementation: the ODRL-Evaluator's N3 rules on the pure-Rust eyeron reasoner, cross-checked against the engine." .
+
+#############################  Placements (odd-r pointy-top lattice)
+
+d:at-chicory  a hive:Placement ; hive:col 2 ; hive:row -2 ; hive:inGroup d:hosts ; hive:tile d:chicory .
+d:at-wasmi    a hive:Placement ; hive:col 3 ; hive:row -2 ; hive:inGroup d:hosts ; hive:tile d:wasmi .
+d:at-native   a hive:Placement ; hive:col 1 ; hive:row -1 ; hive:inGroup d:hosts ; hive:tile d:native .
+
+d:at-abi        a hive:Placement ; hive:col 3 ; hive:row 0 ; hive:inGroup d:core ; hive:tile d:abi .
+d:at-wire       a hive:Placement ; hive:col 2 ; hive:row 1 ; hive:inGroup d:core ; hive:tile d:wire .
+d:at-profile    a hive:Placement ; hive:col 2 ; hive:row 2 ; hive:inGroup d:core ; hive:tile d:profile .
+d:at-decision   a hive:Placement ; hive:col 3 ; hive:row 2 ; hive:inGroup d:core ; hive:tile d:decision .
+d:at-report     a hive:Placement ; hive:col 2 ; hive:row 3 ; hive:inGroup d:core ; hive:tile d:report .
+d:at-constraint a hive:Placement ; hive:col 3 ; hive:row 3 ; hive:inGroup d:core ; hive:tile d:constraint .
+d:at-claims     a hive:Placement ; hive:col 4 ; hive:row 3 ; hive:inGroup d:core ; hive:tile d:claims .
+d:at-temporal   a hive:Placement ; hive:col 3 ; hive:row 4 ; hive:inGroup d:core ; hive:tile d:temporal .
+
+d:at-dsp     a hive:Placement ; hive:col 0 ; hive:row 1 ; hive:inGroup d:adapters ; hive:tile d:dsp .
+d:at-profint a hive:Placement ; hive:col 0 ; hive:row 2 ; hive:inGroup d:adapters ; hive:tile d:profint .
+
+d:at-history  a hive:Placement ; hive:col 6 ; hive:row 0 ; hive:inGroup d:verify ; hive:tile d:history .
+d:at-suite    a hive:Placement ; hive:col 6 ; hive:row 1 ; hive:inGroup d:verify ; hive:tile d:suite .
+d:at-rdfsuite a hive:Placement ; hive:col 7 ; hive:row 1 ; hive:inGroup d:verify ; hive:tile d:rdfsuite .
+d:at-n3       a hive:Placement ; hive:col 6 ; hive:row 2 ; hive:inGroup d:verify ; hive:tile d:n3 .
+d:at-probes   a hive:Placement ; hive:col 7 ; hive:row 2 ; hive:inGroup d:verify ; hive:tile d:probes .
+
+#############################  Links
+
+d:l-wasmi   a hive:Link ; hive:from d:at-wasmi   ; hive:to d:at-abi ; hive:routing hive:straight ; rdfs:label "engine.wasm" .
+d:l-chicory a hive:Link ; hive:from d:at-chicory ; hive:to d:at-abi ; hive:routing hive:straight ; rdfs:label "engine.wasm" .
+d:l-native  a hive:Link ; hive:from d:at-native  ; hive:to d:at-wire ; hive:routing hive:straight ; rdfs:label "evaluate_request" .
+d:l-abi     a hive:Link ; hive:from d:at-abi     ; hive:to d:at-wire ; hive:routing hive:straight ; rdfs:label "JSON" .
+
+d:l-wire-decision       a hive:Link ; hive:from d:at-wire ; hive:to d:at-decision ; hive:routing hive:straight ; rdfs:label "decide" .
+d:l-wire-profile        a hive:Link ; hive:from d:at-wire ; hive:to d:at-profile ; hive:routing hive:straight ; rdfs:label "config" .
+d:l-decision-constraint a hive:Link ; hive:from d:at-decision ; hive:to d:at-constraint ; hive:routing hive:straight ; rdfs:label "evaluate" .
+d:l-decision-report     a hive:Link ; hive:from d:at-decision ; hive:to d:at-report ; hive:routing hive:straight ; rdfs:label "detailed" .
+d:l-constraint-temporal a hive:Link ; hive:from d:at-constraint ; hive:to d:at-temporal ; hive:routing hive:straight ; rdfs:label "ordering" .
+d:l-constraint-claims   a hive:Link ; hive:from d:at-constraint ; hive:to d:at-claims ; hive:routing hive:straight ; rdfs:label "lookup" .
+
+d:l-dsp     a hive:Link ; hive:from d:at-dsp     ; hive:to d:at-wire ; hive:routing hive:straight ; rdfs:label "WirePolicy" .
+d:l-profint a hive:Link ; hive:from d:at-profint ; hive:to d:at-profile ; hive:routing hive:straight ; rdfs:label "config" .
+
+d:l-suite   a hive:Link ; hive:from d:at-suite   ; hive:to d:at-wire ; hive:routing hive:straight ; rdfs:label "68 fixtures" .
+d:l-n3      a hive:Link ; hive:from d:at-n3      ; hive:to d:at-decision ; hive:routing hive:straight ; rdfs:label "cross-check" .
+d:l-history a hive:Link ; hive:from d:at-history ; hive:to d:at-wasmi ; hive:routing hive:straight ; rdfs:label "replays releases" .

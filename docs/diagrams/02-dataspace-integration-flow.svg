@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 954" role="img" aria-label="Sequence: how ds-odrl-engine-rs sits in a dataspace. A consumer calls the provider's catalog broker with a bearer token; the broker maps the token to claims and asks the engine, per policy, whether the caller may see each dataset, and returns a filtered catalog. For contract negotiation the adapter turns a JSON-LD offer into a wire policy for the same engine, which is proposed rather than wired. A reasoner-backed enforcer cross-checks the engine outside the request path.">
+<style>
+.fl-bg { fill: #ffffff; }
+.fl-title { fill: #0f172a; font: 600 16px -apple-system, Segoe UI, Helvetica, Arial, sans-serif; text-anchor: middle; }
+.fl-sub { fill: #475569; font: 11px -apple-system, Segoe UI, Helvetica, Arial, sans-serif; }
+.fl-lane { font: 600 12.5px -apple-system, Segoe UI, Helvetica, Arial, sans-serif; text-anchor: middle; }
+.fl-lanesub { fill: #475569; font: 10.5px -apple-system, Segoe UI, Helvetica, Arial, sans-serif; text-anchor: middle; }
+.fl-life { stroke: #94a3b8; stroke-width: 1; stroke-dasharray: 3 4; }
+.fl-msg { stroke: #334155; stroke-width: 1.5; fill: none; }
+.fl-ret { stroke: #64748b; stroke-width: 1.4; stroke-dasharray: 5 3; fill: none; }
+.fl-head { fill: #334155; }
+.fl-label { fill: #0f172a; font: 11px -apple-system, Segoe UI, Helvetica, Arial, sans-serif; text-anchor: middle; paint-order: stroke; stroke: #ffffff; stroke-width: 3.5px; stroke-linejoin: round; }
+.fl-note { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 1; }
+.fl-notetext { fill: #1e293b; font: 10.5px -apple-system, Segoe UI, Helvetica, Arial, sans-serif; text-anchor: middle; }
+.fl-phase-impl { fill: #ecfdf5; stroke: #10b981; } .fl-pt-impl { fill: #047857; }
+.fl-phase-prop { fill: #fffbeb; stroke: #f59e0b; } .fl-pt-prop { fill: #b45309; }
+.fl-phase-assure { fill: #f5f3ff; stroke: #8b5cf6; } .fl-pt-assure { fill: #6d28d9; }
+.fl-phasetitle { font: 600 12.5px -apple-system, Segoe UI, Helvetica, Arial, sans-serif; }
+.fl-box { stroke-width: 1.5; }
+.fl-ba { fill: #eff6ff; stroke: #2563eb; } .fl-ta { fill: #1d4ed8; }
+.fl-bb { fill: #f0fdfa; stroke: #0f766e; } .fl-tb { fill: #0f766e; }
+.fl-bc { fill: #fffbeb; stroke: #b45309; } .fl-tc { fill: #b45309; }
+.fl-bd { fill: #f5f3ff; stroke: #6d28d9; } .fl-td { fill: #6d28d9; }
+@media (prefers-color-scheme: dark) {
+  .fl-bg { fill: #0f172a; }
+  .fl-title, .fl-label { fill: #f1f5f9; }
+  .fl-sub, .fl-lanesub { fill: #cbd5e1; }
+  .fl-label { stroke: #0f172a; }
+  .fl-life { stroke: #475569; }
+  .fl-msg { stroke: #cbd5e1; } .fl-head { fill: #cbd5e1; } .fl-ret { stroke: #94a3b8; }
+  .fl-note { fill: #1e293b; stroke: #475569; } .fl-notetext { fill: #e2e8f0; }
+  .fl-phase-impl { fill: #064e3b55; stroke: #34d399; } .fl-pt-impl { fill: #6ee7b7; }
+  .fl-phase-prop { fill: #78350f55; stroke: #fbbf24; } .fl-pt-prop { fill: #fcd34d; }
+  .fl-phase-assure { fill: #4c1d9555; stroke: #a78bfa; } .fl-pt-assure { fill: #c4b5fd; }
+  .fl-ba { fill: #172554; stroke: #60a5fa; } .fl-ta { fill: #93c5fd; }
+  .fl-bb { fill: #042f2e; stroke: #2dd4bf; } .fl-tb { fill: #5eead4; }
+  .fl-bc { fill: #451a03; stroke: #fbbf24; } .fl-tc { fill: #fcd34d; }
+  .fl-bd { fill: #2e1065; stroke: #a78bfa; } .fl-td { fill: #c4b5fd; }
+}
+</style>
+<defs><marker id="fl-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path class="fl-head" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+<rect class="fl-bg" width="1000" height="954" rx="8"/>
+<text class="fl-title" x="500" y="28">Where the engine sits in a dataspace</text>
+<text class="fl-sub" x="500" y="46" style="text-anchor:middle">A caller reaches a provider over the Dataspace Protocol; the provider asks the engine what the caller may do. Solid: request. Dashed: response.</text>
+<rect class="fl-phase-impl" x="8" y="134" width="984" height="354" rx="6" fill-opacity="0.55" stroke-width="1"/>
+<text class="fl-phasetitle fl-pt-impl" x="20" y="151">1 · Catalog visibility</text>
+<text class="fl-sub" x="204" y="151">implemented in ds-catalog-broker-rs (odrl_filter.rs)</text>
+<rect class="fl-phase-prop" x="8" y="488" width="984" height="350" rx="6" fill-opacity="0.55" stroke-width="1"/>
+<text class="fl-phasetitle fl-pt-prop" x="20" y="505">2 · Contract negotiation</text>
+<text class="fl-sub" x="220" y="505">adapter and engine exist; a connector hook is proposed (case study §5.4)</text>
+<rect class="fl-phase-assure" x="8" y="838" width="984" height="76" rx="6" fill-opacity="0.55" stroke-width="1"/>
+<text class="fl-phasetitle fl-pt-assure" x="20" y="855">3 · Assurance</text>
+<text class="fl-sub" x="132" y="855">not in any request's path: CI, and the ds42.org demonstrator</text>
+<line class="fl-life" x1="92" y1="112" x2="92" y2="914"/>
+<rect class="fl-box fl-ba" x="17" y="66" width="150" height="44" rx="8"/>
+<text class="fl-lane fl-ta" x="92" y="86">Consumer</text>
+<text class="fl-lanesub" x="92" y="101">connector + caller identity</text>
+<line class="fl-life" x1="322" y1="112" x2="322" y2="914"/>
+<rect class="fl-box fl-bb" x="247" y="66" width="150" height="44" rx="8"/>
+<text class="fl-lane fl-tb" x="322" y="86">Provider</text>
+<text class="fl-lanesub" x="322" y="101">catalog broker / connector</text>
+<line class="fl-life" x1="552" y1="112" x2="552" y2="914"/>
+<rect class="fl-box fl-bc" x="477" y="66" width="150" height="44" rx="8"/>
+<text class="fl-lane fl-tc" x="552" y="86">dsp-odrl-adapter</text>
+<text class="fl-lanesub" x="552" y="101">JSON-LD offer to WirePolicy</text>
+<line class="fl-life" x1="762" y1="112" x2="762" y2="914"/>
+<rect class="fl-box fl-bb" x="687" y="66" width="150" height="44" rx="8"/>
+<text class="fl-lane fl-tb" x="762" y="86">engine</text>
+<text class="fl-lanesub" x="762" y="101">native crate or wasm module</text>
+<line class="fl-life" x1="918" y1="112" x2="918" y2="914"/>
+<rect class="fl-box fl-bd" x="843" y="66" width="150" height="44" rx="8"/>
+<text class="fl-lane fl-td" x="918" y="86">n3-enforcer</text>
+<text class="fl-lanesub" x="918" y="101">N3 rules on eyeron</text>
+<line class="fl-msg" x1="97" y1="176" x2="319" y2="176" marker-end="url(#fl-arrow)"/>
+<text class="fl-label" x="207" y="170">GET /catalog · Bearer JWT</text>
+<rect class="fl-note" x="179" y="208" width="286" height="40" rx="5"/>
+<text class="fl-notetext" x="322" y="226">verify the token; JWT claims and host context</text>
+<text class="fl-notetext" x="322" y="240">become engine Claims</text>
+<line class="fl-msg" x1="327" y1="266" x2="759" y2="266" marker-end="url(#fl-arrow)"/>
+<text class="fl-label" x="542" y="260">Request{dataset_id, action, config, one policy, claims}</text>
+<rect class="fl-note" x="678" y="298" width="168" height="40" rx="5"/>
+<text class="fl-notetext" x="762" y="316">decide(): deny-overrides,</text>
+<text class="fl-notetext" x="762" y="330">open/closed, duties</text>
+<line class="fl-ret" x1="757" y1="356" x2="325" y2="356" marker-end="url(#fl-arrow)"/>
+<text class="fl-label" x="542" y="350">Response{Allow | Deny, reason, duties}</text>
+<rect class="fl-note" x="188" y="388" width="268" height="54" rx="5"/>
+<text class="fl-notetext" x="322" y="406">OR across a dataset's alternative offers;</text>
+<text class="fl-notetext" x="322" y="420">hide what is not entitled (also management</text>
+<text class="fl-notetext" x="322" y="434">API and SPARQL query rewriting)</text>
+<line class="fl-ret" x1="317" y1="460" x2="95" y2="460" marker-end="url(#fl-arrow)"/>
+<text class="fl-label" x="207" y="454">catalog: only the entitled datasets</text>
+<line class="fl-msg" x1="97" y1="530" x2="319" y2="530" marker-end="url(#fl-arrow)"/>
+<text class="fl-label" x="207" y="524">ContractRequestMessage (JSON-LD offer)</text>
+<line class="fl-msg" x1="327" y1="574" x2="549" y2="574" marker-end="url(#fl-arrow)"/>
+<text class="fl-label" x="437" y="568">ingest(JSON-LD)</text>
+<rect class="fl-note" x="430" y="606" width="244" height="54" rx="5"/>
+<text class="fl-notetext" x="552" y="624">expand against bundled @contexts,</text>
+<text class="fl-notetext" x="552" y="638">no network; an unknown @context</text>
+<text class="fl-notetext" x="552" y="652">is a hard error, never an empty policy</text>
+<line class="fl-ret" x1="547" y1="678" x2="325" y2="678" marker-end="url(#fl-arrow)"/>
+<text class="fl-label" x="437" y="672">WirePolicy</text>
+<line class="fl-msg" x1="327" y1="722" x2="759" y2="722" marker-end="url(#fl-arrow)"/>
+<text class="fl-label" x="542" y="716">Request{…, claims from the caller's verified identity}</text>
+<line class="fl-ret" x1="757" y1="766" x2="325" y2="766" marker-end="url(#fl-arrow)"/>
+<text class="fl-label" x="542" y="760">Allow | Deny + duties (advise or deny mode)</text>
+<line class="fl-ret" x1="317" y1="810" x2="95" y2="810" marker-end="url(#fl-arrow)"/>
+<text class="fl-label" x="207" y="804">ContractAgreementMessage, or termination</text>
+<line class="fl-msg" x1="913" y1="880" x2="765" y2="880" marker-end="url(#fl-arrow)"/>
+<text class="fl-label" x="840" y="874">same Request, second opinion (68/68 agree)</text>
+</svg>

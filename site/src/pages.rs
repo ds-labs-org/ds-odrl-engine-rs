@@ -162,6 +162,8 @@ const HOME_CSS: &str = r#"
   border-left: 3px solid var(--pf-t--global--color--brand--default, #14b8a6);
   border-radius: 6px;
 }
+.ds-oe-figure { margin: 0.5rem 0 1.75rem; max-width: 62rem; }
+.ds-oe-figure svg { display: block; width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--pf-t--global--border--color--default, #d2d2d2); }
 .ds-oe-not ul { margin: 0.5rem 0 0; padding-left: 1.2rem; }
 .ds-oe-not li { margin: 0.35rem 0; line-height: 1.5; }
 "#;
@@ -278,6 +280,20 @@ enum EngineModuleStatus {
     Failed { message: String },
 }
 
+/// The two architecture diagrams, embedded at compile time from the same
+/// files the README shows (`docs/diagrams/`), so the page and the README
+/// cannot disagree. Both are generated (see `scripts/render-hive-svg.py` and
+/// `scripts/render-flow-svg.py`); their class names are prefixed (`hv-`, `fl-`)
+/// so inlining them next to each other and next to PatternFly's CSS cannot
+/// collide. Inline rather than `<img>` so they need no separate asset copy
+/// under the GitHub Pages subpath.
+const INTERNALS_SVG: &str = include_str!("../../docs/diagrams/01-engine-internals.svg");
+const INTEGRATION_FLOW_SVG: &str = include_str!("../../docs/diagrams/02-dataspace-integration-flow.svg");
+
+fn diagram(svg: &'static str) -> Html {
+    Html::from_html_unchecked(AttrValue::Static(svg))
+}
+
 /// The real Home page: a branded hero, an honest "what this is not"
 /// summary condensed from the README, the live compliance-suite tally
 /// (embedded at compile time from `compliance/reports/latest.json`), and
@@ -375,6 +391,29 @@ pub fn HomePage() -> Html {
         </section>
 
         { engine_status }
+
+        <Content>
+          <Title level={Level::H2}>{ "How it is built" }</Title>
+          <p>
+            { "The engine crate is a pure " }<code>{ "(policy, claims) -> decision" }</code>
+            { " evaluator with no I/O, no clock and no RDF layer. Everything else calls it (hosts), \
+               feeds it (adapters) or checks it (verification). Arrows point from the caller to what \
+               it calls; hover a tile for what it is." }
+          </p>
+        </Content>
+        <figure class="ds-oe-figure">{ diagram(INTERNALS_SVG) }</figure>
+
+        <Content>
+          <Title level={Level::H2}>{ "Where it sits in a dataspace" }</Title>
+          <p>
+            { "A consumer reaches a provider over the Dataspace Protocol and the provider asks the engine what \
+               the caller may do. " }<strong>{ "Catalog visibility is implemented" }</strong>
+            { " in ds-catalog-broker-rs. " }<strong>{ "Contract negotiation is not wired yet" }</strong>
+            { ": the adapter and the engine exist, but no connector calls them from a contract-request handler. \
+               Assurance is never in a request's path." }
+          </p>
+        </Content>
+        <figure class="ds-oe-figure">{ diagram(INTEGRATION_FLOW_SVG) }</figure>
 
         <Content>
           <Title level={Level::H2}>{ "What this is not" }</Title>

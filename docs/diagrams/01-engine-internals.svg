@@ -1,0 +1,150 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 883 763" role="img" aria-label="ds-odrl-engine-rs internals. The engine crate is a pure, stateless (policy, claims) -&gt; decision evaluator with no I/O, no clock and no RDF layer. Hosts call it over a JSON wire contract; adapters turn real documents into that contract; verification harnesses drive it against independent corpora. A static rendering of the honeycomb-vocabulary source next to this file.">
+<style>
+.hv-bg { fill: #ffffff; }
+.hv-title { fill: #0f172a; font: 600 16px -apple-system, Segoe UI, Helvetica, Arial, sans-serif; text-anchor: middle; }
+.hv-caption { fill: #475569; font: 11px -apple-system, Segoe UI, Helvetica, Arial, sans-serif; text-anchor: middle; }
+.hv-grouplabel { font: 600 12.5px -apple-system, Segoe UI, Helvetica, Arial, sans-serif; text-anchor: middle; }
+.hv-label { fill: #0f172a; font: 11px -apple-system, Segoe UI, Helvetica, Arial, sans-serif; text-anchor: middle; }
+.hv-linklabel { fill: #334155; font: 10.5px -apple-system, Segoe UI, Helvetica, Arial, sans-serif; text-anchor: middle; paint-order: stroke; stroke: #ffffff; stroke-width: 3px; stroke-linejoin: round; }
+.hv-link { stroke: #475569; stroke-width: 1.5; fill: none; }
+.hv-arrowhead { fill: #475569; }
+.hv-region path { stroke: none; }
+.hv-tile path { stroke-width: 1.5; }
+.hv-ga.hv-region path { fill: #dbeafe; } .hv-ga.hv-tile path { fill: #eff6ff; stroke: #2563eb; } .hv-ta { fill: #1d4ed8; }
+.hv-gb.hv-region path { fill: #ccfbf1; } .hv-gb.hv-tile path { fill: #f0fdfa; stroke: #0f766e; } .hv-tb { fill: #0f766e; }
+.hv-gc.hv-region path { fill: #fef3c7; } .hv-gc.hv-tile path { fill: #fffbeb; stroke: #b45309; } .hv-tc { fill: #b45309; }
+.hv-gd.hv-region path { fill: #ede9fe; } .hv-gd.hv-tile path { fill: #f5f3ff; stroke: #6d28d9; } .hv-td { fill: #6d28d9; }
+@media (prefers-color-scheme: dark) {
+  .hv-bg { fill: #0f172a; }
+  .hv-title, .hv-label { fill: #f1f5f9; }
+  .hv-caption, .hv-linklabel { fill: #cbd5e1; }
+  .hv-linklabel { stroke: #0f172a; }
+  .hv-link { stroke: #94a3b8; } .hv-arrowhead { fill: #94a3b8; }
+  .hv-ga.hv-region path { fill: #1e3a8a55; } .hv-ga.hv-tile path { fill: #172554; stroke: #60a5fa; } .hv-ta { fill: #93c5fd; }
+  .hv-gb.hv-region path { fill: #134e4a55; } .hv-gb.hv-tile path { fill: #042f2e; stroke: #2dd4bf; } .hv-tb { fill: #5eead4; }
+  .hv-gc.hv-region path { fill: #78350f55; } .hv-gc.hv-tile path { fill: #451a03; stroke: #fbbf24; } .hv-tc { fill: #fcd34d; }
+  .hv-gd.hv-region path { fill: #4c1d9555; } .hv-gd.hv-tile path { fill: #2e1065; stroke: #a78bfa; } .hv-td { fill: #c4b5fd; }
+}
+</style>
+<rect class="hv-bg" width="883" height="763" rx="8"/>
+<text class="hv-title" x="442" y="30">ds-odrl-engine-rs internals</text>
+<text class="hv-caption" x="442" y="50">Arrows point from the caller to what it calls. Nothing outside the engine crate is a dependency of it.</text>
+<g class="hv-region hv-ga">
+<path d="M368.4,74.0 L413.5,100.0 L413.5,152.0 L368.4,178.0 L323.4,152.0 L323.4,100.0 Z"/>
+<path d="M271.0,74.0 L316.0,100.0 L316.0,152.0 L271.0,178.0 L225.9,152.0 L225.9,100.0 Z"/>
+<path d="M222.2,158.4 L267.3,184.4 L267.3,236.4 L222.2,262.4 L177.2,236.4 L177.2,184.4 Z"/>
+</g>
+<g class="hv-region hv-gb">
+<path d="M368.4,242.8 L413.5,268.8 L413.5,320.8 L368.4,346.8 L323.4,320.8 L323.4,268.8 Z"/>
+<path d="M319.7,327.3 L364.7,353.3 L364.7,405.3 L319.7,431.3 L274.7,405.3 L274.7,353.3 Z"/>
+<path d="M368.4,411.7 L413.5,437.7 L413.5,489.7 L368.4,515.7 L323.4,489.7 L323.4,437.7 Z"/>
+<path d="M271.0,411.7 L316.0,437.7 L316.0,489.7 L271.0,515.7 L225.9,489.7 L225.9,437.7 Z"/>
+<path d="M319.7,496.1 L364.7,522.1 L364.7,574.1 L319.7,600.1 L274.7,574.1 L274.7,522.1 Z"/>
+<path d="M417.2,496.1 L462.2,522.1 L462.2,574.1 L417.2,600.1 L372.1,574.1 L372.1,522.1 Z"/>
+<path d="M514.7,496.1 L559.7,522.1 L559.7,574.1 L514.7,600.1 L469.6,574.1 L469.6,522.1 Z"/>
+<path d="M368.4,580.5 L413.5,606.5 L413.5,658.5 L368.4,684.5 L323.4,658.5 L323.4,606.5 Z"/>
+</g>
+<g class="hv-region hv-gc">
+<path d="M124.7,327.3 L169.8,353.3 L169.8,405.3 L124.7,431.3 L79.7,405.3 L79.7,353.3 Z"/>
+<path d="M76.0,411.7 L121.0,437.7 L121.0,489.7 L76.0,515.7 L31.0,489.7 L31.0,437.7 Z"/>
+</g>
+<g class="hv-region hv-gd">
+<path d="M709.6,327.3 L754.7,353.3 L754.7,405.3 L709.6,431.3 L664.6,405.3 L664.6,353.3 Z"/>
+<path d="M807.1,327.3 L852.1,353.3 L852.1,405.3 L807.1,431.3 L762.1,405.3 L762.1,353.3 Z"/>
+<path d="M758.4,411.7 L803.4,437.7 L803.4,489.7 L758.4,515.7 L713.3,489.7 L713.3,437.7 Z"/>
+<path d="M660.9,242.8 L705.9,268.8 L705.9,320.8 L660.9,346.8 L615.8,320.8 L615.8,268.8 Z"/>
+<path d="M660.9,411.7 L705.9,437.7 L705.9,489.7 L660.9,515.7 L615.8,489.7 L615.8,437.7 Z"/>
+</g>
+<text class="hv-grouplabel hv-ta" x="319.7" y="69.0">Hosts</text>
+<text class="hv-grouplabel hv-tb" x="368.4" y="699.5">engine crate</text>
+<text class="hv-grouplabel hv-tc" x="76.0" y="530.7">Adapters</text>
+<text class="hv-grouplabel hv-td" x="660.9" y="237.8">Verification</text>
+<defs>
+<marker id="hv-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="hv-arrowhead" d="M0,0 L10,5 L0,10 z"/></marker>
+</defs>
+<line class="hv-link" x1="368.4" y1="165.5" x2="368.4" y2="254.3" marker-end="url(#hv-arrow)"><title>engine.wasm</title></line>
+<line class="hv-link" x1="290.7" y1="160.2" x2="348.2" y2="259.7" marker-end="url(#hv-arrow)"><title>engine.wasm</title></line>
+<line class="hv-link" x1="242.0" y1="244.7" x2="299.4" y2="344.2" marker-end="url(#hv-arrow)"><title>evaluate_request</title></line>
+<line class="hv-link" x1="348.7" y1="329.1" x2="340.0" y2="344.2" marker-end="url(#hv-arrow)"><title>JSON</title></line>
+<line class="hv-link" x1="339.5" y1="413.5" x2="348.2" y2="428.6" marker-end="url(#hv-arrow)"><title>decide</title></line>
+<line class="hv-link" x1="299.9" y1="413.5" x2="291.2" y2="428.6" marker-end="url(#hv-arrow)"><title>config</title></line>
+<line class="hv-link" x1="388.2" y1="497.9" x2="396.9" y2="513.0" marker-end="url(#hv-arrow)"><title>evaluate</title></line>
+<line class="hv-link" x1="348.7" y1="497.9" x2="340.0" y2="513.0" marker-end="url(#hv-arrow)"><title>detailed</title></line>
+<line class="hv-link" x1="397.4" y1="582.3" x2="388.7" y2="597.4" marker-end="url(#hv-arrow)"><title>ordering</title></line>
+<line class="hv-link" x1="456.7" y1="548.1" x2="474.1" y2="548.1" marker-end="url(#hv-arrow)"><title>lookup</title></line>
+<line class="hv-link" x1="164.3" y1="379.3" x2="279.2" y2="379.3" marker-end="url(#hv-arrow)"><title>WirePolicy</title></line>
+<line class="hv-link" x1="115.5" y1="463.7" x2="230.4" y2="463.7" marker-end="url(#hv-arrow)"><title>config</title></line>
+<line class="hv-link" x1="670.1" y1="379.3" x2="360.2" y2="379.3" marker-end="url(#hv-arrow)"><title>68 fixtures</title></line>
+<line class="hv-link" x1="621.3" y1="463.7" x2="409.0" y2="463.7" marker-end="url(#hv-arrow)"><title>cross-check</title></line>
+<line class="hv-link" x1="626.6" y1="275.1" x2="403.5" y2="146.3" marker-end="url(#hv-arrow)"><title>replays releases</title></line>
+<g class="hv-tile hv-ga"><title>Rust host: instantiates engine.wasm and calls alloc / evaluate / dealloc over guest linear memory.</title><path d="M368.4,84.0 L404.8,105.0 L404.8,147.0 L368.4,168.0 L332.1,147.0 L332.1,105.0 Z"/>
+<text class="hv-label" x="368.4" y="130.0">wasmi host</text>
+</g>
+<g class="hv-tile hv-ga"><title>JVM host (the shape of an EDC extension): the same four-export ABI, the same JSON.</title><path d="M271.0,84.0 L307.3,105.0 L307.3,147.0 L271.0,168.0 L234.6,147.0 L234.6,105.0 Z"/>
+<text class="hv-label" x="271.0" y="130.0">Chicory host</text>
+</g>
+<g class="hv-tile hv-ga"><title>A Rust host links engine as an ordinary library and calls evaluate_request directly: the catalog broker's odrl_filter, and the ds42.org site.</title><path d="M222.2,168.4 L258.6,189.4 L258.6,231.4 L222.2,252.4 L185.8,231.4 L185.8,189.4 Z"/>
+<text class="hv-label" x="222.2" y="214.4">native crate</text>
+</g>
+<g class="hv-tile hv-gb"><title>wasm32 only. Exports alloc, dealloc and evaluate(ptr,len) -&gt; packed ptr/len; JSON in, JSON out.</title><path d="M368.4,252.8 L404.8,273.8 L404.8,315.8 L368.4,336.8 L332.1,315.8 L332.1,273.8 Z"/>
+<text class="hv-label" x="368.4" y="298.8">abi</text>
+</g>
+<g class="hv-tile hv-gb"><title>The Section 5.2 contract: Request / Response, evaluate_request, evaluate_request_detailed, inheritance and party-role scoping.</title><path d="M319.7,337.3 L356.1,358.3 L356.1,400.3 L319.7,421.3 L283.3,400.3 L283.3,358.3 Z"/>
+<text class="hv-label" x="319.7" y="383.3">wire</text>
+</g>
+<g class="hv-tile hv-gb"><title>decide(): deny-overrides across policies, conflict strategy, open/closed behaviour, duties, consequences and remedies.</title><path d="M368.4,421.7 L404.8,442.7 L404.8,484.7 L368.4,505.7 L332.1,484.7 L332.1,442.7 Z"/>
+<text class="hv-label" x="368.4" y="467.7">decision</text>
+</g>
+<g class="hv-tile hv-gb"><title>Declared actions and odrl:includedIn edges, duty mode and behaviour; resolve() merges profiles strictest-wins.</title><path d="M271.0,421.7 L307.3,442.7 L307.3,484.7 L271.0,505.7 L234.6,484.7 L234.6,442.7 Z"/>
+<text class="hv-label" x="271.0" y="467.7">profile</text>
+</g>
+<g class="hv-tile hv-gb"><title>DetailedEvaluation: per-rule activation and per-premise satisfaction, shaped as the report: vocabulary.</title><path d="M319.7,506.1 L356.1,527.1 L356.1,569.1 L319.7,590.1 L283.3,569.1 L283.3,527.1 Z"/>
+<text class="hv-label" x="319.7" y="552.1">report</text>
+</g>
+<g class="hv-tile hv-gb"><title>Ten operators, nested odrl:and / or / xone / andSequence, evaluated over string claims.</title><path d="M417.2,506.1 L453.6,527.1 L453.6,569.1 L417.2,590.1 L380.8,569.1 L380.8,527.1 Z"/>
+<text class="hv-label" x="417.2" y="552.1">constraint</text>
+</g>
+<g class="hv-tile hv-gb"><title>A flat map of string or string-array values: the caller's identity attributes.</title><path d="M514.7,506.1 L551.0,527.1 L551.0,569.1 L514.7,590.1 L478.3,569.1 L478.3,527.1 Z"/>
+<text class="hv-label" x="514.7" y="552.1">claims</text>
+</g>
+<g class="hv-tile hv-gb"><title>xsd:dateTime, date and duration parsing and ordering (no clock: time arrives as a claim).</title><path d="M368.4,590.5 L404.8,611.5 L404.8,653.5 L368.4,674.5 L332.1,653.5 L332.1,611.5 Z"/>
+<text class="hv-label" x="368.4" y="636.5">temporal</text>
+</g>
+<g class="hv-tile hv-gc"><title>A Dataspace Protocol contract offer's JSON-LD ODRL to a WirePolicy: real JSON-LD expansion over bundled contexts, no network. Opt-in (dsp-ingest).</title><path d="M124.7,337.3 L161.1,358.3 L161.1,400.3 L124.7,421.3 L88.4,400.3 L88.4,358.3 Z"/>
+<text class="hv-label" x="124.7" y="376.8">dsp-odrl-</text>
+<text class="hv-label" x="124.7" y="389.8">adapter</text>
+</g>
+<g class="hv-tile hv-gc"><title>An ODRL Profile document (Turtle or JSON-LD) to the request's config: declared actions and their includedIn edges.</title><path d="M76.0,421.7 L112.4,442.7 L112.4,484.7 L76.0,505.7 L39.6,484.7 L39.6,442.7 Z"/>
+<text class="hv-label" x="76.0" y="461.2">profile-</text>
+<text class="hv-label" x="76.0" y="474.2">interpreter</text>
+</g>
+<g class="hv-tile hv-gd"><title>SolidLab's ODRL-Test-Suite: 68 fixtures adapted to the wire contract, decided natively.</title><path d="M709.6,337.3 L746.0,358.3 L746.0,400.3 L709.6,421.3 L673.2,400.3 L673.2,358.3 Z"/>
+<text class="hv-label" x="709.6" y="376.8">compliance-</text>
+<text class="hv-label" x="709.6" y="389.8">runner</text>
+</g>
+<g class="hv-tile hv-gd"><title>The ds-odrl-compliance-rdf corpus: RDF cases compared against their expected outcome trees.</title><path d="M807.1,337.3 L843.5,358.3 L843.5,400.3 L807.1,421.3 L770.7,400.3 L770.7,358.3 Z"/>
+<text class="hv-label" x="807.1" y="376.8">compliance-</text>
+<text class="hv-label" x="807.1" y="389.8">rdf-runner</text>
+</g>
+<g class="hv-tile hv-gd"><title>Targeted probes behind the capability audit and the ODRL 2.2 full-compliance page.</title><path d="M758.4,421.7 L794.7,442.7 L794.7,484.7 L758.4,505.7 L722.0,484.7 L722.0,442.7 Z"/>
+<text class="hv-label" x="758.4" y="461.2">coverage-</text>
+<text class="hv-label" x="758.4" y="474.2">probes</text>
+</g>
+<g class="hv-tile hv-gd"><title>Replays every tagged release's engine.wasm through wasmi against the corpus.</title><path d="M660.9,252.8 L697.3,273.8 L697.3,315.8 L660.9,336.8 L624.5,315.8 L624.5,273.8 Z"/>
+<text class="hv-label" x="660.9" y="292.3">release-</text>
+<text class="hv-label" x="660.9" y="305.3">history</text>
+</g>
+<g class="hv-tile hv-gd"><title>A second implementation: the ODRL-Evaluator's N3 rules on the pure-Rust eyeron reasoner, cross-checked against the engine.</title><path d="M660.9,421.7 L697.3,442.7 L697.3,484.7 L660.9,505.7 L624.5,484.7 L624.5,442.7 Z"/>
+<text class="hv-label" x="660.9" y="467.7">n3-enforcer</text>
+</g>
+<text class="hv-linklabel" x="368.4" y="205.9">engine.wasm</text>
+<text class="hv-linklabel" x="270.7" y="290.4">evaluate_request</text>
+<text class="hv-linklabel" x="221.7" y="375.3">WirePolicy</text>
+<text class="hv-linklabel" x="173.0" y="459.7">config</text>
+<text class="hv-linklabel" x="515.2" y="375.3">68 fixtures</text>
+<text class="hv-linklabel" x="515.2" y="459.7">cross-check</text>
+<text class="hv-linklabel" x="515.1" y="206.7">replays releases</text>
+<text class="hv-caption" x="442" y="723">The engine crate is a pure, stateless (policy, claims) -&gt; decision evaluator with no I/O, no clock and no RDF layer.</text>
+<text class="hv-caption" x="442" y="737">Hosts call it over a JSON wire contract; adapters turn real documents into that contract; verification harnesses drive</text>
+<text class="hv-caption" x="442" y="751">it against independent corpora.</text>
+</svg>
