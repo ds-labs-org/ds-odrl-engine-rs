@@ -8,6 +8,7 @@ members = [
   "profile-interpreter",
   "coverage-probes",
   "dsp-odrl-adapter",
+  "n3-enforcer",
   "release-history",
 ]
 
@@ -15,3 +16,9 @@ members = [
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/ds-labs-org/ds-odrl-engine-rs"
+
+# The reasoner-backed enforcer (n3-enforcer) re-parses a ~1,800-line ODRL
+# vocabulary on every decision; unoptimized that makes the differential test
+# take minutes. Optimize only that dependency in dev/test builds.
+[profile.dev.package.eyeron]
+opt-level = 3

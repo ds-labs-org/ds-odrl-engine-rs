@@ -1,0 +1,11 @@
+round1.n3 / round2.n3 are the `RULES[0]` / `RULES[1]` string constants of
+SolidLabResearch/ODRL-Evaluator `src/rules/Rules.ts` (commit 194894a,
+package version 0.6.0, MIT licence, Wout Slabbinck / SolidLabResearch),
+extracted verbatim by evaluating that file. They are the concatenation of
+built-ins.n3 + constraints.n3 + report.n3 + odrl-voc.ttl +
+odrl-voc-inferences.ttl (round 1) and activation-state.n3 (round 2).
+
+DRAFT PROVENANCE: a checked-in copy so the crate builds from a bare clone.
+Before this leaves draft, replace with a pinned git submodule of the
+upstream repository plus a build step that regenerates these two files,
+and re-check the upstream licence text is carried here.
