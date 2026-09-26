@@ -5,6 +5,14 @@ extracted verbatim by evaluating that file. They are the concatenation of
 built-ins.n3 + constraints.n3 + report.n3 + odrl-voc.ttl +
 odrl-voc-inferences.ttl (round 1) and activation-state.n3 (round 2).
 
+Authorship and licence: ODRL-Evaluator is developed and maintained by Wout
+Slabbinck (SolidLabResearch, IDLab, Ghent University - imec),
+MIT licence, Copyright (c) 2019-2025 imec. The full licence text, which must
+accompany copies, is in LICENSE-ODRL-Evaluator.md next to this file. Cite:
+Slabbinck, Rojas Melendez, Esteves, Colpaert and Verborgh, "Interoperable
+Interpretation and Evaluation of ODRL Policies", The Semantic Web (ESWC 2025),
+pp. 192-209, doi:10.1007/978-3-031-94578-6_11.
+
 DRAFT PROVENANCE: a checked-in copy so the crate builds from a bare clone.
 Before this leaves draft, replace with a pinned git submodule of the
 upstream repository plus a build step that regenerates these two files,

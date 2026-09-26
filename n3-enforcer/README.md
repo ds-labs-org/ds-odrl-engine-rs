@@ -107,3 +107,24 @@ path is an oracle and a fallback-guarded enforcer, not the hot path.
 - The vocabulary is re-parsed on every call; a prepared reasoner
   (`eyeron::PreparedReasoner`) could cache it.
 - Large policies are slow on the reasoner path (see cost).
+
+## References and credits
+
+Authors, editors and licences as each source states them (read from its manifest, licence file, BibTeX entry or specification front matter). The same list is rendered on the ds42.org page `/odrl-reasoner`, from `site/src/reasoner_demo.rs`.
+
+- **Software:** [ODRL-Evaluator](https://github.com/SolidLabResearch/ODRL-Evaluator) — Wout Slabbinck (developer and maintainer), SolidLabResearch, IDLab, Ghent University – imec. MIT, © 2019–2025 imec. Its N3 rules (v0.6.0, commit 194894a) are used verbatim, with its licence text kept beside them. DOI 10.5281/zenodo.14265266.
+- **Software:** [ODRL-Test-Suite](https://github.com/SolidLabResearch/ODRL-Test-Suite) — Wout Slabbinck, SolidLabResearch, IDLab, Ghent University – imec. MIT, © 2019–2025 imec. The 68 fixtures and expected compliance reports the differential test runs against. DOI 10.5281/zenodo.14290517.
+- **Software:** [ODRL Compliance Report Model](https://github.com/SolidLabResearch/ODRL-Compliance-Report-Model) — SolidLabResearch. CC BY 4.0. The report: vocabulary the derived report is written in.
+- **Software:** [eyeron](https://github.com/eyereasoner/eyeron) — Jos De Roo, KNoWS office of IDLab, Ghent University – imec. MIT. The pure-Rust N3 reasoner running in this page. The xsd:dateTime, log:collectAllIn and log:uuid fixes this path needs were developed in the ds-labs-org fork and merged as PR #9.
+- **Software:** [EYE (Euler Yet another proof Engine)](https://github.com/eyereasoner/eye) — Jos De Roo, KNoWS office of IDLab, Ghent University – imec. MIT, © 2006–2026. The reference N3 reasoner eyeron follows and its test corpus.
+- **Software:** [eye-js](https://github.com/eyereasoner/eye-js) — Jesse Wright (package author), eyereasoner. MIT. EYE compiled to WebAssembly; used only as an independent cross-check in the differential test, not in this page.
+- **Paper:** [Interoperable Interpretation and Evaluation of ODRL Policies](https://doi.org/10.1007/978-3-031-94578-6_11) — Wout Slabbinck, Julián Rojas Meléndez, Beatriz Esteves, Pieter Colpaert and Ruben Verborgh. The Semantic Web (ESWC 2025), pp. 192–209. The paper behind the ODRL-Evaluator.
+- **Paper:** [May the FORCE be with you? A Framework for ODRL Rule Compliance through Evaluation](https://ceur-ws.org/Vol-4064/NXDG25-paper6.pdf) — Wout Slabbinck, Julián Rojas Meléndez, Beatriz Esteves, Ruben Verborgh and Pieter Colpaert. NXDG 2025 at SEMANTiCS'25, CEUR-WS Vol-4064. Introduces the Compliance Report Model.
+- **Paper:** [Automated Validation of ODRL Policies for Usage Control and Data Spaces](https://w3id.org/force/validator) — Elena Molino-Peña, Wout Slabbinck, José María García, Antonio Ruiz-Cortés and Beatriz Esteves. NXDG 2026 at SEMANTiCS 2026, Ghent. The validator/evaluator split that motivates the normalization work around this path.
+- **Specification:** [ODRL Information Model 2.2](https://www.w3.org/TR/odrl-model/) — Renato Iannella and Serena Villata (editors), W3C Permissions & Obligations Expression Working Group. W3C Recommendation, 15 February 2018.
+- **Specification:** [ODRL Vocabulary & Expression 2.2](https://www.w3.org/TR/odrl-vocab/) — Renato Iannella, Michael Steidl, Stuart Myles and Víctor Rodríguez-Doncel (editors). W3C Recommendation, 15 February 2018.
+- **Specification:** [ODRL Formal Semantics](https://w3c.github.io/odrl/formal-semantics/) — Nicoletta Fornara, Víctor Rodríguez-Doncel, Beatriz Esteves, Simon Steyskal, Benedict Whittam Smith, Yassir Sellami and Andrea Cimmino Arriaga (editors), W3C ODRL Community Group. Community Group draft. The compliance-report semantics (Active/Inactive, premise reports) this path evaluates.
+- **Specification:** [Notation3 Language](https://w3c-cg.github.io/N3/spec/) — William Van Woensel, Dörthe Arndt, Pierre-Antoine Champin, Dominik Tomaszuk and Gregg Kellogg (editors); Jos De Roo and Patrick Hochstenbach (authors), W3C N3 Community Group. Community Group draft. The rule language the ODRL-Evaluator is written in.
+- **Specification:** [Notation3 Builtin Functions](https://w3c-cg.github.io/n3Builtins/) — William Van Woensel and Patrick Hochstenbach (editors), W3C N3 Community Group. Community Group final report. The log:, math:, list: and string: builtins the rules call.
+
+The rule files in `rules/` are copied from the ODRL-Evaluator under its MIT licence, kept in `rules/LICENSE-ODRL-Evaluator.md`.
