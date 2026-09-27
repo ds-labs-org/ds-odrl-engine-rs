@@ -12,15 +12,21 @@ engine = { path = "../engine" }
 serde_json = "1"
 
 # In-process Rust N3 reasoner: eyereasoner/eyeron, pinned past the merge of
-# our own join-ordering fix (#2) and the maintainer's own fix for the
-# resource-exhaustion gaps we reported (#18/6ed1a43) -- xsd:dateTime
-# comparison, collectAllIn blank templates and log:uuid were merged earlier
-# as PR #9. Git-only, not on crates.io. The SPARQL 1.2 RL front end was
-# dropped upstream at this pin; unused here (only parse_n3/reason/Term).
-# Also used to parse any reasoner's output (so no oxttl/oxrdf, and with them
-# no getrandom, which wasm32-unknown-unknown builds would need configured).
+# our own join-ordering fix (#2), the maintainer's own fix for the
+# resource-exhaustion gaps we reported (#18/6ed1a43), and our own #20/#22
+# fixes -- per-triple storage overhead (e9e179e, ~262MB->149MB and
+# ~0.98s->0.47s at 100,000 facts), the string:matches/notMatches silent-
+# wrong-answer regex fallback, and PreparedReasoner re-cloning its static
+# rule set and agenda index on every call (which is exactly the bug
+# EyeronLib's own rules cache in this crate works around one layer up --
+# this pin gets the fix inside eyeron itself too, for anyone going through
+# PreparedReasoner directly). Git-only, not on crates.io. The SPARQL 1.2 RL
+# front end was dropped upstream at this pin; unused here (only
+# parse_n3/reason/PreparedReasoner/Term). Also used to parse any reasoner's
+# output (so no oxttl/oxrdf, and with them no getrandom, which
+# wasm32-unknown-unknown builds would need configured).
 [dependencies.eyeron]
 git = "https://github.com/eyereasoner/eyeron"
-rev = "55c6db0784029b47dbf5c4ba5c90d82e075c9e61"
+rev = "6f99b99dbe41239b7521618504d121249c8a82b2"
 
 [dev-dependencies]

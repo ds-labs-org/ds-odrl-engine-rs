@@ -22,11 +22,13 @@
 
 mod rdf;
 mod reduce;
-mod rules;
+pub mod rules;
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Mutex;
 
 use engine::{Request, Response};
 
@@ -40,6 +42,21 @@ pub use reduce::{reduce, to_response, ReportSummary};
 /// relies on.
 pub trait Reasoner {
     fn derive(&self, n3: &str) -> Result<String, ReasonerError>;
+
+    /// Like [`derive`](Self::derive), but tells the reasoner which part of
+    /// the input is `rules` -- a large, static rule set reused unchanged
+    /// across many calls (`rules::ROUND1`/`ROUND2`) -- versus `data`, the
+    /// small, per-call N3 specific to one request.
+    ///
+    /// The default just concatenates and calls `derive`, i.e. exactly the
+    /// old behavior: a reasoner that has to write one file per call anyway
+    /// (`CommandReasoner`) has nothing to gain from the split and does not
+    /// need to know about it. An in-process reasoner that can parse and
+    /// index `rules` once and reuse that work across calls (`EyeronLib`)
+    /// overrides this instead.
+    fn derive_with_rules(&self, data: &str, rules: &str) -> Result<String, ReasonerError> {
+        self.derive(&format!("{data}\n{rules}"))
+    }
 }
 
 #[derive(Debug)]
@@ -89,11 +106,16 @@ impl Reasoner for CommandReasoner {
             COUNTER.fetch_add(1, Ordering::Relaxed)
         ));
         std::fs::write(&path, n3).map_err(|e| ReasonerError(e.to_string()))?;
-        let out = Command::new(&self.program).args(&self.args).arg(&path).output();
+        let out = Command::new(&self.program)
+            .args(&self.args)
+            .arg(&path)
+            .output();
         let _ = std::fs::remove_file(&path);
         let out = out.map_err(|e| ReasonerError(format!("{}: {e}", self.program.display())))?;
         if !out.status.success() {
-            return Err(ReasonerError(String::from_utf8_lossy(&out.stderr).into_owned()));
+            return Err(ReasonerError(
+                String::from_utf8_lossy(&out.stderr).into_owned(),
+            ));
         }
         Ok(String::from_utf8_lossy(&out.stdout).into_owned())
     }
@@ -102,9 +124,43 @@ impl Reasoner for CommandReasoner {
 /// In-process eyeron (`--features eyeron`).
 pub struct EyeronLib;
 
+/// Process-wide cache of `rules` text -> a reasoner already parsed and
+/// agenda-indexed for it, keyed by the rules' own content (not by pointer:
+/// a `&str`'s address is not a safe cache key -- nothing guarantees it stays
+/// associated with the same content for the process's lifetime). There are
+/// only ever a handful of distinct rule sets in practice
+/// (`rules::ROUND1`/`ROUND2`, plus whatever a test passes), so a `Mutex`
+/// around a small `HashMap` is simple and not a contention concern; the
+/// alternative -- an instance field on `EyeronLib` -- would turn it from a
+/// zero-sized unit struct into something with its own constructor, breaking
+/// every existing `EyeronLib` call site for no benefit `EyeronLib::new()`
+/// wouldn't also need.
+static PREPARED_RULES: Mutex<Option<HashMap<String, eyeron::PreparedReasoner>>> = Mutex::new(None);
+
 impl Reasoner for EyeronLib {
     fn derive(&self, n3: &str) -> Result<String, ReasonerError> {
         eyeron::reason(n3).map_err(|e| ReasonerError(e.to_string()))
+    }
+
+    fn derive_with_rules(&self, data: &str, rules: &str) -> Result<String, ReasonerError> {
+        let data_doc = eyeron::parse_n3(data, None).map_err(|e| ReasonerError(e.to_string()))?;
+        let mut guard = PREPARED_RULES.lock().unwrap_or_else(|e| e.into_inner());
+        let cache = guard.get_or_insert_with(HashMap::new);
+        if !cache.contains_key(rules) {
+            let rules_doc =
+                eyeron::parse_n3(rules, None).map_err(|e| ReasonerError(e.to_string()))?;
+            cache.insert(rules.to_string(), eyeron::PreparedReasoner::new(rules_doc));
+        }
+        let prepared = cache.get(rules).expect("just inserted or already present");
+        let result = prepared.reason(&data_doc, &eyeron::ReasonerOptions::default());
+        drop(guard);
+        if let Some(summary) = result.incomplete_summary() {
+            return Err(ReasonerError(summary));
+        }
+        Ok(eyeron::result_to_string(
+            &data_doc.prefixes,
+            &result.derived,
+        ))
     }
 }
 
@@ -151,7 +207,9 @@ pub struct Enforcer<R: Reasoner> {
 
 impl<R: Reasoner> Enforcer<R> {
     pub fn new(reasoner: R) -> Self {
-        Self { n3: N3Enforcer::new(reasoner) }
+        Self {
+            n3: N3Enforcer::new(reasoner),
+        }
     }
 
     pub fn enforce(&self, req: &Request) -> (Response, Path) {
@@ -159,7 +217,10 @@ impl<R: Reasoner> Enforcer<R> {
             Ok((_, summary)) if summary.contradictory.is_empty() => {
                 (to_response(&req.dataset_id, &summary), Path::Reasoner)
             }
-            Ok(_) => (engine::evaluate_request(req), Path::Native("contradictory report".into())),
+            Ok(_) => (
+                engine::evaluate_request(req),
+                Path::Native("contradictory report".into()),
+            ),
             Err(e) => (engine::evaluate_request(req), Path::Native(e.to_string())),
         }
     }
@@ -204,15 +265,20 @@ impl<R: Reasoner> N3Enforcer<R> {
         let n3_input = rdf::to_n3(req).map_err(EnforcerError::Unsupported)?;
         let round1 = self
             .reasoner
-            .derive(&format!("{n3_input}\n{}", rules::ROUND1))
+            .derive_with_rules(&n3_input, rules::ROUND1)
             .map_err(EnforcerError::Reasoner)?;
+        let round2_data = format!("{n3_input}\n{round1}");
         let round2 = self
             .reasoner
-            .derive(&format!("{n3_input}\n{round1}\n{}", rules::ROUND2))
+            .derive_with_rules(&round2_data, rules::ROUND2)
             .map_err(EnforcerError::Reasoner)?;
         let report_turtle = format!("{round1}\n{round2}");
         let summary = reduce(&report_turtle).map_err(EnforcerError::BadOutput)?;
-        Ok(Explanation { n3_input, report_turtle, summary })
+        Ok(Explanation {
+            n3_input,
+            report_turtle,
+            summary,
+        })
     }
 }
 
