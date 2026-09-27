@@ -11,13 +11,16 @@ publish = false
 engine = { path = "../engine" }
 serde_json = "1"
 
-# In-process Rust N3 reasoner: eyereasoner/eyeron >= 0.6.8, which carries the
-# fixes this crate needs (xsd:dateTime comparison, collectAllIn blank
-# templates, log:uuid; merged upstream as PR #9). Git-only, not on crates.io.
+# In-process Rust N3 reasoner: eyereasoner/eyeron, pinned past the merge of
+# our own join-ordering fix (#2) and the maintainer's own fix for the
+# resource-exhaustion gaps we reported (#18/6ed1a43) -- xsd:dateTime
+# comparison, collectAllIn blank templates and log:uuid were merged earlier
+# as PR #9. Git-only, not on crates.io. The SPARQL 1.2 RL front end was
+# dropped upstream at this pin; unused here (only parse_n3/reason/Term).
 # Also used to parse any reasoner's output (so no oxttl/oxrdf, and with them
 # no getrandom, which wasm32-unknown-unknown builds would need configured).
 [dependencies.eyeron]
 git = "https://github.com/eyereasoner/eyeron"
-rev = "1c01133ad5e3442aa71e8ef036e629ac74e8c176"
+rev = "55c6db0784029b47dbf5c4ba5c90d82e075c9e61"
 
 [dev-dependencies]
