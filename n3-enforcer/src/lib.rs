@@ -106,11 +106,16 @@ impl Reasoner for CommandReasoner {
             COUNTER.fetch_add(1, Ordering::Relaxed)
         ));
         std::fs::write(&path, n3).map_err(|e| ReasonerError(e.to_string()))?;
-        let out = Command::new(&self.program).args(&self.args).arg(&path).output();
+        let out = Command::new(&self.program)
+            .args(&self.args)
+            .arg(&path)
+            .output();
         let _ = std::fs::remove_file(&path);
         let out = out.map_err(|e| ReasonerError(format!("{}: {e}", self.program.display())))?;
         if !out.status.success() {
-            return Err(ReasonerError(String::from_utf8_lossy(&out.stderr).into_owned()));
+            return Err(ReasonerError(
+                String::from_utf8_lossy(&out.stderr).into_owned(),
+            ));
         }
         Ok(String::from_utf8_lossy(&out.stdout).into_owned())
     }
@@ -142,7 +147,8 @@ impl Reasoner for EyeronLib {
         let mut guard = PREPARED_RULES.lock().unwrap_or_else(|e| e.into_inner());
         let cache = guard.get_or_insert_with(HashMap::new);
         if !cache.contains_key(rules) {
-            let rules_doc = eyeron::parse_n3(rules, None).map_err(|e| ReasonerError(e.to_string()))?;
+            let rules_doc =
+                eyeron::parse_n3(rules, None).map_err(|e| ReasonerError(e.to_string()))?;
             cache.insert(rules.to_string(), eyeron::PreparedReasoner::new(rules_doc));
         }
         let prepared = cache.get(rules).expect("just inserted or already present");
@@ -151,7 +157,10 @@ impl Reasoner for EyeronLib {
         if let Some(summary) = result.incomplete_summary() {
             return Err(ReasonerError(summary));
         }
-        Ok(eyeron::result_to_string(&data_doc.prefixes, &result.derived))
+        Ok(eyeron::result_to_string(
+            &data_doc.prefixes,
+            &result.derived,
+        ))
     }
 }
 
@@ -198,7 +207,9 @@ pub struct Enforcer<R: Reasoner> {
 
 impl<R: Reasoner> Enforcer<R> {
     pub fn new(reasoner: R) -> Self {
-        Self { n3: N3Enforcer::new(reasoner) }
+        Self {
+            n3: N3Enforcer::new(reasoner),
+        }
     }
 
     pub fn enforce(&self, req: &Request) -> (Response, Path) {
@@ -206,7 +217,10 @@ impl<R: Reasoner> Enforcer<R> {
             Ok((_, summary)) if summary.contradictory.is_empty() => {
                 (to_response(&req.dataset_id, &summary), Path::Reasoner)
             }
-            Ok(_) => (engine::evaluate_request(req), Path::Native("contradictory report".into())),
+            Ok(_) => (
+                engine::evaluate_request(req),
+                Path::Native("contradictory report".into()),
+            ),
             Err(e) => (engine::evaluate_request(req), Path::Native(e.to_string())),
         }
     }
@@ -260,7 +274,11 @@ impl<R: Reasoner> N3Enforcer<R> {
             .map_err(EnforcerError::Reasoner)?;
         let report_turtle = format!("{round1}\n{round2}");
         let summary = reduce(&report_turtle).map_err(EnforcerError::BadOutput)?;
-        Ok(Explanation { n3_input, report_turtle, summary })
+        Ok(Explanation {
+            n3_input,
+            report_turtle,
+            summary,
+        })
     }
 }
 

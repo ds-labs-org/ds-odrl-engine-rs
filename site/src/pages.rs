@@ -288,7 +288,8 @@ enum EngineModuleStatus {
 /// collide. Inline rather than `<img>` so they need no separate asset copy
 /// under the GitHub Pages subpath.
 const INTERNALS_SVG: &str = include_str!("../../docs/diagrams/01-engine-internals.svg");
-const INTEGRATION_FLOW_SVG: &str = include_str!("../../docs/diagrams/02-dataspace-integration-flow.svg");
+const INTEGRATION_FLOW_SVG: &str =
+    include_str!("../../docs/diagrams/02-dataspace-integration-flow.svg");
 
 fn diagram(svg: &'static str) -> Html {
     Html::from_html_unchecked(AttrValue::Static(svg))

@@ -46,14 +46,16 @@ fn eyeron_lib_reuses_a_parsed_rule_set_across_calls_with_the_same_rules_text() {
 
     // Warm up: make sure both conditions below pay for process/allocator
     // warmup equally, not as part of the measured difference.
-    lib.derive_with_rules(DATA, rules::ROUND1).expect("warmup call");
+    lib.derive_with_rules(DATA, rules::ROUND1)
+        .expect("warmup call");
 
     // Same rule *set*, different rule *text* every call (a per-call unique
     // trailing comment), so a text-keyed cache cannot help here: this is the
     // "no caching possible" baseline, not a strawman -- it exercises the
     // exact same parse+reason work the fix is supposed to amortize away.
-    let distinct_rules: Vec<String> =
-        (0..CALLS).map(|i| format!("{}\n# cache-buster {i}\n", rules::ROUND1)).collect();
+    let distinct_rules: Vec<String> = (0..CALLS)
+        .map(|i| format!("{}\n# cache-buster {i}\n", rules::ROUND1))
+        .collect();
 
     let mut same_rules_elapsed = std::time::Duration::ZERO;
     let mut distinct_rules_elapsed = std::time::Duration::ZERO;
@@ -61,7 +63,9 @@ fn eyeron_lib_reuses_a_parsed_rule_set_across_calls_with_the_same_rules_text() {
     let mut distinct_output = None;
     for r in &distinct_rules {
         let started = std::time::Instant::now();
-        let out = lib.derive_with_rules(DATA, rules::ROUND1).expect("same-rules call");
+        let out = lib
+            .derive_with_rules(DATA, rules::ROUND1)
+            .expect("same-rules call");
         same_rules_elapsed += started.elapsed();
         same_output.get_or_insert(out);
 
@@ -72,7 +76,10 @@ fn eyeron_lib_reuses_a_parsed_rule_set_across_calls_with_the_same_rules_text() {
     }
 
     // Caching must not change what gets derived.
-    assert_eq!(same_output, distinct_output, "a cache-buster comment must not change the derived triples");
+    assert_eq!(
+        same_output, distinct_output,
+        "a cache-buster comment must not change the derived triples"
+    );
 
     // Measured repeatedly on this rule set: caching consistently saves
     // ~25-30% (e.g. 234ms vs 311ms for 30 calls), not the ~2x eyeron's own
@@ -87,7 +94,8 @@ fn eyeron_lib_reuses_a_parsed_rule_set_across_calls_with_the_same_rules_text() {
     // leaving headroom for noise while still catching a regression back to
     // "no caching at all" (which measures ~0% difference, not ~25-30%).
     assert!(
-        same_rules_elapsed.as_nanos().saturating_mul(10) < distinct_rules_elapsed.as_nanos().saturating_mul(9),
+        same_rules_elapsed.as_nanos().saturating_mul(10)
+            < distinct_rules_elapsed.as_nanos().saturating_mul(9),
         "{CALLS} calls with the same rules text took {same_rules_elapsed:?}, \
          {CALLS} calls with distinct (but semantically identical) rules text took \
          {distinct_rules_elapsed:?}: EyeronLib should reuse a prepared reasoner for \

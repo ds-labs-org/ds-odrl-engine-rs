@@ -16,12 +16,39 @@ const NS_ODRL: &str = "http://www.w3.org/ns/odrl/2/";
 /// request's `sotw:context` (its `list:in` allowlist), plus `dateTime`,
 /// which it reads from `temp:currentTime` instead.
 const CONTEXT_OPERANDS: &[&str] = &[
-    "absolutePosition", "absoluteSize", "absoluteSpatialPosition", "absoluteTemporalPosition",
-    "count", "delayPeriod", "deliveryChannel", "device", "elapsedTime", "event", "fileFormat",
-    "industry", "language", "media", "meteredTime", "payAmount", "percentage", "product",
-    "purpose", "recipient", "relativePosition", "relativeSize", "relativeSpatialPosition",
-    "relativeTemporalPosition", "resolution", "spatial", "spatialCoordinates", "system",
-    "systemDevice", "timeInterval", "unitOfCount", "version", "virtualLocation",
+    "absolutePosition",
+    "absoluteSize",
+    "absoluteSpatialPosition",
+    "absoluteTemporalPosition",
+    "count",
+    "delayPeriod",
+    "deliveryChannel",
+    "device",
+    "elapsedTime",
+    "event",
+    "fileFormat",
+    "industry",
+    "language",
+    "media",
+    "meteredTime",
+    "payAmount",
+    "percentage",
+    "product",
+    "purpose",
+    "recipient",
+    "relativePosition",
+    "relativeSize",
+    "relativeSpatialPosition",
+    "relativeTemporalPosition",
+    "resolution",
+    "spatial",
+    "spatialCoordinates",
+    "system",
+    "systemDevice",
+    "timeInterval",
+    "unitOfCount",
+    "version",
+    "virtualLocation",
 ];
 
 #[derive(Debug, PartialEq, Eq)]
@@ -199,7 +226,15 @@ pub fn to_n3(req: &Request) -> Result<String, Unsupported> {
         let pv = serde_json::to_value(p).expect("policy serializes");
         check_keys(
             &pv,
-            &["id", "kind", "assigner", "assignee", "permissions", "prohibitions", "obligations"],
+            &[
+                "id",
+                "kind",
+                "assigner",
+                "assignee",
+                "permissions",
+                "prohibitions",
+                "obligations",
+            ],
         )?;
         if pv["obligations"].as_array().is_some_and(|o| !o.is_empty()) {
             return Err(Unsupported::Duties);
@@ -218,7 +253,9 @@ pub fn to_n3(req: &Request) -> Result<String, Unsupported> {
                         return Err(Unsupported::LeftOperand(lo));
                     }
                     if matches!(c["operator"].as_str(), Some("isAllOf" | "isPartOf")) {
-                        return Err(Unsupported::Operator(c["operator"].as_str().unwrap().into()));
+                        return Err(Unsupported::Operator(
+                            c["operator"].as_str().unwrap().into(),
+                        ));
                     }
                     if !operands.contains(&lo) {
                         operands.push(lo);
@@ -267,7 +304,12 @@ pub fn to_n3(req: &Request) -> Result<String, Unsupported> {
             for (ri, r) in pv[list].as_array().into_iter().flatten().enumerate() {
                 let rid = format!("<urn:n3e:policy:{pi}:{pred}:{ri}>");
                 writeln!(out, "{pid} odrl:{pred} {rid} .\n{rid} a odrl:{class} ;").unwrap();
-                writeln!(out, "  odrl:action {} ;", action(r["action"].as_str().unwrap_or(""))).unwrap();
+                writeln!(
+                    out,
+                    "  odrl:action {} ;",
+                    action(r["action"].as_str().unwrap_or(""))
+                )
+                .unwrap();
                 if let Some(t) = r["odrl:target"].as_str() {
                     writeln!(out, "  odrl:target {} ;", node("asset", t)).unwrap();
                 }
@@ -282,7 +324,9 @@ pub fn to_n3(req: &Request) -> Result<String, Unsupported> {
                     .filter_map(|c| c["right_operand"].as_str())
                     .collect();
                 if parties.len() > 1 {
-                    return Err(Unsupported::UnknownField("multiple party constraints on one rule".into()));
+                    return Err(Unsupported::UnknownField(
+                        "multiple party constraints on one rule".into(),
+                    ));
                 }
                 if let Some(p) = parties.first() {
                     writeln!(out, "  odrl:assignee {} ;", node("party", p)).unwrap();
@@ -294,7 +338,11 @@ pub fn to_n3(req: &Request) -> Result<String, Unsupported> {
                     .filter(|c| !is_party_constraint(c, party_key))
                     .collect();
                 for ci in 0..plain.len() {
-                    writeln!(out, "  odrl:constraint <urn:n3e:policy:{pi}:{pred}:{ri}:c{ci}> ;").unwrap();
+                    writeln!(
+                        out,
+                        "  odrl:constraint <urn:n3e:policy:{pi}:{pred}:{ri}:c{ci}> ;"
+                    )
+                    .unwrap();
                 }
                 writeln!(out, "  .").unwrap();
                 for (ci, c) in plain.iter().enumerate() {
@@ -321,7 +369,11 @@ pub fn to_n3(req: &Request) -> Result<String, Unsupported> {
     // The request: one `odrl:Request` with one permission for the action
     // and dataset, the caller's party (only when the config names the
     // identifying claim, like the engine), and at most one context operand.
-    writeln!(out, "<urn:n3e:request> a odrl:Request ;\n  odrl:permission <urn:n3e:request:perm> .").unwrap();
+    writeln!(
+        out,
+        "<urn:n3e:request> a odrl:Request ;\n  odrl:permission <urn:n3e:request:perm> ."
+    )
+    .unwrap();
     writeln!(
         out,
         "<urn:n3e:request:perm> a odrl:Permission ;\n  odrl:action {} ;\n  odrl:target {} .",
@@ -330,10 +382,21 @@ pub fn to_n3(req: &Request) -> Result<String, Unsupported> {
     )
     .unwrap();
     if let Some(ClaimValue::Single(who)) = req.claims.get(party_key) {
-        writeln!(out, "<urn:n3e:request:perm> odrl:assignee {} .", node("party", who)).unwrap();
+        writeln!(
+            out,
+            "<urn:n3e:request:perm> odrl:assignee {} .",
+            node("party", who)
+        )
+        .unwrap();
     }
-    let ctx: Vec<&String> = operands.iter().filter(|o| o.as_str() != "dateTime").collect();
-    let ctx_with_claim: Vec<&&String> = ctx.iter().filter(|o| req.claims.contains_key(o.as_str())).collect();
+    let ctx: Vec<&String> = operands
+        .iter()
+        .filter(|o| o.as_str() != "dateTime")
+        .collect();
+    let ctx_with_claim: Vec<&&String> = ctx
+        .iter()
+        .filter(|o| req.claims.contains_key(o.as_str()))
+        .collect();
     if ctx_with_claim.len() > 1 {
         return Err(Unsupported::MultipleContextOperands);
     }
@@ -374,27 +437,50 @@ mod tests {
     #[test]
     fn party_constraint_becomes_assignee_and_hierarchy_travels() {
         let r = req(
-            policy(serde_json::json!({"action":"use","constraints":[{"left_operand":"sub","operator":"eq","right_operand":"alice"}]})),
+            policy(
+                serde_json::json!({"action":"use","constraints":[{"left_operand":"sub","operator":"eq","right_operand":"alice"}]}),
+            ),
             serde_json::json!({"sub":"alice"}),
         );
         let n3 = to_n3(&r).unwrap();
         assert!(n3.contains("odrl:assignee <urn:n3e:party:alice>"));
-        assert!(n3.contains("<http://www.w3.org/ns/odrl/2/read> odrl:includedIn <http://www.w3.org/ns/odrl/2/use>"));
+        assert!(n3.contains(
+            "<http://www.w3.org/ns/odrl/2/read> odrl:includedIn <http://www.w3.org/ns/odrl/2/use>"
+        ));
         assert!(!n3.contains("odrl:constraint"));
     }
 
     #[test]
     fn refuses_what_the_rules_cannot_express() {
         let c = |left: &str, op: &str| serde_json::json!({"action":"use","constraints":[{"left_operand":left,"operator":op,"right_operand":"x"}]});
-        assert_eq!(to_n3(&req(policy(c("nationality", "eq")), serde_json::json!({}))), Err(Unsupported::LeftOperand("nationality".into())));
-        assert_eq!(to_n3(&req(policy(c("purpose", "isPartOf")), serde_json::json!({}))), Err(Unsupported::Operator("isPartOf".into())));
-        assert_eq!(to_n3(&req(policy(c("dateTime", "lt")), serde_json::json!({}))), Err(Unsupported::MissingTime));
+        assert_eq!(
+            to_n3(&req(policy(c("nationality", "eq")), serde_json::json!({}))),
+            Err(Unsupported::LeftOperand("nationality".into()))
+        );
+        assert_eq!(
+            to_n3(&req(
+                policy(c("purpose", "isPartOf")),
+                serde_json::json!({})
+            )),
+            Err(Unsupported::Operator("isPartOf".into()))
+        );
+        assert_eq!(
+            to_n3(&req(policy(c("dateTime", "lt")), serde_json::json!({}))),
+            Err(Unsupported::MissingTime)
+        );
         let mut p = policy(serde_json::json!({"action":"use","constraints":[]}));
         p["obligations"] = serde_json::json!([{"action":"notify","constraints":[]}]);
-        assert_eq!(to_n3(&req(p, serde_json::json!({}))), Err(Unsupported::Duties));
+        assert_eq!(
+            to_n3(&req(p, serde_json::json!({}))),
+            Err(Unsupported::Duties)
+        );
         let mut p = policy(serde_json::json!({"action":"use","constraints":[]}));
-        p["permissions"][0]["odrl:refinement"] = serde_json::json!({"left_operand":"purpose","operator":"eq","right_operand":"x"});
-        assert_eq!(to_n3(&req(p, serde_json::json!({}))), Err(Unsupported::Refinement));
+        p["permissions"][0]["odrl:refinement"] =
+            serde_json::json!({"left_operand":"purpose","operator":"eq","right_operand":"x"});
+        assert_eq!(
+            to_n3(&req(p, serde_json::json!({}))),
+            Err(Unsupported::Refinement)
+        );
     }
 
     #[test]
