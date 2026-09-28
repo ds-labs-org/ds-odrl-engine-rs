@@ -30,7 +30,7 @@ pub fn reduce(turtle: &str) -> Result<ReportSummary, String> {
     let doc = eyeron::parse_n3(turtle, None).map_err(|e| e.to_string())?;
     for t in &doc.facts {
         let s = match &t.s {
-            Term::Iri(iri) => iri.clone(),
+            Term::Iri(iri) => iri.to_string(),
             Term::Blank(label) => format!("_:{label}"),
             _ => continue,
         };
@@ -38,9 +38,9 @@ pub fn reduce(turtle: &str) -> Result<ReportSummary, String> {
             continue;
         };
         if p == RDF_TYPE {
-            types.entry(s).or_insert_with(|| o.clone());
+            types.entry(s).or_insert_with(|| o.to_string());
         } else if p == &format!("{REPORT}activationState") {
-            states.entry(s).or_default().insert(o.clone());
+            states.entry(s).or_default().insert(o.to_string());
         }
     }
     let mut out = ReportSummary::default();
