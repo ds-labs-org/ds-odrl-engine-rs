@@ -696,4 +696,59 @@ mod tests {
             .collect();
         assert_eq!(ids, ["perm-c", "perm-p1", "perm-g", "perm-p2"]);
     }
+
+    #[test]
+    fn a_prohibition_naming_two_actions_translates_into_two_atomic_rules() {
+        // ODRL 2.2 Information Model §2.7: a rule naming several actions is
+        // one atomic rule per action -- what dsp-odrl-adapter's N5 pass
+        // (`expand_one_rule`) already does. `translate_action` reads only
+        // the first `odrl:action` value (`Graph::object`), and RDF objects
+        // have no order, so one of these two prohibitions silently vanishes
+        // and a request for it is allowed (#5). The id shadow must split in
+        // step, or compare.rs cannot correlate the two rule reports.
+        let g = graph(
+            r#"
+:proh a odrl:Prohibition ; odrl:target :asset ; odrl:action odrl:archive, odrl:index .
+:policy-b a odrl:Set ; odrl:prohibition :proh .
+:profile a odrl:Profile ; odrl:action odrl:archive, odrl:index .
+:request a dsc:Request ; odrl:target :asset ; odrl:action odrl:index ;
+    dsc:profile :profile ; dsc:policy :policy-b .
+"#,
+        );
+        let (request, policy_ids) = translate_request(&g, &request_id()).expect("translates");
+        let mut actions: Vec<&str> = request.policies[0]
+            .prohibitions
+            .iter()
+            .map(|r| r.action.as_str())
+            .collect();
+        actions.sort();
+        assert_eq!(actions, ["archive", "index"]);
+        assert_eq!(policy_ids[0].prohibitions.len(), 2);
+    }
+
+    #[test]
+    fn a_permission_naming_two_targets_translates_into_two_atomic_rules() {
+        // Same composite-rule rule (§2.7) on the other axis: `translate_rule`
+        // reads only the first `odrl:target` (`Graph::object_id`), so one
+        // asset silently loses its permission (#5).
+        let g = graph(
+            r#"
+:other a odrl:Asset .
+:perm-two a odrl:Permission ; odrl:target :asset, :other ; odrl:action odrl:read .
+:policy-b a odrl:Set ; odrl:permission :perm-two .
+:profile a odrl:Profile ; odrl:action odrl:read .
+:request a dsc:Request ; odrl:target :other ; odrl:action odrl:read ;
+    dsc:profile :profile ; dsc:policy :policy-b .
+"#,
+        );
+        let (request, policy_ids) = translate_request(&g, &request_id()).expect("translates");
+        let mut targets: Vec<Option<&str>> = request.policies[0]
+            .permissions
+            .iter()
+            .map(|r| r.target.as_deref())
+            .collect();
+        targets.sort();
+        assert_eq!(targets, [Some("asset"), Some("other")]);
+        assert_eq!(policy_ids[0].permissions.len(), 2);
+    }
 }
