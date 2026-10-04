@@ -891,6 +891,8 @@ fn rule_from(
         warn_wrong_domain(node, "consequence", local, "Duty", warnings);
     }
 
+    warn_unevaluated_rule_properties(node, local, warnings);
+
     Ok(rule)
 }
 
@@ -975,6 +977,8 @@ fn duty_from(
     warn_wrong_domain(node, "duty", local, "Permission", warnings);
     warn_wrong_domain(node, "remedy", local, "Prohibition", warnings);
 
+    warn_unevaluated_rule_properties(node, local, warnings);
+
     Ok(rule)
 }
 
@@ -1024,6 +1028,40 @@ fn consequence_from(
         depth,
         warnings,
     )?)))
+}
+
+/// Properties a Rule may carry that `engine::Rule` has no field for and that
+/// therefore never affect the decision: named in a warning rather than
+/// dropped silently. `odrl:assignee`/`odrl:assigner` are the ones that
+/// matter most -- a rule-level party scope that is lost widens who the rule
+/// applies to (policy-level ones *are* ingested, into `WirePolicy`).
+const UNEVALUATED_RULE_PROPERTIES: &[(&str, &str)] = &[
+    ("output", "the asset its action produces"),
+    ("assignee", "the rule's assignee"),
+    ("assigner", "the rule's assigner"),
+    ("relation", "the asset relation its target is restricted by"),
+    ("compensatedParty", "a party role"),
+    ("informedParty", "a party role"),
+    ("attributedParty", "a party role"),
+    ("consentingParty", "a party role"),
+    ("trackingParty", "a party role"),
+    ("function", "a party function"),
+];
+
+fn warn_unevaluated_rule_properties(node: &Node, local: &str, warnings: &mut Vec<String>) {
+    for (property, meaning) in UNEVALUATED_RULE_PROPERTIES {
+        if !odrl(node, property).is_empty() {
+            let warning = format!(
+                "the odrl:{local} rule carries odrl:{property} ({meaning}); engine::Rule has no \
+                 field for it, so it is dropped, not evaluated"
+            );
+            // A compound rule is copied per atomic rule before this runs;
+            // name the property once, not once per copy.
+            if !warnings.contains(&warning) {
+                warnings.push(warning);
+            }
+        }
+    }
 }
 
 /// Warns when `node` (a rule of kind `local`) carries `odrl:{property}`,
@@ -2819,5 +2857,125 @@ mod tests {
             "inconsistencies: {:?}",
             ingested.inconsistencies
         );
+    }
+
+    #[test]
+    fn an_odrl_output_on_a_rule_is_named_in_a_warning_not_silently_dropped() {
+        // odrl:output (ODRL 2.2: the Asset a rule's action creates, e.g.
+        // `derive` -> a report) has no engine::Rule field and must not
+        // affect a stateless decision -- but dropping it without a word
+        // breaks this adapter's own audit contract (see `Ingested`), which
+        // wrong-domain duties, extra policy-level actions and unresolvable
+        // @id strings already honour with a named warning (#6).
+        let doc = r#"{
+          "@context": "http://www.w3.org/ns/odrl.jsonld",
+          "@type": "Offer",
+          "@id": "urn:uuid:output",
+          "assigner": "did:web:provider.example",
+          "target": "urn:asset:raw",
+          "permission": [{
+            "action": "derive",
+            "output": "urn:asset:derived"
+          }]
+        }"#;
+        let ingested = ingest_policy(doc).expect("must ingest");
+        assert_eq!(ingested.policy.permissions.len(), 1);
+        assert!(
+            ingested.warnings.iter().any(|w| w.contains("odrl:output")),
+            "an odrl:output must be named in a warning, not silently dropped: {:?}",
+            ingested.warnings
+        );
+    }
+
+    #[test]
+    fn odrl_output_is_named_on_a_remedy_and_never_changes_the_policy() {
+        let with = |extra: &str| {
+            format!(
+                r#"{{
+          "@context": "http://www.w3.org/ns/odrl.jsonld",
+          "@type": "Offer", "@id": "urn:uuid:out2",
+          "assigner": "did:web:provider.example",
+          "target": "urn:asset:raw",
+          "prohibition": [{{ "action": "distribute",
+            "remedy": [{{ "action": "delete"{extra} }}] }}]
+        }}"#
+            )
+        };
+        let plain = ingest_policy(&with("")).expect("ingests");
+        let out = ingest_policy(&with(r#", "output": "urn:asset:x""#)).expect("ingests");
+        assert!(
+            out.warnings.iter().any(|w| w.contains("odrl:output")),
+            "{:?}",
+            out.warnings
+        );
+        assert_eq!(
+            serde_json::to_value(&plain.policy).unwrap(),
+            serde_json::to_value(&out.policy).unwrap()
+        );
+    }
+
+    #[test]
+    fn a_rule_level_assignee_assigner_or_relation_is_named_not_silently_dropped() {
+        for (prop, value) in [
+            ("assignee", "did:web:consumer.example"),
+            ("assigner", "did:web:other.example"),
+            ("relation", "urn:asset:rel"),
+        ] {
+            let doc = format!(
+                r#"{{
+          "@context": "http://www.w3.org/ns/odrl.jsonld",
+          "@type": "Offer", "@id": "urn:uuid:party",
+          "assigner": "did:web:provider.example",
+          "target": "urn:asset:raw",
+          "permission": [{{ "action": "use", "{prop}": "{value}" }}]
+        }}"#
+            );
+            let ingested = ingest_policy(&doc).expect("ingests");
+            assert!(
+                ingested
+                    .warnings
+                    .iter()
+                    .any(|w| w.contains(&format!("odrl:{prop}"))),
+                "{prop}: {:?}",
+                ingested.warnings
+            );
+        }
+    }
+
+    #[test]
+    fn a_policy_level_assignee_and_assigner_raise_no_rule_property_warning() {
+        let doc = r#"{
+          "@context": "http://www.w3.org/ns/odrl.jsonld",
+          "@type": "Agreement", "@id": "urn:uuid:pl",
+          "assigner": "did:web:provider.example",
+          "assignee": "did:web:consumer.example",
+          "target": "urn:asset:raw",
+          "permission": [{ "action": "use" }]
+        }"#;
+        let ingested = ingest_policy(doc).expect("ingests");
+        assert!(
+            !ingested.warnings.iter().any(|w| w.contains("rule carries")),
+            "{:?}",
+            ingested.warnings
+        );
+    }
+
+    #[test]
+    fn a_compound_rule_with_output_warns_once() {
+        let doc = r#"{
+          "@context": "http://www.w3.org/ns/odrl.jsonld",
+          "@type": "Offer", "@id": "urn:uuid:once",
+          "assigner": "did:web:provider.example",
+          "target": "urn:asset:raw",
+          "permission": [{ "action": ["derive", "reproduce"], "output": "urn:asset:d" }]
+        }"#;
+        let ingested = ingest_policy(doc).expect("ingests");
+        assert_eq!(ingested.policy.permissions.len(), 2);
+        let n = ingested
+            .warnings
+            .iter()
+            .filter(|w| w.contains("odrl:output"))
+            .count();
+        assert_eq!(n, 1, "{:?}", ingested.warnings);
     }
 }
