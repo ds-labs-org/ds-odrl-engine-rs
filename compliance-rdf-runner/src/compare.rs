@@ -275,8 +275,7 @@ pub fn compare_case(
                 .copied()
                 .filter(|r| activation_name(activation_of(r)) == "Active")
                 .collect();
-            let selected: &[&DetailedRuleReport] =
-                if active.is_empty() { clones } else { &active };
+            let selected: &[&DetailedRuleReport] = if active.is_empty() { clones } else { &active };
             if selected.is_empty() {
                 mismatches.push(format!(
                     "policy '{}': expected a {:?} report for rule '{}' but the engine produced none",
@@ -946,5 +945,142 @@ mod tests {
                 .any(|m| m.contains("dsc:expectedDecision")),
             "{mismatches:?}"
         );
+    }
+
+    #[test]
+    fn composite_clones_sharing_a_rule_id_are_compared_against_the_active_one() {
+        // `perm` is a composite rule: two atomic clones share the RDF id.
+        // Only the second applies to the request. The expected single
+        // `Active` report must be checked against that clone, not against
+        // whichever clone happens to be indexed last.
+        let shadow = [ids("policy-a", &["perm", "perm"], &[])];
+        let exp = [expected(
+            "policy-a",
+            ExpectedRuleKind::Permission,
+            "perm",
+            "Active",
+        )];
+        for active_first in [true, false] {
+            let reports = if active_first {
+                vec![permission(0, true), permission(1, false)]
+            } else {
+                vec![permission(0, false), permission(1, true)]
+            };
+            let detailed = evaluation(vec![policy_report("policy-a", reports)]);
+            let m = compare_case(
+                &shadow,
+                &exp,
+                DutyMode::Advise,
+                Behaviour::Closed,
+                None,
+                &detailed,
+                &response(WireDecision::Allow),
+            )
+            .unwrap();
+            assert!(m.is_empty(), "active_first={active_first}: {m:?}");
+        }
+
+        // And a wrong expectation still fails: no clone is Inactive-free.
+        let exp_inactive = [expected(
+            "policy-a",
+            ExpectedRuleKind::Permission,
+            "perm",
+            "Inactive",
+        )];
+        let detailed = evaluation(vec![policy_report(
+            "policy-a",
+            vec![permission(0, true), permission(1, false)],
+        )]);
+        let m = compare_case(
+            &shadow,
+            &exp_inactive,
+            DutyMode::Advise,
+            Behaviour::Closed,
+            None,
+            &detailed,
+            &response(WireDecision::Allow),
+        )
+        .unwrap();
+        assert!(!m.is_empty(), "an Active clone must contradict 'Inactive'");
+    }
+
+    #[test]
+    fn a_composite_duty_expands_to_one_outstanding_duty_per_atomic_clone() {
+        // One RDF duty naming two actions is two atomic duties; the engine
+        // lists both in `Response.duties`, so the expected side must count
+        // both too.
+        let rule = |action: &str| RuleIds {
+            rule_id: "duty".to_string(),
+            action: action.to_string(),
+            duty: vec![],
+            remedy: vec![],
+            consequence: None,
+        };
+        let shadow = [PolicyIds {
+            id: "policy-a".to_string(),
+            permissions: vec![],
+            prohibitions: vec![],
+            obligations: vec![rule("archive"), rule("index")],
+            inherit_from: None,
+        }];
+        let duty_report = |duty_index: usize| {
+            DetailedRuleReport::Duty(engine::DetailedDutyReport {
+                attachment: engine::DutyAttachment::Obligation,
+                duty_index,
+                consequence_depth: 0,
+                activation_state: ActivationState::Active,
+                performance_state: PerformanceState::Unperformed,
+                deontic_state: DeonticState::NonSet,
+                premise_reports: vec![],
+            })
+        };
+        let exp = [ExpectedPolicyReport {
+            policy_id: "policy-a".to_string(),
+            rule_reports: vec![ExpectedRuleReport {
+                kind: ExpectedRuleKind::Duty,
+                rule: "duty".to_string(),
+                activation_state: Some("Active".to_string()),
+                attempt_state: None,
+                performance_state: Some("Unperformed".to_string()),
+                deontic_state: None,
+            }],
+        }];
+        let detailed = evaluation(vec![policy_report(
+            "policy-a",
+            vec![duty_report(0), duty_report(1)],
+        )]);
+        let entry = |action: &str| engine::DutyEntry {
+            policy_id: "policy-a".to_string(),
+            action: action.to_string(),
+            resolved: false,
+            source: None,
+        };
+        let mut resp = response(WireDecision::Deny);
+        resp.duties = vec![entry("archive"), entry("index")];
+        let m = compare_case(
+            &shadow,
+            &exp,
+            DutyMode::Advise,
+            Behaviour::Closed,
+            None,
+            &detailed,
+            &resp,
+        )
+        .unwrap();
+        assert!(m.is_empty(), "{m:?}");
+
+        // Dropping one from Response.duties must now be caught.
+        resp.duties = vec![entry("archive")];
+        let m = compare_case(
+            &shadow,
+            &exp,
+            DutyMode::Advise,
+            Behaviour::Closed,
+            None,
+            &detailed,
+            &resp,
+        )
+        .unwrap();
+        assert!(m.iter().any(|x| x.contains("Response.duties")), "{m:?}");
     }
 }

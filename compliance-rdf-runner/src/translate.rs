@@ -157,9 +157,7 @@ fn translate_actions(
     let mut out = Vec::new();
     for action_term in terms {
         let action_id = match action_term {
-            Term::Literal(_) => {
-                return Err(format!("{rule_node}: odrl:action must be a resource"))
-            }
+            Term::Literal(_) => return Err(format!("{rule_node}: odrl:action must be a resource")),
             Term::NamedNode(n) => n.as_str().to_string(),
             Term::BlankNode(b) => format!("_:{}", b.as_str()),
         };
@@ -825,7 +823,10 @@ mod tests {
         );
         let (request, _) = translate_request(&g, &request_id()).expect("translates");
         let refinement = format!("{:?}", request.policies[0].permissions[0].action_refinement);
-        assert!(refinement.contains("\"5\"") && refinement.contains("\"1\""), "{refinement}");
+        assert!(
+            refinement.contains("\"5\"") && refinement.contains("\"1\""),
+            "{refinement}"
+        );
     }
 
     #[test]
