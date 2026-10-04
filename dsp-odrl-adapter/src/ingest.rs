@@ -891,7 +891,7 @@ fn rule_from(
         warn_wrong_domain(node, "consequence", local, "Duty", warnings);
     }
 
-    warn_output_unevaluated(node, local, warnings);
+    warn_unevaluated_rule_properties(node, local, warnings);
 
     Ok(rule)
 }
@@ -977,7 +977,7 @@ fn duty_from(
     warn_wrong_domain(node, "duty", local, "Permission", warnings);
     warn_wrong_domain(node, "remedy", local, "Prohibition", warnings);
 
-    warn_output_unevaluated(node, local, warnings);
+    warn_unevaluated_rule_properties(node, local, warnings);
 
     Ok(rule)
 }
@@ -1035,17 +1035,26 @@ fn consequence_from(
 /// this adapter cannot map without guessing which `Rule` field the author
 /// actually meant, so it is named and dropped rather than silently
 /// ignored or misfiled.
-/// `odrl:output` (the asset an action produces) has no `engine::Rule` field
-/// and a single stateless request cannot observe it, so it never affects the
-/// decision; name it rather than drop it silently. Read on every Rule
-/// (permission, prohibition, obligation) and nested Duty.
-fn warn_output_unevaluated(node: &Node, local: &str, warnings: &mut Vec<String>) {
-    if !odrl(node, "output").is_empty() {
-        warnings.push(format!(
-            "the odrl:{local} rule carries odrl:output (the asset its action produces); \
-             engine::Rule has no field for it and a single stateless request cannot observe it, \
-             so it is dropped, not evaluated"
-        ));
+/// Properties a Rule may carry that `engine::Rule` has no field for and that
+/// therefore never affect the decision: named in a warning rather than
+/// dropped silently. `odrl:assignee`/`odrl:assigner` are the ones that
+/// matter most -- a rule-level party scope that is lost widens who the rule
+/// applies to (policy-level ones *are* ingested, into `WirePolicy`).
+const UNEVALUATED_RULE_PROPERTIES: &[(&str, &str)] = &[
+    ("output", "the asset its action produces"),
+    ("assignee", "the party the rule is granted to"),
+    ("assigner", "the party granting the rule"),
+    ("relation", "the asset relation its target is restricted by"),
+];
+
+fn warn_unevaluated_rule_properties(node: &Node, local: &str, warnings: &mut Vec<String>) {
+    for (property, meaning) in UNEVALUATED_RULE_PROPERTIES {
+        if !odrl(node, property).is_empty() {
+            warnings.push(format!(
+                "the odrl:{local} rule carries odrl:{property} ({meaning}); engine::Rule has no \
+                 field for it, so it is dropped, not evaluated"
+            ));
+        }
     }
 }
 
@@ -2865,5 +2874,53 @@ mod tests {
             "an odrl:output must be named in a warning, not silently dropped: {:?}",
             ingested.warnings
         );
+    }
+
+    #[test]
+    fn odrl_output_is_named_on_a_remedy_and_never_changes_the_policy() {
+        let with = |extra: &str| {
+            format!(
+                r#"{{
+          "@context": "http://www.w3.org/ns/odrl.jsonld",
+          "@type": "Offer", "@id": "urn:uuid:out2",
+          "assigner": "did:web:provider.example",
+          "target": "urn:asset:raw",
+          "prohibition": [{{ "action": "distribute",
+            "remedy": [{{ "action": "delete"{extra} }}] }}]
+        }}"#
+            )
+        };
+        let plain = ingest_policy(&with("")).expect("ingests");
+        let out = ingest_policy(&with(r#", "output": "urn:asset:x""#)).expect("ingests");
+        assert!(out.warnings.iter().any(|w| w.contains("odrl:output")), "{:?}", out.warnings);
+        assert_eq!(
+            serde_json::to_value(&plain.policy).unwrap(),
+            serde_json::to_value(&out.policy).unwrap()
+        );
+    }
+
+    #[test]
+    fn a_rule_level_assignee_assigner_or_relation_is_named_not_silently_dropped() {
+        for (prop, value) in [
+            ("assignee", "did:web:consumer.example"),
+            ("assigner", "did:web:other.example"),
+            ("relation", "urn:asset:rel"),
+        ] {
+            let doc = format!(
+                r#"{{
+          "@context": "http://www.w3.org/ns/odrl.jsonld",
+          "@type": "Offer", "@id": "urn:uuid:party",
+          "assigner": "did:web:provider.example",
+          "target": "urn:asset:raw",
+          "permission": [{{ "action": "use", "{prop}": "{value}" }}]
+        }}"#
+            );
+            let ingested = ingest_policy(&doc).expect("ingests");
+            assert!(
+                ingested.warnings.iter().any(|w| w.contains(&format!("odrl:{prop}"))),
+                "{prop}: {:?}",
+                ingested.warnings
+            );
+        }
     }
 }
