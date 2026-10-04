@@ -2820,4 +2820,32 @@ mod tests {
             ingested.inconsistencies
         );
     }
+
+    #[test]
+    fn an_odrl_output_on_a_rule_is_named_in_a_warning_not_silently_dropped() {
+        // odrl:output (ODRL 2.2: the Asset a rule's action creates, e.g.
+        // `derive` -> a report) has no engine::Rule field and must not
+        // affect a stateless decision -- but dropping it without a word
+        // breaks this adapter's own audit contract (see `Ingested`), which
+        // wrong-domain duties, extra policy-level actions and unresolvable
+        // @id strings already honour with a named warning (#6).
+        let doc = r#"{
+          "@context": "http://www.w3.org/ns/odrl.jsonld",
+          "@type": "Offer",
+          "@id": "urn:uuid:output",
+          "assigner": "did:web:provider.example",
+          "target": "urn:asset:raw",
+          "permission": [{
+            "action": "derive",
+            "output": "urn:asset:derived"
+          }]
+        }"#;
+        let ingested = ingest_policy(doc).expect("must ingest");
+        assert_eq!(ingested.policy.permissions.len(), 1);
+        assert!(
+            ingested.warnings.iter().any(|w| w.contains("odrl:output")),
+            "an odrl:output must be named in a warning, not silently dropped: {:?}",
+            ingested.warnings
+        );
+    }
 }
