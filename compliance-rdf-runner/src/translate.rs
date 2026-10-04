@@ -141,6 +141,19 @@ fn translate_constraint(g: &Graph, node: &str) -> Result<Constraint, String> {
     Ok(Constraint::new(left_operand, operator, right_operand))
 }
 
+/// Every value of `subject`/`predicate`, all of which must be resources:
+/// `Graph::object_ids` silently filters literals out, which would turn a
+/// literal `odrl:target` into a missing one (a wildcard).
+fn resource_ids(g: &Graph, subject: &str, predicate: &str) -> Result<Vec<String>, String> {
+    let ids = g.object_ids(subject, predicate);
+    if ids.len() != g.objects(subject, predicate).len() {
+        return Err(format!(
+            "{subject}: {predicate} must be a resource, not a literal"
+        ));
+    }
+    Ok(ids)
+}
+
 /// Every `odrl:action` value of a rule node: each is either a plain action
 /// IRI, or the `[ rdf:value <action> ; odrl:refinement [...] ]` wrapper shape
 /// the vocabulary spec's worked example uses for a refined action. Returns
@@ -211,7 +224,8 @@ pub struct RuleIds {
 /// a duty's own `.consequence`) -- and keeps this one function the single
 /// place a rule-shaped node is translated, rather than three near-copies.
 ///
-/// Returns `(Rule, RuleIds)` together, built from the very same recursive
+/// Returns every atomic `(Rule, RuleIds)` the node expands to (one per
+/// action x target), built from the very same recursive
 /// walk, so the id shadow can never drift out of step with the `Rule`
 /// tree it names -- two separate walks over the same RDF would risk
 /// silently visiting `odrl:duty`/`odrl:remedy` members in different
@@ -221,8 +235,7 @@ fn translate_rule(g: &Graph, node: &str) -> Result<Vec<(Rule, RuleIds)>, String>
     // ODRL 2.2 IM §2.7: a rule naming several actions and/or targets is one
     // atomic rule per (action, target) pair. An absent dimension is one
     // `None` variant.
-    let mut targets: Vec<Option<String>> = g
-        .object_ids(node, &odrl_target())
+    let mut targets: Vec<Option<String>> = resource_ids(g, node, &odrl_target())?
         .iter()
         .map(|t| Some(local_name(t).to_string()))
         .collect();
@@ -580,7 +593,7 @@ pub fn translate_request(
     g: &Graph,
     request_node: &str,
 ) -> Result<(Request, Vec<PolicyIds>), String> {
-    let target_nodes = g.object_ids(request_node, &odrl_target());
+    let target_nodes = resource_ids(g, request_node, &odrl_target())?;
     if target_nodes.len() > 1 {
         return Err(format!(
             "{request_node}: a request is one atomic target, found {} odrl:target values",
@@ -593,7 +606,7 @@ pub fn translate_request(
         .ok_or_else(|| format!("{request_node}: no odrl:target"))?;
     let dataset_id = local_name(&target_node).to_string();
 
-    let action_ids = g.object_ids(request_node, &odrl_action());
+    let action_ids = resource_ids(g, request_node, &odrl_action())?;
     if action_ids.len() > 1 {
         return Err(format!(
             "{request_node}: a request is one atomic action, found {} odrl:action values",
@@ -862,6 +875,72 @@ mod tests {
 "#
             ));
             assert!(translate_request(&g, &request_id()).is_err(), "{prop}");
+        }
+    }
+
+    #[test]
+    fn a_literal_odrl_target_is_an_error_not_a_wildcard() {
+        let g = graph(
+            r#"
+:perm-lit a odrl:Permission ; odrl:target "asset" ; odrl:action odrl:read .
+:policy-b a odrl:Set ; odrl:permission :perm-lit .
+:profile a odrl:Profile ; odrl:action odrl:read .
+:request a dsc:Request ; odrl:target :asset ; odrl:action odrl:read ;
+    dsc:profile :profile ; dsc:policy :policy-b .
+"#,
+        );
+        assert!(translate_request(&g, &request_id()).is_err());
+    }
+
+    #[test]
+    fn a_composite_or_repeated_consequence_is_an_error_not_first_wins() {
+        let composite = graph(
+            r#"
+:c a odrl:Duty ; odrl:action odrl:delete, odrl:anonymize .
+:d a odrl:Duty ; odrl:action odrl:inform ; odrl:consequence :c .
+:perm-c a odrl:Permission ; odrl:target :asset ; odrl:action odrl:read ; odrl:duty :d .
+:policy-b a odrl:Set ; odrl:permission :perm-c .
+:profile a odrl:Profile ; odrl:action odrl:read .
+:request a dsc:Request ; odrl:target :asset ; odrl:action odrl:read ;
+    dsc:profile :profile ; dsc:policy :policy-b .
+"#,
+        );
+        assert!(translate_request(&composite, &request_id()).is_err());
+        let repeated = graph(
+            r#"
+:c1 a odrl:Duty ; odrl:action odrl:delete .
+:c2 a odrl:Duty ; odrl:action odrl:anonymize .
+:d a odrl:Duty ; odrl:action odrl:inform ; odrl:consequence :c1, :c2 .
+:perm-c a odrl:Permission ; odrl:target :asset ; odrl:action odrl:read ; odrl:duty :d .
+:policy-b a odrl:Set ; odrl:permission :perm-c .
+:profile a odrl:Profile ; odrl:action odrl:read .
+:request a dsc:Request ; odrl:target :asset ; odrl:action odrl:read ;
+    dsc:profile :profile ; dsc:policy :policy-b .
+"#,
+        );
+        assert!(translate_request(&repeated, &request_id()).is_err());
+    }
+
+    #[test]
+    fn a_composite_duty_under_a_permission_expands_with_matching_ids() {
+        let g = graph(
+            r#"
+:d a odrl:Duty ; odrl:action odrl:delete, odrl:anonymize .
+:perm-d a odrl:Permission ; odrl:target :asset ; odrl:action odrl:read ; odrl:duty :d .
+:policy-b a odrl:Set ; odrl:permission :perm-d .
+:profile a odrl:Profile ; odrl:action odrl:read .
+:request a dsc:Request ; odrl:target :asset ; odrl:action odrl:read ;
+    dsc:profile :profile ; dsc:policy :policy-b .
+"#,
+        );
+        let (request, ids) = translate_request(&g, &request_id()).expect("translates");
+        let rule = &request.policies[0].permissions[0];
+        let mut actions: Vec<&str> = rule.duty.iter().map(|d| d.action.as_str()).collect();
+        actions.sort();
+        assert_eq!(actions, ["anonymize", "delete"]);
+        for (d, i) in rule.duty.iter().zip(&ids[0].permissions[0].duty) {
+            assert_eq!(d.action, i.action);
+            assert_eq!(i.rule_id, "d");
         }
     }
 }

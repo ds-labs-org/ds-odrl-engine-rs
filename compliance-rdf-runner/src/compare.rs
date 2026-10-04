@@ -273,7 +273,7 @@ pub fn compare_case(
             let active: Vec<&DetailedRuleReport> = clones
                 .iter()
                 .copied()
-                .filter(|r| activation_name(activation_of(r)) == "Active")
+                .filter(|r| matches!(activation_of(r), ActivationState::Active))
                 .collect();
             let selected: &[&DetailedRuleReport] = if active.is_empty() { clones } else { &active };
             if selected.is_empty() {
