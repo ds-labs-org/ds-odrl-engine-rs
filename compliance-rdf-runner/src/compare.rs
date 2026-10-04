@@ -247,11 +247,13 @@ pub fn compare_case(
             ));
         }
 
-        let mut actual_index: HashMap<(ExpectedRuleKind, String), &DetailedRuleReport> =
+        // A composite rule (several actions/targets) translates into several
+        // atomic rules sharing one RDF node id, so each key holds a list.
+        let mut actual_index: HashMap<(ExpectedRuleKind, String), Vec<&DetailedRuleReport>> =
             HashMap::new();
         for report in &actual_policy.rule_reports {
             if let Some(key) = rule_id_of(&merged, report) {
-                actual_index.insert(key, report);
+                actual_index.entry(key).or_default().push(report);
             } else {
                 mismatches.push(format!(
                     "policy '{}': engine produced a rule report this translator's own PolicyIds \
@@ -264,14 +266,28 @@ pub fn compare_case(
         let mut matched_keys = std::collections::HashSet::new();
         for exp_rule in &exp_policy.rule_reports {
             let key = (exp_rule.kind, exp_rule.rule.clone());
-            let actual = actual_index.get(&key).copied();
-            match actual {
-                None => mismatches.push(format!(
+            let clones = actual_index.get(&key).map(Vec::as_slice).unwrap_or(&[]);
+            // The composite node applies to the request if any atomic clone
+            // does: compare against the Active clones when there are any,
+            // otherwise against all of them.
+            let active: Vec<&DetailedRuleReport> = clones
+                .iter()
+                .copied()
+                .filter(|r| activation_name(activation_of(r)) == "Active")
+                .collect();
+            let selected: &[&DetailedRuleReport] =
+                if active.is_empty() { clones } else { &active };
+            if selected.is_empty() {
+                mismatches.push(format!(
                     "policy '{}': expected a {:?} report for rule '{}' but the engine produced none",
                     exp_policy.policy_id, exp_rule.kind, exp_rule.rule
-                )),
-                Some(actual) => {
-                    matched_keys.insert(key.clone());
+                ));
+            } else {
+                matched_keys.insert(key.clone());
+                // The report: vocabulary has one state per RDF node, so
+                // every selected clone must satisfy it; a disagreement
+                // surfaces as a mismatch rather than a guess.
+                for actual in selected {
                     compare_rule_report(&exp_policy.policy_id, exp_rule, actual, &mut mismatches);
                 }
             }
@@ -283,20 +299,24 @@ pub fn compare_case(
                 && !(duty_mode == DutyMode::Deny
                     && is_plain_policy_obligation(&merged, &exp_rule.rule))
             {
-                if let Some(DetailedRuleReport::Duty(d)) = actual {
-                    expected_outstanding
-                        .push((exp_policy.policy_id.clone(), duty_action(&merged, d)));
+                for actual in selected {
+                    if let DetailedRuleReport::Duty(d) = actual {
+                        expected_outstanding
+                            .push((exp_policy.policy_id.clone(), duty_action(&merged, d)));
+                    }
                 }
             }
         }
 
-        for (key, report) in &actual_index {
+        for (key, reports) in &actual_index {
             if !matched_keys.contains(key) {
-                mismatches.push(format!(
-                    "policy '{}': engine produced a {:?} report for rule '{}' that the expected outcome \
-                     never mentions: {report:?}",
-                    exp_policy.policy_id, key.0, key.1
-                ));
+                for report in reports {
+                    mismatches.push(format!(
+                        "policy '{}': engine produced a {:?} report for rule '{}' that the expected outcome \
+                         never mentions: {report:?}",
+                        exp_policy.policy_id, key.0, key.1
+                    ));
+                }
             }
         }
     }
@@ -480,6 +500,14 @@ fn duty_action(merged: &PolicyIds, d: &engine::DetailedDutyReport) -> String {
         .and_then(|root| walk_consequence(root, d.consequence_depth))
         .map(|r| r.action.clone())
         .unwrap_or_default()
+}
+
+fn activation_of(report: &DetailedRuleReport) -> engine::ActivationState {
+    match report {
+        DetailedRuleReport::Permission(p) => p.activation_state,
+        DetailedRuleReport::Prohibition(p) => p.activation_state,
+        DetailedRuleReport::Duty(d) => d.activation_state,
+    }
 }
 
 fn compare_rule_report(

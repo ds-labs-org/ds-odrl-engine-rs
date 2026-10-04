@@ -141,28 +141,43 @@ fn translate_constraint(g: &Graph, node: &str) -> Result<Constraint, String> {
     Ok(Constraint::new(left_operand, operator, right_operand))
 }
 
-/// One `odrl:action` value: either a plain action IRI, or the
-/// `[ rdf:value <action> ; odrl:refinement [...] ]` wrapper shape the
-/// vocabulary spec's worked example uses for a refined action. Returns
-/// `(action, refinement)`.
-fn translate_action(g: &Graph, rule_node: &str) -> Result<(String, Option<Constraint>), String> {
-    let action_term = g
-        .object(rule_node, &odrl_action())
-        .ok_or_else(|| format!("{rule_node}: no odrl:action"))?;
-    let action_id = match action_term {
-        Term::Literal(_) => return Err(format!("{rule_node}: odrl:action must be a resource")),
-        Term::NamedNode(n) => n.as_str().to_string(),
-        Term::BlankNode(b) => format!("_:{}", b.as_str()),
-    };
-    if let Some(value_id) = g.object_id(&action_id, RDF_VALUE) {
-        let refinement = g
-            .object_id(&action_id, &odrl_refinement())
-            .map(|r| translate_constraint(g, &r))
-            .transpose()?;
-        Ok((local_name(&value_id).to_string(), refinement))
-    } else {
-        Ok((local_name(&action_id).to_string(), None))
+/// Every `odrl:action` value of a rule node: each is either a plain action
+/// IRI, or the `[ rdf:value <action> ; odrl:refinement [...] ]` wrapper shape
+/// the vocabulary spec's worked example uses for a refined action. Returns
+/// one `(action, refinement)` per value; several refinements on one wrapper
+/// are ANDed, as `dsp-odrl-adapter` does.
+fn translate_actions(
+    g: &Graph,
+    rule_node: &str,
+) -> Result<Vec<(String, Option<Constraint>)>, String> {
+    let terms = g.objects(rule_node, &odrl_action());
+    if terms.is_empty() {
+        return Err(format!("{rule_node}: no odrl:action"));
     }
+    let mut out = Vec::new();
+    for action_term in terms {
+        let action_id = match action_term {
+            Term::Literal(_) => {
+                return Err(format!("{rule_node}: odrl:action must be a resource"))
+            }
+            Term::NamedNode(n) => n.as_str().to_string(),
+            Term::BlankNode(b) => format!("_:{}", b.as_str()),
+        };
+        if let Some(value_id) = g.object_id(&action_id, RDF_VALUE) {
+            let mut refinement: Option<Constraint> = None;
+            for r in g.object_ids(&action_id, &odrl_refinement()) {
+                let c = translate_constraint(g, &r)?;
+                refinement = Some(match refinement {
+                    Some(prev) => Constraint::and(vec![prev, c]),
+                    None => c,
+                });
+            }
+            out.push((local_name(&value_id).to_string(), refinement));
+        } else {
+            out.push((local_name(&action_id).to_string(), None));
+        }
+    }
+    Ok(out)
 }
 
 /// The RDF-id shadow of one translated `Rule`, built in lockstep with it
@@ -203,11 +218,19 @@ pub struct RuleIds {
 /// tree it names -- two separate walks over the same RDF would risk
 /// silently visiting `odrl:duty`/`odrl:remedy` members in different
 /// orders on some future, more adversarial fixture.
-fn translate_rule(g: &Graph, node: &str) -> Result<(Rule, RuleIds), String> {
-    let (action, action_refinement) = translate_action(g, node)?;
-    let target = g
-        .object_id(node, &odrl_target())
-        .map(|t| local_name(&t).to_string());
+fn translate_rule(g: &Graph, node: &str) -> Result<Vec<(Rule, RuleIds)>, String> {
+    let actions = translate_actions(g, node)?;
+    // ODRL 2.2 IM §2.7: a rule naming several actions and/or targets is one
+    // atomic rule per (action, target) pair. An absent dimension is one
+    // `None` variant.
+    let mut targets: Vec<Option<String>> = g
+        .object_ids(node, &odrl_target())
+        .iter()
+        .map(|t| Some(local_name(t).to_string()))
+        .collect();
+    if targets.is_empty() {
+        targets.push(None);
+    }
 
     let constraints = g
         .object_ids(node, &odrl_constraint())
@@ -215,45 +238,76 @@ fn translate_rule(g: &Graph, node: &str) -> Result<(Rule, RuleIds), String> {
         .map(|c| translate_constraint(g, c))
         .collect::<Result<Vec<_>, _>>()?;
 
-    let (duty, duty_ids): (Vec<Rule>, Vec<RuleIds>) = g
-        .object_ids(node, &odrl_duty())
-        .iter()
-        .map(|d| translate_rule(g, d))
-        .collect::<Result<Vec<_>, String>>()?
-        .into_iter()
-        .unzip();
-    let (remedy, remedy_ids): (Vec<Rule>, Vec<RuleIds>) = g
-        .object_ids(node, &odrl_remedy())
-        .iter()
-        .map(|r| translate_rule(g, r))
-        .collect::<Result<Vec<_>, String>>()?
-        .into_iter()
-        .unzip();
-    let (consequence, consequence_ids) = match g.object_id(node, &odrl_consequence()) {
-        Some(c) => {
-            let (rule, ids) = translate_rule(g, &c)?;
+    let (duty, duty_ids) = translate_rules_at(g, node, &odrl_duty())?;
+    let (remedy, remedy_ids) = translate_rules_at(g, node, &odrl_remedy())?;
+
+    // `engine::Rule::consequence` holds a single successor, so a composite
+    // consequence (several nodes, or one node expanding to several atomic
+    // rules) has nowhere to go: fail loudly rather than keep the first.
+    let consequence_nodes = g.object_ids(node, &odrl_consequence());
+    let (consequence, consequence_ids) = match consequence_nodes.as_slice() {
+        [] => (None, None),
+        [c] => {
+            let mut expanded = translate_rule(g, c)?;
+            if expanded.len() != 1 {
+                return Err(format!(
+                    "{c}: composite odrl:consequence expands to {} atomic rules; \
+                     engine::Rule::consequence models a single successor",
+                    expanded.len()
+                ));
+            }
+            let (rule, ids) = expanded.remove(0);
             (Some(Box::new(rule)), Some(Box::new(ids)))
         }
-        None => (None, None),
+        _ => {
+            return Err(format!(
+                "{node}: {} odrl:consequence values; engine::Rule::consequence models a single successor",
+                consequence_nodes.len()
+            ))
+        }
     };
 
-    let ids = RuleIds {
-        rule_id: local_name(node).to_string(),
-        action: action.clone(),
-        duty: duty_ids,
-        remedy: remedy_ids,
-        consequence: consequence_ids,
-    };
-    let rule = Rule {
-        action,
-        target,
-        constraints,
-        action_refinement,
-        duty,
-        remedy,
-        consequence,
-    };
-    Ok((rule, ids))
+    let mut out = Vec::new();
+    for (action, action_refinement) in &actions {
+        for target in &targets {
+            let ids = RuleIds {
+                rule_id: local_name(node).to_string(),
+                action: action.clone(),
+                duty: duty_ids.clone(),
+                remedy: remedy_ids.clone(),
+                consequence: consequence_ids.clone(),
+            };
+            let rule = Rule {
+                action: action.clone(),
+                target: target.clone(),
+                constraints: constraints.clone(),
+                action_refinement: action_refinement.clone(),
+                duty: duty.clone(),
+                remedy: remedy.clone(),
+                consequence: consequence.clone(),
+            };
+            out.push((rule, ids));
+        }
+    }
+    Ok(out)
+}
+
+/// Translates every rule node under `property`, flattening composite
+/// expansions, and splits the result into the rules and their id shadow.
+fn translate_rules_at(
+    g: &Graph,
+    node: &str,
+    property: &str,
+) -> Result<(Vec<Rule>, Vec<RuleIds>), String> {
+    let mut rules = Vec::new();
+    let mut ids = Vec::new();
+    for child in g.object_ids(node, property) {
+        for (r, i) in translate_rule(g, &child)? {
+            rules.push(r);
+            ids.push(i);
+        }
+    }
+    Ok((rules, ids))
 }
 
 /// The seven native ODRL 2.2 Policy subclasses this corpus's
@@ -310,27 +364,9 @@ fn translate_policy(g: &Graph, node: &str) -> Result<(WirePolicy, PolicyIds), St
         .object_id(node, &odrl_assignee())
         .map(|a| local_name(&a).to_string());
 
-    let (permissions, permission_ids): (Vec<Rule>, Vec<RuleIds>) = g
-        .object_ids(node, &odrl_permission())
-        .iter()
-        .map(|p| translate_rule(g, p))
-        .collect::<Result<Vec<_>, String>>()?
-        .into_iter()
-        .unzip();
-    let (prohibitions, prohibition_ids): (Vec<Rule>, Vec<RuleIds>) = g
-        .object_ids(node, &odrl_prohibition())
-        .iter()
-        .map(|p| translate_rule(g, p))
-        .collect::<Result<Vec<_>, String>>()?
-        .into_iter()
-        .unzip();
-    let (obligations, obligation_ids): (Vec<Rule>, Vec<RuleIds>) = g
-        .object_ids(node, &odrl_obligation())
-        .iter()
-        .map(|o| translate_rule(g, o))
-        .collect::<Result<Vec<_>, String>>()?
-        .into_iter()
-        .unzip();
+    let (permissions, permission_ids) = translate_rules_at(g, node, &odrl_permission())?;
+    let (prohibitions, prohibition_ids) = translate_rules_at(g, node, &odrl_prohibition())?;
+    let (obligations, obligation_ids) = translate_rules_at(g, node, &odrl_obligation())?;
 
     let conflict: ConflictStrategy = match g.object_id(node, &odrl_conflict()) {
         Some(c) => from_local_name(local_name(&c))?,
