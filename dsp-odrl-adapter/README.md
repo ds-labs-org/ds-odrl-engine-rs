@@ -457,9 +457,13 @@ cannot audit.
   models a single successor, not a `Vec`, so only the first is ingested —
   this now also fires when N5 itself is *why* there is more than one, see
   the note in "Normalization" below);
-- `odrl:output`, `odrl:assignee`, `odrl:assigner` or `odrl:relation` on a rule
-  or nested Duty: `engine::Rule` has no field for any of them, so they never
-  affect the decision (policy-level `assignee`/`assigner` *are* ingested);
+- `odrl:output`, `odrl:relation`, `odrl:function`, or a party role
+  (`assignee`, `assigner`, `compensatedParty`, `informedParty`,
+  `attributedParty`, `consentingParty`, `trackingParty`) on a rule or nested
+  Duty: `engine::Rule` has no field for any of them, so they never affect the
+  decision (policy-level `assignee`/`assigner` *are* ingested). A rule-level
+  `assignee`/`assigner` that is lost widens who the rule applies to, so a host
+  that scopes by party should treat that warning as fatal;
 - an `odrl:profile` declaration (not loaded, so any term it defines stays
   an opaque string; `odrl:inheritFrom` is unrelated to this and *is* now
   ingested — see the mapping table above);
