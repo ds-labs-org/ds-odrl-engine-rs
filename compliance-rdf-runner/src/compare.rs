@@ -247,11 +247,13 @@ pub fn compare_case(
             ));
         }
 
-        let mut actual_index: HashMap<(ExpectedRuleKind, String), &DetailedRuleReport> =
+        // A composite rule (several actions/targets) translates into several
+        // atomic rules sharing one RDF node id, so each key holds a list.
+        let mut actual_index: HashMap<(ExpectedRuleKind, String), Vec<&DetailedRuleReport>> =
             HashMap::new();
         for report in &actual_policy.rule_reports {
             if let Some(key) = rule_id_of(&merged, report) {
-                actual_index.insert(key, report);
+                actual_index.entry(key).or_default().push(report);
             } else {
                 mismatches.push(format!(
                     "policy '{}': engine produced a rule report this translator's own PolicyIds \
@@ -264,14 +266,27 @@ pub fn compare_case(
         let mut matched_keys = std::collections::HashSet::new();
         for exp_rule in &exp_policy.rule_reports {
             let key = (exp_rule.kind, exp_rule.rule.clone());
-            let actual = actual_index.get(&key).copied();
-            match actual {
-                None => mismatches.push(format!(
+            let clones = actual_index.get(&key).map(Vec::as_slice).unwrap_or(&[]);
+            // The composite node applies to the request if any atomic clone
+            // does: compare against the Active clones when there are any,
+            // otherwise against all of them.
+            let active: Vec<&DetailedRuleReport> = clones
+                .iter()
+                .copied()
+                .filter(|r| matches!(activation_of(r), ActivationState::Active))
+                .collect();
+            let selected: &[&DetailedRuleReport] = if active.is_empty() { clones } else { &active };
+            if selected.is_empty() {
+                mismatches.push(format!(
                     "policy '{}': expected a {:?} report for rule '{}' but the engine produced none",
                     exp_policy.policy_id, exp_rule.kind, exp_rule.rule
-                )),
-                Some(actual) => {
-                    matched_keys.insert(key.clone());
+                ));
+            } else {
+                matched_keys.insert(key.clone());
+                // The report: vocabulary has one state per RDF node, so
+                // every selected clone must satisfy it; a disagreement
+                // surfaces as a mismatch rather than a guess.
+                for actual in selected {
                     compare_rule_report(&exp_policy.policy_id, exp_rule, actual, &mut mismatches);
                 }
             }
@@ -283,20 +298,24 @@ pub fn compare_case(
                 && !(duty_mode == DutyMode::Deny
                     && is_plain_policy_obligation(&merged, &exp_rule.rule))
             {
-                if let Some(DetailedRuleReport::Duty(d)) = actual {
-                    expected_outstanding
-                        .push((exp_policy.policy_id.clone(), duty_action(&merged, d)));
+                for actual in selected {
+                    if let DetailedRuleReport::Duty(d) = actual {
+                        expected_outstanding
+                            .push((exp_policy.policy_id.clone(), duty_action(&merged, d)));
+                    }
                 }
             }
         }
 
-        for (key, report) in &actual_index {
+        for (key, reports) in &actual_index {
             if !matched_keys.contains(key) {
-                mismatches.push(format!(
-                    "policy '{}': engine produced a {:?} report for rule '{}' that the expected outcome \
-                     never mentions: {report:?}",
-                    exp_policy.policy_id, key.0, key.1
-                ));
+                for report in reports {
+                    mismatches.push(format!(
+                        "policy '{}': engine produced a {:?} report for rule '{}' that the expected outcome \
+                         never mentions: {report:?}",
+                        exp_policy.policy_id, key.0, key.1
+                    ));
+                }
             }
         }
     }
@@ -480,6 +499,14 @@ fn duty_action(merged: &PolicyIds, d: &engine::DetailedDutyReport) -> String {
         .and_then(|root| walk_consequence(root, d.consequence_depth))
         .map(|r| r.action.clone())
         .unwrap_or_default()
+}
+
+fn activation_of(report: &DetailedRuleReport) -> engine::ActivationState {
+    match report {
+        DetailedRuleReport::Permission(p) => p.activation_state,
+        DetailedRuleReport::Prohibition(p) => p.activation_state,
+        DetailedRuleReport::Duty(d) => d.activation_state,
+    }
 }
 
 fn compare_rule_report(
@@ -918,5 +945,142 @@ mod tests {
                 .any(|m| m.contains("dsc:expectedDecision")),
             "{mismatches:?}"
         );
+    }
+
+    #[test]
+    fn composite_clones_sharing_a_rule_id_are_compared_against_the_active_one() {
+        // `perm` is a composite rule: two atomic clones share the RDF id.
+        // Only the second applies to the request. The expected single
+        // `Active` report must be checked against that clone, not against
+        // whichever clone happens to be indexed last.
+        let shadow = [ids("policy-a", &["perm", "perm"], &[])];
+        let exp = [expected(
+            "policy-a",
+            ExpectedRuleKind::Permission,
+            "perm",
+            "Active",
+        )];
+        for active_first in [true, false] {
+            let reports = if active_first {
+                vec![permission(0, true), permission(1, false)]
+            } else {
+                vec![permission(0, false), permission(1, true)]
+            };
+            let detailed = evaluation(vec![policy_report("policy-a", reports)]);
+            let m = compare_case(
+                &shadow,
+                &exp,
+                DutyMode::Advise,
+                Behaviour::Closed,
+                None,
+                &detailed,
+                &response(WireDecision::Allow),
+            )
+            .unwrap();
+            assert!(m.is_empty(), "active_first={active_first}: {m:?}");
+        }
+
+        // And a wrong expectation still fails: no clone is Inactive-free.
+        let exp_inactive = [expected(
+            "policy-a",
+            ExpectedRuleKind::Permission,
+            "perm",
+            "Inactive",
+        )];
+        let detailed = evaluation(vec![policy_report(
+            "policy-a",
+            vec![permission(0, true), permission(1, false)],
+        )]);
+        let m = compare_case(
+            &shadow,
+            &exp_inactive,
+            DutyMode::Advise,
+            Behaviour::Closed,
+            None,
+            &detailed,
+            &response(WireDecision::Allow),
+        )
+        .unwrap();
+        assert!(!m.is_empty(), "an Active clone must contradict 'Inactive'");
+    }
+
+    #[test]
+    fn a_composite_duty_expands_to_one_outstanding_duty_per_atomic_clone() {
+        // One RDF duty naming two actions is two atomic duties; the engine
+        // lists both in `Response.duties`, so the expected side must count
+        // both too.
+        let rule = |action: &str| RuleIds {
+            rule_id: "duty".to_string(),
+            action: action.to_string(),
+            duty: vec![],
+            remedy: vec![],
+            consequence: None,
+        };
+        let shadow = [PolicyIds {
+            id: "policy-a".to_string(),
+            permissions: vec![],
+            prohibitions: vec![],
+            obligations: vec![rule("archive"), rule("index")],
+            inherit_from: None,
+        }];
+        let duty_report = |duty_index: usize| {
+            DetailedRuleReport::Duty(engine::DetailedDutyReport {
+                attachment: engine::DutyAttachment::Obligation,
+                duty_index,
+                consequence_depth: 0,
+                activation_state: ActivationState::Active,
+                performance_state: PerformanceState::Unperformed,
+                deontic_state: DeonticState::NonSet,
+                premise_reports: vec![],
+            })
+        };
+        let exp = [ExpectedPolicyReport {
+            policy_id: "policy-a".to_string(),
+            rule_reports: vec![ExpectedRuleReport {
+                kind: ExpectedRuleKind::Duty,
+                rule: "duty".to_string(),
+                activation_state: Some("Active".to_string()),
+                attempt_state: None,
+                performance_state: Some("Unperformed".to_string()),
+                deontic_state: None,
+            }],
+        }];
+        let detailed = evaluation(vec![policy_report(
+            "policy-a",
+            vec![duty_report(0), duty_report(1)],
+        )]);
+        let entry = |action: &str| engine::DutyEntry {
+            policy_id: "policy-a".to_string(),
+            action: action.to_string(),
+            resolved: false,
+            source: None,
+        };
+        let mut resp = response(WireDecision::Deny);
+        resp.duties = vec![entry("archive"), entry("index")];
+        let m = compare_case(
+            &shadow,
+            &exp,
+            DutyMode::Advise,
+            Behaviour::Closed,
+            None,
+            &detailed,
+            &resp,
+        )
+        .unwrap();
+        assert!(m.is_empty(), "{m:?}");
+
+        // Dropping one from Response.duties must now be caught.
+        resp.duties = vec![entry("archive")];
+        let m = compare_case(
+            &shadow,
+            &exp,
+            DutyMode::Advise,
+            Behaviour::Closed,
+            None,
+            &detailed,
+            &resp,
+        )
+        .unwrap();
+        assert!(m.iter().any(|x| x.contains("Response.duties")), "{m:?}");
     }
 }
