@@ -457,6 +457,9 @@ cannot audit.
   models a single successor, not a `Vec`, so only the first is ingested —
   this now also fires when N5 itself is *why* there is more than one, see
   the note in "Normalization" below);
+- `odrl:output` on any rule or nested Duty (the asset the action produces):
+  `engine::Rule` has no field for it and a single stateless request cannot
+  observe it, so it never affects the decision;
 - an `odrl:profile` declaration (not loaded, so any term it defines stays
   an opaque string; `odrl:inheritFrom` is unrelated to this and *is* now
   ingested — see the mapping table above);

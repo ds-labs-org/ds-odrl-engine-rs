@@ -891,6 +891,8 @@ fn rule_from(
         warn_wrong_domain(node, "consequence", local, "Duty", warnings);
     }
 
+    warn_output_unevaluated(node, local, warnings);
+
     Ok(rule)
 }
 
@@ -975,6 +977,8 @@ fn duty_from(
     warn_wrong_domain(node, "duty", local, "Permission", warnings);
     warn_wrong_domain(node, "remedy", local, "Prohibition", warnings);
 
+    warn_output_unevaluated(node, local, warnings);
+
     Ok(rule)
 }
 
@@ -1031,6 +1035,20 @@ fn consequence_from(
 /// this adapter cannot map without guessing which `Rule` field the author
 /// actually meant, so it is named and dropped rather than silently
 /// ignored or misfiled.
+/// `odrl:output` (the asset an action produces) has no `engine::Rule` field
+/// and a single stateless request cannot observe it, so it never affects the
+/// decision; name it rather than drop it silently. Read on every Rule
+/// (permission, prohibition, obligation) and nested Duty.
+fn warn_output_unevaluated(node: &Node, local: &str, warnings: &mut Vec<String>) {
+    if !odrl(node, "output").is_empty() {
+        warnings.push(format!(
+            "the odrl:{local} rule carries odrl:output (the asset its action produces); \
+             engine::Rule has no field for it and a single stateless request cannot observe it, \
+             so it is dropped, not evaluated"
+        ));
+    }
+}
+
 fn warn_wrong_domain(
     node: &Node,
     property: &str,
