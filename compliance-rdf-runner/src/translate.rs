@@ -356,13 +356,18 @@ pub struct PolicyIds {
 fn translate_policy(g: &Graph, node: &str) -> Result<(WirePolicy, PolicyIds), String> {
     let id = local_name(node).to_string();
     let kind = translate_policy_kind(g, node);
-    let assigner = g
-        .object_id(node, &odrl_assigner())
-        .map(|a| local_name(&a).to_string())
-        .unwrap_or_default();
-    let assignee = g
-        .object_id(node, &odrl_assignee())
-        .map(|a| local_name(&a).to_string());
+    let single_party = |property: &str| -> Result<Option<String>, String> {
+        let parties = g.object_ids(node, property);
+        if parties.len() > 1 {
+            return Err(format!(
+                "{node}: {} values for {property}; WirePolicy carries a single party",
+                parties.len()
+            ));
+        }
+        Ok(parties.first().map(|a| local_name(a).to_string()))
+    };
+    let assigner = single_party(&odrl_assigner())?.unwrap_or_default();
+    let assignee = single_party(&odrl_assignee())?;
 
     let (permissions, permission_ids) = translate_rules_at(g, node, &odrl_permission())?;
     let (prohibitions, prohibition_ids) = translate_rules_at(g, node, &odrl_prohibition())?;
@@ -577,13 +582,29 @@ pub fn translate_request(
     g: &Graph,
     request_node: &str,
 ) -> Result<(Request, Vec<PolicyIds>), String> {
-    let target_node = g
-        .object_id(request_node, &odrl_target())
+    let target_nodes = g.object_ids(request_node, &odrl_target());
+    if target_nodes.len() > 1 {
+        return Err(format!(
+            "{request_node}: a request is one atomic target, found {} odrl:target values",
+            target_nodes.len()
+        ));
+    }
+    let target_node = target_nodes
+        .into_iter()
+        .next()
         .ok_or_else(|| format!("{request_node}: no odrl:target"))?;
     let dataset_id = local_name(&target_node).to_string();
 
-    let action_id = g
-        .object_id(request_node, &odrl_action())
+    let action_ids = g.object_ids(request_node, &odrl_action());
+    if action_ids.len() > 1 {
+        return Err(format!(
+            "{request_node}: a request is one atomic action, found {} odrl:action values",
+            action_ids.len()
+        ));
+    }
+    let action_id = action_ids
+        .into_iter()
+        .next()
         .ok_or_else(|| format!("{request_node}: no odrl:action"))?;
     let action = local_name(&action_id).to_string();
 
@@ -786,5 +807,60 @@ mod tests {
         targets.sort();
         assert_eq!(targets, [Some("asset"), Some("other")]);
         assert_eq!(policy_ids[0].permissions.len(), 2);
+    }
+
+    #[test]
+    fn several_refinements_on_one_action_are_anded_not_first_wins() {
+        let g = graph(
+            r#"
+:perm-r a odrl:Permission ; odrl:target :asset ;
+    odrl:action [ rdf:value odrl:read ;
+        odrl:refinement [ odrl:leftOperand odrl:count ; odrl:operator odrl:lt ; odrl:rightOperand 5 ] ,
+                        [ odrl:leftOperand odrl:count ; odrl:operator odrl:gt ; odrl:rightOperand 1 ] ] .
+:policy-b a odrl:Set ; odrl:permission :perm-r .
+:profile a odrl:Profile ; odrl:action odrl:read .
+:request a dsc:Request ; odrl:target :asset ; odrl:action odrl:read ;
+    dsc:profile :profile ; dsc:policy :policy-b .
+"#,
+        );
+        let (request, _) = translate_request(&g, &request_id()).expect("translates");
+        let refinement = format!("{:?}", request.policies[0].permissions[0].action_refinement);
+        assert!(refinement.contains("\"5\"") && refinement.contains("\"1\""), "{refinement}");
+    }
+
+    #[test]
+    fn a_request_naming_two_targets_or_two_actions_is_an_error() {
+        let two_targets = graph(
+            r#"
+:other a odrl:Asset .
+:profile a odrl:Profile ; odrl:action odrl:read .
+:request a dsc:Request ; odrl:target :asset, :other ; odrl:action odrl:read ;
+    dsc:profile :profile ; dsc:policy :policy-a .
+"#,
+        );
+        assert!(translate_request(&two_targets, &request_id()).is_err());
+        let two_actions = graph(
+            r#"
+:profile a odrl:Profile ; odrl:action odrl:read, odrl:index .
+:request a dsc:Request ; odrl:target :asset ; odrl:action odrl:read, odrl:index ;
+    dsc:profile :profile ; dsc:policy :policy-a .
+"#,
+        );
+        assert!(translate_request(&two_actions, &request_id()).is_err());
+    }
+
+    #[test]
+    fn a_policy_naming_two_assigners_or_two_assignees_is_an_error() {
+        for prop in ["odrl:assigner", "odrl:assignee"] {
+            let g = graph(&format!(
+                r#"
+:policy-b a odrl:Set ; odrl:permission :perm ; {prop} :alice, :bob .
+:profile a odrl:Profile ; odrl:action odrl:read .
+:request a dsc:Request ; odrl:target :asset ; odrl:action odrl:read ;
+    dsc:profile :profile ; dsc:policy :policy-b .
+"#
+            ));
+            assert!(translate_request(&g, &request_id()).is_err(), "{prop}");
+        }
     }
 }
