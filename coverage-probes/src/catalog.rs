@@ -156,6 +156,7 @@ pub fn base_request() -> Request {
         policies: vec![policy("probe", vec![rule("use", vec![])])],
         claims: Claims::new(),
         asset_collections: Vec::new(),
+        context: None,
     }
 }
 
@@ -2698,6 +2699,7 @@ fn asset_probes() -> Vec<Probe> {
                 dataset_id: "urn:asset:A".to_string(),
                 policies: vec![policy("probe", vec![targeted_rule("use", "urn:asset:collection")])],
                 asset_collections: vec!["urn:asset:collection".to_string()],
+                context: None,
                 ..base_request()
             },
             patches: vec![],
@@ -2720,6 +2722,7 @@ fn asset_probes() -> Vec<Probe> {
                 dataset_id: "urn:asset:A".to_string(),
                 policies: vec![policy("probe", vec![targeted_rule("use", "urn:asset:collection")])],
                 asset_collections: vec!["urn:asset:some-other-collection".to_string()],
+                context: None,
                 ..base_request()
             },
             patches: vec![],

@@ -102,6 +102,18 @@ are not implemented, since this engine models neither a party nor an asset
 as anything it can evaluate against. See [Action refinement](wire-contract.md)
 for the wire shape and the full scope decision.
 
+### Structured context
+
+The claims model above stays flat, and constraints are still decided from
+it alone. A request may now also carry an optional, bounded `context`
+object (VC objects, agreement data) beside `claims`; the engine validates
+and round-trips it and exposes it through `wire::effective_context`
+(flat claims appear as `agent.claims` unless the context supplies its own),
+but **does not evaluate anything against it**. That is the scope line: this
+is a typed carrier for a future expression layer, not a richer claims
+model, and the engine stays stateless and clock-free. See the `context`
+entry in [the wire contract](wire-contract.md).
+
 ### Per-rule targets and asset collections
 
 Each `Rule` carries its own optional `odrl:target` — **which asset that one

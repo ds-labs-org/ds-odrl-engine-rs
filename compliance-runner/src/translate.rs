@@ -425,6 +425,7 @@ pub fn translate(
         // this crate's own README and `ds-odrl-engine-rs`'s "Per-rule
         // assets" section for why the two are not redundant.
         asset_collections: Vec::new(),
+        context: None,
     }))
 }
 

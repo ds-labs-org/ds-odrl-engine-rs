@@ -318,6 +318,112 @@ pub struct Request {
     pub claims: Claims,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub asset_collections: Vec<String>,
+    /// Optional host-supplied structured facts beside the flat `claims`
+    /// map -- VC objects, agreement data, anything a host wants a later
+    /// expression layer to see as `ctx` (the typed-context carrier of
+    /// dataspace ADR-0030; nothing in this crate reads it yet). A JSON **object** or absent: any other JSON
+    /// type, or one past `MAX_CONTEXT_DEPTH`/`MAX_CONTEXT_NODES`, fails
+    /// the request parse (and so takes the ABI's existing parse-error
+    /// path). An explicit `null` is read as absent. Nothing in the
+    /// built-in evaluation reads it yet: `claims` still drives every
+    /// constraint, so a request carrying `context` decides exactly as the
+    /// same request without it. `#[serde(default)]` and skipped when
+    /// unset, so a request built before this field existed re-serializes
+    /// byte for byte as before. See `effective_context` for the view a
+    /// consumer should read.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_context"
+    )]
+    pub context: Option<serde_json::Value>,
+}
+
+/// Deepest nesting `Request::context` may have, counting the top-level
+/// object as depth 1. Chosen well above any VC or agreement document seen
+/// in practice (a W3C VC presentation nests ~6-8 deep) and well below
+/// `serde_json`'s own 128-level parse limit, so this bound -- not the
+/// parser's -- is the one a host sees. Analogous to
+/// `MAX_CONSTRAINT_DEPTH`.
+pub const MAX_CONTEXT_DEPTH: usize = 32;
+
+/// Most JSON values (every object, array, string, number, boolean and
+/// null, counting the top-level object itself) `Request::context` may
+/// hold. Bounds the work and memory a pathological *wide* document can
+/// cause, which depth alone does not. A byte limit is left to the host
+/// boundary, which already owns the request buffer.
+pub const MAX_CONTEXT_NODES: usize = 10_000;
+
+/// Walks `value` iteratively (an explicit stack, so the check itself
+/// cannot overflow the guest stack on the input it exists to reject) and
+/// returns the first bound it exceeds.
+fn check_context_bounds(value: &serde_json::Value) -> Result<(), String> {
+    let mut nodes = 0usize;
+    let mut stack = vec![(value, 1usize)];
+    while let Some((v, depth)) = stack.pop() {
+        nodes += 1;
+        if nodes > MAX_CONTEXT_NODES {
+            return Err(format!(
+                "context holds more than MAX_CONTEXT_NODES ({MAX_CONTEXT_NODES}) JSON values"
+            ));
+        }
+        if depth > MAX_CONTEXT_DEPTH {
+            return Err(format!(
+                "context is nested past MAX_CONTEXT_DEPTH ({MAX_CONTEXT_DEPTH})"
+            ));
+        }
+        match v {
+            serde_json::Value::Array(items) => {
+                stack.extend(items.iter().map(|c| (c, depth + 1)));
+            }
+            serde_json::Value::Object(map) => {
+                stack.extend(map.values().map(|c| (c, depth + 1)));
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
+fn deserialize_context<'de, D>(deserializer: D) -> Result<Option<serde_json::Value>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = Option::<serde_json::Value>::deserialize(deserializer)?;
+    match &value {
+        None => {}
+        Some(v) if !v.is_object() => {
+            return Err(serde::de::Error::custom("context must be a JSON object"));
+        }
+        Some(v) => check_context_bounds(v).map_err(serde::de::Error::custom)?,
+    }
+    Ok(value)
+}
+
+/// The context a host-side expression layer (CEL's `ctx`) should read: `req.context`
+/// (an empty object when absent) with the flat `claims` map exposed as
+/// `agent.claims` **unless** the context already supplies `agent.claims`,
+/// in which case the host's value wins untouched. If `agent` is present
+/// but not an object it is left as is -- the host's data is never
+/// overwritten -- so `agent.claims` is then simply absent. Pure: derives a
+/// new value, never mutates the request, reads no clock.
+pub fn effective_context(req: &Request) -> serde_json::Value {
+    let mut ctx = req
+        .context
+        .clone()
+        .unwrap_or_else(|| serde_json::Value::Object(Default::default()));
+    if let Some(root) = ctx.as_object_mut() {
+        let agent = root
+            .entry("agent")
+            .or_insert_with(|| serde_json::Value::Object(Default::default()));
+        if let Some(agent) = agent.as_object_mut() {
+            agent.entry("claims").or_insert_with(|| {
+                serde_json::to_value(&req.claims)
+                    .expect("Claims always serializes: string-keyed maps of strings")
+            });
+        }
+    }
+    ctx
 }
 
 /// The wire form of `decision::Decision`: the three bare strings Section
@@ -2061,6 +2167,7 @@ mod tests {
             .into_iter()
             .collect(),
             asset_collections: Vec::new(),
+            context: None,
         };
 
         let response = evaluate_request(&req);
@@ -2121,6 +2228,7 @@ mod tests {
             .into_iter()
             .collect(),
             asset_collections: Vec::new(),
+            context: None,
         };
 
         let response = evaluate_request(&req);
@@ -2238,6 +2346,7 @@ mod tests {
             }],
             claims: Claims::new(),
             asset_collections: Vec::new(),
+            context: None,
         };
 
         let response = evaluate_request(&req);
@@ -2280,6 +2389,7 @@ mod tests {
             ],
             claims: Claims::new(),
             asset_collections: Vec::new(),
+            context: None,
         };
 
         let response = evaluate_request(&req);
@@ -2303,6 +2413,7 @@ mod tests {
             policies: vec![],
             claims: Claims::new(),
             asset_collections: Vec::new(),
+            context: None,
         };
         let response = evaluate_request(&req);
         assert_eq!(response.decision, WireDecision::Deny);
@@ -2330,6 +2441,7 @@ mod tests {
             }],
             claims: Claims::new(),
             asset_collections: Vec::new(),
+            context: None,
         };
 
         let response = evaluate_request(&req);
@@ -2371,6 +2483,7 @@ mod tests {
             }],
             claims: Claims::new(),
             asset_collections: Vec::new(),
+            context: None,
         };
 
         let response = evaluate_request(&req);
@@ -2402,6 +2515,7 @@ mod tests {
             }],
             claims: Claims::new(),
             asset_collections: Vec::new(),
+            context: None,
         };
 
         let response = evaluate_request(&req);
@@ -2468,6 +2582,7 @@ mod tests {
             ],
             claims: Claims::new(),
             asset_collections: Vec::new(),
+            context: None,
         };
 
         assert_eq!(
@@ -2491,6 +2606,7 @@ mod tests {
             policies: vec![],
             claims: Claims::new(),
             asset_collections: Vec::new(),
+            context: None,
         };
         assert!(left_operands_for_request(&req).is_empty());
     }
@@ -2702,6 +2818,7 @@ mod tests {
             .into_iter()
             .collect(),
             asset_collections: Vec::new(),
+            context: None,
         };
         let response = evaluate_request(&req);
         assert_eq!(response.decision, WireDecision::Deny);
@@ -3123,6 +3240,7 @@ mod tests {
             .into_iter()
             .collect(),
             asset_collections: Vec::new(),
+            context: None,
         };
 
         // The control this test is measured against: without the fix,
@@ -3155,6 +3273,7 @@ mod tests {
             ],
             claims: Claims::new(),
             asset_collections: Vec::new(),
+            context: None,
         };
 
         let response = evaluate_request(&req);
@@ -3175,6 +3294,7 @@ mod tests {
             policies: vec![inheriting_policy("child", None, Some(&["no-such-parent"]))],
             claims: Claims::new(),
             asset_collections: Vec::new(),
+            context: None,
         };
 
         let response = evaluate_request(&req);
@@ -3207,6 +3327,7 @@ mod tests {
             ],
             claims: Claims::new(),
             asset_collections: Vec::new(),
+            context: None,
         };
 
         let response = evaluate_request(&req);
@@ -3243,6 +3364,7 @@ mod tests {
             ],
             claims: Claims::new(),
             asset_collections: Vec::new(),
+            context: None,
         };
 
         let (response, detailed) = evaluate_request_detailed(&req);
@@ -3366,6 +3488,7 @@ mod tests {
             ],
             claims: Claims::new(),
             asset_collections: Vec::new(),
+            context: None,
         };
         assert_eq!(
             performable_actions_for_request(&req),
@@ -3383,6 +3506,7 @@ mod tests {
             policies: vec![],
             claims: Claims::new(),
             asset_collections: Vec::new(),
+            context: None,
         };
         assert!(
             performable_actions_for_request(&req).is_empty(),
@@ -3406,6 +3530,7 @@ mod tests {
             ],
             claims: Claims::new(),
             asset_collections: Vec::new(),
+            context: None,
         };
         let unrecognized = Request {
             dataset_id: "urn:uuid:ds".to_string(),
@@ -3418,6 +3543,7 @@ mod tests {
             )],
             claims: Claims::new(),
             asset_collections: Vec::new(),
+            context: None,
         };
         let no_policies = Request {
             dataset_id: "urn:uuid:ds".to_string(),
@@ -3426,6 +3552,7 @@ mod tests {
             policies: vec![],
             claims: Claims::new(),
             asset_collections: Vec::new(),
+            context: None,
         };
         let allow_example: Request = serde_json::from_str(ALLOW_EXAMPLE).unwrap();
 
@@ -5046,6 +5173,160 @@ mod tests {
                 assert_eq!(evaluate_request(&parsed), baseline, "{label} / {term}");
             }
         }
+    }
+
+    // -- typed `context` -----------------------------------------
+
+    /// `ALLOW_EXAMPLE` with a `"context"` member spliced in before `claims`.
+    fn allow_example_with_context(context_json: &str) -> String {
+        ALLOW_EXAMPLE.replacen(
+            r#""claims": {"#,
+            &format!(r#""context": {context_json}, "claims": {{"#),
+            1,
+        )
+    }
+
+    #[test]
+    fn a_request_without_context_parses_to_none_and_reserializes_without_the_key() {
+        let req: Request = serde_json::from_str(ALLOW_EXAMPLE).unwrap();
+        assert_eq!(req.context, None);
+        let reserialized = serde_json::to_value(&req).unwrap();
+        assert!(
+            reserialized.get("context").is_none(),
+            "an unset context must not appear on the wire: {reserialized}"
+        );
+        // Round trip is lossless: parse(serialize(req)) == req.
+        let again: Request = serde_json::from_value(reserialized).unwrap();
+        assert_eq!(again, req);
+        // Same decision and reason as the documented Section 5.2 example.
+        let response = evaluate_request(&req);
+        assert_eq!(response.decision, WireDecision::Allow);
+        assert_eq!(
+            response.reason,
+            "permission[0] of policy 'policy-1' matched: action 'use': nationality eq DE"
+        );
+    }
+
+    #[test]
+    fn context_round_trips_through_the_wire_and_does_not_change_the_decision() {
+        let text = allow_example_with_context(
+            r#"{"agreement": {"id": "urn:agreement:1"}, "agent": {"vc": [{"type": "MembershipCredential"}]}}"#,
+        );
+        let req: Request = serde_json::from_str(&text).unwrap();
+        let ctx = req.context.clone().expect("context parsed");
+        assert_eq!(ctx["agreement"]["id"], "urn:agreement:1");
+
+        let reserialized = serde_json::to_string(&req).unwrap();
+        let again: Request = serde_json::from_str(&reserialized).unwrap();
+        assert_eq!(again, req);
+        assert_eq!(again.context, req.context);
+
+        let baseline: Request = serde_json::from_str(ALLOW_EXAMPLE).unwrap();
+        assert_eq!(evaluate_request(&req), evaluate_request(&baseline));
+        let (response, detailed) = evaluate_request_detailed(&req);
+        let (base_response, base_detailed) = evaluate_request_detailed(&baseline);
+        assert_eq!(response, base_response);
+        assert_eq!(detailed, base_detailed);
+    }
+
+    #[test]
+    fn a_non_object_context_is_rejected_by_the_request_parse() {
+        for bad in ["\"str\"", "42", "[1, 2]", "true"] {
+            let text = allow_example_with_context(bad);
+            let err = serde_json::from_str::<Request>(&text)
+                .expect_err(&format!("context {bad} must not parse"));
+            assert!(
+                err.to_string().contains("context must be a JSON object"),
+                "{bad}: {err}"
+            );
+            // And the ABI's existing parse-error path turns it into an Error response.
+            let response = parse_error_response(&err);
+            assert_eq!(response.decision, WireDecision::Error);
+            assert!(response.reason.contains("context must be a JSON object"));
+        }
+    }
+
+    #[test]
+    fn an_explicit_null_context_is_treated_as_absent() {
+        let text = allow_example_with_context("null");
+        let req: Request = serde_json::from_str(&text).unwrap();
+        assert_eq!(req.context, None);
+    }
+
+    #[test]
+    fn context_nested_past_max_context_depth_is_rejected() {
+        // `nest(n)` is n objects around a scalar leaf, so its deepest value
+        // sits at depth n + 1.
+        let nest = |levels: usize| format!("{}1{}", r#"{"a":"#.repeat(levels), "}".repeat(levels));
+        // Exactly at the bound parses...
+        let ok = allow_example_with_context(&nest(MAX_CONTEXT_DEPTH - 1));
+        serde_json::from_str::<Request>(&ok).expect("context at the depth bound parses");
+        // ...one past it does not, and stays under serde_json's own 128 limit.
+        let too_deep = allow_example_with_context(&nest(MAX_CONTEXT_DEPTH));
+        let err = serde_json::from_str::<Request>(&too_deep).unwrap_err();
+        assert!(err.to_string().contains("MAX_CONTEXT_DEPTH"), "{err}");
+    }
+
+    #[test]
+    fn context_with_more_than_max_context_nodes_is_rejected() {
+        let wide = |n: usize| format!("{{\"xs\": [{}]}}", vec!["0"; n].join(","));
+        // The object and the array count as two nodes besides the elements.
+        let ok = allow_example_with_context(&wide(MAX_CONTEXT_NODES - 2));
+        serde_json::from_str::<Request>(&ok).expect("context at the node bound parses");
+        let too_big = allow_example_with_context(&wide(MAX_CONTEXT_NODES - 1));
+        let err = serde_json::from_str::<Request>(&too_big).unwrap_err();
+        assert!(err.to_string().contains("MAX_CONTEXT_NODES"), "{err}");
+    }
+
+    #[test]
+    fn effective_context_exposes_flat_claims_as_agent_claims_when_context_is_absent() {
+        let req: Request = serde_json::from_str(ALLOW_EXAMPLE).unwrap();
+        let ctx = effective_context(&req);
+        assert_eq!(
+            ctx,
+            serde_json::json!({
+                "agent": {"claims": {
+                    "sub": "user-42",
+                    "nationality": "DE",
+                    "scope": ["catalog:read", "sparql:read"]
+                }}
+            })
+        );
+    }
+
+    #[test]
+    fn effective_context_keeps_other_context_members_and_fills_in_missing_agent_claims() {
+        let text = allow_example_with_context(
+            r#"{"agreement": {"id": "a1"}, "agent": {"id": "did:web:x"}}"#,
+        );
+        let req: Request = serde_json::from_str(&text).unwrap();
+        let ctx = effective_context(&req);
+        assert_eq!(ctx["agreement"]["id"], "a1");
+        assert_eq!(ctx["agent"]["id"], "did:web:x");
+        assert_eq!(ctx["agent"]["claims"]["nationality"], "DE");
+    }
+
+    #[test]
+    fn effective_context_prefers_context_agent_claims_over_flat_claims() {
+        let text = allow_example_with_context(r#"{"agent": {"claims": {"nationality": "FR"}}}"#);
+        let req: Request = serde_json::from_str(&text).unwrap();
+        let ctx = effective_context(&req);
+        assert_eq!(
+            ctx["agent"]["claims"],
+            serde_json::json!({"nationality": "FR"})
+        );
+        // The request itself is untouched: flat claims still drive evaluation.
+        assert_eq!(
+            req.claims.get("nationality"),
+            Some(&ClaimValue::Single("DE".to_string()))
+        );
+    }
+
+    #[test]
+    fn effective_context_leaves_a_non_object_agent_member_alone() {
+        let text = allow_example_with_context(r#"{"agent": "not-an-object"}"#);
+        let req: Request = serde_json::from_str(&text).unwrap();
+        assert_eq!(effective_context(&req)["agent"], "not-an-object");
     }
 
     // -- evaluate_request_detailed -----------------------------------------
