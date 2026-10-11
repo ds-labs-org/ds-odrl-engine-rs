@@ -654,6 +654,7 @@ pub fn translate_request(
             policies,
             claims,
             asset_collections,
+            context: None,
         },
         policy_ids,
     ))

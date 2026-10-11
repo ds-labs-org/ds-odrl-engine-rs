@@ -23,7 +23,7 @@ pub use report::{
     SkippedPolicyReport,
 };
 pub use wire::{
-    evaluate_request, evaluate_request_detailed, left_operands_for_request, parse_error_response,
-    performable_actions_for_request, DutyEntry, Request, RequestConfig, Response, WireDecision,
-    WirePolicy,
+    effective_context, evaluate_request, evaluate_request_detailed, left_operands_for_request,
+    parse_error_response, performable_actions_for_request, DutyEntry, Request, RequestConfig,
+    Response, WireDecision, WirePolicy, MAX_CONTEXT_DEPTH, MAX_CONTEXT_NODES,
 };

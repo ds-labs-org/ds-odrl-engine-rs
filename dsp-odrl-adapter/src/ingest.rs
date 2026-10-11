@@ -507,6 +507,7 @@ pub fn request_for(
         // against — so this stays empty exactly as every other field this
         // ingestion path does not populate does.
         asset_collections: Vec::new(),
+        context: None,
     }
 }
 

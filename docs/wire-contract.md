@@ -140,6 +140,31 @@ Request:
   of strings, sourced from whatever identity the host already trusts —
   this engine never decodes a JWT or other identity-presentation format
   itself.
+- `context` is optional: a JSON **object** of structured host facts
+  beside the flat claims -- VC objects, agreement data -- that a later
+  expression layer is meant to read as `ctx`. Absent (or an explicit
+  `null`) means exactly what it meant before this key existed: the
+  request parses, evaluates and re-serializes byte for byte as it did, and
+  `context` is skipped on serialization when unset. **Nothing in the
+  built-in evaluation reads it today**: constraints are still decided
+  from `claims` alone, so adding `context` to a request never changes its
+  decision, reason or duties. Anything other than an object, nesting
+  deeper than `MAX_CONTEXT_DEPTH` (32, top-level object = depth 1), or
+  more than `MAX_CONTEXT_NODES` (10,000) JSON values in total fails the
+  request parse, so over the ABI it yields the same `Error` response as
+  any other unparseable request (a byte limit stays with the host, which
+  owns the request buffer). The bounds are checked iteratively and the
+  engine reads no clock to apply them.
+
+  `engine::wire::effective_context(&Request) -> serde_json::Value` is the
+  pure view of it a consumer should read: `context` (an empty object when
+  absent) with the flat `claims` map exposed as `agent.claims` when the
+  context does not already supply `agent.claims`; when it does, the
+  host's value wins untouched. An `agent` member that is not an object is
+  left as is, so `agent.claims` is then absent. This also gives a host
+  that already evaluates expressions (an EDC shim running CEL, say) a
+  route that needs no new engine feature: resolve each expression to a
+  boolean itself and pass the booleans as ordinary claims.
 
 Response:
 

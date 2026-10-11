@@ -188,6 +188,7 @@ mod tests {
             }],
             claims: Default::default(),
             asset_collections: Vec::new(),
+            context: None,
         }
     }
 
