@@ -1,0 +1,49 @@
+name: Compliance suite (latest)
+
+# ci.yml runs compliance-rdf-runner against the vendored submodule at
+# compliance/vendor/ds-odrl-compliance-rdf, which only moves when someone
+# bumps it. This workflow checks the engine against the corpus as it is
+# now: it clones ds-odrl-compliance-rdf's current `main` at build time and
+# runs every case in it. The daily run catches a new corpus case the
+# engine fails without waiting for an engine commit; COMPLIANCE_REF lets a
+# manual run point at a corpus branch (for example an open corpus PR).
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: ds-odrl-compliance-rdf branch, tag or commit to check
+        default: main
+
+permissions:
+  contents: read
+
+jobs:
+  compliance-rdf-latest:
+    runs-on: ubuntu-latest
+    env:
+      COMPLIANCE_REF: ${{ github.event.inputs.ref || 'main' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Same pin as ci.yml; see the comment there.
+      - uses: dtolnay/rust-toolchain@1.96.1
+
+      - name: fetch ds-odrl-compliance-rdf at ${{ env.COMPLIANCE_REF }}
+        run: |
+          git init -q target/compliance-latest
+          cd target/compliance-latest
+          git remote add origin https://github.com/ds-labs-org/ds-odrl-compliance-rdf.git
+          git fetch -q --depth 1 origin "$COMPLIANCE_REF"
+          git checkout -q FETCH_HEAD
+          echo "Checking the engine against ds-odrl-compliance-rdf $(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: ds-odrl-compliance-rdf RDF compliance suite (latest corpus)
+        run: |
+          set -o pipefail
+          cargo run -p compliance-rdf-runner --release -- target/compliance-latest/cases | tee target/compliance-latest.txt
+          { echo '```'; tail -n 1 target/compliance-latest.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
