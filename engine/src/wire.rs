@@ -5881,4 +5881,214 @@ mod tests {
              its own inherited permission"
         );
     }
+
+    // -----------------------------------------------------------------
+    // odrl:PartyCollection membership (Information Model §2.3.2):
+    // `Request::party_collections` is the caller-side counterpart of
+    // `asset_collections`.
+    // -----------------------------------------------------------------
+
+    const TEAM_A: &str = "\"https://example.com/team/A\"";
+    const MURPHY_CLAIMS: &str = "{\"sub\": \"https://example.com/person/murphy\"}";
+
+    /// `party_request`, plus the host-resolved list of PartyCollections
+    /// the caller is `odrl:partOf`.
+    fn party_collection_request(
+        config_extra: &str,
+        assignee_json: &str,
+        claims_json: &str,
+        collections_json: &str,
+    ) -> String {
+        party_request(config_extra, assignee_json, claims_json).replace(
+            "\"claims\":",
+            &format!("\"party_collections\": {collections_json},\n              \"claims\":"),
+        )
+    }
+
+    #[test]
+    fn a_member_of_the_assignee_party_collection_is_granted() {
+        // Information Model §2.3, Examples 9 and 10: an Agreement assigned
+        // to team/A, and murphy `odrl:partOf` team/A, "means that
+        // http://example.com/person/murphy is an assignee".
+        let response = evaluate_text(&party_collection_request(
+            SUB_IS_THE_IDENTITY,
+            TEAM_A,
+            MURPHY_CLAIMS,
+            "[\"https://example.com/team/A\"]",
+        ));
+        assert_eq!(
+            response.decision,
+            WireDecision::Allow,
+            "{}",
+            response.reason
+        );
+        assert_eq!(
+            response.reason,
+            "permission[0] of policy 'policy-1' matched: action 'use', unconstrained"
+        );
+    }
+
+    #[test]
+    fn membership_of_another_party_collection_does_not_match_the_assignee() {
+        let response = evaluate_text(&party_collection_request(
+            SUB_IS_THE_IDENTITY,
+            TEAM_A,
+            MURPHY_CLAIMS,
+            "[\"https://example.com/team/B\"]",
+        ));
+        assert_eq!(response.decision, WireDecision::Deny);
+        assert_eq!(
+            response.reason,
+            "no policy in the request applies to this caller: policy 'policy-1' names \
+             odrl:assignee 'https://example.com/team/A', which does not match the caller's 'sub' \
+             claim (\"https://example.com/person/murphy\")"
+        );
+    }
+
+    #[test]
+    fn party_collections_do_not_admit_a_caller_with_no_identity_claim() {
+        // Membership is a fact about an identified caller; an
+        // unidentified one stays a mismatch, exactly as without
+        // collections.
+        let response = evaluate_text(&party_collection_request(
+            SUB_IS_THE_IDENTITY,
+            TEAM_A,
+            "{\"nationality\": \"DE\"}",
+            "[\"https://example.com/team/A\"]",
+        ));
+        assert_eq!(response.decision, WireDecision::Deny);
+    }
+
+    #[test]
+    fn the_agreement_assignee_check_also_honours_party_collections() {
+        let response = evaluate_text(&party_collection_request(
+            ",\n                \"agreementAssigneeClaim\": \"sub\"",
+            TEAM_A,
+            MURPHY_CLAIMS,
+            "[\"https://example.com/team/A\"]",
+        ));
+        assert_eq!(
+            response.decision,
+            WireDecision::Allow,
+            "{}",
+            response.reason
+        );
+    }
+
+    #[test]
+    fn party_collections_round_trip_and_are_omitted_when_empty() {
+        let text = party_collection_request(
+            SUB_IS_THE_IDENTITY,
+            TEAM_A,
+            MURPHY_CLAIMS,
+            "[\"https://example.com/team/A\"]",
+        );
+        let value = serde_json::to_value(serde_json::from_str::<Request>(&text).unwrap()).unwrap();
+        assert_eq!(
+            value["party_collections"],
+            serde_json::json!(["https://example.com/team/A"])
+        );
+        let plain = serde_json::to_value(
+            serde_json::from_str::<Request>(&party_request("", ALICE, ALICE_CLAIMS)).unwrap(),
+        )
+        .unwrap();
+        assert!(plain.get("party_collections").is_none());
+    }
+
+    // -----------------------------------------------------------------
+    // odrl:profile on a policy (Information Model §3.2): "If the ODRL
+    // Processing system does not recognise the ODRL Profile identifier(s)
+    // then it MUST stop processing the policy." The profile this request
+    // recognises is the config's own `@id`.
+    // -----------------------------------------------------------------
+
+    /// `party_request` with no party check, whose policy declares
+    /// `profile_json` (and, when `parent` is set, inherits from a second
+    /// policy declaring it instead).
+    fn profile_request(profile_json: &str, through_parent: bool) -> String {
+        let text = party_request("", "null", ALICE_CLAIMS);
+        if through_parent {
+            text.replace(
+                "\"obligations\": []\n                }",
+                &format!(
+                    "\"obligations\": [],\n                  \"inheritFrom\": [\"parent\"]\n                }},\n                {{\"id\": \"parent\", \"kind\": \"Set\", \"assigner\": \"\", \"assignee\": null, \"profile\": {profile_json}}}"
+                ),
+            )
+        } else {
+            text.replace(
+                "\"obligations\": []\n                }",
+                &format!("\"obligations\": [],\n                  \"profile\": {profile_json}\n                }}"),
+            )
+        }
+    }
+
+    #[test]
+    fn a_policy_declaring_an_unrecognised_profile_is_not_processed() {
+        let response = evaluate_text(&profile_request(
+            "\"https://example.org/profiles/A\"",
+            false,
+        ));
+        assert_eq!(response.decision, WireDecision::Error);
+        assert_eq!(
+            response.reason,
+            "policy 'policy-1' declares odrl:profile 'https://example.org/profiles/A', which this \
+             processing system does not recognise"
+        );
+    }
+
+    #[test]
+    fn a_policy_declaring_the_loaded_profile_is_processed_normally() {
+        let response = evaluate_text(&profile_request(
+            "\"https://example.org/profiles/party\"",
+            false,
+        ));
+        assert_eq!(
+            response.decision,
+            WireDecision::Allow,
+            "{}",
+            response.reason
+        );
+    }
+
+    #[test]
+    fn every_declared_profile_must_be_recognised() {
+        let response = evaluate_text(&profile_request(
+            "[\"https://example.org/profiles/party\", \"https://example.org/profiles/B\"]",
+            false,
+        ));
+        assert_eq!(response.decision, WireDecision::Error);
+        assert!(
+            response.reason.contains("'https://example.org/profiles/B'"),
+            "{}",
+            response.reason
+        );
+    }
+
+    #[test]
+    fn an_inherited_profile_is_checked_like_the_childs_own() {
+        // Information Model §2.9: a child replicates "all profile
+        // identifiers" of its parent.
+        let response = evaluate_text(&profile_request("\"https://example.org/profiles/A\"", true));
+        assert_eq!(response.decision, WireDecision::Error);
+        assert!(
+            response.reason.contains("'https://example.org/profiles/A'"),
+            "{}",
+            response.reason
+        );
+    }
+
+    #[test]
+    fn a_policy_profile_round_trips_and_is_omitted_when_absent() {
+        let text = profile_request("\"https://example.org/profiles/party\"", false);
+        let value = serde_json::to_value(serde_json::from_str::<Request>(&text).unwrap()).unwrap();
+        assert_eq!(
+            value["policies"][0]["profile"],
+            serde_json::json!(["https://example.org/profiles/party"])
+        );
+        let plain = serde_json::to_value(
+            serde_json::from_str::<Request>(&party_request("", ALICE, ALICE_CLAIMS)).unwrap(),
+        )
+        .unwrap();
+        assert!(plain["policies"][0].get("profile").is_none());
+    }
 }
