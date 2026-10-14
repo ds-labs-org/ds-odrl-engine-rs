@@ -3491,6 +3491,42 @@
       },
       "summary": "green: condition_report links every sibling odrl:duty, not only the first",
       "tag": "v0.24.2"
+    },
+    {
+      "commit": "a4e871e48bf052db6b29de50539819372c5fce18",
+      "compliance": {
+        "failed": 0,
+        "passed": 68,
+        "skipped": 0,
+        "total": 68
+      },
+      "contradicted_rows": [],
+      "coverage": {
+        "agreed": 139,
+        "contradicted": 0,
+        "disagreed": 0,
+        "documented": 2,
+        "envelope_rejected": 4,
+        "errored": 0,
+        "inconclusive": 0,
+        "probes_total": 139,
+        "verified": 50
+      },
+      "coverage_error": null,
+      "date": "2026-10-14T23:03:34+00:00",
+      "engine_wasm_bytes": 346311,
+      "engine_wasm_sha256": "4a2c777bc42b10724797b9fbb7889ee062175d3b337da5bd086faa547422cc78",
+      "full_compliance": {
+        "probes_falls_short": 14,
+        "probes_meets": 119,
+        "probes_undetermined": 0,
+        "rows_falls_short": 12,
+        "rows_meets": 32,
+        "rows_structural_gap": 1,
+        "rows_undetermined": 0
+      },
+      "summary": "engine: odrl:PartyCollection membership and a policy's odrl:profile (GREEN)",
+      "tag": "v0.25.0"
     }
   ],
   "schema": "ds-odrl-engine-rs/release-history@3"
