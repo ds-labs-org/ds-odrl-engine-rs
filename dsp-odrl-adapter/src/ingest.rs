@@ -508,6 +508,7 @@ pub fn request_for(
         // ingestion path does not populate does.
         asset_collections: Vec::new(),
         context: None,
+        party_collections: Vec::new(),
     }
 }
 
@@ -794,6 +795,7 @@ fn policy_from(node: &Node, warnings: &mut Vec<String>) -> Result<WirePolicy, In
         )?,
         conflict,
         inherit_from,
+        profile: Vec::new(),
     })
 }
 
@@ -1334,6 +1336,7 @@ mod tests {
             // adapter would not map it if it did -- see the warning in
             // `policy_from`.
             inherit_from: None,
+            profile: Vec::new(),
         }
     }
 

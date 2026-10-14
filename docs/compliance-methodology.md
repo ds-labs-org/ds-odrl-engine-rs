@@ -26,7 +26,7 @@ asks a question the Capability Audit page deliberately does not.
   itself and still short of ODRL 2.2.
 
 Both pages drive the **same** compiled `engine.wasm` over the same
-`alloc`/`evaluate`/`dealloc` C ABI with the same 136 request payloads,
+`alloc`/`evaluate`/`dealloc` C ABI with the same 139 request payloads,
 through the same replay function (`coverage_run::replay_all`, shared
 rather than copied), so any difference between them is a difference of
 question and never of execution.
@@ -68,29 +68,29 @@ Of the catalog's 52 vocabulary rows:
   profile-extension points and `odrl:hasPolicy`, which sit outside the
   wire contract entirely — and being outside the contract is not the same
   thing as falling short of the spec.
-* **11 documented `Implemented` meet full spec trivially.** No probe on
+* **12 documented `Implemented` meet full spec trivially.** No probe on
   any of them carries an ideal, asserted over the real catalog rather than
   assumed (it is load-bearing: `act-base-exact` and
   `pf-assignee-null-control` are each shared between an `Implemented` row
   and an implementable one).
-* **34 documented `Partial` or `NotImplemented` are the researched ones**,
+* **33 documented `Partial` or `NotImplemented` are the researched ones**,
   and **not all of them fall short**: a row is partial for one *specific*
-  reason, and 20 of the 34 reach the spec-ideal answer on every probe they
+  reason, and 20 of the 33 reach the spec-ideal answer on every probe they
   currently carry.
 
-That leaves **45 in-scope rows: 31 meet full ODRL 2.2, 14 fall short — 13
+That leaves **45 in-scope rows: 32 meet full ODRL 2.2, 13 fall short — 12
 demonstrated by a probe, and 1 a structural wire-contract gap with no
 probe possible — 0 undetermined.**
 
-At probe grain: **130 of the catalog's 136 probes are judged here** (the
-other 6 are named only by rows this page excludes), and of those **115
-meet full spec, 15 fall short, 0 undetermined**. That second number is the
-honest one and the page says so rather than quoting a bare `N/136`: only
-those **15** probes distinguish this page's question from `/coverage`'s.
-The other 115 already produce the answer full ODRL 2.2 requires, so they
+At probe grain: **133 of the catalog's 139 probes are judged here** (the
+other 6 are named only by rows this page excludes), and of those **119
+meet full spec, 14 fall short, 0 undetermined**. That second number is the
+honest one and the page says so rather than quoting a bare `N/139`: only
+those **14** probes distinguish this page's question from `/coverage`'s.
+The other 119 already produce the answer full ODRL 2.2 requires, so they
 would look identical on either page.
 
-The fifteen, with the answer that would have to change:
+The fourteen, with the answer that would have to change:
 
 | Probe | This engine | Full ODRL 2.2 |
 | --- | --- | --- |
@@ -106,7 +106,6 @@ The fifteen, with the answer that would have to change:
 | `op-isa-unparseable` | Error | **Deny** |
 | `op-haspart-unparseable` | Error | **Deny** |
 | `pc-kind-nonsense` | Allow | **Error** |
-| `profile-union-not-per-policy` | Allow | **Error** |
 | `ror-reference-key-ignored` | Deny | **Error** |
 | `duty-consequence-itself-unresolved` | Allow | Allow — the `duties` list is what falls short |
 
@@ -122,16 +121,15 @@ laxer.
 ### The structural gap: `party.collections`
 
 One row has **zero probes** and is judged at row level rather than by any
-probe, because the wire contract carries no `PartyCollection`/`odrl:partOf`
-concept at all — so no request can pose the question and there is no
-answer to be wrong. It renders its `full_compliance_gap` prose directly,
-styled as a structural gap rather than a probe verdict: Information Model
-2.3/2.3.2 and Examples 9–10 for what the spec requires, then the three
-wire-contract additions full support would need — a caller-side
-`Request::party_collections` channel (with `Request::asset_collections` as
-the asset-side precedent showing the addition is small rather than
-architectural), a widened `party_role_mismatch`, and IM 2.5.6's structured
-assignee for the refined form.
+probe. Plain `odrl:PartyCollection` membership is on the wire now: the
+caller-side `Request::party_collections` channel (the party-side sibling
+of `Request::asset_collections`) and a widened `party_role_mismatch`, probed
+under `party.assigner-assignee` as `pf-collection-member-hit` and
+`pf-collection-other-miss`. What the row still records is IM 2.5.6's
+refined PartyCollection, which needs a structured assignee (`source` plus
+a refinement) that the wire cannot carry, so no request can pose it. It
+renders its `full_compliance_gap` prose directly, styled as a structural
+gap rather than a probe verdict.
 
 ### Contested judgments: the sign-off list, on the page as well as here
 

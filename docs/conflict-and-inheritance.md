@@ -210,10 +210,9 @@ same ambiguity `#[serde(default)]` already accepts for a policy that never
 declares the key at all, so there is no way to tell "the child left this
 to inherit" apart from "the child declared `invalid` itself." This
 contract has no policy-level Asset field (only `Rule::target`, per rule,
-untouched by inheritance) and no policy-level `odrl:profile` field at all
-(`config` is a whole-request setting, not a per-policy one — see the
-`other.profile-property` coverage row) — so neither has anything to
-replicate in the first place. `kind` is the child's own declared class and
+untouched by inheritance), so it has nothing to replicate. A parent's
+`odrl:profile` identifiers are replicated onto the child, so an inherited
+profile is checked against the loaded one like a declared one. `kind` is the child's own declared class and
 is never touched either; it is not in §2.9's replicated list, and nothing
 here selects a semantics from it regardless.
 

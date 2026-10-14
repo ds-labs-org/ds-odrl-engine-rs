@@ -402,6 +402,7 @@ pub fn translate(
             // declares one, so there is nothing this adapter could resolve
             // even now that `engine` itself can.
             inherit_from: None,
+            profile: Vec::new(),
         }]
     };
 
@@ -426,6 +427,7 @@ pub fn translate(
         // assets" section for why the two are not redundant.
         asset_collections: Vec::new(),
         context: None,
+        party_collections: Vec::new(),
     }))
 }
 

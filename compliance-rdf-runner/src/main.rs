@@ -9,6 +9,10 @@
 //! `dsc:expectedOutcome` tree (`expected.rs`/`compare.rs`). Exits non-zero
 //! if any case fails, for CI gating (`.github/workflows/ci.yml`).
 //!
+//! `cargo run -p compliance-rdf-runner --release -- <cases-dir>` runs
+//! another checkout of the corpus instead, such as its current `main`
+//! (`.github/workflows/compliance-latest.yml`).
+//!
 //! Modeled loosely on `compliance-runner`'s own CLI shape (parse, run,
 //! report pass/fail, exit code) -- a new, separate binary, not required to
 //! match it exactly, since it drives a structurally different corpus (one
@@ -95,7 +99,14 @@ fn main() {
     let repo_root = manifest_dir
         .parent()
         .expect("compliance-rdf-runner has a parent directory");
-    let cases_dir = repo_root.join("compliance/vendor/ds-odrl-compliance-rdf/cases");
+    // An optional first argument points the runner at another checkout of
+    // the corpus's `cases/` directory instead of the vendored submodule:
+    // `.github/workflows/compliance-latest.yml` uses it to check the engine
+    // against the corpus's current `main`, fetched at build time.
+    let cases_dir = match std::env::args_os().nth(1) {
+        Some(dir) => PathBuf::from(dir),
+        None => repo_root.join("compliance/vendor/ds-odrl-compliance-rdf/cases"),
+    };
 
     let mut entries: Vec<PathBuf> = match std::fs::read_dir(&cases_dir) {
         Ok(entries) => entries

@@ -6202,6 +6202,116 @@
       "title": "with partyIdentityClaim configured, a policy assigned to someone else grants nothing"
     },
     {
+      "asserts": "The Agreement names the PartyCollection team/A as assignee; the caller identifies as murphy, and the request's party_collections says murphy is odrl:partOf team/A. The policy applies, exactly as it would to team/A itself.",
+      "expect": {
+        "dataset_id": null,
+        "decision": "Allow",
+        "duties": null,
+        "reason_contains": [
+          "permission[0] of policy 'probe' matched: action 'use', unconstrained"
+        ],
+        "reason_excludes": []
+      },
+      "falsified_by": "Deny -- which would mean party_collections is ignored",
+      "id": "pf-collection-member-hit",
+      "ideal": null,
+      "kind": "positive",
+      "request": {
+        "action": "use",
+        "claims": {
+          "sub": "https://example.com/person/murphy"
+        },
+        "config": {
+          "@id": "https://ds42.org/profiles/coverage-probe",
+          "@type": "odrl:Profile",
+          "behaviour": "closed",
+          "dutyMode": "advise",
+          "odrl:action": [
+            {
+              "@id": "use"
+            }
+          ],
+          "partyIdentityClaim": "sub"
+        },
+        "dataset_id": "urn:uuid:coverage-probe",
+        "party_collections": [
+          "https://example.com/team/A"
+        ],
+        "policies": [
+          {
+            "assignee": "https://example.com/team/A",
+            "assigner": "did:web:provider.example",
+            "id": "probe",
+            "kind": "Agreement",
+            "obligations": [],
+            "permissions": [
+              {
+                "action": "use",
+                "constraints": []
+              }
+            ],
+            "prohibitions": []
+          }
+        ]
+      },
+      "title": "a member of the PartyCollection a policy is assigned to is its assignee"
+    },
+    {
+      "asserts": "Same request as pf-collection-member-hit, but party_collections names team/B. The policy is treated as absent and the deny names the assignee mismatch.",
+      "expect": {
+        "dataset_id": null,
+        "decision": "Deny",
+        "duties": null,
+        "reason_contains": [
+          "no policy in the request applies to this caller: policy 'probe' names odrl:assignee 'https://example.com/team/A', which does not match the caller's 'sub' claim (\"https://example.com/person/murphy\")"
+        ],
+        "reason_excludes": []
+      },
+      "falsified_by": "Allow -- which would mean any non-empty party_collections list satisfies any assignee",
+      "id": "pf-collection-other-miss",
+      "ideal": null,
+      "kind": "negative",
+      "request": {
+        "action": "use",
+        "claims": {
+          "sub": "https://example.com/person/murphy"
+        },
+        "config": {
+          "@id": "https://ds42.org/profiles/coverage-probe",
+          "@type": "odrl:Profile",
+          "behaviour": "closed",
+          "dutyMode": "advise",
+          "odrl:action": [
+            {
+              "@id": "use"
+            }
+          ],
+          "partyIdentityClaim": "sub"
+        },
+        "dataset_id": "urn:uuid:coverage-probe",
+        "party_collections": [
+          "https://example.com/team/B"
+        ],
+        "policies": [
+          {
+            "assignee": "https://example.com/team/A",
+            "assigner": "did:web:provider.example",
+            "id": "probe",
+            "kind": "Agreement",
+            "obligations": [],
+            "permissions": [
+              {
+                "action": "use",
+                "constraints": []
+              }
+            ],
+            "prohibitions": []
+          }
+        ]
+      },
+      "title": "membership of a different PartyCollection does not match the assignee"
+    },
+    {
       "asserts": "The other route to party-scoped evaluation, and the only one before partyIdentityClaim existed: put the party in the claims map and constrain on it as an ordinary opaque key. Note the key is a claim named `assignee`, not the policy's own assignee field, and that this scopes one *rule* where partyIdentityClaim scopes the whole policy.",
       "expect": {
         "dataset_id": null,
@@ -8390,24 +8500,20 @@
       "title": "a constraint's own uid is dropped too"
     },
     {
-      "asserts": "The config is the union of two loaded profiles (it declares both `use` and `anonymize`); the policy declares odrl:profile A, which defines only `use`; and the policy then uses `anonymize` successfully. Per-policy profile scoping would produce an Error here instead. A superset can only ever recognize more, never fewer -- a named fail-open.",
+      "asserts": "The config is the loaded profile https://ds42.org/profiles/coverage-probe (declaring `use` and `anonymize`); the policy declares odrl:profile A instead. Processing stops with an Error that names the unrecognised profile, rather than resolving `anonymize` out of the loaded vocabulary.",
       "expect": {
         "dataset_id": null,
-        "decision": "Allow",
+        "decision": "Error",
         "duties": null,
         "reason_contains": [
-          "permission[0] of policy 'probe' matched: action 'anonymize', unconstrained"
+          "policy 'probe' declares odrl:profile 'https://example.org/profiles/A', which this processing system does not recognise"
         ],
         "reason_excludes": []
       },
-      "falsified_by": "Error -- which is what correctly-scoped per-policy profile selection would give",
-      "id": "profile-union-not-per-policy",
-      "ideal": {
-        "decision": "Error",
-        "reason": "The policy's own declared odrl:profile is named and processing stops -- e.g. \"policy 'probe' declares odrl:profile 'https://example.org/profiles/A', which this processing system does not recognise\", replacing the current Allow reason \"permission[0] of policy 'probe' matched: action 'anonymize', unconstrained\".",
-        "spec_citation": "Information Model 3.2 ODRL Profile Conformance: \"When an ODRL Profile(s) is used in an ODRL Policy, an ODRL Processing system MUST understand the semantics of the identified ODRL Profile(s). If the ODRL Processing system does not recognise the ODRL Profile identifier(s) then it MUST stop processing the policy.\" The policy declares https://example.org/profiles/A; the loaded profile is https://ds42.org/profiles/coverage-probe, so A is unrecognised and processing MUST stop rather than resolve `anonymize` out of the union. Secondary hook, same direction: 3.1 says the Common Vocabulary's terms (anonymize is Vocabulary 4.4.4, not Core 3.x) are usable because \"These terms may be defined explicitly or may be adopted from the ODRL Common Vocabulary\" by a Profile -- and profile A adopts only `use`, so nothing the policy declares supplies `anonymize` either."
-      },
-      "kind": "negative",
+      "falsified_by": "Allow -- which would mean a policy's declared profile is ignored",
+      "id": "profile-unrecognised-stops-processing",
+      "ideal": null,
+      "kind": "positive",
       "request": {
         "action": "anonymize",
         "claims": {},
@@ -8439,12 +8545,69 @@
                 "constraints": []
               }
             ],
-            "profile": "https://example.org/profiles/A",
+            "profile": [
+              "https://example.org/profiles/A"
+            ],
             "prohibitions": []
           }
         ]
       },
-      "title": "a policy may use vocabulary its own declared profile never defines"
+      "title": "a policy declaring a profile this request did not load is not processed"
+    },
+    {
+      "asserts": "The same request, but the policy declares the config's own @id as its profile: `anonymize` is granted as it would be with no odrl:profile at all.",
+      "expect": {
+        "dataset_id": null,
+        "decision": "Allow",
+        "duties": null,
+        "reason_contains": [
+          "permission[0] of policy 'probe' matched: action 'anonymize', unconstrained"
+        ],
+        "reason_excludes": []
+      },
+      "falsified_by": "Error -- which would mean the loaded profile itself is not recognised",
+      "id": "profile-loaded-processed",
+      "ideal": null,
+      "kind": "positive",
+      "request": {
+        "action": "anonymize",
+        "claims": {},
+        "config": {
+          "@id": "https://ds42.org/profiles/coverage-probe",
+          "@type": "odrl:Profile",
+          "behaviour": "closed",
+          "dutyMode": "advise",
+          "odrl:action": [
+            {
+              "@id": "use"
+            },
+            {
+              "@id": "anonymize"
+            }
+          ]
+        },
+        "dataset_id": "urn:uuid:coverage-probe",
+        "policies": [
+          {
+            "assignee": null,
+            "assigner": "did:web:provider.example",
+            "id": "probe",
+            "kind": "Set",
+            "obligations": [],
+            "permissions": [
+              {
+                "action": "anonymize",
+                "constraints": []
+              }
+            ],
+            "profile": [
+              "https://ds42.org/profiles/coverage-probe"
+            ],
+            "prohibitions": []
+          }
+        ]
+      },
+      "title": "a policy declaring the loaded profile is processed normally"
     },
     {
       "asserts": "`parent` (party-scoped away from this caller, so only reachable through `inheritFrom`) permits `use`; `child` (addressed to this caller) permits only `notify` of its own and declares `inheritFrom: [\"parent\"]`. Real inheritance makes `child` grant `use` too.",
@@ -9532,7 +9695,7 @@
     {
       "asserts": "With no partyIdentityClaim, a named assignee does not scope the grant and removing the field changes nothing; with one, the named assignee still gets the same answer while a stranger gets a deny that names the mismatch; and party scoping is also reachable per-rule by mirroring the party into the claims map.",
       "category": "party",
-      "caveat": "Opt-in and assignee-only. Nothing here validates an assigner, resolves an odrl:PartyCollection, or normalizes an IRI: the comparison is the engine's own `eq` semantics against one claim key -- string equality, or membership for a multi-valued claim. A second, independent opt-in switch, `agreementAssigneeClaim`, exists alongside this one, scoped to kind == Agreement only -- see policy-classes.discrimination.",
+      "caveat": "Opt-in and assignee-only. Nothing here validates an assigner or normalizes an IRI: the comparison is the engine's own `eq` semantics against one claim key -- string equality, or membership for a multi-valued claim -- widened only by the host-resolved odrl:PartyCollection membership the request's party_collections asserts for an identified caller. A second, independent opt-in switch, `agreementAssigneeClaim`, exists alongside this one, scoped to kind == Agreement only -- see policy-classes.discrimination.",
       "documented_because": null,
       "evidence": "engine/src/wire.rs::party_role_mismatch, engine/src/profile.rs::ResolvedConfig::party_identity_claim",
       "full_compliance_gap": null,
@@ -9542,6 +9705,8 @@
         "pf-assignee-null-control",
         "pf-assignee-scoped-hit",
         "pf-assignee-scoped-miss",
+        "pf-collection-member-hit",
+        "pf-collection-other-miss",
         "pf-assignee-as-claim"
       ],
       "status": "Partial",
@@ -9552,14 +9717,14 @@
       "asserts": "",
       "category": "party",
       "caveat": null,
-      "documented_because": "There is no odrl:partOf, no state-of-the-world graph and no collection concept anywhere on the wire -- nothing for evaluate() to observe, so no request can put this claim to the test. It is a native-tooling claim, verified by that crate's own tests instead.",
-      "evidence": "compliance-runner/src/translate.rs (odrl:partOf lookups)",
-      "full_compliance_gap": "ODRL 2.2 Information Model 2.3 makes collection membership a first-class part of the Party class -- \"A Party MAY have none, one, or many partOf property values (of type PartyCollection) to identify the PartyCollection that this Party is a member of\", where \"PartyCollection - a Party that is a single entity representing a set of member entities. This indicates that all the members of the set will undertake the same functional role in the Rule\" -- and 2.3.2 states the evaluation consequence outright: \"The partOf property is used to identify a PartyCollection that a Party entity is a member of ... This enables a Rule that relates to a PartyCollection to understand which individual Parties the Rule may apply to.\" Examples 9 and 10 in 2.3 show exactly the shape: an Agreement whose assignee is the PartyCollection http://example.com/team/A, and a separate vCard expression asserting \"odrl:partOf\": \"http://example.com/team/A\" for http://example.com/person/murphy, which the spec says \"means that http://example.com/person/murphy is an assignee and can use the target asset in the Policy\". This engine's Section 5.2 wire contract can express neither half: WirePolicy::assignee is a single opaque Option<String> that wire::party_role_mismatch compares for exact string equality (or multi-value claim membership) against one claim key, and Request carries no field at all saying which collections the caller belongs to -- so a request naming team/A as assignee and a caller identifying as murphy cannot even be posed. Three additions would be needed for the engine to attempt full support. (1) A caller-side membership channel symmetric to the one the asset side already has: Request::asset_collections is precisely this shape for odrl:partOf on Assets -- decision::Rule::target_applies matches a rule's target against \"any asset collection asset_collections asserts requested_target is a member of\", explicitly as a host-supplied fact with no graph traversal and no transitive closure -- so a sibling Request::party_collections: Vec<String> (JSON partyCollections) would carry the flattened, host-resolved list of PartyCollection IRIs the caller belongs to, one entry per ancestor. (2) Engine-side resolution: party_role_mismatch widened so a policy assignee naming a PartyCollection is satisfied when the caller's partyIdentityClaim/agreementAssigneeClaim value matches OR the assignee IRI appears in party_collections -- a few lines, and the only change that touches the decision path. (3) For the refined form, 2.5.6 requires more than a fact channel: \"A PartyCollection MAY include a refinement property to indicate the refinement context under which to identify individual Party(ies) of the complete collection ... all of the Constraints/Logical Constraints referenced by the refinement property MUST be satisfied\", and \"when using the refinement property, the uid property MUST NOT be used to identify the PartyCollection. Instead, the source property MUST be used\" -- so assignee would have to stop being a bare string and become a structured value carrying source plus a refinement constraint list the engine evaluates against the caller's claims. Until at least (1) and (2) exist no request can ask the question, which is why this row falls short of full ODRL 2.2 by construction rather than by any observable wrong answer -- and the asset-side precedent shows the addition is small, not architectural.",
+      "documented_because": "The membership half is probed under party.assigner-assignee, where the assignee check it widens lives. What this row still records is the refined form, which no request can pose: WirePolicy::assignee carries no source or refinement.",
+      "evidence": "engine/src/wire.rs::Request::party_collections, engine/src/wire.rs::party_role_mismatch",
+      "full_compliance_gap": "ODRL 2.2 Information Model 2.3 makes collection membership a first-class part of the Party class -- \"A Party MAY have none, one, or many partOf property values (of type PartyCollection) to identify the PartyCollection that this Party is a member of\" -- and this engine now evaluates that plain form: Request::party_collections, the caller-side sibling of Request::asset_collections, carries the flattened, host-resolved odrl:partOf list, and party_role_mismatch accepts an identified caller whose party_collections names the policy's assignee (Examples 9 and 10: an Agreement assigned to team/A, used by murphy). What remains structurally out of reach is the refined form. 2.5.6: \"A PartyCollection MAY include a refinement property to indicate the refinement context under which to identify individual Party(ies) of the complete collection ... all of the Constraints/Logical Constraints referenced by the refinement property MUST be satisfied\", and \"when using the refinement property, the uid property MUST NOT be used to identify the PartyCollection. Instead, the source property MUST be used\" -- so assignee would have to stop being a bare string and become a structured value carrying source plus a refinement constraint list the engine evaluates against the caller's claims. Until then no request can pose a refined PartyCollection, which is why this row still falls short of full ODRL 2.2 by construction rather than by any observable wrong answer.",
       "id": "party.collections",
       "probe_ids": [],
-      "status": "NotImplemented",
+      "status": "Partial",
       "term": "Party / PartyCollection / membership",
-      "why": "Collection membership is resolved by compliance-runner against the vendored suite's state-of-the-world graph, natively, before any Request exists."
+      "why": "Plain membership is evaluated: Request::party_collections carries the host-resolved PartyCollections the caller is odrl:partOf, and an assignee naming one of them matches an identified caller (probed under party.assigner-assignee as pf-collection-member-hit and pf-collection-other-miss). A refined PartyCollection (Information Model 2.5.6) has no wire form: assignee is a bare IRI."
     },
     {
       "asserts": "Both properties injected on a policy leave the decision and reason identical to the control request without them.",
@@ -9822,19 +9987,20 @@
       "why": "Policies only. Rules and constraints have no uid; the engine substitutes list indexes in its diagnostic output by explicit design."
     },
     {
-      "asserts": "A policy declaring a profile that defines only `use` successfully uses `anonymize` from the union. Per-policy scoping would produce Error here.",
+      "asserts": "A policy declaring a profile other than the loaded one is an Error; one declaring the loaded profile is processed exactly as one declaring none.",
       "category": "other",
-      "caveat": null,
+      "caveat": "A request loads one profile, the config's @id. A host that merges several profiles into one config should give it the @id its policies declare.",
       "documented_because": null,
-      "evidence": "engine/src/profile.rs::resolve (union), engine/src/wire.rs::RequestConfig",
+      "evidence": "engine/src/wire.rs::unrecognised_profile, engine/src/wire.rs::WirePolicy::profile",
       "full_compliance_gap": null,
       "id": "other.profile-property",
       "probe_ids": [
-        "profile-union-not-per-policy"
+        "profile-unrecognised-stops-processing",
+        "profile-loaded-processed"
       ],
-      "status": "NotImplemented",
+      "status": "Implemented",
       "term": "odrl:profile (a Policy declares its conforming profile)",
-      "why": "Every request is evaluated against the union of all loaded profiles, never the specific one a policy names -- a named fail-open: a superset recognizes more, never fewer."
+      "why": "A policy's odrl:profile must name the profile the request loaded (the config's @id), or the request is an Error naming the unrecognised profile -- Information Model 3.2's \"MUST stop processing the policy\". A child replicates its parents' profiles (2.9), so an inherited one is checked too."
     },
     {
       "asserts": "Three hit/control pairs. Under a closed default, a child with only an unrelated permission of its own still grants the action its inheritFrom parent permits (inheritfrom-safe-direction-hit/-control). Under the open default, a child declaring no rule of its own at all -- the single most natural real-world inheritFrom shape -- still denies an action its parent prohibits, rather than the vacuous Allow an empty permissions list would otherwise grant (inheritfrom-fail-open-hit/-control, the direction this addition actually closes). And a parent/child pair declaring differing odrl:conflict values over a genuine collision voids the policy rather than resolving it by either value (inheritfrom-conflict-divergence-hit/-control).",
@@ -9854,7 +10020,7 @@
       ],
       "status": "Partial",
       "term": "odrl:inheritFrom (Policy inheritance)",
-      "why": "A child now replicates a named parent's permissions, prohibitions, obligations, and its own unset assigner/assignee, resolved by id within the same request's policies list (WirePolicy::inherit_from), with circular chains and an absent parent id rejected as Decision::Error rather than looped or silently fail-open. The one thing odrl:conflict IS read for across the chain: whether a parent's and a child's own declared value actually disagree over a genuine merged collision (Information Model 2.10 validation rule 4) -- when they do, the entire policy is void, reusing the same ConflictStrategy::Invalid machinery a single policy's own undeclared strategy already uses, rather than resolved by either value alone. Still partial, not full Section 2.9: the term itself is not replicated onto the child (no wire representation for 'unset' distinct from its own default), and this contract has no policy-level Asset or odrl:profile field to replicate in the first place."
+      "why": "A child now replicates a named parent's permissions, prohibitions, obligations, and its own unset assigner/assignee, resolved by id within the same request's policies list (WirePolicy::inherit_from), with circular chains and an absent parent id rejected as Decision::Error rather than looped or silently fail-open. The one thing odrl:conflict IS read for across the chain: whether a parent's and a child's own declared value actually disagree over a genuine merged collision (Information Model 2.10 validation rule 4) -- when they do, the entire policy is void, reusing the same ConflictStrategy::Invalid machinery a single policy's own undeclared strategy already uses, rather than resolved by either value alone. Still partial, not full Section 2.9: the term itself is not replicated onto the child (no wire representation for 'unset' distinct from its own default), and this contract has no policy-level Asset field to replicate in the first place. A parent's odrl:profile identifiers are replicated onto the child."
     },
     {
       "asserts": "An IRI right operand matches only as a literal; a value genuinely inside the referenced collection does not; and the odrl:rightOperandReference form itself is discarded.",

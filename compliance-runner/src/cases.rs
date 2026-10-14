@@ -185,10 +185,12 @@ mod tests {
                 obligations: vec![],
                 conflict: engine::ConflictStrategy::default(),
                 inherit_from: None,
+                profile: Vec::new(),
             }],
             claims: Default::default(),
             asset_collections: Vec::new(),
             context: None,
+            party_collections: Vec::new(),
         }
     }
 

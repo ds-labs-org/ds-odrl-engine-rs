@@ -607,3 +607,24 @@ logical constraints above. `compliance-runner` therefore leaves
 (`translate.rs`), and the suite's 68/68 result is unchanged by this
 addition, byte for byte.
 
+## Party collections and policy profiles
+
+Two optional fields, both omitted from JSON when empty, so every existing
+request parses and re-serializes unchanged.
+
+- **`Request.party_collections`** (`["https://example.com/team/A"]`): every
+  `odrl:PartyCollection` the caller is `odrl:partOf` (Information Model
+  §2.3.2), resolved and flattened by the host, one entry per ancestor. When
+  party-role scoping is on (`partyIdentityClaim`, or `agreementAssigneeClaim`
+  for an Agreement), a policy whose `assignee` names one of these
+  collections applies to the caller, provided the caller's identity claim is
+  present. It is the party-side sibling of `asset_collections`: no graph, no
+  transitive closure. A refined PartyCollection (§2.5.6) has no wire form.
+- **`WirePolicy.profile`** (`"https://example.org/profiles/A"` or a list):
+  the `odrl:profile` a policy declares. Every declared profile must be the
+  request's loaded profile, `config["@id"]`; otherwise the whole request is
+  an `Error` whose reason names the policy and the profile, because
+  "if the ODRL Processing system does not recognise the ODRL Profile
+  identifier(s) then it MUST stop processing the policy" (§3.2). A child
+  replicates its parents' profiles through `inheritFrom` (§2.9), so an
+  inherited profile is checked too. Always serialized as a list.

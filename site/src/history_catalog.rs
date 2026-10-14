@@ -369,7 +369,7 @@ mod tests {
             Some("v0.1.0")
         );
         assert_eq!(file.catalog.rows, 52);
-        assert_eq!(file.catalog.probes, 136);
+        assert_eq!(file.catalog.probes, 139);
     }
 
     /// The one release whose numbers are independently checkable: the

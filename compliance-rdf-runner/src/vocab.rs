@@ -38,6 +38,7 @@ iri_consts!(odrl,
     odrl_andSequence => "andSequence",
     odrl_includedIn => "includedIn",
     odrl_partOf => "partOf",
+    odrl_profile => "profile",
     odrl_Profile => "Profile",
 );
 
