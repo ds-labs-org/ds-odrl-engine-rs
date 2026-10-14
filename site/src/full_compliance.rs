@@ -872,7 +872,7 @@ mod tests {
                 report.partial_rows,
                 report.not_implemented_rows
             ),
-            (11, 23, 11)
+            (12, 24, 9)
         );
     }
 
@@ -883,17 +883,17 @@ mod tests {
     fn the_row_axis_tallies_to_the_numbers_this_page_states() {
         let report = report();
 
-        assert_eq!(report.rows_meets, 31);
+        assert_eq!(report.rows_meets, 32);
         assert_eq!(
-            report.rows_falls_short, 13,
-            "thirteen rows have a probe demonstrating a shortfall"
+            report.rows_falls_short, 12,
+            "twelve rows have a probe demonstrating a shortfall"
         );
         assert_eq!(
             report.rows_structural_gap, 1,
             "party.collections, which no request can pose"
         );
         assert_eq!(report.rows_undetermined, 0);
-        assert_eq!(report.rows_short_of_spec(), 14);
+        assert_eq!(report.rows_short_of_spec(), 13);
         assert_eq!(
             report.rows_meets + report.rows_short_of_spec() + report.rows_undetermined,
             report.rows_in_scope,
@@ -910,13 +910,13 @@ mod tests {
         let catalog = catalog();
         let report = report();
 
-        assert_eq!(report.probes_in_catalog, 136);
+        assert_eq!(report.probes_in_catalog, 139);
         assert_eq!(
-            report.probes_judged, 130,
+            report.probes_judged, 133,
             "six probes are named only by rows this page excludes"
         );
-        assert_eq!(report.probes_meets, 115);
-        assert_eq!(report.probes_falls_short, 15);
+        assert_eq!(report.probes_meets, 119);
+        assert_eq!(report.probes_falls_short, 14);
         assert_eq!(report.probes_undetermined, 0);
         assert_eq!(
             report.probes_meets + report.probes_falls_short + report.probes_undetermined,
@@ -1093,7 +1093,7 @@ mod tests {
             .iter()
             .filter(|r| r.row.is_implementable())
             .collect();
-        assert_eq!(implementable.len(), 34);
+        assert_eq!(implementable.len(), 33);
 
         let meeting: Vec<&str> = implementable
             .iter()
@@ -1222,7 +1222,7 @@ mod tests {
         assert!(!row.verdict.is_short_of_spec());
         assert_eq!(
             report.rows_short_of_spec(),
-            13,
+            12,
             "the isPartOf row left the shortfall bucket"
         );
 
@@ -1232,7 +1232,7 @@ mod tests {
         // Undetermined, not for a shortfall. That an Implemented row can go
         // undetermined is the point: this page never asserts full compliance
         // over an answer it did not observe.
-        assert_eq!(report.rows_meets, 29);
+        assert_eq!(report.rows_meets, 30);
         assert_eq!(report.rows_undetermined, 3);
         for id in ["actions.open-vocabulary", "actions.implies"] {
             let row = report

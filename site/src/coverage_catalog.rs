@@ -992,8 +992,11 @@ mod tests {
         assert_eq!(file.categories.len(), 10);
         assert_eq!(
       file.probes.len(),
-      136,
-      "grew by 4 more (132 -> 136) when kind: Agreement and kind: Offer both gained real party-role \
+      139,
+      "grew by 3 more (136 -> 139) when odrl:PartyCollection membership gained a hit/miss pair \
+       (pf-collection-member-hit, pf-collection-other-miss) and odrl:profile's single union probe \
+       became a recognised/unrecognised pair (profile-unrecognised-stops-processing, \
+       profile-loaded-processed); before that it grew by 4 more (132 -> 136) when kind: Agreement and kind: Offer both gained real party-role \
        probes -- agreementAssigneeClaim's own hit/miss pair (pc-kind-agreement-assignee-claim-hit, \
        pc-kind-agreement-assignee-claim-excludes-a-mismatch) and Offer's unconditional-inertness pair \
        (pc-kind-offer-assignee-inert-even-on-a-match, pc-kind-offer-assignee-inert-even-on-a-mismatch), \
@@ -1254,8 +1257,8 @@ mod tests {
             .collect();
         assert_eq!(
             falls_short.len(),
-            15,
-            "fifteen probes are judged short of full ODRL 2.2: {falls_short:?}"
+            14,
+            "fourteen probes are judged short of full ODRL 2.2: {falls_short:?}"
         );
 
         for probe in file.probes.iter().filter(|p| p.ideal.is_some()) {
@@ -1310,8 +1313,8 @@ mod tests {
             file.rows.iter().filter(|r| r.is_implementable()).collect();
         assert_eq!(
             implementable.len(),
-            34,
-            "the axis is scoped to 34 rows of the catalog's 52"
+            33,
+            "the axis is scoped to 33 rows of the catalog's 52"
         );
 
         for probe in file.probes.iter().filter(|p| p.ideal.is_some()) {

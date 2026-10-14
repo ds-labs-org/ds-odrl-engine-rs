@@ -248,14 +248,46 @@ pub struct WirePolicy {
     /// there is no separate "inherited" bit anywhere past this point).
     /// See that function's own doc comment for exactly what §2.9's MUST
     /// list this replicates, what it deliberately does not (this contract
-    /// has no policy-level Asset or `odrl:profile` field to replicate),
-    /// and how a cycle is rejected.
+    /// has no policy-level Asset field to replicate), and how a cycle is
+    /// rejected.
     #[serde(
         rename = "inheritFrom",
         default,
         skip_serializing_if = "Option::is_none"
     )]
     pub inherit_from: Option<Vec<String>>,
+    /// `odrl:profile` — the profile(s) this policy declares it conforms
+    /// to (Information Model §3.2). Every one must be the profile this
+    /// request loaded (`RequestConfig::id`), or the request is an Error:
+    /// "If the ODRL Processing system does not recognise the ODRL Profile
+    /// identifier(s) then it MUST stop processing the policy." Accepts a
+    /// single IRI or a list on the wire, always serializes as a list, and
+    /// is omitted when empty. A child replicates its parents' profiles
+    /// (`resolve_inherit_from`, §2.9).
+    #[serde(
+        default,
+        skip_serializing_if = "Vec::is_empty",
+        deserialize_with = "deserialize_one_or_many"
+    )]
+    pub profile: Vec<String>,
+}
+
+/// `odrl:profile`'s wire shape: one IRI or a list of them.
+fn deserialize_one_or_many<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum OneOrMany {
+        One(String),
+        Many(Vec<String>),
+    }
+    Ok(match Option::<OneOrMany>::deserialize(deserializer)? {
+        None => Vec::new(),
+        Some(OneOrMany::One(iri)) => vec![iri],
+        Some(OneOrMany::Many(iris)) => iris,
+    })
 }
 
 impl WirePolicy {
@@ -318,6 +350,16 @@ pub struct Request {
     pub claims: Claims,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub asset_collections: Vec<String>,
+    /// The party-side counterpart of `asset_collections`: every
+    /// `odrl:PartyCollection` the caller is asserted to be `odrl:partOf`
+    /// (Information Model §2.3.2), resolved by the host and flattened, one
+    /// entry per ancestor collection. A policy whose `odrl:assignee` names
+    /// one of these collections is addressed to this caller too, provided
+    /// the caller is identified at all (see `party_role_mismatch`). The
+    /// engine resolves no membership itself. `#[serde(default)]` and
+    /// skipped when empty, so earlier requests re-serialize unchanged.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub party_collections: Vec<String>,
     /// Optional host-supplied structured facts beside the flat `claims`
     /// map -- VC objects, agreement data, anything a host wants a later
     /// expression layer to see as `ctx` (the typed-context carrier of
@@ -1100,9 +1142,11 @@ impl PartyRoleMismatch<'_> {
 /// DIDs) matches a policy naming any one of them. That reuse is the point:
 /// party matching should not quietly be a *different* notion of equality
 /// from the one every `eq` constraint in this engine already uses. There is
-/// no IRI normalization and no `odrl:PartyCollection` membership here, on
-/// exactly the footing `Rule::target` states for assets — "the same party"
-/// means "the same characters".
+/// no IRI normalization, on exactly the footing `Rule::target` states for
+/// assets — "the same party" means "the same characters". The one widening
+/// is `odrl:PartyCollection`: an identified caller (the claim key present)
+/// whose host-supplied `party_collections` names the assignee is an
+/// assignee too, the party-side mirror of `Request::asset_collections`.
 ///
 /// **A claim key absent from the map is a mismatch, deliberately.** It is
 /// the same direction `Constraint::evaluate` already takes for an absent
@@ -1120,6 +1164,7 @@ impl PartyRoleMismatch<'_> {
 fn party_role_mismatch<'a>(
     policy: &'a WirePolicy,
     claims: &Claims,
+    party_collections: &[String],
     config: &'a ResolvedConfig,
 ) -> Option<PartyRoleMismatch<'a>> {
     // odrl:Offer, unconditional and first: see this function's own doc
@@ -1134,6 +1179,10 @@ fn party_role_mismatch<'a>(
     let mismatch = |claim_key: &'a str| -> Option<PartyRoleMismatch<'a>> {
         match claims.get(claim_key) {
             Some(value) if value.matches(assignee) => None,
+            // odrl:PartyCollection (Information Model §2.3.2): an
+            // identified caller the host asserts is `odrl:partOf` the
+            // collection the policy is assigned to is an assignee too.
+            Some(_) if party_collections.iter().any(|c| c == assignee) => None,
             observed => Some(PartyRoleMismatch {
                 policy_id: &policy.id,
                 assignee,
@@ -1157,6 +1206,25 @@ fn party_role_mismatch<'a>(
     mismatch(claim_key)
 }
 
+/// The first policy declaring an `odrl:profile` other than `loaded`, as
+/// the reason the request is an Error, or `None` when every declared
+/// profile is the loaded one (or none is declared).
+fn unrecognised_profile(policies: &[WirePolicy], loaded: &str) -> Option<String> {
+    policies.iter().find_map(|policy| {
+        policy
+            .profile
+            .iter()
+            .find(|profile| profile.as_str() != loaded)
+            .map(|profile| {
+                format!(
+                    "policy '{}' declares odrl:profile '{profile}', which this processing system \
+                     does not recognise",
+                    policy.id
+                )
+            })
+    })
+}
+
 /// `odrl:inheritFrom` resolution (Information Model §2.9), run once per
 /// `evaluate_request` call over the whole request's `policies` list, before
 /// party-role scoping or `decide` ever sees a policy.
@@ -1166,11 +1234,12 @@ fn party_role_mismatch<'a>(
 /// all profile identifiers; conflict properties; all Rules." This wire
 /// contract has no policy-level Asset field (only `Rule::target`, per
 /// rule, untouched here — a permission naming its own target keeps it after
-/// inheriting) and no policy-level `odrl:profile` field at all (`config`
-/// is a whole-request setting, not a per-policy one — see the
-/// `other.profile-property` coverage row), so there is nothing to
-/// replicate for either. What remains, and what this actually replicates
-/// into the child:
+/// inheriting), so there is nothing to replicate for it. What remains, and
+/// what this actually replicates into the child:
+///
+/// - **Profiles** — every `odrl:profile` a parent declares is added to the
+///   child's own (deduplicated), so `unrecognised_profile` checks an
+///   inherited profile exactly like a declared one.
 ///
 /// - **Rules** — every entry of the parent's `permissions`, `prohibitions`
 ///   and `obligations` is appended to the child's own (child's rules
@@ -1276,6 +1345,11 @@ fn resolve_inherit_from(
             }
             if merged.assignee.is_none() {
                 merged.assignee = ancestor.assignee.clone();
+            }
+            for profile in &ancestor.profile {
+                if !merged.profile.contains(profile) {
+                    merged.profile.push(profile.clone());
+                }
             }
             for value in explicit_conflict_values(ancestor.conflict) {
                 if !conflict_values.contains(&value) {
@@ -1515,6 +1589,30 @@ fn build_scaffolding(req: &Request, requested_action: &str) -> Scaffolding {
             }
         };
 
+    // `odrl:profile` (Information Model §3.2), after inheritance so a
+    // child's replicated profiles count too: a policy declaring a profile
+    // other than the one this request loaded must not be processed, and
+    // like a broken `inheritFrom` chain that fails the whole request.
+    if let Some(reason) = unrecognised_profile(&policies, &req.config.id) {
+        return Scaffolding {
+            dataset_id: req.dataset_id.clone(),
+            requested_action: requested_action.to_string(),
+            config,
+            claims,
+            requested_target,
+            asset_collections,
+            policies: Vec::new(),
+            evaluations: Vec::new(),
+            skipped: Vec::new(),
+            early: Some(Response {
+                dataset_id: req.dataset_id.clone(),
+                decision: WireDecision::Error,
+                reason,
+                duties: Vec::new(),
+            }),
+        };
+    }
+
     // Party-role scoping, ahead of everything past inheritance: a policy
     // this caller is not the `odrl:assignee` of is **absent from the
     // request**, not a policy that happens to grant nothing. See
@@ -1522,7 +1620,7 @@ fn build_scaffolding(req: &Request, requested_action: &str) -> Scaffolding {
     let mut skipped = Vec::new();
     let mut evaluations = Vec::new();
     for (policy_index, policy) in policies.iter().enumerate() {
-        match party_role_mismatch(policy, &req.claims, &config) {
+        match party_role_mismatch(policy, &req.claims, &req.party_collections, &config) {
             Some(mismatch) => {
                 skipped.push(SkippedPolicy {
                     policy_id: policy.id.clone(),
@@ -2159,6 +2257,7 @@ mod tests {
                 obligations: vec![],
                 conflict: ConflictStrategy::Prohibit,
                 inherit_from: None,
+                profile: Vec::new(),
             }],
             claims: [(
                 "nationality".to_string(),
@@ -2168,6 +2267,7 @@ mod tests {
             .collect(),
             asset_collections: Vec::new(),
             context: None,
+            party_collections: Vec::new(),
         };
 
         let response = evaluate_request(&req);
@@ -2214,6 +2314,7 @@ mod tests {
                 obligations: vec![],
                 conflict: ConflictStrategy::default(),
                 inherit_from: None,
+                profile: Vec::new(),
             }],
             claims: [
                 (
@@ -2229,6 +2330,7 @@ mod tests {
             .collect(),
             asset_collections: Vec::new(),
             context: None,
+            party_collections: Vec::new(),
         };
 
         let response = evaluate_request(&req);
@@ -2343,10 +2445,12 @@ mod tests {
                 obligations: vec![],
                 conflict: ConflictStrategy::default(),
                 inherit_from: None,
+                profile: Vec::new(),
             }],
             claims: Claims::new(),
             asset_collections: Vec::new(),
             context: None,
+            party_collections: Vec::new(),
         };
 
         let response = evaluate_request(&req);
@@ -2374,6 +2478,7 @@ mod tests {
                     obligations: vec![],
                     conflict: ConflictStrategy::default(),
                     inherit_from: None,
+                    profile: Vec::new(),
                 },
                 WirePolicy {
                     id: "policy-bad".to_string(),
@@ -2385,11 +2490,13 @@ mod tests {
                     obligations: vec![],
                     conflict: ConflictStrategy::default(),
                     inherit_from: None,
+                    profile: Vec::new(),
                 },
             ],
             claims: Claims::new(),
             asset_collections: Vec::new(),
             context: None,
+            party_collections: Vec::new(),
         };
 
         let response = evaluate_request(&req);
@@ -2414,6 +2521,7 @@ mod tests {
             claims: Claims::new(),
             asset_collections: Vec::new(),
             context: None,
+            party_collections: Vec::new(),
         };
         let response = evaluate_request(&req);
         assert_eq!(response.decision, WireDecision::Deny);
@@ -2438,10 +2546,12 @@ mod tests {
                 obligations: vec![Rule::new("notify", vec![])],
                 conflict: ConflictStrategy::default(),
                 inherit_from: None,
+                profile: Vec::new(),
             }],
             claims: Claims::new(),
             asset_collections: Vec::new(),
             context: None,
+            party_collections: Vec::new(),
         };
 
         let response = evaluate_request(&req);
@@ -2480,10 +2590,12 @@ mod tests {
                 obligations: vec![],
                 conflict: ConflictStrategy::default(),
                 inherit_from: None,
+                profile: Vec::new(),
             }],
             claims: Claims::new(),
             asset_collections: Vec::new(),
             context: None,
+            party_collections: Vec::new(),
         };
 
         let response = evaluate_request(&req);
@@ -2512,10 +2624,12 @@ mod tests {
                 obligations: vec![],
                 conflict: ConflictStrategy::default(),
                 inherit_from: None,
+                profile: Vec::new(),
             }],
             claims: Claims::new(),
             asset_collections: Vec::new(),
             context: None,
+            party_collections: Vec::new(),
         };
 
         let response = evaluate_request(&req);
@@ -2560,6 +2674,7 @@ mod tests {
                     obligations: vec![],
                     conflict: ConflictStrategy::default(),
                     inherit_from: None,
+                    profile: Vec::new(),
                 },
                 WirePolicy {
                     id: "policy-b".to_string(),
@@ -2578,11 +2693,13 @@ mod tests {
                     )],
                     conflict: ConflictStrategy::default(),
                     inherit_from: None,
+                    profile: Vec::new(),
                 },
             ],
             claims: Claims::new(),
             asset_collections: Vec::new(),
             context: None,
+            party_collections: Vec::new(),
         };
 
         assert_eq!(
@@ -2607,6 +2724,7 @@ mod tests {
             claims: Claims::new(),
             asset_collections: Vec::new(),
             context: None,
+            party_collections: Vec::new(),
         };
         assert!(left_operands_for_request(&req).is_empty());
     }
@@ -2810,6 +2928,7 @@ mod tests {
                 obligations: vec![],
                 conflict: ConflictStrategy::default(),
                 inherit_from: None,
+                profile: Vec::new(),
             }],
             claims: [
                 ("sub".to_string(), ClaimValue::Single("bob".to_string())),
@@ -2819,6 +2938,7 @@ mod tests {
             .collect(),
             asset_collections: Vec::new(),
             context: None,
+            party_collections: Vec::new(),
         };
         let response = evaluate_request(&req);
         assert_eq!(response.decision, WireDecision::Deny);
@@ -3117,6 +3237,7 @@ mod tests {
             obligations: vec![],
             conflict: ConflictStrategy::default(),
             inherit_from: inherit_from.map(|ids| ids.iter().map(|id| id.to_string()).collect()),
+            profile: Vec::new(),
         }
     }
 
@@ -3241,6 +3362,7 @@ mod tests {
             .collect(),
             asset_collections: Vec::new(),
             context: None,
+            party_collections: Vec::new(),
         };
 
         // The control this test is measured against: without the fix,
@@ -3274,6 +3396,7 @@ mod tests {
             claims: Claims::new(),
             asset_collections: Vec::new(),
             context: None,
+            party_collections: Vec::new(),
         };
 
         let response = evaluate_request(&req);
@@ -3295,6 +3418,7 @@ mod tests {
             claims: Claims::new(),
             asset_collections: Vec::new(),
             context: None,
+            party_collections: Vec::new(),
         };
 
         let response = evaluate_request(&req);
@@ -3328,6 +3452,7 @@ mod tests {
             claims: Claims::new(),
             asset_collections: Vec::new(),
             context: None,
+            party_collections: Vec::new(),
         };
 
         let response = evaluate_request(&req);
@@ -3365,6 +3490,7 @@ mod tests {
             claims: Claims::new(),
             asset_collections: Vec::new(),
             context: None,
+            party_collections: Vec::new(),
         };
 
         let (response, detailed) = evaluate_request_detailed(&req);
@@ -3422,6 +3548,7 @@ mod tests {
             obligations: vec![],
             conflict: ConflictStrategy::default(),
             inherit_from: None,
+            profile: Vec::new(),
         }
     }
 
@@ -3489,6 +3616,7 @@ mod tests {
             claims: Claims::new(),
             asset_collections: Vec::new(),
             context: None,
+            party_collections: Vec::new(),
         };
         assert_eq!(
             performable_actions_for_request(&req),
@@ -3507,6 +3635,7 @@ mod tests {
             claims: Claims::new(),
             asset_collections: Vec::new(),
             context: None,
+            party_collections: Vec::new(),
         };
         assert!(
             performable_actions_for_request(&req).is_empty(),
@@ -3531,6 +3660,7 @@ mod tests {
             claims: Claims::new(),
             asset_collections: Vec::new(),
             context: None,
+            party_collections: Vec::new(),
         };
         let unrecognized = Request {
             dataset_id: "urn:uuid:ds".to_string(),
@@ -3544,6 +3674,7 @@ mod tests {
             claims: Claims::new(),
             asset_collections: Vec::new(),
             context: None,
+            party_collections: Vec::new(),
         };
         let no_policies = Request {
             dataset_id: "urn:uuid:ds".to_string(),
@@ -3553,6 +3684,7 @@ mod tests {
             claims: Claims::new(),
             asset_collections: Vec::new(),
             context: None,
+            party_collections: Vec::new(),
         };
         let allow_example: Request = serde_json::from_str(ALLOW_EXAMPLE).unwrap();
 

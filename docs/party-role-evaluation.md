@@ -61,8 +61,14 @@ caller's own identity**:
   (`ClaimValue::matches`): opaque string equality for a single-valued
   claim, membership for a multi-valued one, so a caller presenting several
   identifiers under one key matches a policy naming any of them. No IRI
-  normalization, no `odrl:PartyCollection` membership — "the same party"
-  means "the same characters", exactly as `odrl:target` says for assets.
+  normalization — "the same party" means "the same characters", exactly as
+  `odrl:target` says for assets.
+- **`odrl:PartyCollection` membership is a host-supplied fact.** The
+  request's `party_collections` lists every PartyCollection the caller is
+  `odrl:partOf` (Information Model §2.3.2), resolved by the host. A policy
+  whose `assignee` names one of them applies to the caller, provided the
+  caller is identified at all (the claim key is present). It mirrors
+  `asset_collections` on the asset side: no graph, no transitive closure.
 - **A claim key absent from the map is a mismatch**, not a bypass and not
   an error. It is the same direction `Constraint::evaluate` already takes
   for an absent key, and the only safe one: treating "I could not identify
@@ -119,8 +125,8 @@ what it granted — is a trust and provenance question about the policy's
 issuance, which a stateless engine handed a JSON document has nothing to
 evaluate against. It stays a host concern.
 
-Equally out of scope here: `odrl:PartyCollection` membership (still
-resolved only by `compliance-runner`'s own SOTW-graph adapter), the
+Equally out of scope here: a refined `odrl:PartyCollection`
+(Information Model §2.5.6, which needs a structured assignee), the
 inverse properties `assignerOf`/`assigneeOf`, ODRL's twelve common party
 functions, and Party refinement — all of which remain exactly what the
 coverage report already says they are.

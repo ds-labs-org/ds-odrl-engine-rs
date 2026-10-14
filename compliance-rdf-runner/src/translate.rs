@@ -411,6 +411,14 @@ fn translate_policy(g: &Graph, node: &str) -> Result<(WirePolicy, PolicyIds), St
         obligations,
         conflict,
         inherit_from: inherit_from.clone(),
+        // Stringified exactly as `translate_config` stringifies the
+        // request's own profile `@id`, so the policy that declares the
+        // loaded profile matches it.
+        profile: g
+            .object_ids(node, &odrl_profile())
+            .iter()
+            .map(|p| format!("#{}", local_name(p)))
+            .collect(),
     };
     let ids = PolicyIds {
         id,
@@ -535,6 +543,45 @@ fn translate_claims(g: &Graph, request_node: &str) -> Result<Claims, String> {
     Ok(claims)
 }
 
+/// `Request::party_collections`: every `odrl:partOf` of a party the
+/// caller's identity claim names. A claim whose `dsc:key` is the profile's
+/// `dsc:partyIdentityClaim` or `dsc:agreementAssigneeClaim` and whose
+/// `rdf:value` is a resource (not a literal) identifies that resource as
+/// the caller; the PartyCollections it is `odrl:partOf` in this same file
+/// are the host-resolved membership the engine reads. One level only, as
+/// written: the engine does no transitive closure, and neither does this.
+fn translate_party_collections(
+    g: &Graph,
+    request_node: &str,
+    config: &RequestConfig,
+) -> Vec<String> {
+    let identity_keys: Vec<&str> = [
+        config.party_identity_claim.as_deref(),
+        config.agreement_assignee_claim.as_deref(),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+    let mut collections = Vec::new();
+    for claim_id in g.object_ids(request_node, &dsc_claim()) {
+        let Some(key) = g.literal(&claim_id, &dsc_key()) else {
+            continue;
+        };
+        if !identity_keys.contains(&key.as_str()) {
+            continue;
+        }
+        for party in g.object_ids(&claim_id, RDF_VALUE) {
+            for collection in g.object_ids(&party, &odrl_partOf()) {
+                let collection = local_name(&collection).to_string();
+                if !collections.contains(&collection) {
+                    collections.push(collection);
+                }
+            }
+        }
+    }
+    collections
+}
+
 /// Every action IRI referenced anywhere in the request's inline profile
 /// (`odrl:action` list) plus, for each, an `odrl:includedIn` edge if one
 /// exists anywhere in this same file's graph (the worked example declares
@@ -646,6 +693,8 @@ pub fn translate_request(
         .map(|c| local_name(c).to_string())
         .collect();
 
+    let party_collections = translate_party_collections(g, request_node, &config);
+
     Ok((
         Request {
             dataset_id,
@@ -655,6 +704,7 @@ pub fn translate_request(
             claims,
             asset_collections,
             context: None,
+            party_collections,
         },
         policy_ids,
     ))
@@ -707,6 +757,43 @@ mod tests {
         assert_eq!(request.config.duty_mode, engine_default.duty_mode);
         assert_eq!(request.config.behaviour, engine_default.behaviour);
         assert_eq!(request.config.duty_mode, DutyMode::Advise);
+    }
+
+    #[test]
+    fn the_identity_claims_party_contributes_its_party_collections() {
+        // Information Model 2.3, Examples 9 and 10: murphy odrl:partOf
+        // team-a. Only the identity claim's party counts; another claim's
+        // resource value says nothing about who the caller is.
+        let g = graph(
+            r#"
+:profile a odrl:Profile ; odrl:action odrl:read ; dsc:agreementAssigneeClaim "sub" .
+:murphy odrl:partOf :team-a, :staff .
+:dataset odrl:partOf :not-a-party-fact .
+:request a dsc:Request ; odrl:target :asset ; odrl:action odrl:read ;
+    dsc:profile :profile ; dsc:policy :policy-a ;
+    dsc:claim [ dsc:key "sub" ; rdf:value :murphy ] ,
+              [ dsc:key "source" ; rdf:value :dataset ] .
+"#,
+        );
+        let (request, _) = translate_request(&g, &request_id()).expect("translates");
+        assert_eq!(request.party_collections, ["team-a", "staff"]);
+    }
+
+    #[test]
+    fn a_policys_odrl_profile_is_stringified_like_the_loaded_profile_id() {
+        let g = graph(
+            r#"
+:profile a odrl:Profile ; odrl:action odrl:read .
+:policy-b a odrl:Set ; odrl:profile :profile ; odrl:permission :perm .
+:request a dsc:Request ; odrl:target :asset ; odrl:action odrl:read ;
+    dsc:profile :profile ; dsc:policy :policy-b .
+"#,
+        );
+        let (request, _) = translate_request(&g, &request_id()).expect("translates");
+        assert_eq!(
+            request.policies[0].profile,
+            std::slice::from_ref(&request.config.id)
+        );
     }
 
     #[test]

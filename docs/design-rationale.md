@@ -134,10 +134,10 @@ in that list (`Rule::target_applies`). This is still **opt-in and
 host-resolved** — this engine computes no membership itself, no graph, no
 transitive closure, no IRI normalization.
 
-`odrl:PartyCollection` membership is a **separate, narrower story**: it is
-resolved only by `compliance-runner`'s own adapter (SOTW-graph `odrl:partOf`
-lookups), not by `engine` itself. Nothing in the asset-collection work above
-touches party matching.
+`odrl:PartyCollection` membership works the same way on the party side:
+`Request::party_collections` lists every collection the caller is
+`odrl:partOf`, host-resolved, and an `odrl:assignee` naming one of them
+matches an identified caller (see Party-role evaluation below).
 
 ### Duties, consequences, remedies
 
@@ -166,7 +166,10 @@ the request. But:
 - This is **opt-in and off by default**.
 - It is `assignee` only — `odrl:assigner` names who granted a policy, not
   who is asking, and is deliberately never evaluated.
-- It resolves no `odrl:PartyCollection`.
+- It resolves no `odrl:PartyCollection` itself: the host lists the
+  caller's collections in `Request::party_collections`, and a policy
+  assigned to one of them applies. A refined PartyCollection (Information
+  Model §2.5.6) is not supported.
 
 Two class-specific gaps in this mechanism are closed too:
 
@@ -220,8 +223,8 @@ of what a parent explicitly prohibited.
   ignored.
 - `odrl:conflict` is deliberately **not** replicated (no wire representation
   for "unset" distinct from its own default).
-- This contract has no policy-level Asset or `odrl:profile` field to
-  replicate in the first place.
+- This contract has no policy-level Asset field to replicate in the first
+  place. A parent's `odrl:profile` identifiers are replicated.
 
 Not replicating `odrl:conflict` does not exempt a merge from Information
 Model §2.10's own validation rule 4: when a parent and a child it merged

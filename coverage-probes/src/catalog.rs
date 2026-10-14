@@ -143,6 +143,7 @@ pub fn policy(id: &str, permissions: Vec<Rule>) -> WirePolicy {
         // Probes that exercise odrl:inheritFrom set it explicitly (below);
         // every other probe has no parent.
         inherit_from: None,
+        profile: Vec::new(),
     }
 }
 
@@ -157,6 +158,7 @@ pub fn base_request() -> Request {
         claims: Claims::new(),
         asset_collections: Vec::new(),
         context: None,
+        party_collections: Vec::new(),
     }
 }
 
@@ -2055,9 +2057,31 @@ fn party_probes() -> Vec<Probe> {
     // Capacity is this category's own probe count, asserted by
     // `the_catalog_has_fifty_two_rows_across_ten_categories`'s sibling
     // checks rather than left as a guess.
-    let mut probes = Vec::with_capacity(7);
+    let mut probes = Vec::with_capacity(9);
 
     let stranger = || claims(&[("sub", s("did:web:mallory.example"))]);
+
+    // The request the two `pf-collection-*` probes share: an Agreement
+    // assigned to the PartyCollection team/A (Information Model 2.3,
+    // Examples 9 and 10), murphy as the identified caller, and the
+    // host-resolved list of collections murphy is odrl:partOf. An
+    // Agreement, not a Set, so a mismatch Deny is spec-correct (Vocabulary
+    // 3.2.1) rather than the stricter-than-ODRL reading
+    // pf-assignee-scoped-miss records.
+    let agreement_to_team_a = |party_collections: &[&str]| {
+        let mut request = Request {
+            policies: vec![WirePolicy {
+                kind: "Agreement".to_string(),
+                assignee: Some("https://example.com/team/A".to_string()),
+                ..policy("probe", vec![rule("use", vec![])])
+            }],
+            claims: claims(&[("sub", s("https://example.com/person/murphy"))]),
+            party_collections: party_collections.iter().map(|c| c.to_string()).collect(),
+            ..base_request()
+        };
+        request.config.party_identity_claim = Some("sub".to_string());
+        request
+    };
 
     // The request the two `pf-assignee-scoped-*` probes share, differing
     // only in whose identity the caller presents: one policy assigned to
@@ -2172,6 +2196,38 @@ fn party_probes() -> Vec<Probe> {
              likely to be contested.",
         )),
     );
+
+    probes.push(build(Spec {
+        id: "pf-collection-member-hit",
+        kind: POSITIVE,
+        title: "a member of the PartyCollection a policy is assigned to is its assignee",
+        asserts: "The Agreement names the PartyCollection team/A as assignee; the caller identifies as \
+                  murphy, and the request's party_collections says murphy is odrl:partOf team/A. The \
+                  policy applies, exactly as it would to team/A itself.",
+        falsified_by: "Deny -- which would mean party_collections is ignored",
+        request: agreement_to_team_a(&["https://example.com/team/A"]),
+        patches: vec![],
+        expect: allow(&base_allow_reason()),
+    }));
+
+    probes.push(build(Spec {
+        id: "pf-collection-other-miss",
+        kind: NEGATIVE,
+        title: "membership of a different PartyCollection does not match the assignee",
+        asserts:
+            "Same request as pf-collection-member-hit, but party_collections names team/B. The \
+                  policy is treated as absent and the deny names the assignee mismatch.",
+        falsified_by:
+            "Allow -- which would mean any non-empty party_collections list satisfies any \
+                       assignee",
+        request: agreement_to_team_a(&["https://example.com/team/B"]),
+        patches: vec![],
+        expect: deny(
+            "no policy in the request applies to this caller: policy 'probe' names odrl:assignee \
+             'https://example.com/team/A', which does not match the caller's 'sub' claim \
+             (\"https://example.com/person/murphy\")",
+        ),
+    }));
 
     probes.push(build(Spec {
         id: "pf-assignee-as-claim",
@@ -3010,43 +3066,53 @@ fn other_probes() -> Vec<Probe> {
         expect: allow(uid_reason).excluding(&["c-9"]),
     }));
 
-    probes.push(
-        build(Spec {
-            id: "profile-union-not-per-policy",
-            kind: NEGATIVE,
-            title: "a policy may use vocabulary its own declared profile never defines",
-            asserts: "The config is the union of two loaded profiles (it declares both `use` and `anonymize`); \
-                      the policy declares odrl:profile A, which defines only `use`; and the policy then uses \
-                      `anonymize` successfully. Per-policy profile scoping would produce an Error here \
-                      instead. A superset can only ever recognize more, never fewer -- a named fail-open.",
-            falsified_by: "Error -- which is what correctly-scoped per-policy profile selection would give",
-            request: Request {
-                action: "anonymize".to_string(),
-                config: flat_config(&["use", "anonymize"]),
-                policies: vec![policy("probe", vec![rule("anonymize", vec![])])],
-                ..base_request()
-            },
-            patches: vec![Patch::set("/policies/0", "profile", json!("https://example.org/profiles/A"))],
-            expect: allow("permission[0] of policy 'probe' matched: action 'anonymize', unconstrained"),
-        })
-        .falls_short_of(ideal(
-            "Error",
-            "The policy's own declared odrl:profile is named and processing stops -- e.g. \"policy 'probe' \
-             declares odrl:profile 'https://example.org/profiles/A', which this processing system does not \
-             recognise\", replacing the current Allow reason \"permission[0] of policy 'probe' matched: \
-             action 'anonymize', unconstrained\".",
-            "Information Model 3.2 ODRL Profile Conformance: \"When an ODRL Profile(s) is used in an ODRL \
-             Policy, an ODRL Processing system MUST understand the semantics of the identified ODRL \
-             Profile(s). If the ODRL Processing system does not recognise the ODRL Profile identifier(s) \
-             then it MUST stop processing the policy.\" The policy declares \
-             https://example.org/profiles/A; the loaded profile is https://ds42.org/profiles/coverage-probe, \
-             so A is unrecognised and processing MUST stop rather than resolve `anonymize` out of the union. \
-             Secondary hook, same direction: 3.1 says the Common Vocabulary's terms (anonymize is Vocabulary \
-             4.4.4, not Core 3.x) are usable because \"These terms may be defined explicitly or may be \
-             adopted from the ODRL Common Vocabulary\" by a Profile -- and profile A adopts only `use`, so \
-             nothing the policy declares supplies `anonymize` either.",
-        )),
-    );
+    // `odrl:profile` is a real, modelled field
+    // (`engine::wire::WirePolicy::profile`), so these two set it as a
+    // typed value.
+    probes.push(build(Spec {
+        id: "profile-unrecognised-stops-processing",
+        kind: POSITIVE,
+        title: "a policy declaring a profile this request did not load is not processed",
+        asserts: "The config is the loaded profile https://ds42.org/profiles/coverage-probe (declaring \
+                  `use` and `anonymize`); the policy declares odrl:profile A instead. Processing stops \
+                  with an Error that names the unrecognised profile, rather than resolving `anonymize` \
+                  out of the loaded vocabulary.",
+        falsified_by: "Allow -- which would mean a policy's declared profile is ignored",
+        request: Request {
+            action: "anonymize".to_string(),
+            config: flat_config(&["use", "anonymize"]),
+            policies: vec![WirePolicy {
+                profile: vec!["https://example.org/profiles/A".to_string()],
+                ..policy("probe", vec![rule("anonymize", vec![])])
+            }],
+            ..base_request()
+        },
+        patches: vec![],
+        expect: error(&[
+            "policy 'probe' declares odrl:profile 'https://example.org/profiles/A', which this \
+             processing system does not recognise",
+        ]),
+    }));
+
+    probes.push(build(Spec {
+        id: "profile-loaded-processed",
+        kind: POSITIVE,
+        title: "a policy declaring the loaded profile is processed normally",
+        asserts: "The same request, but the policy declares the config's own @id as its profile: \
+                  `anonymize` is granted as it would be with no odrl:profile at all.",
+        falsified_by: "Error -- which would mean the loaded profile itself is not recognised",
+        request: Request {
+            action: "anonymize".to_string(),
+            config: flat_config(&["use", "anonymize"]),
+            policies: vec![WirePolicy {
+                profile: vec![PROFILE_ID.to_string()],
+                ..policy("probe", vec![rule("anonymize", vec![])])
+            }],
+            ..base_request()
+        },
+        patches: vec![],
+        expect: allow("permission[0] of policy 'probe' matched: action 'anonymize', unconstrained"),
+    }));
 
     // `odrl:inheritFrom` is now a real, modelled field
     // (`engine::wire::WirePolicy::inherit_from`), so these four build it
@@ -4004,14 +4070,17 @@ pub fn rows() -> Vec<Row> {
                 "pf-assignee-null-control",
                 "pf-assignee-scoped-hit",
                 "pf-assignee-scoped-miss",
+                "pf-collection-member-hit",
+                "pf-collection-other-miss",
                 "pf-assignee-as-claim",
             ],
             documented_because: None,
             caveat: Some(
-                "Opt-in and assignee-only. Nothing here validates an assigner, resolves an \
-                 odrl:PartyCollection, or normalizes an IRI: the comparison is the engine's own `eq` \
-                 semantics against one claim key -- string equality, or membership for a multi-valued \
-                 claim. A second, independent opt-in switch, `agreementAssigneeClaim`, exists \
+                "Opt-in and assignee-only. Nothing here validates an assigner or normalizes an IRI: \
+                 the comparison is the engine's own `eq` semantics against one claim key -- string \
+                 equality, or membership for a multi-valued claim -- widened only by the \
+                 host-resolved odrl:PartyCollection membership the request's party_collections \
+                 asserts for an identified caller. A second, independent opt-in switch, `agreementAssigneeClaim`, exists \
                  alongside this one, scoped to kind == Agreement only -- see \
                  policy-classes.discrimination.",
             ),
@@ -4020,62 +4089,44 @@ pub fn rows() -> Vec<Row> {
             id: "party.collections",
             category: "party",
             term: "Party / PartyCollection / membership",
-            status: NOT_IMPLEMENTED,
-            why: "Collection membership is resolved by compliance-runner against the vendored suite's \
-                  state-of-the-world graph, natively, before any Request exists.",
-            evidence: "compliance-runner/src/translate.rs (odrl:partOf lookups)",
+            status: PARTIAL,
+            why: "Plain membership is evaluated: Request::party_collections carries the host-resolved \
+                  PartyCollections the caller is odrl:partOf, and an assignee naming one of them \
+                  matches an identified caller (probed under party.assigner-assignee as \
+                  pf-collection-member-hit and pf-collection-other-miss). A refined PartyCollection \
+                  (Information Model 2.5.6) has no wire form: assignee is a bare IRI.",
+            evidence: "engine/src/wire.rs::Request::party_collections, engine/src/wire.rs::party_role_mismatch",
             asserts: "",
             probe_ids: &[],
             documented_because: Some(
-                "There is no odrl:partOf, no state-of-the-world graph and no collection concept anywhere \
-                 on the wire -- nothing for evaluate() to observe, so no request can put this claim to \
-                 the test. It is a native-tooling claim, verified by that crate's own tests instead.",
+                "The membership half is probed under party.assigner-assignee, where the assignee check \
+                 it widens lives. What this row still records is the refined form, which no request can \
+                 pose: WirePolicy::assignee carries no source or refinement.",
             ),
             caveat: None,
         })
         // The one row whose full-compliance shortfall is judged at row
-        // level. It has zero probes, and that is exactly why: the question
-        // cannot be posed on this wire, so there is no answer to be wrong.
+        // level. It has zero probes, and that is exactly why: the refined
+        // form cannot be posed on this wire, so there is no answer to be
+        // wrong.
         .falls_short_at_row_level(
             "ODRL 2.2 Information Model 2.3 makes collection membership a first-class part of the Party \
              class -- \"A Party MAY have none, one, or many partOf property values (of type \
-             PartyCollection) to identify the PartyCollection that this Party is a member of\", where \
-             \"PartyCollection - a Party that is a single entity representing a set of member entities. \
-             This indicates that all the members of the set will undertake the same functional role in the \
-             Rule\" -- and 2.3.2 states the evaluation consequence outright: \"The partOf property is used \
-             to identify a PartyCollection that a Party entity is a member of ... This enables a Rule that \
-             relates to a PartyCollection to understand which individual Parties the Rule may apply to.\" \
-             Examples 9 and 10 in 2.3 show exactly the shape: an Agreement whose assignee is the \
-             PartyCollection http://example.com/team/A, and a separate vCard expression asserting \
-             \"odrl:partOf\": \"http://example.com/team/A\" for http://example.com/person/murphy, which the \
-             spec says \"means that http://example.com/person/murphy is an assignee and can use the target \
-             asset in the Policy\". This engine's Section 5.2 wire contract can express neither half: \
-             WirePolicy::assignee is a single opaque Option<String> that wire::party_role_mismatch compares \
-             for exact string equality (or multi-value claim membership) against one claim key, and Request \
-             carries no field at all saying which collections the caller belongs to -- so a request naming \
-             team/A as assignee and a caller identifying as murphy cannot even be posed. \
-             Three additions would be needed for the engine to attempt full support. (1) A caller-side \
-             membership channel symmetric to the one the asset side already has: Request::asset_collections \
-             is precisely this shape for odrl:partOf on Assets -- decision::Rule::target_applies matches a \
-             rule's target against \"any asset collection asset_collections asserts requested_target is a \
-             member of\", explicitly as a host-supplied fact with no graph traversal and no transitive \
-             closure -- so a sibling Request::party_collections: Vec<String> (JSON partyCollections) would \
-             carry the flattened, host-resolved list of PartyCollection IRIs the caller belongs to, one \
-             entry per ancestor. (2) Engine-side resolution: party_role_mismatch widened so a policy \
-             assignee naming a PartyCollection is satisfied when the caller's \
-             partyIdentityClaim/agreementAssigneeClaim value matches OR the assignee IRI appears in \
-             party_collections -- a few lines, and the only change that touches the decision path. (3) For \
-             the refined form, 2.5.6 requires more than a fact channel: \"A PartyCollection MAY include a \
-             refinement property to indicate the refinement context under which to identify individual \
-             Party(ies) of the complete collection ... all of the Constraints/Logical Constraints \
-             referenced by the refinement property MUST be satisfied\", and \"when using the refinement \
-             property, the uid property MUST NOT be used to identify the PartyCollection. Instead, the \
-             source property MUST be used\" -- so assignee would have to stop being a bare string and \
-             become a structured value carrying source plus a refinement constraint list the engine \
-             evaluates against the caller's claims. Until at least (1) and (2) exist no request can ask the \
-             question, which is why this row falls short of full ODRL 2.2 by construction rather than by \
-             any observable wrong answer -- and the asset-side precedent shows the addition is small, not \
-             architectural.",
+             PartyCollection) to identify the PartyCollection that this Party is a member of\" -- and \
+             this engine now evaluates that plain form: Request::party_collections, the caller-side \
+             sibling of Request::asset_collections, carries the flattened, host-resolved odrl:partOf \
+             list, and party_role_mismatch accepts an identified caller whose party_collections names the \
+             policy's assignee (Examples 9 and 10: an Agreement assigned to team/A, used by murphy). What \
+             remains structurally out of reach is the refined form. 2.5.6: \"A PartyCollection MAY \
+             include a refinement property to indicate the refinement context under which to identify \
+             individual Party(ies) of the complete collection ... all of the Constraints/Logical \
+             Constraints referenced by the refinement property MUST be satisfied\", and \"when using the \
+             refinement property, the uid property MUST NOT be used to identify the PartyCollection. \
+             Instead, the source property MUST be used\" -- so assignee would have to stop being a bare \
+             string and become a structured value carrying source plus a refinement constraint list the \
+             engine evaluates against the caller's claims. Until then no request can pose a refined \
+             PartyCollection, which is why this row still falls short of full ODRL 2.2 by construction \
+             rather than by any observable wrong answer.",
         ),
         row(RowSpec {
             id: "party.inverse-properties",
@@ -4363,15 +4414,20 @@ pub fn rows() -> Vec<Row> {
             id: "other.profile-property",
             category: "other",
             term: "odrl:profile (a Policy declares its conforming profile)",
-            status: NOT_IMPLEMENTED,
-            why: "Every request is evaluated against the union of all loaded profiles, never the specific \
-                  one a policy names -- a named fail-open: a superset recognizes more, never fewer.",
-            evidence: "engine/src/profile.rs::resolve (union), engine/src/wire.rs::RequestConfig",
-            asserts: "A policy declaring a profile that defines only `use` successfully uses `anonymize` \
-                      from the union. Per-policy scoping would produce Error here.",
-            probe_ids: &["profile-union-not-per-policy"],
+            status: IMPLEMENTED,
+            why: "A policy's odrl:profile must name the profile the request loaded (the config's @id), \
+                  or the request is an Error naming the unrecognised profile -- Information Model 3.2's \
+                  \"MUST stop processing the policy\". A child replicates its parents' profiles \
+                  (2.9), so an inherited one is checked too.",
+            evidence: "engine/src/wire.rs::unrecognised_profile, engine/src/wire.rs::WirePolicy::profile",
+            asserts: "A policy declaring a profile other than the loaded one is an Error; one declaring \
+                      the loaded profile is processed exactly as one declaring none.",
+            probe_ids: &["profile-unrecognised-stops-processing", "profile-loaded-processed"],
             documented_because: None,
-            caveat: None,
+            caveat: Some(
+                "A request loads one profile, the config's @id. A host that merges several profiles \
+                 into one config should give it the @id its policies declare.",
+            ),
         }),
         row(RowSpec {
             id: "other.inherit-from",
@@ -4389,8 +4445,8 @@ pub fn rows() -> Vec<Row> {
                   undeclared strategy already uses, rather than resolved by either value alone. \
                   Still partial, not full Section 2.9: the term itself is not replicated onto the \
                   child (no wire representation for 'unset' distinct from its own default), and \
-                  this contract has no policy-level Asset or odrl:profile field to replicate in the \
-                  first place.",
+                  this contract has no policy-level Asset field to replicate in the first place. \
+                  A parent's odrl:profile identifiers are replicated onto the child.",
             evidence: "engine/src/wire.rs::resolve_inherit_from, resolve_one, WirePolicy::inherit_from",
             asserts: "Three hit/control pairs. Under a closed default, a child with only an unrelated \
                       permission of its own still grants the action its inheritFrom parent permits \
@@ -4757,8 +4813,8 @@ mod tests {
                 implementable.iter().filter(|r| r.status == PARTIAL).count(),
                 implementable.iter().filter(|r| r.status == NOT_IMPLEMENTED).count(),
             ),
-            (23, 11),
-            "the full-compliance axis is scoped to 34 implementable rows; the other 18 are 11 Implemented \
+            (24, 9),
+            "the full-compliance axis is scoped to 33 implementable rows; the other 19 are 12 Implemented \
              (trivially compliant) and 7 OutOfScope (excluded outright)"
         );
 
@@ -4862,9 +4918,10 @@ mod tests {
             }
         }
         assert_eq!(
-            with_ideal, 15,
-            "fifteen probes were judged to fall short of full ODRL 2.2 by the research pass this axis \
-             records; a change to that count is a change to the page's headline claim"
+            with_ideal, 14,
+            "fourteen probes were judged to fall short of full ODRL 2.2 by the research pass this axis \
+             records (fifteen until profile-union-not-per-policy's Error was implemented); a change to \
+             that count is a change to the page's headline claim"
         );
     }
 
